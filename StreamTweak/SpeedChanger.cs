@@ -76,10 +76,14 @@ namespace StreamTweak
         /// </summary>
         public static bool ApplyWithUac(string adapterName, string registryValue)
         {
+            // Escape single quotes for PowerShell string literals (double them up).
+            string safeAdapterName    = adapterName.Replace("'", "''");
+            string safeRegistryValue  = registryValue.Replace("'", "''");
+
             string tempScript = Path.Combine(Path.GetTempPath(), "NetSpeedChanger.ps1");
             string psScript = $@"
-$adapterName = '{adapterName}'
-$registryValue = '{registryValue}'
+$adapterName = '{safeAdapterName}'
+$registryValue = '{safeRegistryValue}'
 Set-NetAdapterAdvancedProperty -Name $adapterName -RegistryKeyword '*SpeedDuplex' -RegistryValue $registryValue -NoRestart
 Restart-NetAdapter -Name $adapterName -Confirm:$false
 ";

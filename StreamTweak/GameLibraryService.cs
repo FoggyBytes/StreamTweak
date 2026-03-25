@@ -23,12 +23,17 @@ namespace StreamTweak
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "StreamTweak", "covers");
 
+        // Guards against concurrent sync runs (e.g. auto-sync at startup + user clicking "Sync Now").
+        private static readonly System.Threading.SemaphoreSlim _syncLock = new(1, 1);
+
         /// <summary>
         /// Performs a full sync and returns a human-readable status string.
         /// Never throws — errors are returned as a status message.
         /// </summary>
         public static async Task<string> PerformSyncAsync()
         {
+            if (!await _syncLock.WaitAsync(0))
+                return "Sync already in progress.";
             try
             {
                 // 1. Find Sunshine
@@ -152,6 +157,10 @@ namespace StreamTweak
                 DebugLogger.Log($"GameLibraryService: sync error — {ex.Message}");
                 return $"Sync failed: {ex.Message}";
             }
+            finally
+            {
+                _syncLock.Release();
+            }
         }
 
         /// <summary>
@@ -234,6 +243,8 @@ namespace StreamTweak
         /// </summary>
         public static async Task<string> ClearSyncAsync()
         {
+            if (!await _syncLock.WaitAsync(0))
+                return "Sync already in progress.";
             try
             {
                 string? appsJson = SunshineSync.FindAppsJsonPath();
@@ -257,6 +268,10 @@ namespace StreamTweak
             {
                 DebugLogger.Log($"GameLibraryService: clear error — {ex.Message}");
                 return $"Clear failed: {ex.Message}";
+            }
+            finally
+            {
+                _syncLock.Release();
             }
         }
     }

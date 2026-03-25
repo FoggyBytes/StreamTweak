@@ -389,19 +389,18 @@ namespace StreamTweak
 
                     // .GamingRoot format: RGBX magic (4 bytes) + 1 unknown byte + UTF-16 LE path
                     // The path is relative to the drive root (e.g. "XboxGames\").
-                    // DLSS Swap parsing: skip byte 4, read bytes 5+ char-by-char ignoring nulls.
                     byte[] data = File.ReadAllBytes(gamingRoot);
                     if (data.Length < 6) continue;
                     if (data[0] != 'R' || data[1] != 'G' || data[2] != 'B' || data[3] != 'X') continue;
 
-                    var sb = new StringBuilder();
-                    sb.Append(drive.RootDirectory.FullName);
-                    for (int i = 5; i < data.Length; i++)
-                    {
-                        if (data[i] != 0)
-                            sb.Append((char)data[i]);
-                    }
-                    string gamesDir = sb.ToString().TrimEnd('\\');
+                    // Decode the UTF-16 LE path starting at byte 5, stripping the null terminator.
+                    int pathBytes = data.Length - 5;
+                    // Round down to an even number so GetString doesn't choke on a stray byte.
+                    if (pathBytes % 2 != 0) pathBytes--;
+                    string relativePath = System.Text.Encoding.Unicode
+                        .GetString(data, 5, pathBytes)
+                        .TrimEnd('\0');
+                    string gamesDir = Path.Combine(drive.RootDirectory.FullName, relativePath).TrimEnd('\\');
                     if (!Directory.Exists(gamesDir)) continue;
 
                     found = Directory.GetDirectories(gamesDir)

@@ -13,13 +13,18 @@ namespace StreamTweak
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "StreamTweak", "debug.log");
 
+        private static readonly object _logLock = new();
+
         public static void Log(string message)
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
-                File.AppendAllText(LogPath,
-                    $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}{Environment.NewLine}");
+                lock (_logLock)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+                    File.AppendAllText(LogPath,
+                        $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}{Environment.NewLine}");
+                }
             }
             catch { }
         }

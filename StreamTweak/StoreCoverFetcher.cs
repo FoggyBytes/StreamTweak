@@ -607,15 +607,26 @@ namespace StreamTweak
         /// <summary>
         /// Decodes any image format supported by WIC (JPEG, PNG, BMP, WebP if codec installed)
         /// and re-encodes it as PNG. Required because Sunshine only accepts PNG for image-path.
+        /// Writes to a temp file first so a failed conversion never leaves a corrupt PNG in cache.
         /// </summary>
         private static void SaveBytesAsPng(byte[] bytes, string path)
         {
-            using var inStream = new System.IO.MemoryStream(bytes);
-            var decoder = BitmapDecoder.Create(inStream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
-            using var outStream = new FileStream(path, FileMode.Create, FileAccess.Write);
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(decoder.Frames[0]));
-            encoder.Save(outStream);
+            string tempPath = path + ".tmp";
+            try
+            {
+                using var inStream = new MemoryStream(bytes);
+                var decoder = BitmapDecoder.Create(inStream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+                using var outStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write);
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(decoder.Frames[0]));
+                encoder.Save(outStream);
+            }
+            catch
+            {
+                try { File.Delete(tempPath); } catch { }
+                throw;
+            }
+            File.Move(tempPath, path, overwrite: true);
         }
     }
 }

@@ -85,8 +85,9 @@ namespace StreamTweak
             try
             {
                 _cts?.Cancel();
-                _listener?.Stop();
+                _listener?.Stop(); // closes the socket → port released immediately
                 _listener = null;
+                _listenTask = null; // ListenAsync exits on its own on the thread pool
             }
             catch { }
         }

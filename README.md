@@ -66,9 +66,24 @@ StreamLight and StreamTweak are designed to work together, giving you full contr
 
 ### 📚 System Info & Diagnostics
 - **Logs Tab:** Full session history — every streaming session is recorded regardless of whether NIC throttle was applied, with NIC Throttle (Yes/No), Original NIC Speed, and timestamped date including year.
-- **About Tab:** Version info, GitHub link, license badge, and donation button in a dedicated panel.
+- **Home Dashboard:** Version info, GitHub link, license badge, donation button, and a real-time status overview for all six managed settings — all in the Home panel.
 
-## ✨ What's New in Version 5.0.1 — The "Reliability Update"
+## ✨ What's New in Version 5.1.1 — The "Code Quality Update"
+
+* **Bug fixes and hardening —** resource leaks, thread-safety issues, sync reentrancy guards, WQL/PowerShell injection prevention, and atomic file writes for cover art cache
+* **Dead code removed —** unused methods, orphan variables and comments cleaned up
+
+### Previously in 5.1.0 — The "Dashboard Update"
+
+* **Home dashboard —** a new Home panel shows real-time status tiles for all six managed settings (Auto Streaming Mode, NIC Speed, Spatial Audio, Spatial Format, HDR/Auto HDR, Game Library Sync) at a glance — no need to switch tabs
+* **About merged into Home —** app icon, version, build date, update check, GitHub link, and Donate button are now part of the Home panel; the separate About tab has been removed
+* **Section headers —** Network, Audio, and Logs panels now have a labelled header and separator line, consistent with the Display, Apps, and Games panels
+* **Audio panel layout —** headphones icon restored below the Spatial Audio Control header; spacing distribution improved throughout the panel
+* **Tray icon follows session state —** the active icon now appears whenever a streaming session is detected, not only when the NIC is throttled, so the tray stays accurate for all sessions
+* **Session duration on shutdown —** StreamTweak now intercepts the Windows shutdown/logoff signal (WM_ENDSESSION) and saves the session end time before exiting — no more blank durations when the PC shuts down during a stream
+* **Games sidebar icon —** updated to a gamepad glyph for better visual clarity
+
+### Previously in 5.0.1 — The "Reliability Update"
 
 * **Session detection at startup —** if a streaming session is already in progress when StreamTweak opens (e.g. after auto-login), the sidebar and spatial audio activate immediately without requiring a reconnect
 * **Sidebar sync on window open —** opening the settings window during an active session now reflects the real session state immediately
@@ -300,7 +315,7 @@ LogParser.FindStreamingAppInfo()
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_5.0.1_Installer.exe`
+2. Download the latest `StreamTweak_5.1.1_Installer.exe`
 3. Run the installer and enjoy seamless streaming.
 
 ## 🙏 Support the Project

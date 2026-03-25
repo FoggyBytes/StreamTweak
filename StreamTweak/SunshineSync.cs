@@ -416,6 +416,18 @@ namespace StreamTweak
                 appsArray = new JsonArray();
             }
 
+            // Prevent duplicates: if a managed entry with this name already exists, skip.
+            foreach (var entry in appsArray)
+            {
+                if (entry == null) continue;
+                bool isManaged = entry[MANAGED_FIELD]?.GetValue<bool>() == true
+                              || entry["output"]?.GetValue<string>() == "streamtweak-managed";
+                if (isManaged && string.Equals(
+                        entry["name"]?.GetValue<string>(), game.Name,
+                        StringComparison.OrdinalIgnoreCase))
+                    return null; // already present — nothing to add
+            }
+
             string coverPath  = CoverArtFetcher.GetCachedPath(game, coverDir) ?? "";
             string workingDir = string.IsNullOrEmpty(game.ExePath)
                 ? "" : Path.GetDirectoryName(game.ExePath) ?? "";

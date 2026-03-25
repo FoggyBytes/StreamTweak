@@ -104,24 +104,21 @@ namespace StreamTweak
 
         public static void EndSession(string endReason = "User")
         {
-            if (_activeSessionId == null) return;
+            // Atomically capture and clear the session ID so concurrent callers
+            // (e.g. App_SessionEnding on the OS thread + HandleAutoStreamStop on the UI thread)
+            // cannot both proceed past the null check.
+            string? sessionId = System.Threading.Interlocked.Exchange(ref _activeSessionId, null);
+            if (sessionId == null) return;
             try
             {
                 var sessions = Load();
-                var entry = sessions.FirstOrDefault(s => s.Id == _activeSessionId);
-                if (entry != null)
+                var entry = sessions.FirstOrDefault(s => s.Id == sessionId);
+                if (entry?.EndTime == null)
                 {
-                    // Only set EndTime/EndReason if the entry hasn't already been closed.
-                    // This avoids races where multiple components attempt to end the
-                    // same session (e.g. Bridge restore + log-monitor inactivity).
-                    if (entry.EndTime == null)
-                    {
-                        entry.EndTime = DateTime.Now;
-                        entry.EndReason = endReason;
-                        Save(sessions);
-                    }
+                    entry!.EndTime = DateTime.Now;
+                    entry.EndReason = endReason;
+                    Save(sessions);
                 }
-                _activeSessionId = null;
             }
             catch { }
         }

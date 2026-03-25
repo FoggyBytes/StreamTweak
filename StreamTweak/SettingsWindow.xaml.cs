@@ -83,6 +83,8 @@ namespace StreamTweak
             RefreshSessionHistory();
             RefreshStreamingAppInfo();
             LoadAudioDevicesAsync();
+            PopulateAboutInfo();
+            _ = CheckForUpdatesAsync();
         }
 
         // ─── Public sync methods called from App.xaml.cs ───────────────────
@@ -141,82 +143,83 @@ namespace StreamTweak
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
+        private void HomeTabButton_Click(object sender, RoutedEventArgs e)
+        {
+            HomePanel.Visibility     = Visibility.Visible;
+            NetworkPanel.Visibility  = Visibility.Collapsed;
+            DisplayPanel.Visibility  = Visibility.Collapsed;
+            AudioPanel.Visibility    = Visibility.Collapsed;
+            AppPanel.Visibility      = Visibility.Collapsed;
+            GameLibPanel.Visibility  = Visibility.Collapsed;
+            LogsPanel.Visibility     = Visibility.Collapsed;
+            HomeTabButton.Style      = (Style)this.Resources["TabButtonActive"];
+            NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
+            DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
+            AudioTabButton.Style     = (Style)this.Resources["TabButton"];
+            AppTabButton.Style       = (Style)this.Resources["TabButton"];
+            GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
+            LogsTabButton.Style      = (Style)this.Resources["TabButton"];
+            PopulateAboutInfo();
+            _ = CheckForUpdatesAsync();
+        }
+
         private void NetworkTabButton_Click(object sender, RoutedEventArgs e)
         {
+            HomePanel.Visibility     = Visibility.Collapsed;
             NetworkPanel.Visibility  = Visibility.Visible;
             DisplayPanel.Visibility  = Visibility.Collapsed;
             AudioPanel.Visibility    = Visibility.Collapsed;
             AppPanel.Visibility      = Visibility.Collapsed;
             GameLibPanel.Visibility  = Visibility.Collapsed;
             LogsPanel.Visibility     = Visibility.Collapsed;
-            AboutPanel.Visibility    = Visibility.Collapsed;
+            HomeTabButton.Style      = (Style)this.Resources["TabButton"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButtonActive"];
             DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
             AudioTabButton.Style     = (Style)this.Resources["TabButton"];
             AppTabButton.Style       = (Style)this.Resources["TabButton"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
             LogsTabButton.Style      = (Style)this.Resources["TabButton"];
-            AboutTabButton.Style     = (Style)this.Resources["TabButton"];
         }
 
         private void AudioTabButton_Click(object sender, RoutedEventArgs e)
         {
+            HomePanel.Visibility     = Visibility.Collapsed;
             NetworkPanel.Visibility  = Visibility.Collapsed;
             DisplayPanel.Visibility  = Visibility.Collapsed;
             AudioPanel.Visibility    = Visibility.Visible;
             AppPanel.Visibility      = Visibility.Collapsed;
             GameLibPanel.Visibility  = Visibility.Collapsed;
             LogsPanel.Visibility     = Visibility.Collapsed;
-            AboutPanel.Visibility    = Visibility.Collapsed;
+            HomeTabButton.Style      = (Style)this.Resources["TabButton"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
             DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
             AudioTabButton.Style     = (Style)this.Resources["TabButtonActive"];
             AppTabButton.Style       = (Style)this.Resources["TabButton"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
             LogsTabButton.Style      = (Style)this.Resources["TabButton"];
-            AboutTabButton.Style     = (Style)this.Resources["TabButton"];
             if (!string.IsNullOrEmpty(_audioOutputDevice))
                 RefreshAudioCapabilitiesAsync(_audioOutputDevice);
         }
 
         private void LogsTabButton_Click(object sender, RoutedEventArgs e)
         {
+            HomePanel.Visibility     = Visibility.Collapsed;
             NetworkPanel.Visibility  = Visibility.Collapsed;
             DisplayPanel.Visibility  = Visibility.Collapsed;
             AudioPanel.Visibility    = Visibility.Collapsed;
             AppPanel.Visibility      = Visibility.Collapsed;
             GameLibPanel.Visibility  = Visibility.Collapsed;
             LogsPanel.Visibility     = Visibility.Visible;
-            AboutPanel.Visibility    = Visibility.Collapsed;
+            HomeTabButton.Style      = (Style)this.Resources["TabButton"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
             DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
             AudioTabButton.Style     = (Style)this.Resources["TabButton"];
             AppTabButton.Style       = (Style)this.Resources["TabButton"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
             LogsTabButton.Style      = (Style)this.Resources["TabButtonActive"];
-            AboutTabButton.Style     = (Style)this.Resources["TabButton"];
             RefreshStreamingAppInfo();
         }
 
-        private void AboutTabButton_Click(object sender, RoutedEventArgs e)
-        {
-            NetworkPanel.Visibility  = Visibility.Collapsed;
-            DisplayPanel.Visibility  = Visibility.Collapsed;
-            AudioPanel.Visibility    = Visibility.Collapsed;
-            AppPanel.Visibility      = Visibility.Collapsed;
-            GameLibPanel.Visibility  = Visibility.Collapsed;
-            LogsPanel.Visibility     = Visibility.Collapsed;
-            AboutPanel.Visibility    = Visibility.Visible;
-            NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
-            DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
-            AudioTabButton.Style     = (Style)this.Resources["TabButton"];
-            AppTabButton.Style       = (Style)this.Resources["TabButton"];
-            GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
-            LogsTabButton.Style      = (Style)this.Resources["TabButton"];
-            AboutTabButton.Style     = (Style)this.Resources["TabButtonActive"];
-            PopulateAboutInfo();
-            _ = CheckForUpdatesAsync();
-        }
 
         private void ApplyDarkTheme()
         {
@@ -235,17 +238,31 @@ namespace StreamTweak
 
         // ─── Session indicator (called from App.xaml.cs) ────────────────────
 
-        private System.Windows.Media.Animation.Storyboard? _sessionPulse;
+        private System.Windows.Media.Animation.Storyboard? _homeSessionPulse;
 
-        public void SetSessionActive(bool active)
+        private static readonly SolidColorBrush PillOnBrush  = new(Color.FromRgb(0xBE, 0x54, 0x38));
+        private static readonly SolidColorBrush PillOffBrush = new(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF));
+
+        private bool _homeHdrEnabled;
+        private bool _homeAutoHdrEnabled;
+
+        private void SetPill(Border pill, TextBlock txt, bool on, string onLabel)
+        {
+            pill.Background = on ? PillOnBrush : PillOffBrush;
+            txt.Text        = on ? onLabel : "Off";
+        }
+
+        public void SetSessionActive(bool active) => SetHomeSessionActive(active);
+
+        public void SetHomeSessionActive(bool active)
         {
             Dispatcher.InvokeAsync(() =>
             {
                 if (active)
                 {
-                    SessionIndicatorDot.Foreground = new SolidColorBrush(Color.FromRgb(76, 175, 80));
-                    SessionIndicatorText.Text = "Streaming";
-                    if (_sessionPulse == null)
+                    HomeSessionDot.Fill = new SolidColorBrush(Color.FromRgb(76, 175, 80));
+                    HomeSessionText.Text = "Active";
+                    if (_homeSessionPulse == null)
                     {
                         var anim = new System.Windows.Media.Animation.DoubleAnimation
                         {
@@ -254,20 +271,20 @@ namespace StreamTweak
                             AutoReverse = true,
                             RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
                         };
-                        System.Windows.Media.Animation.Storyboard.SetTarget(anim, SessionIndicatorDot);
+                        System.Windows.Media.Animation.Storyboard.SetTarget(anim, HomeSessionDot);
                         System.Windows.Media.Animation.Storyboard.SetTargetProperty(
                             anim, new PropertyPath("Opacity"));
-                        _sessionPulse = new System.Windows.Media.Animation.Storyboard();
-                        _sessionPulse.Children.Add(anim);
+                        _homeSessionPulse = new System.Windows.Media.Animation.Storyboard();
+                        _homeSessionPulse.Children.Add(anim);
                     }
-                    _sessionPulse.Begin();
+                    _homeSessionPulse.Begin();
                 }
                 else
                 {
-                    _sessionPulse?.Stop();
-                    SessionIndicatorDot.Foreground = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80));
-                    SessionIndicatorDot.Opacity = 1.0;
-                    SessionIndicatorText.Text = "Inactive";
+                    _homeSessionPulse?.Stop();
+                    HomeSessionDot.Fill = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80));
+                    HomeSessionDot.Opacity = 1.0;
+                    HomeSessionText.Text = "Inactive";
                 }
             });
         }
@@ -290,31 +307,32 @@ private void RefreshStreamingAppInfo()
                 var info = LogParser.FindStreamingAppInfo();
                 if (info != null)
                 {
-                    StreamingAppFoundPanel.Visibility    = Visibility.Visible;
-                    StreamingAppNotFoundText.Visibility  = Visibility.Collapsed;
-                    StreamingAppNameText.Text            = info.AppName;
-                    StreamingAppLogPathText.Text         = info.LogFolderPath ?? "Log folder not found";
-                    SidebarStreamHostIcon.Source         = ExtractExeIcon(info.ExePath);
-                    SidebarStreamHostIcon.Visibility     = Visibility.Visible;
-                    SidebarStreamHostText.Text           = info.AppName;
-                    SidebarStreamHostText.Foreground     = (System.Windows.Media.Brush)this.Resources["TextForeground"];
+                    StreamingAppFoundPanel.Visibility = Visibility.Visible;
+                    StreamingAppNotFoundText.Visibility = Visibility.Collapsed;
+                    StreamingAppNameText.Text = info.AppName;
+                    StreamingAppLogPathText.Text = info.LogFolderPath ?? "Log folder not found";
+
+                    HomeHostAppIcon.Source = ExtractExeIcon(info.ExePath);
+                    HomeHostAppIcon.Visibility = HomeHostAppIcon.Source != null
+                        ? Visibility.Visible : Visibility.Collapsed;
+                    HomeAppNameText.Text = info.AppName;
                 }
                 else
                 {
-                    StreamingAppFoundPanel.Visibility    = Visibility.Collapsed;
-                    StreamingAppNotFoundText.Visibility  = Visibility.Visible;
-                    SidebarStreamHostIcon.Visibility     = Visibility.Collapsed;
-                    SidebarStreamHostText.Text           = "N/A";
-                    SidebarStreamHostText.Foreground     = (System.Windows.Media.Brush)this.Resources["SecondaryTextForeground"];
+                    StreamingAppFoundPanel.Visibility = Visibility.Collapsed;
+                    StreamingAppNotFoundText.Visibility = Visibility.Visible;
+
+                    HomeHostAppIcon.Visibility = Visibility.Collapsed;
+                    HomeAppNameText.Text = "Not detected";
                 }
             }
             catch
             {
-                StreamingAppFoundPanel.Visibility   = Visibility.Collapsed;
+                StreamingAppFoundPanel.Visibility = Visibility.Collapsed;
                 StreamingAppNotFoundText.Visibility = Visibility.Visible;
-                SidebarStreamHostIcon.Visibility    = Visibility.Collapsed;
-                SidebarStreamHostText.Text          = "N/A";
-                SidebarStreamHostText.Foreground    = (System.Windows.Media.Brush)this.Resources["SecondaryTextForeground"];
+
+                HomeHostAppIcon.Visibility = Visibility.Collapsed;
+                HomeAppNameText.Text = "Not detected";
             }
         }
 
@@ -364,13 +382,11 @@ private void RefreshStreamingAppInfo()
             UpdateStatusText.FontWeight = FontWeights.Normal;
             UpdateStatusText.Cursor = System.Windows.Input.Cursors.Arrow;
             _updateAvailable = false;
-            CheckUpdateButton.IsEnabled = true;
         }
 
         private async Task CheckForUpdatesAsync()
         {
             UpdateStatusText.Text = "Checking for updates…";
-            CheckUpdateButton.IsEnabled = false;
 
             try
             {
@@ -417,15 +433,6 @@ private void RefreshStreamingAppInfo()
             {
                 UpdateStatusText.Text = "Could not check for updates.";
             }
-            finally
-            {
-                CheckUpdateButton.IsEnabled = true;
-            }
-        }
-
-        private async void CheckUpdateButton_Click(object sender, RoutedEventArgs e)
-        {
-            await CheckForUpdatesAsync();
         }
 
         private void UpdateStatusText_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -828,6 +835,7 @@ private void RefreshStreamingAppInfo()
             isAutoStreamingEnabled = AutoStreamingToggle.IsChecked ?? true;
             SaveAutoStreamingStateToConfig();
             AutoStreamingEnabledChanged?.Invoke(this, EventArgs.Empty);
+            RefreshHomePanelUI();
         }
 
         private void SpatialAudioToggle_Changed(object sender, RoutedEventArgs e)
@@ -835,6 +843,7 @@ private void RefreshStreamingAppInfo()
             _isAudioMonitorEnabled = SpatialAudioToggle.IsChecked ?? false;
             SaveAudioMonitorStateToConfig();
             AudioMonitorEnabledChanged?.Invoke(this, EventArgs.Empty);
+            RefreshHomePanelUI();
         }
 
         private void AudioFormatRadio_Changed(object sender, RoutedEventArgs e)
@@ -844,6 +853,7 @@ private void RefreshStreamingAppInfo()
                 : SpatialAudioFormat.WindowsSonic;
             SaveAudioFormatToConfig();
             AudioFormatChanged?.Invoke(this, EventArgs.Empty);
+            RefreshHomePanelUI();
         }
 
         private void AudioDeviceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -890,6 +900,45 @@ private void RefreshStreamingAppInfo()
                 DolbyStatusText.SetResourceReference(TextBlock.ForegroundProperty, "TextForeground");
                 DolbyStatusText.Opacity = 0.7;
             }
+        }
+
+        public void UpdateHomeNicSpeed(string speedText)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                HomeNicSpeedText.Text       = speedText;
+                HomeNicSpeedPill.Background = speedText == "—" ? PillOffBrush : PillOnBrush;
+            });
+        }
+
+        public void RefreshHomePanel(bool hdrEnabled, bool autoHdrEnabled,
+                                     bool spatialEnabled, SpatialAudioFormat format,
+                                     bool gameLibSync)
+        {
+            _homeHdrEnabled     = hdrEnabled;
+            _homeAutoHdrEnabled = autoHdrEnabled;
+            RefreshHomePanelUI();
+        }
+
+        private void RefreshHomePanelUI()
+        {
+            SetPill(HomeAutoStreamPill, HomeAutoStreamText, isAutoStreamingEnabled,            "On");
+            SetPill(HomeHdrPill,        HomeHdrText,        _homeHdrEnabled,                   "On");
+            SetPill(HomeAutoHdrPill,    HomeAutoHdrText,    _homeAutoHdrEnabled,               "On");
+            SetPill(HomeGameLibPill,    HomeGameLibText,    GameLibraryState.Current.SyncEnabled, "On");
+
+            if (_isAudioMonitorEnabled)
+            {
+                string label = _audioSpatialFormat == SpatialAudioFormat.DolbyAtmos
+                    ? "Dolby Atmos" : "Windows Sonic";
+                SetPill(HomeSpatialPill, HomeSpatialText, true, label);
+            }
+            else
+            {
+                SetPill(HomeSpatialPill, HomeSpatialText, false, "Off");
+            }
+
+            RefreshStreamingAppInfo();
         }
 
         private async void LoadAudioDevicesAsync()
@@ -969,21 +1018,21 @@ private void RefreshStreamingAppInfo()
 
         private void DisplayTabButton_Click(object sender, RoutedEventArgs e)
         {
+            HomePanel.Visibility     = Visibility.Collapsed;
             NetworkPanel.Visibility  = Visibility.Collapsed;
             AudioPanel.Visibility    = Visibility.Collapsed;
             DisplayPanel.Visibility  = Visibility.Visible;
             AppPanel.Visibility      = Visibility.Collapsed;
             GameLibPanel.Visibility  = Visibility.Collapsed;
             LogsPanel.Visibility     = Visibility.Collapsed;
-            AboutPanel.Visibility    = Visibility.Collapsed;
 
+            HomeTabButton.Style      = (Style)this.Resources["TabButton"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
             AudioTabButton.Style     = (Style)this.Resources["TabButton"];
             DisplayTabButton.Style   = (Style)this.Resources["TabButtonActive"];
             AppTabButton.Style       = (Style)this.Resources["TabButton"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
             LogsTabButton.Style      = (Style)this.Resources["TabButton"];
-            AboutTabButton.Style     = (Style)this.Resources["TabButton"];
 
             RefreshDisplayPanelAsync();
         }
@@ -1001,25 +1050,7 @@ private void RefreshStreamingAppInfo()
                 _currentMonitors = await HdrService.GetMonitorsAsync();
                 bool autoHdr = await HdrService.GetAutoHdrAsync();
 
-                // Show detected streaming app name, without attempting to distinguish
-                // between physical/virtual displays.
-                var appInfo = LogParser.FindStreamingAppInfo();
-
                 List<MonitorInfo> toShow = _currentMonitors;
-
-                if (appInfo != null)
-                {
-                    SidebarStreamHostIcon.Source     = ExtractExeIcon(appInfo.ExePath);
-                    SidebarStreamHostIcon.Visibility = Visibility.Visible;
-                    SidebarStreamHostText.Text       = appInfo.AppName;
-                    SidebarStreamHostText.Foreground = (System.Windows.Media.Brush)this.Resources["TextForeground"];
-                }
-                else
-                {
-                    SidebarStreamHostIcon.Visibility = Visibility.Collapsed;
-                    SidebarStreamHostText.Text       = "N/A";
-                    SidebarStreamHostText.Foreground = (System.Windows.Media.Brush)this.Resources["SecondaryTextForeground"];
-                }
 
                 BuildMonitorCards(toShow);
 
@@ -1275,28 +1306,28 @@ private void RefreshStreamingAppInfo()
 
         private void AppTabButton_Click(object sender, RoutedEventArgs e)
         {
+            HomePanel.Visibility     = Visibility.Collapsed;
             NetworkPanel.Visibility  = Visibility.Collapsed;
             DisplayPanel.Visibility  = Visibility.Collapsed;
             AudioPanel.Visibility    = Visibility.Collapsed;
             AppPanel.Visibility      = Visibility.Visible;
             GameLibPanel.Visibility  = Visibility.Collapsed;
             LogsPanel.Visibility     = Visibility.Collapsed;
-            AboutPanel.Visibility    = Visibility.Collapsed;
+            HomeTabButton.Style      = (Style)this.Resources["TabButton"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
             DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
             AudioTabButton.Style     = (Style)this.Resources["TabButton"];
             AppTabButton.Style       = (Style)this.Resources["TabButtonActive"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
             LogsTabButton.Style      = (Style)this.Resources["TabButton"];
-            AboutTabButton.Style     = (Style)this.Resources["TabButton"];
         }
 
         private void AddAppButton_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new OpenFileDialog
             {
-                Title  = "Seleziona eseguibile",
-                Filter = "Eseguibili (*.exe)|*.exe",
+                Title  = "Select executable",
+                Filter = "Executables (*.exe)|*.exe",
                 CheckFileExists = true
             };
             if (dialog.ShowDialog(this) != true) return;
@@ -1432,20 +1463,20 @@ private void RefreshStreamingAppInfo()
 
         private void GameLibTabButton_Click(object sender, RoutedEventArgs e)
         {
+            HomePanel.Visibility     = Visibility.Collapsed;
             NetworkPanel.Visibility  = Visibility.Collapsed;
             DisplayPanel.Visibility  = Visibility.Collapsed;
             AudioPanel.Visibility    = Visibility.Collapsed;
             AppPanel.Visibility      = Visibility.Collapsed;
             GameLibPanel.Visibility  = Visibility.Visible;
             LogsPanel.Visibility     = Visibility.Collapsed;
-            AboutPanel.Visibility    = Visibility.Collapsed;
+            HomeTabButton.Style      = (Style)this.Resources["TabButton"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
             DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
             AudioTabButton.Style     = (Style)this.Resources["TabButton"];
             AppTabButton.Style       = (Style)this.Resources["TabButton"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButtonActive"];
             LogsTabButton.Style      = (Style)this.Resources["TabButton"];
-            AboutTabButton.Style     = (Style)this.Resources["TabButton"];
             RefreshGameLibPanel();
         }
 
@@ -1481,6 +1512,7 @@ private void RefreshStreamingAppInfo()
             var state = GameLibraryState.Current;
             state.SyncEnabled = GameLibSyncEnabledToggle.IsChecked == true;
             state.Save();
+            RefreshHomePanelUI();
         }
 
         private async void SyncNow_Click(object sender, RoutedEventArgs e)

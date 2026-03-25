@@ -54,19 +54,26 @@ namespace StreamTweak
         // ── Static singleton ─────────────────────────────────────────────────
 
         private static GameLibraryState? _current;
+        private static readonly object _currentLock = new();
 
-        /// <summary>Singleton loaded from disk on first access.</summary>
+        /// <summary>Singleton loaded from disk on first access. Thread-safe.</summary>
         public static GameLibraryState Current
         {
             get
             {
-                if (_current == null) _current = Load();
-                return _current;
+                lock (_currentLock)
+                {
+                    if (_current == null) _current = Load();
+                    return _current;
+                }
             }
         }
 
         /// <summary>Forces a reload from disk on next access of Current.</summary>
-        public static void Invalidate() => _current = null;
+        public static void Invalidate()
+        {
+            lock (_currentLock) { _current = null; }
+        }
 
         // ── Persistence ──────────────────────────────────────────────────────
 
@@ -95,7 +102,7 @@ namespace StreamTweak
                 Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
                 File.WriteAllText(FilePath, JsonSerializer.Serialize(this,
                     new JsonSerializerOptions { WriteIndented = true }));
-                _current = this; // keep singleton in sync
+                lock (_currentLock) { _current = this; } // keep singleton in sync
             }
             catch { }
         }

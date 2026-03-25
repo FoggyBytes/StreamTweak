@@ -84,7 +84,9 @@ namespace StreamTweak
                 RebuildAllCounters();
                 // Start the 1-second timer only after the first counter build is done.
                 // Use dueTime=0 so the first sample fires immediately.
-                _timer = new Timer(OnTimerTick, null, 0, 1000);
+                // Guard against Dispose() being called before we get here.
+                if (!_disposed)
+                    _timer = new Timer(OnTimerTick, null, 0, 1000);
             }
             catch { }
         }

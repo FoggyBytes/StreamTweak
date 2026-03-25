@@ -101,7 +101,10 @@ namespace StreamTweak
             if (procs.Length == 0) return false;
 
             foreach (var proc in procs)
-                proc.Kill();
+            {
+                try { proc.Kill(); } catch { }
+                proc.Dispose();
+            }
 
             return true;
         }

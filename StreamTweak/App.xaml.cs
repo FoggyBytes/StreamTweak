@@ -32,6 +32,10 @@ namespace StreamTweak
 
         // Managed apps — paths of apps killed at stream start, relaunched at stream end
         private List<string> _appsToRelaunch = new();
+        // Re-entry guard for HandleAutoStreamStart: prevents a second StreamStarted event
+        // from starting a new session while the first start is still pending (e.g. during
+        // the 7.9-second NIC renegotiation delay).
+        private bool _sessionStartInProgress = false;
 
         // Spatial audio monitoring
         private readonly DolbyAudioMonitor _dolbyMonitor = new();
@@ -63,12 +67,13 @@ namespace StreamTweak
         {
             base.OnStartup(e);
             Application.Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            this.SessionEnding += App_SessionEnding;
 
             LoadConfig();
             SessionLogger.Initialize();
 
             tb = (TaskbarIcon)FindResource("MyNotifyIcon")!;
-            UpdateIconBasedOnSpeed(false);
+            UpdateTrayIcon();
             UpdateTrayMenu();
 
             // Initialize WinRT toast notifications
@@ -159,6 +164,11 @@ namespace StreamTweak
             return (0, false);
         }
 
+        private void UpdateTrayIcon()
+        {
+            tb.Icon = new System.Drawing.Icon(_isAutoSessionActive ? iconOkPath : iconKoPath);
+        }
+
         private bool UpdateIconBasedOnSpeed(bool showToast = false)
         {
             try
@@ -167,13 +177,9 @@ namespace StreamTweak
 
                 if (!connected)
                 {
-                    tb.Icon = new System.Drawing.Icon(iconKoPath);
                     tb.ToolTipText = $"StreamTweak\n{adapterName}: Disconnected / Negotiating";
                     return false;
                 }
-
-                bool is1G = mbps >= 900 && mbps <= 1100;
-                tb.Icon = new System.Drawing.Icon(is1G ? iconOkPath : iconKoPath);
 
                 string speedText = mbps >= 1000
                     ? $"{mbps / 1000.0:0.##} Gbps"
@@ -188,7 +194,6 @@ namespace StreamTweak
             }
             catch
             {
-                tb.Icon = new System.Drawing.Icon(iconKoPath);
                 tb.ToolTipText = "StreamTweak\n(Status Unknown)";
                 return false;
             }
@@ -393,6 +398,10 @@ namespace StreamTweak
                 StopAutoStreamingMonitor();
 
             settingsWindow?.SyncAutoStreamingState(isAutoStreamingEnabled);
+            settingsWindow?.RefreshHomePanel(
+                _trayHdrEnabled, _trayAutoHdrEnabled,
+                isAudioMonitorEnabled, _audioSpatialFormat,
+                GameLibraryState.Current.SyncEnabled);
         }
 
         private void MenuDolbyMode_Click(object sender, RoutedEventArgs e)
@@ -415,6 +424,10 @@ namespace StreamTweak
             settingsWindow?.SyncAudioMonitorState(isAudioMonitorEnabled);
             settingsWindow?.SyncDolbyMonitorStatus(
                 _dolbyMonitor.IsEnabled ? "Ready — waiting for next stream…" : "Disabled.");
+            settingsWindow?.RefreshHomePanel(
+                _trayHdrEnabled, _trayAutoHdrEnabled,
+                isAudioMonitorEnabled, _audioSpatialFormat,
+                GameLibraryState.Current.SyncEnabled);
         }
 
         private async Task InitHdrStateAsync()
@@ -442,6 +455,10 @@ namespace StreamTweak
                 _trayHdrEnabled = enable;
                 UpdateTrayMenu();
                 settingsWindow?.RefreshDisplayPanelIfVisible();
+                settingsWindow?.RefreshHomePanel(
+                    _trayHdrEnabled, _trayAutoHdrEnabled,
+                    isAudioMonitorEnabled, _audioSpatialFormat,
+                    GameLibraryState.Current.SyncEnabled);
             }
             catch { }
         }
@@ -455,6 +472,10 @@ namespace StreamTweak
                 _trayAutoHdrEnabled = enable;
                 UpdateTrayMenu();
                 settingsWindow?.RefreshDisplayPanelIfVisible();
+                settingsWindow?.RefreshHomePanel(
+                    _trayHdrEnabled, _trayAutoHdrEnabled,
+                    isAudioMonitorEnabled, _audioSpatialFormat,
+                    GameLibraryState.Current.SyncEnabled);
             }
             catch { }
         }
@@ -478,6 +499,14 @@ namespace StreamTweak
             if (connected) UpdateIconBasedOnSpeed(showToast);
             UpdateTrayMenu();
             settingsWindow?.RefreshCurrentSpeedDisplay();
+
+            var (mbps, conn) = GetCurrentSpeed();
+            string speedTxt = !conn ? "—"
+                : mbps >= 1000 ? $"{mbps / 1000.0:0.##} Gbps"
+                : $"{mbps} Mbps";
+            if (isAutoStreamingActive && conn)
+                speedTxt += "  ·  throttled";
+            settingsWindow?.UpdateHomeNicSpeed(speedTxt);
         }
 
         private void OpenSettings()
@@ -546,6 +575,20 @@ namespace StreamTweak
                 settingsWindow.SyncAudioMonitorState(isAudioMonitorEnabled);
                 settingsWindow.SyncDolbyMonitorStatus(_lastDolbyStatus);
                 settingsWindow.SetSessionActive(_isAutoSessionActive);
+                settingsWindow.RefreshHomePanel(
+                    _trayHdrEnabled,
+                    _trayAutoHdrEnabled,
+                    isAudioMonitorEnabled,
+                    _audioSpatialFormat,
+                    GameLibraryState.Current.SyncEnabled);
+
+                var (mbps, conn) = GetCurrentSpeed();
+                string speedTxt = !conn ? "—"
+                    : mbps >= 1000 ? $"{mbps / 1000.0:0.##} Gbps"
+                    : $"{mbps} Mbps";
+                if (isAutoStreamingActive && conn)
+                    speedTxt += "  ·  throttled";
+                settingsWindow.UpdateHomeNicSpeed(speedTxt);
 
                 settingsWindow.Show();
             }
@@ -560,8 +603,16 @@ namespace StreamTweak
         private void TaskbarIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e) => OpenSettings();
         private void MenuSettings_Click(object sender, RoutedEventArgs e) => OpenSettings();
 
+        private void App_SessionEnding(object sender, SessionEndingCancelEventArgs e)
+        {
+            if (_isAutoSessionActive)
+                SessionLogger.EndSession("Host Shutdown");
+        }
+
         private void MenuExit_Click(object sender, RoutedEventArgs e)
         {
+            if (_isAutoSessionActive)
+                SessionLogger.EndSession("App Closed");
             _bridge.PrepareRequested -= OnBridgePrepareRequested;
             _bridge.RestoreRequested -= OnBridgeRestoreRequested;
             _bridge.Dispose();
@@ -618,7 +669,7 @@ namespace StreamTweak
                     if (e.Event == LogParser.StreamingEvent.StreamStarted)
                     {
                         _dolbyMonitor.OnStreamingStarted();
-                        if (!isAutoStreamingActive && !_isAutoSessionActive)
+                        if (!isAutoStreamingActive && !_isAutoSessionActive && !_sessionStartInProgress)
                             HandleAutoStreamStart(skipNicThrottle: e.IsRetrospective);
                         else
                             StopInactivityTimer(); // reconnected within grace period
@@ -636,10 +687,10 @@ namespace StreamTweak
 
         private async void HandleAutoStreamStart(bool skipNicThrottle = false)
         {
+            if (isStreamingModeActive || _sessionStartInProgress) return;
+            _sessionStartInProgress = true;
             try
             {
-                if (isStreamingModeActive) return;
-
                 var ni = NetworkInterface.GetAllNetworkInterfaces()
                     .FirstOrDefault(n => n.Name.Equals(adapterName, StringComparison.OrdinalIgnoreCase));
 
@@ -695,11 +746,16 @@ namespace StreamTweak
                 // Always log the session, with or without NIC throttle
                 _appsToRelaunch = ManagedAppController.KillRunning();
                 _isAutoSessionActive = true;
+                UpdateTrayIcon();
                 SessionLogger.StartSession("Auto", capturedOriginalSpeed);
                 settingsWindow?.RefreshSessionHistory();
                 settingsWindow?.SetSessionActive(true);
             }
             catch { }
+            finally
+            {
+                _sessionStartInProgress = false;
+            }
         }
 
         private async void HandleAutoStreamStop(string endReason = "User")
@@ -736,6 +792,7 @@ namespace StreamTweak
                     ManagedAppController.StartApps(_appsToRelaunch);
                     _appsToRelaunch.Clear();
                     _isAutoSessionActive = false;
+                    UpdateTrayIcon();
                     settingsWindow?.RefreshSessionHistory();
                     settingsWindow?.SetSessionActive(false);
                 }
@@ -820,10 +877,13 @@ namespace StreamTweak
 
                     isAutoStreamingActive = true;
                     isStreamingModeActive = true;
+                    _isAutoSessionActive = true;
                     SaveStreamingStateToConfig(true, originalSpeedForAutoStreaming ?? string.Empty);
                     _appsToRelaunch = ManagedAppController.KillRunning();
                     SessionLogger.StartSession("Bridge", originalSpeedForAutoStreaming ?? string.Empty);
                     StartInactivityTimer(); // auto-RESTORE if no client connects within 30s
+                    UpdateTrayIcon();
+                    settingsWindow?.SetSessionActive(true);
                     UpdateTrayMenu();
 
                     // Run the blocking named-pipe call off the UI thread

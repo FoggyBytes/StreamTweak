@@ -219,7 +219,8 @@ namespace StreamTweak
             catch { return null; }
         }
 
-        // FileStream intentionally NOT in a using block — it must outlive the StreamReader
+        // FileStream intentionally NOT in a using block — it must outlive the StreamReader.
+        // The StreamReader disposes the FileStream when it is itself disposed (leaveOpen=false default).
         private void OpenStreamReader(string? filePath = null)
         {
             try { logStreamReader?.Dispose(); } catch { }
@@ -235,10 +236,19 @@ namespace StreamTweak
                     FileMode.Open,
                     FileAccess.Read,
                     FileShare.ReadWrite);
-
-                fileStream.Seek(0, SeekOrigin.End);
-                logStreamReader = new StreamReader(fileStream);
-                DebugLog($"StreamReader opened on: {Path.GetFileName(targetPath)}");
+                try
+                {
+                    fileStream.Seek(0, SeekOrigin.End);
+                    logStreamReader = new StreamReader(fileStream);
+                    DebugLog($"StreamReader opened on: {Path.GetFileName(targetPath)}");
+                }
+                catch
+                {
+                    // If Seek or StreamReader construction fails, dispose the FileStream
+                    // explicitly so the file handle is not leaked.
+                    fileStream.Dispose();
+                    throw;
+                }
             }
             catch (Exception ex)
             {

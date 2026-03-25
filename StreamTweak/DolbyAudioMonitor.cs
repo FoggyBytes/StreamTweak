@@ -52,6 +52,7 @@ namespace StreamTweak
         {
             if (!IsEnabled || _activatedThisSession) return;
             _cts?.Cancel();
+            _cts?.Dispose();
             _cts = new CancellationTokenSource();
             _ = Task.Run(() => DelayedEnableSpatialAudioAsync(_cts.Token));
             NotifyStatus($"Stream detected — waiting {WaitSeconds}s…");
@@ -68,6 +69,7 @@ namespace StreamTweak
         private void CancelPending()
         {
             _cts?.Cancel();
+            _cts?.Dispose();
             _cts = null;
         }
 
@@ -203,32 +205,6 @@ namespace StreamTweak
                 return (dolby, sonic);
             }
             catch { return (false, false); }
-        }
-
-        // ─── Legacy compatibility (kept for existing callers) ─────────────────
-
-        public static async Task<bool> IsDolbyAtmosAvailableAsync()
-        {
-            try
-            {
-                string selector = MediaDevice.GetAudioRenderSelector();
-                var devices = await DeviceInformation.FindAllAsync(selector);
-                string dolbyFormat = SpatialAudioFormatSubtype.DolbyAtmosForHeadphones;
-
-                foreach (var device in devices)
-                {
-                    try
-                    {
-                        var config = SpatialAudioDeviceConfiguration.GetForDeviceId(device.Id);
-                        if (config.IsSpatialAudioSupported &&
-                            config.IsSpatialAudioFormatSupported(dolbyFormat))
-                            return true;
-                    }
-                    catch { }
-                }
-                return false;
-            }
-            catch { return false; }
         }
 
         private void NotifyStatus(string message) => StatusChanged?.Invoke(message);

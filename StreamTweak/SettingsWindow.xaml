@@ -416,8 +416,20 @@
                     </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" VerticalAlignment="Top">
-                        <Button x:Name="NetworkTabButton"
+                        <Button x:Name="HomeTabButton"
                                 Style="{StaticResource TabButtonActive}"
+                                HorizontalAlignment="Stretch"
+                                Click="HomeTabButton_Click">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="15" FontWeight="Normal"
+                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Home" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
+
+                        <Button x:Name="NetworkTabButton"
+                                Style="{StaticResource TabButton}"
                                 HorizontalAlignment="Stretch"
                                 Click="NetworkTabButton_Click">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -469,7 +481,7 @@
                                 HorizontalAlignment="Stretch"
                                 Click="GameLibTabButton_Click">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE749;" FontFamily="Segoe MDL2 Assets"
+                                <TextBlock Text="&#xE7FC;" FontFamily="Segoe MDL2 Assets"
                                            FontSize="15" FontWeight="Normal"
                                            Margin="0,0,8,0" VerticalAlignment="Center"/>
                                 <TextBlock Text="Games" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
@@ -487,67 +499,245 @@
                                 <TextBlock Text="Logs" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
-
-                        <Button x:Name="AboutTabButton"
-                                Style="{StaticResource TabButton}"
-                                HorizontalAlignment="Stretch"
-                                Click="AboutTabButton_Click">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE946;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="15" FontWeight="Normal"
-                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
-                                <TextBlock Text="About" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
-                            </StackPanel>
-                        </Button>
                     </StackPanel>
 
-                    <!-- Stream host + session indicator -->
-                    <StackPanel Grid.Row="1" HorizontalAlignment="Center" Margin="0,0,0,4">
-                        <StackPanel x:Name="SidebarStreamHostSection"
-                                    HorizontalAlignment="Center"
-                                    Margin="0,0,0,10">
-                            <TextBlock Text="Stream host" FontSize="11"
-                                       HorizontalAlignment="Center" Margin="0,0,0,6"
-                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                <Image x:Name="SidebarStreamHostIcon"
-                                       Width="14" Height="14" Margin="0,0,4,0"
-                                       VerticalAlignment="Center"
-                                       RenderOptions.BitmapScalingMode="HighQuality"/>
-                                <TextBlock x:Name="SidebarStreamHostText"
-                                           FontSize="11" FontWeight="SemiBold"
-                                           VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextForeground}"/>
-                            </StackPanel>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock x:Name="SessionIndicatorDot"
-                                       Text="●" FontSize="12" Foreground="Gray"
-                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBlock x:Name="SessionIndicatorText"
-                                       Text="Inactive" FontSize="11"
-                                       Foreground="{DynamicResource SecondaryTextForeground}"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </StackPanel>
                 </Grid>
             </Border>
 
             <!-- ─── Content panels ─── -->
             <Grid Grid.Column="1" Margin="12,12,16,16">
 
+                <!-- ═══════════════ HOME PANEL ═══════════════ -->
+                <Border x:Name="HomePanel"
+                        Background="{DynamicResource PanelBackground}"
+                        BorderBrush="{DynamicResource BorderColor}" BorderThickness="1"
+                        CornerRadius="10" Padding="28,16,28,16"
+                        TextElement.Foreground="{DynamicResource TextForeground}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Riga 0: logo centrato + titolo sotto -->
+                        <StackPanel Grid.Row="0" Orientation="Vertical"
+                                    HorizontalAlignment="Center" Margin="0,0,0,6">
+                            <Image Source="pack://application:,,,/Resources/streamtweak.ico"
+                                   Width="56" Height="56" HorizontalAlignment="Center"
+                                   Margin="0,0,0,6" RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <TextBlock Text="StreamTweak" FontSize="20" FontWeight="Bold"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{DynamicResource TextForeground}"/>
+                        </StackPanel>
+
+                        <!-- Riga 1: versione · FoggyBytes · build -->
+                        <StackPanel Grid.Row="1" Orientation="Horizontal"
+                                    HorizontalAlignment="Center" Margin="0,0,0,8">
+                            <TextBlock x:Name="AboutVersionText" FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                            <TextBlock Text="  ·  Developed by FoggyBytes  ·  " FontSize="11"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                            <TextBlock x:Name="AboutBuildDateText" FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                        </StackPanel>
+
+                        <!-- Riga 2: stato aggiornamenti -->
+                        <TextBlock x:Name="UpdateStatusText" Grid.Row="2"
+                                   FontSize="11" HorizontalAlignment="Center"
+                                   Margin="0,0,0,8"
+                                   Foreground="{DynamicResource SecondaryTextForeground}"
+                                   MouseLeftButtonUp="UpdateStatusText_Click"/>
+
+                        <!-- Riga 3: separatore -->
+                        <Separator Grid.Row="3" Background="{DynamicResource BorderColor}" Margin="0,0,0,8"/>
+
+                        <!-- Riga 4: badge GPL + GitHub + Donate -->
+                        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" Cursor="Hand"
+                                        MouseLeftButtonUp="GplBadge_Click"
+                                        Margin="0,0,10,0" VerticalAlignment="Center">
+                                <Border Background="#555555" CornerRadius="3,0,0,3" Padding="6,4">
+                                    <TextBlock Text="License" FontSize="11" Foreground="White" FontFamily="Segoe UI"/>
+                                </Border>
+                                <Border Background="#4caf50" CornerRadius="0,3,3,0" Padding="6,4">
+                                    <TextBlock Text="GPL v3" FontSize="11" Foreground="White"
+                                               FontFamily="Segoe UI" FontWeight="SemiBold"/>
+                                </Border>
+                            </StackPanel>
+                            <Button Width="128" Height="28" Margin="0,0,6,0" Click="GitHubButton_Click">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource ModernButtonAnimOnly}">
+                                        <Setter Property="Background" Value="#24292e"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                    </Style>
+                                </Button.Style>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="&#xE8F7;" FontFamily="Segoe MDL2 Assets"
+                                               FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="View on GitHub" FontSize="11" FontWeight="SemiBold"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Width="128" Height="28" Click="DonateButton_Click">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource ModernButtonAnimOnly}">
+                                        <Setter Property="Background" Value="#0070BA"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="BorderThickness" Value="0"/>
+                                    </Style>
+                                </Button.Style>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="💳" FontSize="11" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <TextBlock Text="Donate via PayPal" FontSize="11" FontWeight="SemiBold"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Riga 5: spacer flessibile -->
+
+                        <!-- Riga 6: sessione streaming -->
+                        <Grid Grid.Row="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Streaming Session"
+                                       FontSize="12" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <Ellipse x:Name="HomeSessionDot"
+                                         Width="10" Height="10" Fill="#808080"
+                                         VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                <TextBlock x:Name="HomeSessionText"
+                                           Text="Inactive" FontSize="12" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Riga 7: separatore -->
+                        <Border Grid.Row="7" Height="1"
+                                Background="{DynamicResource BorderColor}"
+                                Margin="0,10,0,10"/>
+
+                        <!-- Riga 8: tabella pill -->
+                        <Grid Grid.Row="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition MinHeight="32"/>
+                                <RowDefinition MinHeight="32"/>
+                                <RowDefinition MinHeight="32"/>
+                                <RowDefinition MinHeight="32"/>
+                                <RowDefinition MinHeight="32"/>
+                                <RowDefinition MinHeight="32"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Current NIC Speed -->
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Current NIC Speed"
+                                       FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"
+                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                            <Border x:Name="HomeNicSpeedPill" Grid.Row="0" Grid.Column="1"
+                                    CornerRadius="10" Padding="12,3,12,3" MinWidth="100"
+                                    Background="#33FFFFFF" VerticalAlignment="Center">
+                                <TextBlock x:Name="HomeNicSpeedText" Text="—" FontSize="12" Foreground="White"/>
+                            </Border>
+
+                            <!-- Auto Streaming Mode -->
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Auto Streaming Mode"
+                                       FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"
+                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                            <Border x:Name="HomeAutoStreamPill" Grid.Row="1" Grid.Column="1"
+                                    CornerRadius="10" Padding="12,3,12,3" MinWidth="100"
+                                    Background="#33FFFFFF" VerticalAlignment="Center">
+                                <TextBlock x:Name="HomeAutoStreamText" Text="Off" FontSize="12" Foreground="White"/>
+                            </Border>
+
+                            <!-- HDR -->
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="HDR"
+                                       FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"
+                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                            <Border x:Name="HomeHdrPill" Grid.Row="2" Grid.Column="1"
+                                    CornerRadius="10" Padding="12,3,12,3" MinWidth="100"
+                                    Background="#33FFFFFF" VerticalAlignment="Center">
+                                <TextBlock x:Name="HomeHdrText" Text="Off" FontSize="12" Foreground="White"/>
+                            </Border>
+
+                            <!-- Auto HDR -->
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Auto HDR"
+                                       FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"
+                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                            <Border x:Name="HomeAutoHdrPill" Grid.Row="3" Grid.Column="1"
+                                    CornerRadius="10" Padding="12,3,12,3" MinWidth="100"
+                                    Background="#33FFFFFF" VerticalAlignment="Center">
+                                <TextBlock x:Name="HomeAutoHdrText" Text="Off" FontSize="12" Foreground="White"/>
+                            </Border>
+
+                            <!-- Auto Spatial Audio -->
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Auto Spatial Audio"
+                                       FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"
+                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                            <Border x:Name="HomeSpatialPill" Grid.Row="4" Grid.Column="1"
+                                    CornerRadius="10" Padding="12,3,12,3" MinWidth="100"
+                                    Background="#33FFFFFF" VerticalAlignment="Center">
+                                <TextBlock x:Name="HomeSpatialText" Text="Off" FontSize="12" Foreground="White"/>
+                            </Border>
+
+                            <!-- Game Library Sync -->
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Game Library Sync"
+                                       FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"
+                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                            <Border x:Name="HomeGameLibPill" Grid.Row="5" Grid.Column="1"
+                                    CornerRadius="10" Padding="12,3,12,3" MinWidth="100"
+                                    Background="#33FFFFFF" VerticalAlignment="Center">
+                                <TextBlock x:Name="HomeGameLibText" Text="Off" FontSize="12" Foreground="White"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Riga 9: stream host (in fondo) -->
+                        <StackPanel Grid.Row="9" Orientation="Horizontal"
+                                    HorizontalAlignment="Center" Margin="0,14,0,0">
+                            <TextBlock Text="Stream Host"
+                                       FontSize="11" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource SecondaryTextForeground}"
+                                       Margin="0,0,8,0"/>
+                            <Image x:Name="HomeHostAppIcon"
+                                   Width="16" Height="16" VerticalAlignment="Center"
+                                   Margin="0,0,6,0"
+                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <TextBlock x:Name="HomeAppNameText"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextForeground}"/>
+                        </StackPanel>
+
+                    </Grid>
+                </Border>
+
                 <!-- ═══════════════ NETWORK PANEL ═══════════════ -->
-                <Border x:Name="NetworkPanel"
+                <Border x:Name="NetworkPanel" Visibility="Collapsed"
                         Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource BorderColor}" BorderThickness="1" CornerRadius="10" Padding="14,12,14,14" TextElement.Foreground="{DynamicResource TextForeground}">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="0.5*"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="0.5*"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
@@ -558,29 +748,37 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <TextBlock Text="Select Physical Network Adapter:" FontWeight="Medium" HorizontalAlignment="Center" Margin="0,0,0,5" Grid.Row="1"/>
-                        <ComboBox x:Name="AdapterComboBox" Margin="0,0,0,10" Grid.Row="2"
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="Network Speed Management"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Margin="0,0,0,6"
+                                       Foreground="{DynamicResource TextForeground}"/>
+                            <Separator Background="{DynamicResource BorderColor}" Margin="0,0,0,8"/>
+                        </StackPanel>
+
+                        <TextBlock Text="Select Physical Network Adapter:" FontWeight="Medium" HorizontalAlignment="Center" Margin="0,0,0,5" Grid.Row="2"/>
+                        <ComboBox x:Name="AdapterComboBox" Margin="0,0,0,10" Grid.Row="3"
                                   SelectionChanged="AdapterComboBox_SelectionChanged"/>
 
-                        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
                             <TextBlock Text="Current Speed:" FontWeight="Medium" Margin="0,0,10,0"/>
                             <TextBlock x:Name="CurrentSpeedTextBlock" Text="Detecting..." FontWeight="Bold"
                                        Foreground="{DynamicResource AccentColor}"/>
                         </StackPanel>
 
-                        <TextBlock Text="Target Link Speed:" FontWeight="Medium" HorizontalAlignment="Center" Margin="0,0,0,5" Grid.Row="4"/>
-                        <ComboBox x:Name="SpeedComboBox" Margin="0,0,0,10" Grid.Row="5"/>
+                        <TextBlock Text="Target Link Speed:" FontWeight="Medium" HorizontalAlignment="Center" Margin="0,0,0,5" Grid.Row="5"/>
+                        <ComboBox x:Name="SpeedComboBox" Margin="0,0,0,10" Grid.Row="6"/>
 
-                        <Separator Grid.Row="7" Margin="0,0,0,10" Background="{DynamicResource BorderColor}"/>
+                        <Separator Grid.Row="8" Margin="0,0,0,10" Background="{DynamicResource BorderColor}"/>
 
-                        <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <StackPanel Grid.Row="10" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <TextBlock Text="Auto Streaming Mode" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" Margin="0,0,12,0"/>
                             <CheckBox x:Name="AutoStreamingToggle" Style="{StaticResource ToggleSwitchStyle}"
                                       VerticalAlignment="Center" Checked="AutoStreamingToggle_Changed"
                                       Unchecked="AutoStreamingToggle_Changed"/>
                         </StackPanel>
 
-                        <StackPanel Grid.Row="10" Orientation="Vertical" Margin="0,12,0,0">
+                        <StackPanel Grid.Row="11" Orientation="Vertical" Margin="0,12,0,0">
                             <TextBlock FontSize="12" Foreground="{DynamicResource SecondaryTextForeground}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,3" LineHeight="16">
                                 <Run Text="Auto-sets network speed to 1Gbps when Moonlight streams."/>
                             </TextBlock>
@@ -592,29 +790,22 @@
                             </TextBlock>
                         </StackPanel>
 
-                        <Grid Grid.Row="12" Margin="0,0,0,0">
+                        <Grid Grid.Row="13" Margin="0,0,0,0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="16"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0" x:Name="StreamingModeButton" Content="Start Streaming Mode"
                                     Height="42" Click="StreamingModeButton_Click"
                                     Style="{StaticResource ModernButtonAnimOnly}" HorizontalAlignment="Stretch"/>
-                            <Image Grid.Column="1" Source="pack://application:,,,/Resources/streamtweak.ico" Width="56" Height="56"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12,0" RenderOptions.BitmapScalingMode="HighQuality"/>
                             <Button Grid.Column="2" Content="Apply Settings" Height="42"
                                     Click="ApplyButton_Click" Style="{StaticResource PrimaryButton}"
                                     HorizontalAlignment="Stretch"/>
                         </Grid>
 
-                        <TextBlock Grid.Row="13" FontSize="12" Foreground="{DynamicResource SecondaryTextForeground}"
+                        <TextBlock Grid.Row="14" FontSize="12" Foreground="{DynamicResource SecondaryTextForeground}"
                                    TextAlignment="Center" TextWrapping="Wrap" Margin="0,20,0,0">
-                            <InlineUIContainer BaselineAlignment="Center">
-                                <Image Source="pack://application:,,,/Resources/streammodeok.ico"
-                                       Width="14" Height="14" Margin="0,0,4,0"
-                                       RenderOptions.BitmapScalingMode="HighQuality"/>
-                            </InlineUIContainer>
                             <Run Text="Streaming Mode auto-sets the Target Link Speed to 1Gbps. Stop to revert to original Speed."/>
                         </TextBlock>
                     </Grid>
@@ -723,37 +914,42 @@
                         TextElement.Foreground="{DynamicResource TextForeground}">
                     <Grid>
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="0.5*"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="0.5*"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="12"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="12"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="12"/>
+                            <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Title -->
-                        <StackPanel Grid.Row="1" HorizontalAlignment="Center" Margin="0,0,0,12">
-                            <TextBlock Text="&#xE7F6;" FontFamily="Segoe MDL2 Assets" FontSize="26"
-                                       HorizontalAlignment="Center" Margin="0,0,0,8"
-                                       Foreground="{DynamicResource AccentColor}"/>
-                            <TextBlock Text="Spatial Audio Output Device" FontSize="14" FontWeight="Bold"
-                                       HorizontalAlignment="Center"/>
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="Spatial Audio Control"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Margin="0,0,0,6"
+                                       Foreground="{DynamicResource TextForeground}"/>
+                            <Separator Background="{DynamicResource BorderColor}" Margin="0,0,0,0"/>
                         </StackPanel>
 
+                        <TextBlock Grid.Row="2" Text="&#xE7F6;" FontFamily="Segoe MDL2 Assets" FontSize="32"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,10,0,10"
+                                   Foreground="{DynamicResource AccentColor}"/>
+
                         <!-- Output device selector -->
-                        <ComboBox Grid.Row="2" x:Name="AudioDeviceComboBox" Margin="0,0,0,10"
+                        <ComboBox Grid.Row="3" x:Name="AudioDeviceComboBox" Margin="0,0,0,10"
                                   SelectionChanged="AudioDeviceComboBox_SelectionChanged"/>
 
                         <!-- Dolby Atmos availability -->
-                        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,5">
+                        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,5">
                             <TextBlock x:Name="DolbyAccessIcon" Text="●" FontSize="12"
                                        VerticalAlignment="Center" Margin="0,0,5,0"
                                        Foreground="Gray"/>
@@ -763,7 +959,7 @@
                         </StackPanel>
 
                         <!-- Windows Sonic availability -->
-                        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center">
+                        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center">
                             <TextBlock x:Name="SonicAccessIcon" Text="●" FontSize="12"
                                        VerticalAlignment="Center" Margin="0,0,5,0"
                                        Foreground="Gray"/>
@@ -773,10 +969,10 @@
                         </StackPanel>
 
                         <!-- Separator -->
-                        <Separator Grid.Row="6" Background="{DynamicResource BorderColor}"/>
+                        <Separator Grid.Row="7" Background="{DynamicResource BorderColor}"/>
 
                         <!-- Auto spatial audio toggle -->
-                        <StackPanel Grid.Row="8" Orientation="Horizontal" HorizontalAlignment="Center"
+                        <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Center"
                                     VerticalAlignment="Center" Margin="0,0,0,12">
                             <TextBlock Text="Auto spatial audio" FontWeight="SemiBold" FontSize="13"
                                        VerticalAlignment="Center" Margin="0,0,12,0"/>
@@ -786,7 +982,7 @@
                         </StackPanel>
 
                         <!-- Format selection -->
-                        <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
+                        <StackPanel Grid.Row="10" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
                             <RadioButton x:Name="DolbyFormatRadio"
                                          Content="Dolby Atmos for Headphones"
                                          Style="{StaticResource SpatialFormatRadioStyle}"
@@ -800,13 +996,13 @@
                         </StackPanel>
 
                         <!-- Description -->
-                        <TextBlock Grid.Row="10" FontSize="12"
+                        <TextBlock Grid.Row="11" FontSize="12"
                                    Foreground="{DynamicResource SecondaryTextForeground}"
                                    TextWrapping="Wrap" TextAlignment="Center" LineHeight="16"
                                    Text="When a streaming session is detected and stays active for 30 seconds, the selected spatial audio format will be enabled on the chosen output device."/>
 
                         <!-- Status box -->
-                        <Border Grid.Row="12" Padding="10,8"
+                        <Border Grid.Row="13" Padding="10,8"
                                 Background="{DynamicResource WindowBackground}"
                                 BorderBrush="{DynamicResource BorderColor}"
                                 BorderThickness="1" CornerRadius="6">
@@ -827,12 +1023,21 @@
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
-                        <Grid Grid.Row="0" Margin="0,0,0,6" HorizontalAlignment="Center">
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="Streaming Session History"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Margin="0,0,0,6"
+                                       Foreground="{DynamicResource TextForeground}"/>
+                            <Separator Background="{DynamicResource BorderColor}" Margin="0,0,0,8"/>
+                        </StackPanel>
+
+                        <Grid Grid.Row="1" Margin="0,0,0,6" HorizontalAlignment="Center">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="135"/>
                                 <ColumnDefinition Width="70"/>
@@ -844,9 +1049,9 @@
                             <TextBlock Grid.Column="2" Text="NIC Throttle"       FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
                             <TextBlock Grid.Column="3" Text="Original NIC Speed" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
                         </Grid>
-                        <Separator Grid.Row="0" VerticalAlignment="Bottom" Background="{DynamicResource BorderColor}" Margin="0,24,0,0"/>
+                        <Separator Grid.Row="1" VerticalAlignment="Bottom" Background="{DynamicResource BorderColor}" Margin="0,24,0,0"/>
 
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,10,0,12">
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Margin="0,10,0,12">
                             <ItemsControl x:Name="SessionHistoryList">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
@@ -867,12 +1072,12 @@
                             </ItemsControl>
                         </ScrollViewer>
 
-                        <TextBlock x:Name="NoHistoryLabel" Grid.Row="1"
+                        <TextBlock x:Name="NoHistoryLabel" Grid.Row="2"
                                    Text="No sessions recorded yet." FontSize="12"
                                    Foreground="{DynamicResource SecondaryTextForeground}" HorizontalAlignment="Center"
                                    VerticalAlignment="Center" Visibility="Collapsed"/>
 
-                        <StackPanel Grid.Row="2" Margin="0,0,0,4" HorizontalAlignment="Center">
+                        <StackPanel Grid.Row="3" Margin="0,0,0,4" HorizontalAlignment="Center">
                             <Button x:Name="ClearLogsButton"
                                     HorizontalAlignment="Center"
                                     Style="{StaticResource ModernButton}"
@@ -885,7 +1090,7 @@
                                        Foreground="{DynamicResource SecondaryTextForeground}"/>
                         </StackPanel>
 
-                        <Border Grid.Row="3" Padding="8,7"
+                        <Border Grid.Row="4" Padding="8,7"
                                 Background="{DynamicResource WindowBackground}"
                                 BorderBrush="{DynamicResource BorderColor}"
                                 BorderThickness="1" CornerRadius="6">
@@ -916,82 +1121,6 @@
                     </Grid>
                 </Border>
 
-                <!-- ═══════════════ ABOUT PANEL ═══════════════ -->
-                <Border x:Name="AboutPanel" Visibility="Collapsed"
-                        Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource BorderColor}"
-                        BorderThickness="1" CornerRadius="10" Padding="14,24,14,24"
-                        TextElement.Foreground="{DynamicResource TextForeground}">
-                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Image Source="pack://application:,,,/Resources/streamtweak.ico"
-                               Width="56" Height="56" HorizontalAlignment="Center"
-                               Margin="0,0,0,10" RenderOptions.BitmapScalingMode="HighQuality"/>
-                        <TextBlock Text="StreamTweak" FontSize="22" FontWeight="Bold"
-                                   HorizontalAlignment="Center" Margin="0,0,0,3"
-                                   Foreground="{DynamicResource TextForeground}"/>
-                        <TextBlock x:Name="AboutVersionText" FontSize="12"
-                                   HorizontalAlignment="Center" Margin="0,0,0,14"
-                                   Foreground="{DynamicResource SecondaryTextForeground}"/>
-                        <TextBlock Text="Developed by FoggyBytes" FontSize="12" FontWeight="SemiBold"
-                                   HorizontalAlignment="Center" Margin="0,0,0,2"
-                                   Foreground="{DynamicResource TextForeground}"/>
-                        <TextBlock x:Name="AboutBuildDateText" FontSize="12"
-                                   HorizontalAlignment="Center" Margin="0,0,0,0"
-                                   Foreground="{DynamicResource SecondaryTextForeground}"/>
-                        <StackPanel HorizontalAlignment="Center" Margin="0,8,0,20">
-                            <TextBlock x:Name="UpdateStatusText" FontSize="12"
-                                       HorizontalAlignment="Center"
-                                       Foreground="{DynamicResource SecondaryTextForeground}"
-                                       Margin="0,0,0,6" MouseLeftButtonUp="UpdateStatusText_Click"/>
-                            <Button x:Name="CheckUpdateButton" Content="Check for updates" Height="30"
-                                    Style="{StaticResource ModernButton}" FontSize="12" Width="140"
-                                    HorizontalAlignment="Center"
-                                    Click="CheckUpdateButton_Click"/>
-                        </StackPanel>
-                        <Separator Background="{DynamicResource BorderColor}" Margin="0,0,0,16" Width="260"/>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Cursor="Hand"
-                                    MouseLeftButtonUp="GplBadge_Click" Margin="0,0,0,14">
-                            <Border Background="#555555" CornerRadius="3,0,0,3" Padding="7,5">
-                                <TextBlock Text="License" FontSize="12" Foreground="White" FontFamily="Segoe UI"/>
-                            </Border>
-                            <Border Background="#4caf50" CornerRadius="0,3,3,0" Padding="7,5">
-                                <TextBlock Text="GPL v3" FontSize="12" Foreground="White"
-                                           FontFamily="Segoe UI" FontWeight="SemiBold"/>
-                            </Border>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <Button Width="152" Height="36" Margin="0,0,8,0" Click="GitHubButton_Click">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource ModernButtonAnimOnly}">
-                                        <Setter Property="Background" Value="#24292e"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                        <Setter Property="BorderThickness" Value="0"/>
-                                    </Style>
-                                </Button.Style>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="&#xE8F7;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="13" FontWeight="Normal"
-                                               Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="View on GitHub" VerticalAlignment="Center"
-                                               FontSize="12" FontWeight="SemiBold"/>
-                                </StackPanel>
-                            </Button>
-                            <Button Width="152" Height="36" Click="DonateButton_Click">
-                                <Button.Style>
-                                    <Style TargetType="Button" BasedOn="{StaticResource ModernButtonAnimOnly}">
-                                        <Setter Property="Background" Value="#0070BA"/>
-                                        <Setter Property="Foreground" Value="White"/>
-                                        <Setter Property="BorderThickness" Value="0"/>
-                                    </Style>
-                                </Button.Style>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="💳" FontSize="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                    <TextBlock Text="Donate via PayPal" VerticalAlignment="Center"
-                                               FontSize="12" FontWeight="SemiBold"/>
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
 
                 <!-- ═══════════════ APP PANEL ═══════════════ -->
                 <Border x:Name="AppPanel" Visibility="Collapsed"

@@ -148,15 +148,31 @@ public class PipeWorker : BackgroundService
     /// <summary>
     /// Security check: only allow writing to apps.json files inside known streaming server directories.
     /// </summary>
+    private static readonly string[] _allowedBasePaths =
+    {
+        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+        Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+    };
+
     private static bool IsAllowedAppsJsonPath(string path)
     {
         if (!path.EndsWith("apps.json", StringComparison.OrdinalIgnoreCase))
             return false;
 
         string normalized = Path.GetFullPath(path);
-        return _allowedAppNames.Any(app =>
+
+        bool hasAppName = _allowedAppNames.Any(app =>
             normalized.Contains(Path.DirectorySeparatorChar + app + Path.DirectorySeparatorChar,
                 StringComparison.OrdinalIgnoreCase));
+
+        bool hasValidBase = _allowedBasePaths.Any(b =>
+            !string.IsNullOrEmpty(b) &&
+            normalized.StartsWith(b, StringComparison.OrdinalIgnoreCase));
+
+        return hasAppName && hasValidBase;
     }
 
     // Primary method: use CIM (WMI) directly — no child process needed
@@ -166,8 +182,11 @@ public class PipeWorker : BackgroundService
         {
             using var session = CimSession.Create(null);
 
+            // Escape single quotes for WQL string literals (same rule as SQL: double them up).
+            string safeAdapterName = adapterName.Replace("'", "''");
+
             string query = $"SELECT * FROM MSFT_NetAdapterAdvancedPropertySettingData " +
-                           $"WHERE Name = '{adapterName}' AND RegistryKeyword = '*SpeedDuplex'";
+                           $"WHERE Name = '{safeAdapterName}' AND RegistryKeyword = '*SpeedDuplex'";
 
             var instances = session.QueryInstances(@"root\StandardCimv2", "WQL", query).ToList();
             if (instances.Count == 0) return false;
@@ -177,7 +196,7 @@ public class PipeWorker : BackgroundService
             session.ModifyInstance(instance);
 
             // Restart the adapter to apply the new speed
-            string adapterQuery = $"SELECT * FROM MSFT_NetAdapter WHERE Name = '{adapterName}'";
+            string adapterQuery = $"SELECT * FROM MSFT_NetAdapter WHERE Name = '{safeAdapterName}'";
             var adapters = session.QueryInstances(@"root\StandardCimv2", "WQL", adapterQuery).ToList();
             if (adapters.Count > 0)
                 session.InvokeMethod(adapters[0], "Restart", null);
@@ -197,10 +216,14 @@ public class PipeWorker : BackgroundService
     {
         try
         {
+            // Escape single quotes for PowerShell string literals.
+            string safeAdapterName   = adapterName.Replace("'", "''");
+            string safeRegistryValue = registryValue.Replace("'", "''");
+
             string script =
-                $"Set-NetAdapterAdvancedProperty -Name '{adapterName}' " +
-                $"-RegistryKeyword '*SpeedDuplex' -RegistryValue '{registryValue}' -NoRestart; " +
-                $"Restart-NetAdapter -Name '{adapterName}' -Confirm:$false";
+                $"Set-NetAdapterAdvancedProperty -Name '{safeAdapterName}' " +
+                $"-RegistryKeyword '*SpeedDuplex' -RegistryValue '{safeRegistryValue}' -NoRestart; " +
+                $"Restart-NetAdapter -Name '{safeAdapterName}' -Confirm:$false";
 
             var psi = new System.Diagnostics.ProcessStartInfo
             {

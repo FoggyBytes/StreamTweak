@@ -4,6 +4,29 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 5.1.1 - The "Code Quality Update" (25/03/2026)
+------------------------------------------
+
+🔧 IMPROVEMENTS:
+• Code quality: removed dead code (unused IsDolbyAtmosAvailableAsync method, orphan variables and comments)
+• Minor hardening: fixed several low-risk bugs (resource leaks, thread-safety issues, sync reentrancy guards, injection prevention in WQL/PowerShell commands, atomic file writes for cover art cache)
+
+Version 5.1.0 - The "Dashboard Update" (25/03/2026)
+------------------------------------------
+
+🎨 UI IMPROVEMENTS:
+• Home panel: new dashboard section with real-time status tiles for Auto Streaming Mode, NIC Speed, Spatial Audio, Spatial Format, HDR/Auto HDR, and Game Library Sync — all six settings visible at a glance without switching tabs
+• About section merged into Home: app icon, version, build date, update check, GitHub link and Donate button are now displayed directly in the Home panel; the separate About tab has been removed
+• Section headers: Network, Audio, and Logs panels now have a labelled header with a separator line, consistent with the Display, Apps, and Games panels
+• Audio panel: headphones icon restored below the Spatial Audio Control header; improved spacing distribution throughout the panel
+• Games sidebar icon: updated to a gamepad glyph for better visual clarity
+
+🔧 IMPROVEMENTS:
+• Tray icon now reflects streaming session state: the active icon appears when a session is detected rather than only when the NIC is throttled, so the icon stays active for all sessions regardless of whether Auto Streaming Mode is in use
+
+🐛 BUG FIXES:
+• Session duration missing on host shutdown: StreamTweak now intercepts the Windows shutdown and logoff signal (WM_ENDSESSION) and saves the current session's end time before the process exits — sessions are no longer recorded with a blank duration when the PC is shut down during a stream
+
 Version 5.0.1 - The "Reliability Update" (21/03/2026)
 ------------------------------------------
 

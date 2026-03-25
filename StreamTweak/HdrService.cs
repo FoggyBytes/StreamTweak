@@ -34,7 +34,7 @@ namespace StreamTweak
         {
             get
             {
-                if (string.IsNullOrEmpty(DevicePath) == false)
+                if (!string.IsNullOrEmpty(DevicePath))
                 {
                     var d = DevicePath.ToLowerInvariant();
                     if (d.Contains("sudovda") || d.Contains("idd_") || d.Contains("mttvdd")
@@ -286,14 +286,17 @@ namespace StreamTweak
                 ref pathCount, paths, ref modeCount, modes, IntPtr.Zero);
             if (err != 0) return result;
 
-            var seenTargets = new HashSet<uint>();
+            // Key: (AdapterId.LowPart, AdapterId.HighPart, TargetId) — two monitors on different
+            // adapters can share the same TargetId, so TargetId alone is not sufficient.
+            var seenTargets = new HashSet<(uint, int, uint)>();
 
             for (int i = 0; i < pathCount; i++)
             {
                 var path = paths[i];
 
                 // Skip duplicate target entries (can happen with cloned outputs)
-                if (!seenTargets.Add(path.TargetId)) continue;
+                var key = (path.TargetAdapterId.LowPart, path.TargetAdapterId.HighPart, path.TargetId);
+                if (!seenTargets.Add(key)) continue;
 
                 var m = new MonitorInfo
                 {
