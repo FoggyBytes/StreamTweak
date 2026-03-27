@@ -4,6 +4,17 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 5.2.1 - The "Chart Update" (28/03/2026)
+------------------------------------------
+
+🔧 IMPROVEMENTS:
+• Session telemetry — charts revised: the four sparklines now show RTT (ms), Frame Drops, Bitrate (Mbps), and Decode Latency (ms). FPS has been replaced by Decode Latency because FPS drops to near-zero on static screens and loading screens regardless of actual streaming quality, making it an unreliable indicator. The four retained metrics jointly cover the full quality picture: RTT measures network latency; Frame Drops quantify packet loss at the transport layer; Bitrate reflects encoder output and available bandwidth headroom; Decode Latency captures client-side hardware load.
+• Jitter: RTT variance is now collected per sample from StreamLight and stored per session as jitter_avg and jitter_max; displayed in the CLIENT stats panel of the session detail overlay alongside RTT
+• SparklineControl: bucket-average downsampling applied when data points exceed the chart's pixel width, keeping long sessions readable without distortion; chart label rendered above the polyline with a semi-transparent background so it remains legible at all times
+• Glossary tab: new dedicated tab in Settings with definitions of all technical terms used across the StreamTweak and StreamLight UIs, grouped by category in a terminal-style panel
+
+⚠️ REQUIRES: StreamLight 2.1.1 or later for jitter data to appear in session stats.
+
 Version 5.2.0 - The "Session Quality Update" (27/03/2026)
 ------------------------------------------
 

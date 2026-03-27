@@ -36,6 +36,9 @@ namespace StreamTweak
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<float>? BitrateTimeSeries { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? DecodeTimeSeries { get; set; }
+
         // ── Display properties ────────────────────────────────────────────────
 
         [JsonIgnore]
@@ -61,7 +64,7 @@ namespace StreamTweak
         {
             get
             {
-                int secs = FpsTimeSeries?.Count ?? RttTimeSeries?.Count ?? 0;
+                int secs = RttTimeSeries?.Count ?? DecodeTimeSeries?.Count ?? 0;
                 if (secs == 0) return DurationDisplay;
                 return secs >= 60
                     ? $"{secs / 60}m {secs % 60}s"
@@ -142,10 +145,10 @@ namespace StreamTweak
             string sessionId,
             SessionQualityStats stats,
             QualityGrade grade,
-            List<float> fpsSeries,
             List<float> rttSeries,
             List<float> dropsSeries,
-            List<float> bitrateSeries)
+            List<float> bitrateSeries,
+            List<float> decodeSeries)
         {
             try
             {
@@ -155,10 +158,10 @@ namespace StreamTweak
 
                 entry.QualityStats      = stats;
                 entry.Grade             = grade;
-                entry.FpsTimeSeries     = fpsSeries.Count     > 0 ? fpsSeries     : null;
                 entry.RttTimeSeries     = rttSeries.Count     > 0 ? rttSeries     : null;
                 entry.DropsTimeSeries   = dropsSeries.Count   > 0 ? dropsSeries   : null;
                 entry.BitrateTimeSeries = bitrateSeries.Count > 0 ? bitrateSeries : null;
+                entry.DecodeTimeSeries  = decodeSeries.Count  > 0 ? decodeSeries  : null;
                 Save(sessions);
             }
             catch { }

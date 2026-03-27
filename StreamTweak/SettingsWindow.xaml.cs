@@ -153,6 +153,7 @@ namespace StreamTweak
             AppPanel.Visibility      = Visibility.Collapsed;
             GameLibPanel.Visibility  = Visibility.Collapsed;
             LogsPanel.Visibility     = Visibility.Collapsed;
+            GlossaryPanel.Visibility = Visibility.Collapsed;
             HomeTabButton.Style      = (Style)this.Resources["TabButtonActive"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
             DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
@@ -160,6 +161,7 @@ namespace StreamTweak
             AppTabButton.Style       = (Style)this.Resources["TabButton"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
             LogsTabButton.Style      = (Style)this.Resources["TabButton"];
+            GlossaryTabButton.Style  = (Style)this.Resources["TabButton"];
             PopulateAboutInfo();
             _ = CheckForUpdatesAsync();
         }
@@ -173,6 +175,7 @@ namespace StreamTweak
             AppPanel.Visibility      = Visibility.Collapsed;
             GameLibPanel.Visibility  = Visibility.Collapsed;
             LogsPanel.Visibility     = Visibility.Collapsed;
+            GlossaryPanel.Visibility = Visibility.Collapsed;
             HomeTabButton.Style      = (Style)this.Resources["TabButton"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButtonActive"];
             DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
@@ -180,6 +183,7 @@ namespace StreamTweak
             AppTabButton.Style       = (Style)this.Resources["TabButton"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
             LogsTabButton.Style      = (Style)this.Resources["TabButton"];
+            GlossaryTabButton.Style  = (Style)this.Resources["TabButton"];
         }
 
         private void AudioTabButton_Click(object sender, RoutedEventArgs e)
@@ -191,6 +195,7 @@ namespace StreamTweak
             AppPanel.Visibility      = Visibility.Collapsed;
             GameLibPanel.Visibility  = Visibility.Collapsed;
             LogsPanel.Visibility     = Visibility.Collapsed;
+            GlossaryPanel.Visibility = Visibility.Collapsed;
             HomeTabButton.Style      = (Style)this.Resources["TabButton"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
             DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
@@ -198,6 +203,7 @@ namespace StreamTweak
             AppTabButton.Style       = (Style)this.Resources["TabButton"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
             LogsTabButton.Style      = (Style)this.Resources["TabButton"];
+            GlossaryTabButton.Style  = (Style)this.Resources["TabButton"];
             if (!string.IsNullOrEmpty(_audioOutputDevice))
                 RefreshAudioCapabilitiesAsync(_audioOutputDevice);
         }
@@ -211,6 +217,7 @@ namespace StreamTweak
             AppPanel.Visibility      = Visibility.Collapsed;
             GameLibPanel.Visibility  = Visibility.Collapsed;
             LogsPanel.Visibility     = Visibility.Visible;
+            GlossaryPanel.Visibility = Visibility.Collapsed;
             HomeTabButton.Style      = (Style)this.Resources["TabButton"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
             DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
@@ -218,7 +225,28 @@ namespace StreamTweak
             AppTabButton.Style       = (Style)this.Resources["TabButton"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
             LogsTabButton.Style      = (Style)this.Resources["TabButtonActive"];
+            GlossaryTabButton.Style  = (Style)this.Resources["TabButton"];
             RefreshStreamingAppInfo();
+        }
+
+        private void GlossaryTabButton_Click(object sender, RoutedEventArgs e)
+        {
+            HomePanel.Visibility     = Visibility.Collapsed;
+            NetworkPanel.Visibility  = Visibility.Collapsed;
+            DisplayPanel.Visibility  = Visibility.Collapsed;
+            AudioPanel.Visibility    = Visibility.Collapsed;
+            AppPanel.Visibility      = Visibility.Collapsed;
+            GameLibPanel.Visibility  = Visibility.Collapsed;
+            LogsPanel.Visibility     = Visibility.Collapsed;
+            GlossaryPanel.Visibility = Visibility.Visible;
+            HomeTabButton.Style      = (Style)this.Resources["TabButton"];
+            NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
+            DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
+            AudioTabButton.Style     = (Style)this.Resources["TabButton"];
+            AppTabButton.Style       = (Style)this.Resources["TabButton"];
+            GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
+            LogsTabButton.Style      = (Style)this.Resources["TabButton"];
+            GlossaryTabButton.Style  = (Style)this.Resources["TabButtonActive"];
         }
 
 
@@ -392,6 +420,44 @@ private void RefreshStreamingAppInfo()
             var fadeOut = new DoubleAnimation(1, 0, dur) { EasingFunction = ease };
             fadeOut.Completed += (_, _) => SessionDetailOverlay.Visibility = Visibility.Collapsed;
             SessionDetailOverlay.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+        }
+
+        private void Chart_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is not SparklineControl sc) return;
+            if (SessionDetailOverlay.DataContext is not SessionEntry entry) return;
+
+            string? tag = sc.Tag?.ToString();
+
+            IReadOnlyList<float>? data = tag switch
+            {
+                "Rtt"     => entry.RttTimeSeries,
+                "Drops"   => entry.DropsTimeSeries,
+                "Bitrate" => entry.BitrateTimeSeries,
+                "Decode"  => entry.DecodeTimeSeries,
+                _         => null
+            };
+            if (data == null || data.Count < 2) return;
+
+            Brush color = tag switch
+            {
+                "Rtt"     => new SolidColorBrush(Color.FromRgb(0xFF, 0x98, 0x00)),
+                "Drops"   => new SolidColorBrush(Color.FromRgb(0xEF, 0x53, 0x50)),
+                "Bitrate" => new SolidColorBrush(Color.FromRgb(0x29, 0xB6, 0xF6)),
+                "Decode"  => new SolidColorBrush(Color.FromRgb(0xA7, 0x8B, 0xFA)),
+                _         => Brushes.White
+            };
+            string label = tag switch
+            {
+                "Rtt"     => "RTT ms",
+                "Drops"   => "Frame Drops",
+                "Bitrate" => "Bitrate Mbps",
+                "Decode"  => "Decode ms",
+                _         => tag ?? string.Empty
+            };
+
+            new ChartDetailWindow(data, label, color, entry) { Owner = this }.Show();
+            e.Handled = true;
         }
 
         private void PopulateAboutInfo()
@@ -1055,6 +1121,7 @@ private void RefreshStreamingAppInfo()
             AppPanel.Visibility      = Visibility.Collapsed;
             GameLibPanel.Visibility  = Visibility.Collapsed;
             LogsPanel.Visibility     = Visibility.Collapsed;
+            GlossaryPanel.Visibility = Visibility.Collapsed;
 
             HomeTabButton.Style      = (Style)this.Resources["TabButton"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
@@ -1063,6 +1130,7 @@ private void RefreshStreamingAppInfo()
             AppTabButton.Style       = (Style)this.Resources["TabButton"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
             LogsTabButton.Style      = (Style)this.Resources["TabButton"];
+            GlossaryTabButton.Style  = (Style)this.Resources["TabButton"];
 
             RefreshDisplayPanelAsync();
         }
@@ -1343,6 +1411,7 @@ private void RefreshStreamingAppInfo()
             AppPanel.Visibility      = Visibility.Visible;
             GameLibPanel.Visibility  = Visibility.Collapsed;
             LogsPanel.Visibility     = Visibility.Collapsed;
+            GlossaryPanel.Visibility = Visibility.Collapsed;
             HomeTabButton.Style      = (Style)this.Resources["TabButton"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
             DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
@@ -1350,6 +1419,7 @@ private void RefreshStreamingAppInfo()
             AppTabButton.Style       = (Style)this.Resources["TabButtonActive"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButton"];
             LogsTabButton.Style      = (Style)this.Resources["TabButton"];
+            GlossaryTabButton.Style  = (Style)this.Resources["TabButton"];
         }
 
         private void AddAppButton_Click(object sender, RoutedEventArgs e)
@@ -1500,6 +1570,7 @@ private void RefreshStreamingAppInfo()
             AppPanel.Visibility      = Visibility.Collapsed;
             GameLibPanel.Visibility  = Visibility.Visible;
             LogsPanel.Visibility     = Visibility.Collapsed;
+            GlossaryPanel.Visibility = Visibility.Collapsed;
             HomeTabButton.Style      = (Style)this.Resources["TabButton"];
             NetworkTabButton.Style   = (Style)this.Resources["TabButton"];
             DisplayTabButton.Style   = (Style)this.Resources["TabButton"];
@@ -1507,6 +1578,7 @@ private void RefreshStreamingAppInfo()
             AppTabButton.Style       = (Style)this.Resources["TabButton"];
             GameLibTabButton.Style   = (Style)this.Resources["TabButtonActive"];
             LogsTabButton.Style      = (Style)this.Resources["TabButton"];
+            GlossaryTabButton.Style  = (Style)this.Resources["TabButton"];
             RefreshGameLibPanel();
         }
 

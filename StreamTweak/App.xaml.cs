@@ -798,11 +798,11 @@ namespace StreamTweak
                     string? sessionId = SessionLogger.ActiveSessionId;
                     if (sessionId != null)
                     {
-                        var (stats, fpsSeries, rttSeries, dropsSeries, bitrateSeries) = _telemetryAccumulator.Finalize();
+                        var (stats, rttSeries, dropsSeries, bitrateSeries, decodeSeries) = _telemetryAccumulator.Finalize();
                         if (stats.SampleCount >= 2)
                         {
                             var grade = QualityGradeCalculator.Evaluate(stats, _telemetryAccumulator.TargetFps);
-                            SessionLogger.UpdateSessionTelemetry(sessionId, stats, grade, fpsSeries, rttSeries, dropsSeries, bitrateSeries);
+                            SessionLogger.UpdateSessionTelemetry(sessionId, stats, grade, rttSeries, dropsSeries, bitrateSeries, decodeSeries);
                         }
                         _telemetryAccumulator.Reset();
                     }

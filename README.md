@@ -66,14 +66,20 @@ StreamLight and StreamTweak are designed to work together, giving you full contr
 
 ### 📚 System Info & Diagnostics
 - **Logs Tab:** Full session history — every streaming session is recorded regardless of whether NIC throttle was applied, with NIC Throttle (Yes/No), Original NIC Speed, and timestamped date including year.
-- **Session quality report:** click the chart button on any session row to open a full-panel telemetry overlay with CLIENT stats (FPS, Drops, RTT, Decode, Bitrate), HOST stats (GPU, Encoder, GPU Temp, CPU, Net TX), four time-series sparkline charts with axes and scale labels, and a quality grade badge (High / Medium / Low).
+- **Session quality report:** click the chart button on any session row to open a full-panel telemetry overlay with CLIENT stats (Jitter, Drops, RTT, Decode, Bitrate), HOST stats (GPU, Encoder, GPU Temp, CPU, Net TX), four time-series sparkline charts (RTT, Frame Drops, Bitrate, Decode Latency) with axes and scale labels, and a quality grade badge (Excellent / Good / Poor).
 - **Home Dashboard:** Version info, GitHub link, license badge, donation button, and a real-time status overview for all six managed settings — all in the Home panel.
 
-## ✨ What's New in Version 5.2.0 — The "Session Quality Update"
+## ✨ What's New in Version 5.2.1 — The "Chart Update"
 
-* **Session quality report —** click the chart button on any session row in the Logs tab to open a full-panel telemetry overlay; CLIENT stats (FPS, Drops, RTT, Decode, Bitrate) and HOST stats (GPU, Encoder, GPU Temp, CPU, Net TX) appear side by side, followed by four time-series sparkline charts and a quality grade badge
-* **Four sparkline charts —** FPS, RTT (ms), Drops, and Bitrate (Mbps) rendered with Cartesian axes, Y-scale labels (max/mid/min), and X-axis time labels; the section is clearly labeled CLIENT (StreamLight) to distinguish client-side data from host metrics
-* **Quality grade system —** sessions are graded Excellent, Accettable, or Poor based on drop rate, RTT, and GPU encoder utilization; FPS is excluded because static screens and loading screens produce artificially low frame counts that do not reflect actual streaming quality
+* **Session telemetry charts revised —** the four sparklines now show RTT (ms), Frame Drops, Bitrate (Mbps), and Decode Latency (ms); FPS has been replaced by Decode Latency because FPS collapses to near-zero on static screens regardless of streaming quality, making it an unreliable indicator; the four retained metrics jointly cover the full quality picture: RTT (network latency), Frame Drops (packet loss), Bitrate (encoder output and bandwidth headroom), Decode Latency (client hardware load)
+* **Jitter in session stats —** RTT variance is now collected per sample from StreamLight 2.1.1+ and stored as jitter_avg / jitter_max per session; displayed in the CLIENT stats panel alongside RTT
+* **SparklineControl improvements —** bucket-average downsampling for long sessions; chart label rendered above the polyline with a semi-transparent background for readability at all times
+* **Glossary tab —** new dedicated tab in Settings with definitions of all technical terms used across StreamTweak and StreamLight, grouped by category in a terminal-style panel
+
+### Previously in 5.2.0 — The "Session Quality Update"
+
+* **Session quality report —** click the chart button on any session row in the Logs tab to open a full-panel telemetry overlay; CLIENT stats and HOST stats appear side by side, followed by four time-series sparkline charts and a quality grade badge
+* **Quality grade system —** sessions are graded Excellent, Good, or Poor based on drop rate, RTT, and GPU encoder utilization
 * **Animated overlay —** the telemetry panel opens and closes with a smooth CubicEase animation (200 ms / 150 ms) and covers the full Logs panel with an opaque background
 
 ### Previously in 5.1.1 — The "Code Quality Update"

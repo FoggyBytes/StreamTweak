@@ -9,9 +9,9 @@
 		<UseWPF>true</UseWPF>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<ApplicationIcon>Resources\streamtweak.ico</ApplicationIcon>
-		<Version>5.2.0</Version>
-		<AssemblyVersion>5.2.0.0</AssemblyVersion>
-		<FileVersion>5.2.0.0</FileVersion>
+		<Version>5.2.1</Version>
+		<AssemblyVersion>5.2.1.0</AssemblyVersion>
+		<FileVersion>5.2.1.0</FileVersion>
 	</PropertyGroup>
 
 	<ItemGroup>

@@ -9,6 +9,7 @@ namespace StreamTweak
     /// <summary>
     /// Sparkline with Cartesian axes, Y-scale labels, and X-time labels.
     /// Renders entirely via DrawingContext — no third-party library required.
+    /// Applies bucket-average downsampling when data points exceed chart pixel width.
     /// </summary>
     public class SparklineControl : FrameworkElement
     {
@@ -78,9 +79,9 @@ namespace StreamTweak
 
         // ── Layout constants ──────────────────────────────────────────────────
 
-        private const double YLabelW  = 28;  // left margin for Y-axis labels
-        private const double XLabelH  = 15;  // bottom margin for X-axis labels
-        private const double PadTop   = 4;   // top padding inside chart area
+        private const double YLabelW = 28;  // left margin for Y-axis labels
+        private const double XLabelH = 15;  // bottom margin for X-axis labels
+        private const double PadTop  = 4;   // top padding inside chart area
 
         // ── Rendering ─────────────────────────────────────────────────────────
 
@@ -98,9 +99,9 @@ namespace StreamTweak
             var    gridPen  = new Pen(new SolidColorBrush(Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF)), 1);
 
             // ── Chart area ───────────────────────────────────────────────────
-            double cx = YLabelW;         // left edge of chart
-            double cy = PadTop;          // top edge of chart
-            double cw = w - YLabelW;     // chart width
+            double cx = YLabelW;              // left edge of chart
+            double cy = PadTop;              // top edge of chart
+            double cw = w - YLabelW;         // chart width
             double ch = h - XLabelH - PadTop; // chart height
             if (cw <= 0 || ch <= 0) return;
 
@@ -109,33 +110,36 @@ namespace StreamTweak
                 null, new Rect(cx, cy, cw, ch));
 
             // ── Axes ────────────────────────────────────────────────────────
-            dc.DrawLine(axPen, new Point(cx, cy),      new Point(cx, cy + ch));  // Y axis
-            dc.DrawLine(axPen, new Point(cx, cy + ch), new Point(cx + cw, cy + ch)); // X axis
+            dc.DrawLine(axPen, new Point(cx, cy),      new Point(cx, cy + ch));
+            dc.DrawLine(axPen, new Point(cx, cy + ch), new Point(cx + cw, cy + ch));
+
+            // ── Raw point count for time labels ──────────────────────────────
+            var pts = Points;
+            int rawCount = pts?.Count ?? 0;
 
             // ── X-axis time labels ───────────────────────────────────────────
-            var pts = Points;
-            if (pts != null && pts.Count > 1)
+            if (pts != null && rawCount > 1)
             {
                 var t0Ft = MakeFt("0", typeface, 8.5, lblBrush, dpi);
                 dc.DrawText(t0Ft, new Point(cx, cy + ch + 2));
 
-                int secs = pts.Count;
-                string durStr = secs >= 60
-                    ? $"{secs / 60}m{secs % 60:00}s"
-                    : $"{secs}s";
+                int secs = rawCount;
+                string durStr = secs >= 3600
+                    ? $"{secs / 3600}h{(secs % 3600) / 60}m{secs % 60:00}s"
+                    : secs >= 60
+                        ? $"{secs / 60}m{secs % 60:00}s"
+                        : $"{secs}s";
                 var durFt = MakeFt(durStr, typeface, 8.5, lblBrush, dpi);
                 dc.DrawText(durFt, new Point(cx + cw - durFt.Width, cy + ch + 2));
             }
 
-            // ── Chart label (FPS / RTT ms) ───────────────────────────────────
-            if (!string.IsNullOrEmpty(Label))
-            {
-                var lFt = MakeFt(Label, typeface, 10,
-                    new SolidColorBrush(Color.FromArgb(0xBB, 0xFF, 0xFF, 0xFF)), dpi);
-                dc.DrawText(lFt, new Point(cx + 5, cy + 3));
-            }
+            if (pts == null || rawCount < 2) return;
 
-            if (pts == null || pts.Count < 2) return;
+            // ── Downsampling: bucket average when points exceed pixel width ───
+            IReadOnlyList<float> renderPts = pts;
+            int targetPts = Math.Max(2, (int)cw);
+            if (rawCount > targetPts)
+                renderPts = BucketAverage(pts, targetPts);
 
             // ── Y range ──────────────────────────────────────────────────────
             float yMin = MinValue, yMax = MaxValue;
@@ -144,7 +148,7 @@ namespace StreamTweak
             if (autoScale)
             {
                 yMin = float.MaxValue; yMax = float.MinValue;
-                foreach (float v in pts) { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
+                foreach (float v in renderPts) { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
                 displayMin = yMin; displayMax = yMax;
                 float margin = (yMax - yMin) * 0.1f;
                 if (margin < 1f) margin = 1f;
@@ -171,7 +175,7 @@ namespace StreamTweak
             // ── Midpoint gridline ─────────────────────────────────────────────
             dc.DrawLine(gridPen, new Point(cx + 1, cy + ch / 2), new Point(cx + cw, cy + ch / 2));
 
-            // ── Midpoint Y label (right of axis) ─────────────────────────────
+            // ── Midpoint Y label ──────────────────────────────────────────────
             float midVal = (displayMin + displayMax) / 2f;
             if (Math.Abs(displayMax - displayMin) > 1f)
             {
@@ -182,17 +186,50 @@ namespace StreamTweak
 
             // ── Polyline ─────────────────────────────────────────────────────
             double yNorm(float v) => cy + ch - (v - yMin) / range * ch;
-            double xStep = cw / (pts.Count - 1);
+            double xStep = cw / (renderPts.Count - 1);
 
             var geometry = new StreamGeometry();
             using (var ctx = geometry.Open())
             {
-                ctx.BeginFigure(new Point(cx, yNorm(pts[0])), false, false);
-                for (int i = 1; i < pts.Count; i++)
-                    ctx.LineTo(new Point(cx + i * xStep, yNorm(pts[i])), true, false);
+                ctx.BeginFigure(new Point(cx, yNorm(renderPts[0])), false, false);
+                for (int i = 1; i < renderPts.Count; i++)
+                    ctx.LineTo(new Point(cx + i * xStep, yNorm(renderPts[i])), true, false);
             }
             geometry.Freeze();
             dc.DrawGeometry(null, new Pen(StrokeBrush, 1.5), geometry);
+
+            // ── Chart label — drawn last so it appears above the polyline ─────
+            if (!string.IsNullOrEmpty(Label))
+            {
+                var lFt = MakeFt(Label, typeface, 10,
+                    new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)), dpi);
+                double lx = cx + 6;
+                double ly = cy + 4;
+                // Semi-transparent background so label is always readable over the line
+                dc.DrawRectangle(
+                    new SolidColorBrush(Color.FromArgb(0xB0, 0x18, 0x18, 0x18)),
+                    null,
+                    new Rect(lx - 3, ly - 1, lFt.Width + 6, lFt.Height + 2));
+                dc.DrawText(lFt, new Point(lx, ly));
+            }
+        }
+
+        // ── Bucket-average downsampling ───────────────────────────────────────
+
+        private static float[] BucketAverage(IReadOnlyList<float> src, int n)
+        {
+            var    result     = new float[n];
+            double bucketSize = (double)src.Count / n;
+            for (int i = 0; i < n; i++)
+            {
+                int start = (int)(i * bucketSize);
+                int end   = Math.Min((int)Math.Ceiling((i + 1) * bucketSize), src.Count);
+                if (end <= start) end = start + 1;
+                float sum = 0f;
+                for (int j = start; j < end; j++) sum += src[j];
+                result[i] = sum / (end - start);
+            }
+            return result;
         }
 
         private static FormattedText MakeFt(string text, Typeface typeface, double size,

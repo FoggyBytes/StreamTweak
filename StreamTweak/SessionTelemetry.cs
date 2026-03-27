@@ -24,6 +24,8 @@ namespace StreamTweak
         [JsonPropertyName("drops")]        public int   Drops          { get; set; }
         [JsonPropertyName("rtt_avg")]      public float RttAvg         { get; set; }
         [JsonPropertyName("rtt_max")]      public float RttMax         { get; set; }
+        [JsonPropertyName("jitter_avg")]   public float JitterAvg      { get; set; }
+        [JsonPropertyName("jitter_max")]   public float JitterMax      { get; set; }
         [JsonPropertyName("decode_ms")]    public float DecodeMs       { get; set; }
         [JsonPropertyName("bitrate_mbps")] public float BitrateAvgMbps { get; set; }
     }
@@ -45,6 +47,8 @@ namespace StreamTweak
         public float DropRatePct     { get; set; }
         public float RttAvgMs        { get; set; }
         public float RttMaxMs        { get; set; }
+        public float JitterAvgMs     { get; set; }
+        public float JitterMaxMs     { get; set; }
         public float DecodeAvgMs     { get; set; }
         public float BitrateAvgMbps  { get; set; }
 
@@ -74,6 +78,8 @@ namespace StreamTweak
         private readonly List<int>   _dropSamples     = new();
         private readonly List<float> _rttAvgSamples   = new();
         private readonly List<float> _rttMaxSamples   = new();
+        private readonly List<float> _jitterSamples   = new();
+        private readonly List<float> _jitterMaxSamples = new();
         private readonly List<float> _decodeSamples   = new();
         private readonly List<float> _bitrateSamples  = new();
 
@@ -89,6 +95,7 @@ namespace StreamTweak
         private readonly List<float> _rttTimeSeries     = new();
         private readonly List<float> _dropsTimeSeries   = new();
         private readonly List<float> _bitrateTimeSeries = new();
+        private readonly List<float> _decodeTimeSeries  = new();
 
         private int  _targetFps;
         private long _totalFrames;
@@ -109,6 +116,8 @@ namespace StreamTweak
                     _dropSamples.Add(s.Drops);
                     _rttAvgSamples.Add(s.RttAvg);
                     _rttMaxSamples.Add(s.RttMax);
+                    _jitterSamples.Add(s.JitterAvg);
+                    _jitterMaxSamples.Add(s.JitterMax);
                     _decodeSamples.Add(s.DecodeMs);
                     _bitrateSamples.Add(s.BitrateAvgMbps);
 
@@ -119,6 +128,7 @@ namespace StreamTweak
                     _rttTimeSeries.Add(s.RttAvg);
                     _dropsTimeSeries.Add(s.Drops);
                     _bitrateTimeSeries.Add(s.BitrateAvgMbps);
+                    _decodeTimeSeries.Add(s.DecodeMs);
                 }
 
                 // Host: un campione per batch (snapshot al momento della ricezione)
@@ -130,7 +140,7 @@ namespace StreamTweak
             }
         }
 
-        public (SessionQualityStats Stats, List<float> FpsSeries, List<float> RttSeries, List<float> DropsSeries, List<float> BitrateSeries) Finalize()
+        public (SessionQualityStats Stats, List<float> RttSeries, List<float> DropsSeries, List<float> BitrateSeries, List<float> DecodeSeries) Finalize()
         {
             lock (_lock)
             {
@@ -139,15 +149,17 @@ namespace StreamTweak
                 var stats = new SessionQualityStats
                 {
                     SampleCount     = count,
-                    FpsAvg          = count > 0 ? _fpsAvgSamples.Average()         : 0f,
-                    FpsMin          = count > 0 ? _fpsMinSamples.Min()              : 0,
+                    FpsAvg          = count > 0 ? _fpsAvgSamples.Average()          : 0f,
+                    FpsMin          = count > 0 ? _fpsMinSamples.Min()               : 0,
                     DropRatePct     = _totalFrames > 0
                                          ? (float)_totalDrops / _totalFrames * 100f
                                          : 0f,
-                    RttAvgMs        = count > 0 ? _rttAvgSamples.Average()         : 0f,
-                    RttMaxMs        = count > 0 ? _rttMaxSamples.Max()              : 0f,
-                    DecodeAvgMs     = count > 0 ? _decodeSamples.Average()          : 0f,
-                    BitrateAvgMbps  = count > 0 ? _bitrateSamples.Average()         : 0f,
+                    RttAvgMs        = count > 0 ? _rttAvgSamples.Average()          : 0f,
+                    RttMaxMs        = count > 0 ? _rttMaxSamples.Max()               : 0f,
+                    JitterAvgMs     = count > 0 ? _jitterSamples.Average()           : 0f,
+                    JitterMaxMs     = count > 0 ? _jitterMaxSamples.Max()            : 0f,
+                    DecodeAvgMs     = count > 0 ? _decodeSamples.Average()           : 0f,
+                    BitrateAvgMbps  = count > 0 ? _bitrateSamples.Average()          : 0f,
 
                     HostGpuAvg      = _gpuSamples.Count     > 0 ? (int)_gpuSamples.Average()     : -1,
                     HostGpuPeak     = _gpuSamples.Count     > 0 ? _gpuSamples.Max()               : -1,
@@ -161,10 +173,10 @@ namespace StreamTweak
                 };
 
                 return (stats,
-                    new List<float>(_fpsTimeSeries),
                     new List<float>(_rttTimeSeries),
                     new List<float>(_dropsTimeSeries),
-                    new List<float>(_bitrateTimeSeries));
+                    new List<float>(_bitrateTimeSeries),
+                    new List<float>(_decodeTimeSeries));
             }
         }
 
@@ -177,6 +189,8 @@ namespace StreamTweak
                 _dropSamples.Clear();
                 _rttAvgSamples.Clear();
                 _rttMaxSamples.Clear();
+                _jitterSamples.Clear();
+                _jitterMaxSamples.Clear();
                 _decodeSamples.Clear();
                 _bitrateSamples.Clear();
                 _gpuSamples.Clear();
@@ -188,6 +202,7 @@ namespace StreamTweak
                 _rttTimeSeries.Clear();
                 _dropsTimeSeries.Clear();
                 _bitrateTimeSeries.Clear();
+                _decodeTimeSeries.Clear();
                 _targetFps   = 0;
                 _totalFrames = 0;
                 _totalDrops  = 0;

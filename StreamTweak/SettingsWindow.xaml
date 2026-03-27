@@ -506,6 +506,18 @@
                                 <TextBlock Text="Logs" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
+
+                        <Button x:Name="GlossaryTabButton"
+                                Style="{StaticResource TabButton}"
+                                HorizontalAlignment="Stretch"
+                                Click="GlossaryTabButton_Click">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="&#xE7C1;" FontFamily="Segoe MDL2 Assets"
+                                           FontSize="15" FontWeight="Normal"
+                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Glossary" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Button>
                     </StackPanel>
 
                 </Grid>
@@ -1250,7 +1262,7 @@
                                                 <TextBlock Text="CLIENT  (StreamLight)" FontSize="12" FontWeight="SemiBold"
                                                            HorizontalAlignment="Center"
                                                            Foreground="{DynamicResource TextForeground}" Margin="0,0,0,6"/>
-                                                <local:StatRow Label="FPS"     Val="{Binding QualityStats.FpsAvg,         StringFormat='avg {0:F1}'}"    Val2="{Binding QualityStats.FpsMin,        StringFormat='min {0}'}"/>
+                                                <local:StatRow Label="Jitter"  Val="{Binding QualityStats.JitterAvgMs,    StringFormat='avg {0:F1} ms'}" Val2="{Binding QualityStats.JitterMaxMs,    StringFormat='max {0:F0} ms'}"/>
                                                 <local:StatRow Label="Drops"   Val="{Binding QualityStats.DropRatePct,    StringFormat='{}{0:F2}%'}"/>
                                                 <local:StatRow Label="RTT"     Val="{Binding QualityStats.RttAvgMs,       StringFormat='avg {0:F1} ms'}" Val2="{Binding QualityStats.RttMaxMs,      StringFormat='max {0:F0} ms'}"/>
                                                 <local:StatRow Label="Decode"  Val="{Binding QualityStats.DecodeAvgMs,    StringFormat='avg {0:F1} ms'}"/>
@@ -1301,21 +1313,29 @@
                                                     <ColumnDefinition Width="*"/>
                                                 </Grid.ColumnDefinitions>
                                                 <local:SparklineControl Grid.Row="0" Grid.Column="0"
-                                                    Points="{Binding FpsTimeSeries}"
-                                                    Label="FPS"
-                                                    StrokeBrush="#FF4CAF50"/>
-                                                <local:SparklineControl Grid.Row="0" Grid.Column="2"
                                                     Points="{Binding RttTimeSeries}"
                                                     Label="RTT ms"
-                                                    StrokeBrush="#FFFF9800"/>
-                                                <local:SparklineControl Grid.Row="2" Grid.Column="0"
+                                                    StrokeBrush="#FFFF9800"
+                                                    Tag="Rtt" Cursor="Hand"
+                                                    MouseLeftButtonUp="Chart_Click"/>
+                                                <local:SparklineControl Grid.Row="0" Grid.Column="2"
                                                     Points="{Binding DropsTimeSeries}"
-                                                    Label="Drops"
-                                                    StrokeBrush="#FFEF5350"/>
-                                                <local:SparklineControl Grid.Row="2" Grid.Column="2"
+                                                    Label="Frame Drops"
+                                                    StrokeBrush="#FFEF5350"
+                                                    Tag="Drops" Cursor="Hand"
+                                                    MouseLeftButtonUp="Chart_Click"/>
+                                                <local:SparklineControl Grid.Row="2" Grid.Column="0"
                                                     Points="{Binding BitrateTimeSeries}"
                                                     Label="Bitrate Mbps"
-                                                    StrokeBrush="#FF29B6F6"/>
+                                                    StrokeBrush="#FF29B6F6"
+                                                    Tag="Bitrate" Cursor="Hand"
+                                                    MouseLeftButtonUp="Chart_Click"/>
+                                                <local:SparklineControl Grid.Row="2" Grid.Column="2"
+                                                    Points="{Binding DecodeTimeSeries}"
+                                                    Label="Decode ms"
+                                                    StrokeBrush="#FFA78BFA"
+                                                    Tag="Decode" Cursor="Hand"
+                                                    MouseLeftButtonUp="Chart_Click"/>
                                             </Grid>
                                         </Grid>
                                     </Border>
@@ -1645,6 +1665,185 @@
                         </DataGrid>
 
 
+                    </Grid>
+                </Border>
+
+                <!-- ═══════════════ GLOSSARY PANEL ═══════════════ -->
+                <Border x:Name="GlossaryPanel" Visibility="Collapsed"
+                        Background="{DynamicResource PanelBackground}" BorderBrush="{DynamicResource BorderColor}"
+                        BorderThickness="1" CornerRadius="10" Padding="14,12,14,14"
+                        TextElement.Foreground="{DynamicResource TextForeground}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0">
+                            <TextBlock Text="Glossary"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center" Margin="0,0,0,6"
+                                       Foreground="{DynamicResource TextForeground}"/>
+                            <Separator Background="{DynamicResource BorderColor}" Margin="0,0,0,8"/>
+                        </StackPanel>
+
+                        <Border Grid.Row="1"
+                                Background="#0E0E0E"
+                                BorderBrush="{DynamicResource AccentColor}"
+                                BorderThickness="1"
+                                CornerRadius="8">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="18,14,22,14"
+                                            TextElement.FontFamily="Cascadia Code, Cascadia Mono, Consolas, Courier New">
+
+                                    <!-- ── NETWORK ── -->
+                                    <TextBlock Text="🌐  // NETWORK"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AccentColor}"
+                                               Margin="0,2,0,2"/>
+                                    <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="NIC" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Network Interface Card — the physical network adapter in the computer." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Link Speed" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Negotiated transmission speed between two network adapters (e.g. 1 Gbps, 2.5 Gbps)." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="NIC Throttle" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Temporary reduction of the host NIC speed to match the client, eliminating bufferbloat." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Bufferbloat" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="High latency caused by excessive packet queuing in network buffers between host and client." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Net TX" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Outbound network throughput from the host, expressed in Mbps." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <!-- ── STREAMING · CLIENT ── -->
+                                    <TextBlock Text="📡  // STREAMING · CLIENT"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AccentColor}"
+                                               Margin="0,18,0,2"/>
+                                    <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="RTT" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Round Trip Time — time for a packet to travel from client to host and back." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Jitter" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="RTT variability. Low but unstable RTT causes perceptible micro-stutter during streaming." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Frame Drops" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Video frames lost in transit during network transmission." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Bitrate" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Amount of video data transmitted per second, expressed in Mbps." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Decode Latency" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Time the client takes to decode each received video frame, in milliseconds." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <!-- ── HOST METRICS ── -->
+                                    <TextBlock Text="📊  // HOST METRICS"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AccentColor}"
+                                               Margin="0,18,0,2"/>
+                                    <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="GPU" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Graphics Processing Unit — 3D engine utilization of the graphics card (%)." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="GPU Encoder" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Hardware video encoding engine on the GPU used to compress the stream (NVENC on NVIDIA)." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="GPU Temp" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="GPU temperature in degrees Celsius. Available on NVIDIA hardware only via NVML." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="VRAM" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Dedicated video memory of the GPU, shown as used / total in MB." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="CPU" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Main processor utilization averaged across all cores (%)." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <!-- ── DISPLAY & AUDIO ── -->
+                                    <TextBlock Text="🖥️  // DISPLAY &amp; AUDIO"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AccentColor}"
+                                               Margin="0,18,0,2"/>
+                                    <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="HDR" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="High Dynamic Range — display mode that expands luminance range beyond standard SDR limits." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Dolby Atmos" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Spatial audio format that positions sound as 3D objects around the listener." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Windows Sonic" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Microsoft's spatial audio platform, an alternative to Dolby Atmos for headphones." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Spatial Audio" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Technology simulating three-dimensional surround sound through headphones or speakers." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Steam Streaming&#x0a;Speakers" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Virtual audio device created by Steam during a remote play session." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+                                    <!-- ── STREAMING SERVERS ── -->
+                                    <TextBlock Text="⚙️  // STREAMING SERVERS"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AccentColor}"
+                                               Margin="0,18,0,2"/>
+                                    <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Sunshine /&#x0a;Apollo /&#x0a;Vibeshine /&#x0a;Vibepollo" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Open-source game streaming server software installed on the host, all compatible with StreamTweak." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+
+                                    <!-- ── SESSION QUALITY ── -->
+                                    <TextBlock Text="🏆  // SESSION QUALITY"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AccentColor}"
+                                               Margin="0,18,0,2"/>
+                                    <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
+
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="Quality Grade" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Composite assessment of session quality based on drop rate, RTT, and GPU encoder load: Excellent, Good, or Poor." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+
+                                    <!-- ── APP MANAGEMENT ── -->
+                                    <TextBlock Text="🔧  // APP MANAGEMENT"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource AccentColor}"
+                                               Margin="0,18,0,2"/>
+                                    <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
+
+                                    <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="AutoManage" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="When enabled, an app is automatically terminated at stream start and relaunched when the session ends." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+
+
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
                     </Grid>
                 </Border>
 
