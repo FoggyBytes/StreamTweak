@@ -1,6 +1,7 @@
 <Window x:Class="StreamTweak.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:StreamTweak"
         Title="StreamTweak" Height="580" Width="760"
         WindowStartupLocation="CenterScreen" ResizeMode="NoResize"
         Background="#FF202020"
@@ -13,6 +14,12 @@
     </WindowChrome.WindowChrome>
 
     <Window.Resources>
+
+        <!-- ═══════════════ Converters ═══════════════ -->
+        <local:QualityGradeColorConverter       x:Key="GradeColorConverter"/>
+        <local:QualityGradeLabelConverter       x:Key="GradeLabelConverter"/>
+        <local:QualityGradeShortLabelConverter  x:Key="GradeShortLabelConverter"/>
+        <BooleanToVisibilityConverter      x:Key="BoolToVis"/>
 
         <!-- ═══════════════ Color Palette ═══════════════ -->
         <SolidColorBrush x:Key="WindowBackground"         Color="#19FFFFFF"/>
@@ -1037,17 +1044,21 @@
                             <Separator Background="{DynamicResource BorderColor}" Margin="0,0,0,8"/>
                         </StackPanel>
 
+                        <!-- Header row -->
                         <Grid Grid.Row="1" Margin="0,0,0,6" HorizontalAlignment="Center">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="135"/>
-                                <ColumnDefinition Width="70"/>
-                                <ColumnDefinition Width="85"/>
-                                <ColumnDefinition Width="155"/>
+                                <ColumnDefinition Width="26"/>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="65"/>
+                                <ColumnDefinition Width="80"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="90"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Grid.Column="0" Text="Date / Time"        FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
-                            <TextBlock Grid.Column="1" Text="Duration"           FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
-                            <TextBlock Grid.Column="2" Text="NIC Throttle"       FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
-                            <TextBlock Grid.Column="3" Text="Original NIC Speed" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
+                            <TextBlock Grid.Column="1" Text="Date / Time"        FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
+                            <TextBlock Grid.Column="2" Text="Duration"           FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
+                            <TextBlock Grid.Column="3" Text="NIC Throttle"       FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
+                            <TextBlock Grid.Column="4" Text="Original NIC Speed" FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
+                            <TextBlock Grid.Column="5" Text="Quality"            FontWeight="SemiBold" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
                         </Grid>
                         <Separator Grid.Row="1" VerticalAlignment="Bottom" Background="{DynamicResource BorderColor}" Margin="0,24,0,0"/>
 
@@ -1055,18 +1066,95 @@
                             <ItemsControl x:Name="SessionHistoryList">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Grid Margin="0,0,0,6" HorizontalAlignment="Center">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="135"/>
-                                                <ColumnDefinition Width="70"/>
-                                                <ColumnDefinition Width="85"/>
-                                                <ColumnDefinition Width="155"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Grid.Column="0" Text="{Binding StartTimeDisplay}"        FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding DurationDisplay}"        FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding NicThrottleDisplay}"     FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{DynamicResource AccentColor}"/>
-                                            <TextBlock Grid.Column="3" Text="{Binding OriginalNicSpeedDisplay}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{DynamicResource AccentColor}"/>
-                                        </Grid>
+                                        <StackPanel Margin="0,0,0,2">
+
+                                            <!-- ── Summary row (sempre visibile) ── -->
+                                            <Grid HorizontalAlignment="Center" MouseLeftButtonUp="SessionRow_Click">
+                                                <Grid.Style>
+                                                    <Style TargetType="Grid">
+                                                        <Setter Property="Cursor" Value="Hand"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding Grade}" Value="{x:Null}">
+                                                                <Setter Property="Cursor" Value="Arrow"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Grid.Style>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="26"/>
+                                                    <ColumnDefinition Width="120"/>
+                                                    <ColumnDefinition Width="65"/>
+                                                    <ColumnDefinition Width="80"/>
+                                                    <ColumnDefinition Width="140"/>
+                                                    <ColumnDefinition Width="90"/>
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Telemetry button (hidden when no data) -->
+                                                <Button Grid.Column="0"
+                                                        Content="&#xE9D9;"
+                                                        FontFamily="Segoe MDL2 Assets"
+                                                        FontSize="12"
+                                                        Foreground="White"
+                                                        Width="22" Height="20"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        ToolTip="View session telemetry"
+                                                        Click="SessionRow_Click"
+                                                        Cursor="Hand">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button">
+                                                            <Setter Property="Background"  Value="#22FFFFFF"/>
+                                                            <Setter Property="BorderBrush" Value="#33FFFFFF"/>
+                                                            <Setter Property="BorderThickness" Value="1"/>
+                                                            <Setter Property="Padding"     Value="0"/>
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="Button">
+                                                                        <Border Background="{TemplateBinding Background}"
+                                                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                                                CornerRadius="4">
+                                                                            <ContentPresenter HorizontalAlignment="Center"
+                                                                                              VerticalAlignment="Center"/>
+                                                                        </Border>
+                                                                        <ControlTemplate.Triggers>
+                                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                                <Setter Property="Background" Value="#44FFFFFF"/>
+                                                                            </Trigger>
+                                                                            <Trigger Property="IsPressed" Value="True">
+                                                                                <Setter Property="Background" Value="#66FFFFFF"/>
+                                                                            </Trigger>
+                                                                        </ControlTemplate.Triggers>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding Grade}" Value="{x:Null}">
+                                                                    <Setter Property="Visibility" Value="Hidden"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+
+                                                <TextBlock Grid.Column="1" Text="{Binding StartTimeDisplay}"         FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding DurationDisplay}"         FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextForeground}"/>
+                                                <TextBlock Grid.Column="3" Text="{Binding NicThrottleDisplay}"      FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource AccentColor}"/>
+                                                <TextBlock Grid.Column="4" Text="{Binding OriginalNicSpeedDisplay}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource AccentColor}"/>
+
+                                                <!-- Quality badge -->
+                                                <StackPanel Grid.Column="5" Orientation="Horizontal"
+                                                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                    <Ellipse Width="8" Height="8" Margin="0,0,5,0" VerticalAlignment="Center"
+                                                             Fill="{Binding Grade, Converter={StaticResource GradeColorConverter}}"/>
+                                                    <TextBlock Text="{Binding Grade, Converter={StaticResource GradeShortLabelConverter}}"
+                                                               FontSize="11" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource SecondaryTextForeground}"/>
+                                                </StackPanel>
+                                            </Grid>
+
+
+                                        </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
@@ -1089,6 +1177,166 @@
                                        HorizontalAlignment="Center" Margin="0,8,0,0"
                                        Foreground="{DynamicResource SecondaryTextForeground}"/>
                         </StackPanel>
+
+                        <!-- ── Session detail popup overlay ── -->
+                        <!-- Background #FF373737 = opaque composite of #202020 window + #1AFFFFFF PanelBackground.
+                             Margin extends to cover LogsPanel's Padding="14,12,14,14" so the overlay fills
+                             the entire rounded panel area including its padding. -->
+                        <Border x:Name="SessionDetailOverlay"
+                                Grid.Row="0" Grid.RowSpan="5"
+                                Panel.ZIndex="20"
+                                Visibility="Collapsed"
+                                Opacity="0"
+                                Background="#FF373737"
+                                CornerRadius="9"
+                                Margin="-14,-12,-14,-14"
+                                RenderTransformOrigin="0.5,0.08">
+                            <Border.RenderTransform>
+                                <ScaleTransform x:Name="OverlayScaleTransform" ScaleX="1" ScaleY="1"/>
+                            </Border.RenderTransform>
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- Header -->
+                                <Grid Grid.Row="0" Margin="14,12,14,0">
+                                    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock Text="Session Detail" FontSize="13" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center"
+                                                   Foreground="{DynamicResource TextForeground}"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,0">
+                                            <TextBlock Text="{Binding StartTimeDisplay}" FontSize="12"
+                                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                                            <TextBlock Text="  ·  " FontSize="12"
+                                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                                            <TextBlock Text="{Binding TelemetryDurationDisplay}" FontSize="12"
+                                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <Button HorizontalAlignment="Right" VerticalAlignment="Center"
+                                            Content="✕" Width="24" Height="24" FontSize="12"
+                                            Click="CloseDetailOverlay_Click"
+                                            Style="{StaticResource ModernButton}"/>
+                                </Grid>
+
+                                <Separator Grid.Row="1" Background="{DynamicResource BorderColor}" Margin="0,10,0,8"/>
+
+                                <!-- Content: Grid distributes space — sparklines expand to fill all
+                                     remaining vertical space between stats and grade badge. -->
+                                <Grid Grid.Row="2" Margin="14,0,14,14">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>   <!-- CLIENT | HOST stats -->
+                                        <RowDefinition Height="14"/>     <!-- spacer -->
+                                        <RowDefinition Height="*"/>      <!-- sparklines — fill remaining -->
+                                        <RowDefinition Height="12"/>     <!-- spacer -->
+                                        <RowDefinition Height="Auto"/>   <!-- grade badge -->
+                                    </Grid.RowDefinitions>
+
+                                    <!-- CLIENT | HOST stats -->
+                                    <Grid Grid.Row="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <Border Grid.Column="0"
+                                                BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="6"
+                                                Padding="10,8">
+                                            <StackPanel>
+                                                <TextBlock Text="CLIENT  (StreamLight)" FontSize="12" FontWeight="SemiBold"
+                                                           HorizontalAlignment="Center"
+                                                           Foreground="{DynamicResource TextForeground}" Margin="0,0,0,6"/>
+                                                <local:StatRow Label="FPS"     Val="{Binding QualityStats.FpsAvg,         StringFormat='avg {0:F1}'}"    Val2="{Binding QualityStats.FpsMin,        StringFormat='min {0}'}"/>
+                                                <local:StatRow Label="Drops"   Val="{Binding QualityStats.DropRatePct,    StringFormat='{}{0:F2}%'}"/>
+                                                <local:StatRow Label="RTT"     Val="{Binding QualityStats.RttAvgMs,       StringFormat='avg {0:F1} ms'}" Val2="{Binding QualityStats.RttMaxMs,      StringFormat='max {0:F0} ms'}"/>
+                                                <local:StatRow Label="Decode"  Val="{Binding QualityStats.DecodeAvgMs,    StringFormat='avg {0:F1} ms'}"/>
+                                                <local:StatRow Label="Bitrate" Val="{Binding QualityStats.BitrateAvgMbps, StringFormat='avg {0:F0} Mbps'}"/>
+                                            </StackPanel>
+                                        </Border>
+
+                                        <Border Grid.Column="2"
+                                                BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="6"
+                                                Padding="10,8">
+                                            <StackPanel>
+                                                <TextBlock Text="HOST  (StreamTweak)" FontSize="12" FontWeight="SemiBold"
+                                                           HorizontalAlignment="Center"
+                                                           Foreground="{DynamicResource TextForeground}" Margin="0,0,0,6"/>
+                                                <local:StatRow Label="GPU"      Val="{Binding QualityStats.HostGpuAvg,     StringFormat='avg {0}%'}"   Val2="{Binding QualityStats.HostGpuPeak,    StringFormat='peak {0}%'}"/>
+                                                <local:StatRow Label="Encoder"  Val="{Binding QualityStats.HostGpuEncAvg,  StringFormat='avg {0}%'}"   Val2="{Binding QualityStats.HostGpuEncPeak, StringFormat='peak {0}%'}"/>
+                                                <local:StatRow Label="GPU Temp" Val="{Binding QualityStats.HostGpuTempAvg, StringFormat='avg {0}°C'}"  Val2="{Binding QualityStats.HostGpuTempMax, StringFormat='max {0}°C'}"/>
+                                                <local:StatRow Label="CPU"      Val="{Binding QualityStats.HostCpuAvg,     StringFormat='avg {0}%'}"   Val2="{Binding QualityStats.HostCpuPeak,    StringFormat='peak {0}%'}"/>
+                                                <local:StatRow Label="Net TX"   Val="{Binding QualityStats.HostNetTxAvg,   StringFormat='avg {0} Mbps'}"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- Sparklines — client-only; Row Height="*" provides all remaining space -->
+                                    <Border Grid.Row="2"
+                                            BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="6"
+                                            Padding="10,8">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="6"/>
+                                                <RowDefinition Height="*"/>
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Grid.Row="0"
+                                                Text="CLIENT  Charts"
+                                                FontSize="11" FontWeight="SemiBold"
+                                                HorizontalAlignment="Center"
+                                                Foreground="{DynamicResource TextForeground}"/>
+                                            <Grid Grid.Row="2">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*"/>
+                                                    <RowDefinition Height="8"/>
+                                                    <RowDefinition Height="*"/>
+                                                </Grid.RowDefinitions>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="10"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <local:SparklineControl Grid.Row="0" Grid.Column="0"
+                                                    Points="{Binding FpsTimeSeries}"
+                                                    Label="FPS"
+                                                    StrokeBrush="#FF4CAF50"/>
+                                                <local:SparklineControl Grid.Row="0" Grid.Column="2"
+                                                    Points="{Binding RttTimeSeries}"
+                                                    Label="RTT ms"
+                                                    StrokeBrush="#FFFF9800"/>
+                                                <local:SparklineControl Grid.Row="2" Grid.Column="0"
+                                                    Points="{Binding DropsTimeSeries}"
+                                                    Label="Drops"
+                                                    StrokeBrush="#FFEF5350"/>
+                                                <local:SparklineControl Grid.Row="2" Grid.Column="2"
+                                                    Points="{Binding BitrateTimeSeries}"
+                                                    Label="Bitrate Mbps"
+                                                    StrokeBrush="#FF29B6F6"/>
+                                            </Grid>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Grade badge -->
+                                    <Border Grid.Row="4" Padding="8,5"
+                                            BorderBrush="{Binding Grade, Converter={StaticResource GradeColorConverter}}"
+                                            BorderThickness="1" CornerRadius="4">
+                                        <StackPanel Orientation="Horizontal"
+                                                    HorizontalAlignment="Center">
+                                            <Ellipse Width="9" Height="9" Margin="0,0,7,0" VerticalAlignment="Center"
+                                                     Fill="{Binding Grade, Converter={StaticResource GradeColorConverter}}"/>
+                                            <TextBlock FontSize="12" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextForeground}"
+                                                       Text="{Binding Grade, Converter={StaticResource GradeLabelConverter}}"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                </Grid>
+                            </Grid>
+                        </Border>
 
                         <Border Grid.Row="4" Padding="8,7"
                                 Background="{DynamicResource WindowBackground}"

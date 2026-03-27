@@ -66,9 +66,17 @@ StreamLight and StreamTweak are designed to work together, giving you full contr
 
 ### 📚 System Info & Diagnostics
 - **Logs Tab:** Full session history — every streaming session is recorded regardless of whether NIC throttle was applied, with NIC Throttle (Yes/No), Original NIC Speed, and timestamped date including year.
+- **Session quality report:** click the chart button on any session row to open a full-panel telemetry overlay with CLIENT stats (FPS, Drops, RTT, Decode, Bitrate), HOST stats (GPU, Encoder, GPU Temp, CPU, Net TX), four time-series sparkline charts with axes and scale labels, and a quality grade badge (High / Medium / Low).
 - **Home Dashboard:** Version info, GitHub link, license badge, donation button, and a real-time status overview for all six managed settings — all in the Home panel.
 
-## ✨ What's New in Version 5.1.1 — The "Code Quality Update"
+## ✨ What's New in Version 5.2.0 — The "Session Quality Update"
+
+* **Session quality report —** click the chart button on any session row in the Logs tab to open a full-panel telemetry overlay; CLIENT stats (FPS, Drops, RTT, Decode, Bitrate) and HOST stats (GPU, Encoder, GPU Temp, CPU, Net TX) appear side by side, followed by four time-series sparkline charts and a quality grade badge
+* **Four sparkline charts —** FPS, RTT (ms), Drops, and Bitrate (Mbps) rendered with Cartesian axes, Y-scale labels (max/mid/min), and X-axis time labels; the section is clearly labeled CLIENT (StreamLight) to distinguish client-side data from host metrics
+* **Quality grade system —** sessions are graded Excellent, Accettable, or Poor based on drop rate, RTT, and GPU encoder utilization; FPS is excluded because static screens and loading screens produce artificially low frame counts that do not reflect actual streaming quality
+* **Animated overlay —** the telemetry panel opens and closes with a smooth CubicEase animation (200 ms / 150 ms) and covers the full Logs panel with an opaque background
+
+### Previously in 5.1.1 — The "Code Quality Update"
 
 * **Bug fixes and hardening —** resource leaks, thread-safety issues, sync reentrancy guards, WQL/PowerShell injection prevention, and atomic file writes for cover art cache
 * **Dead code removed —** unused methods, orphan variables and comments cleaned up
@@ -315,7 +323,7 @@ LogParser.FindStreamingAppInfo()
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_5.1.1_Installer.exe`
+2. Download the latest `StreamTweak_5.2.0_Installer.exe`
 3. Run the installer and enjoy seamless streaming.
 
 ## 🙏 Support the Project

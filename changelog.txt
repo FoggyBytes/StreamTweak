@@ -4,6 +4,18 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 5.2.0 - The "Session Quality Update" (27/03/2026)
+------------------------------------------
+
+✨ NEW FEATURES:
+• Session quality report: clicking the chart button on any session row in the Logs tab opens a full-panel telemetry overlay — CLIENT stats (FPS, Drops, RTT, Decode, Bitrate) and HOST stats (GPU, Encoder, GPU Temp, CPU, Net TX) side by side, four sparkline charts, and a quality grade badge, all in a single animated popup that covers the Logs panel
+• Four sparkline charts: FPS, RTT (ms), Drops, and Bitrate (Mbps) displayed as time-series charts with Cartesian axes, Y-scale labels (max/mid/min), and X-axis time labels — all grouped under a "CLIENT (StreamLight)" header to distinguish them from host-side data
+• Quality grade system: each session is graded Excellent, Accettable, or Poor based on drop rate, round-trip time, and GPU encoder utilization; FPS is intentionally excluded because static screens and loading screens produce artificially low frame counts that do not reflect actual streaming quality
+
+🎨 UI IMPROVEMENTS:
+• Telemetry overlay opens and closes with a smooth animation (CubicEase, 200 ms open / 150 ms close) and covers the full Logs panel with an opaque background — no content visible behind it
+• Telemetry button: the row-level trigger is a styled button with a monochrome chart icon, hidden for sessions with no telemetry data
+
 Version 5.1.1 - The "Code Quality Update" (25/03/2026)
 ------------------------------------------
 

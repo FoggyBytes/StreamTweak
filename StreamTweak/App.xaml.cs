@@ -55,6 +55,9 @@ namespace StreamTweak
         // Real-time host metrics (GPU, CPU, VRAM, network) for the STATS command
         private readonly HostMetricsCollector _metricsCollector = new();
 
+        // Session quality telemetry — accumulates client metrics sent by StreamLight
+        private readonly TelemetryAccumulator _telemetryAccumulator = new();
+
         // Inactivity timer — prevents restoring speed on temporary reconnect disconnects
         private System.Windows.Threading.DispatcherTimer? inactivityTimer = null;
         private const int INACTIVITY_TIMEOUT_MS = 30000;
@@ -86,8 +89,9 @@ namespace StreamTweak
             _ = InitHdrStateAsync();
 
             // Start Moonlight fork TCP bridge
-            _bridge.PrepareRequested += OnBridgePrepareRequested;
-            _bridge.RestoreRequested += OnBridgeRestoreRequested;
+            _bridge.PrepareRequested   += OnBridgePrepareRequested;
+            _bridge.RestoreRequested   += OnBridgeRestoreRequested;
+            _bridge.SessionDataReceived += OnSessionDataReceived;
             _bridge.Start();
             _bridge.StatusProvider = () => {
                 var (mbps, connected) = GetCurrentSpeed();
@@ -613,8 +617,9 @@ namespace StreamTweak
         {
             if (_isAutoSessionActive)
                 SessionLogger.EndSession("App Closed");
-            _bridge.PrepareRequested -= OnBridgePrepareRequested;
-            _bridge.RestoreRequested -= OnBridgeRestoreRequested;
+            _bridge.PrepareRequested    -= OnBridgePrepareRequested;
+            _bridge.RestoreRequested    -= OnBridgeRestoreRequested;
+            _bridge.SessionDataReceived -= OnSessionDataReceived;
             _bridge.Dispose();
             _metricsCollector.Dispose();
             StopLogMonitorForced();
@@ -744,6 +749,7 @@ namespace StreamTweak
                 }
 
                 // Always log the session, with or without NIC throttle
+                _telemetryAccumulator.Reset();
                 _appsToRelaunch = ManagedAppController.KillRunning();
                 _isAutoSessionActive = true;
                 UpdateTrayIcon();
@@ -788,6 +794,19 @@ namespace StreamTweak
 
                 if (_isAutoSessionActive)
                 {
+                    // Persist telemetry before EndSession clears the active session ID
+                    string? sessionId = SessionLogger.ActiveSessionId;
+                    if (sessionId != null)
+                    {
+                        var (stats, fpsSeries, rttSeries, dropsSeries, bitrateSeries) = _telemetryAccumulator.Finalize();
+                        if (stats.SampleCount >= 2)
+                        {
+                            var grade = QualityGradeCalculator.Evaluate(stats, _telemetryAccumulator.TargetFps);
+                            SessionLogger.UpdateSessionTelemetry(sessionId, stats, grade, fpsSeries, rttSeries, dropsSeries, bitrateSeries);
+                        }
+                        _telemetryAccumulator.Reset();
+                    }
+
                     SessionLogger.EndSession(endReason);
                     ManagedAppController.StartApps(_appsToRelaunch);
                     _appsToRelaunch.Clear();
@@ -878,6 +897,7 @@ namespace StreamTweak
                     isAutoStreamingActive = true;
                     isStreamingModeActive = true;
                     _isAutoSessionActive = true;
+                    _telemetryAccumulator.Reset();
                     SaveStreamingStateToConfig(true, originalSpeedForAutoStreaming ?? string.Empty);
                     _appsToRelaunch = ManagedAppController.KillRunning();
                     SessionLogger.StartSession("Bridge", originalSpeedForAutoStreaming ?? string.Empty);
@@ -904,6 +924,29 @@ namespace StreamTweak
                     DebugLog($"Bridge: PREPARE error — {ex.Message}");
                 }
             });
+        }
+
+        /// <summary>
+        /// Called on a thread-pool thread when StreamLight sends a SESSIONDATA batch.
+        /// Guards on active session and session ID cross-check before accumulating.
+        /// </summary>
+        private void OnSessionDataReceived(ClientBatch batch)
+        {
+            try
+            {
+                // Accept batches whenever a session is being logged, regardless of NIC
+                // throttle mode or _isAutoSessionActive state. This ensures telemetry
+                // works even when auto streaming is disabled.
+                if (SessionLogger.ActiveSessionId == null) return;
+
+                var hostSample = _metricsCollector.GetLatestSample();
+                _telemetryAccumulator.AddBatch(batch, hostSample);
+                DebugLog($"Bridge: SESSIONDATA received — {batch.Samples.Count} samples");
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"Bridge: SESSIONDATA handler error — {ex.Message}");
+            }
         }
 
         /// <summary>

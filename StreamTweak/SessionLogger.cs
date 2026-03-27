@@ -17,6 +17,27 @@ namespace StreamTweak
 
         public string? EndReason { get; set; }
 
+        // ── Telemetria qualità sessione (null se nessun dato client ricevuto) ──
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public SessionQualityStats? QualityStats { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public QualityGrade? Grade { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? FpsTimeSeries { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? RttTimeSeries { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? DropsTimeSeries { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? BitrateTimeSeries { get; set; }
+
+        // ── Display properties ────────────────────────────────────────────────
+
         [JsonIgnore]
         public string DurationDisplay
         {
@@ -36,6 +57,19 @@ namespace StreamTweak
         public string StartTimeDisplay => StartTime.ToString("dd/MM/yyyy  HH:mm");
 
         [JsonIgnore]
+        public string TelemetryDurationDisplay
+        {
+            get
+            {
+                int secs = FpsTimeSeries?.Count ?? RttTimeSeries?.Count ?? 0;
+                if (secs == 0) return DurationDisplay;
+                return secs >= 60
+                    ? $"{secs / 60}m {secs % 60}s"
+                    : $"{secs}s";
+            }
+        }
+
+        [JsonIgnore]
         public string NicThrottleDisplay => string.IsNullOrEmpty(OriginalSpeed) ? "No" : "Yes";
 
         [JsonIgnore]
@@ -50,6 +84,8 @@ namespace StreamTweak
             "StreamTweak", "sessions.json");
 
         private static string? _activeSessionId = null;
+
+        public static string? ActiveSessionId => _activeSessionId;
 
         public static void StartSession(string triggerMode, string originalSpeed)
         {
@@ -98,6 +134,32 @@ namespace StreamTweak
                     changed = true;
                 }
                 if (changed) Save(sessions);
+            }
+            catch { }
+        }
+
+        public static void UpdateSessionTelemetry(
+            string sessionId,
+            SessionQualityStats stats,
+            QualityGrade grade,
+            List<float> fpsSeries,
+            List<float> rttSeries,
+            List<float> dropsSeries,
+            List<float> bitrateSeries)
+        {
+            try
+            {
+                var sessions = Load();
+                var entry = sessions.FirstOrDefault(s => s.Id == sessionId);
+                if (entry == null) return;
+
+                entry.QualityStats      = stats;
+                entry.Grade             = grade;
+                entry.FpsTimeSeries     = fpsSeries.Count     > 0 ? fpsSeries     : null;
+                entry.RttTimeSeries     = rttSeries.Count     > 0 ? rttSeries     : null;
+                entry.DropsTimeSeries   = dropsSeries.Count   > 0 ? dropsSeries   : null;
+                entry.BitrateTimeSeries = bitrateSeries.Count > 0 ? bitrateSeries : null;
+                Save(sessions);
             }
             catch { }
         }

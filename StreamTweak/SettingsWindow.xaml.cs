@@ -11,6 +11,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using Microsoft.Management.Infrastructure;
 using Microsoft.Win32;
 
@@ -362,6 +363,35 @@ private void RefreshStreamingAppInfo()
         {
             SessionLogger.ClearAll();
             RefreshSessionHistory();
+        }
+
+        private void SessionRow_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is SessionEntry entry)
+            {
+                if (entry.Grade == null) return;
+                SessionDetailOverlay.DataContext = entry;
+                SessionDetailOverlay.Visibility = Visibility.Visible;
+
+                var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+                var dur  = new Duration(TimeSpan.FromMilliseconds(200));
+
+                var fadeIn = new DoubleAnimation(0, 1, dur) { EasingFunction = ease };
+                SessionDetailOverlay.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+
+                var scaleIn = new DoubleAnimation(0.96, 1.0, dur) { EasingFunction = ease };
+                OverlayScaleTransform.BeginAnimation(ScaleTransform.ScaleYProperty, scaleIn);
+            }
+        }
+
+        private void CloseDetailOverlay_Click(object sender, RoutedEventArgs e)
+        {
+            var ease = new CubicEase { EasingMode = EasingMode.EaseIn };
+            var dur  = new Duration(TimeSpan.FromMilliseconds(150));
+
+            var fadeOut = new DoubleAnimation(1, 0, dur) { EasingFunction = ease };
+            fadeOut.Completed += (_, _) => SessionDetailOverlay.Visibility = Visibility.Collapsed;
+            SessionDetailOverlay.BeginAnimation(UIElement.OpacityProperty, fadeOut);
         }
 
         private void PopulateAboutInfo()
@@ -1604,5 +1634,126 @@ private void RefreshStreamingAppInfo()
         public string Name { get; set; } = string.Empty;
         public string Path { get; set; } = string.Empty;
         public bool AutoManage { get; set; } = true;
+    }
+
+    // ── Quality grade → Color converter ──────────────────────────────────────
+
+    public sealed class QualityGradeColorConverter : System.Windows.Data.IValueConverter
+    {
+        private static readonly SolidColorBrush Green  = new(Color.FromRgb(76, 175, 80));   // #4CAF50
+        private static readonly SolidColorBrush Orange = new(Color.FromRgb(255, 152, 0));   // #FF9800
+        private static readonly SolidColorBrush Red    = new(Color.FromRgb(244, 67, 54));   // #F44336
+        private static readonly SolidColorBrush Gray   = new(Color.FromRgb(96, 96, 96));    // #606060
+
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            return value is QualityGrade g ? g switch
+            {
+                QualityGrade.High   => Green,
+                QualityGrade.Medium => Orange,
+                QualityGrade.Low    => Red,
+                _                   => Gray
+            } : Gray;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+            => System.Windows.Data.Binding.DoNothing;
+    }
+
+    // ── Quality grade → Label string converters ───────────────────────────────
+
+    // Full label — used in the session detail popup badge
+    public sealed class QualityGradeLabelConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            return value is QualityGrade g ? g switch
+            {
+                QualityGrade.High   => "Streaming quality — Excellent",
+                QualityGrade.Medium => "Streaming quality — Good",
+                QualityGrade.Low    => "Streaming quality — Poor",
+                _                   => "—"
+            } : "—";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+            => System.Windows.Data.Binding.DoNothing;
+    }
+
+    // Short label — used in the session list Quality column
+    public sealed class QualityGradeShortLabelConverter : System.Windows.Data.IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            return value is QualityGrade g ? g switch
+            {
+                QualityGrade.High   => "Excellent",
+                QualityGrade.Medium => "Good",
+                QualityGrade.Low    => "Poor",
+                _                   => "—"
+            } : "—";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+            => System.Windows.Data.Binding.DoNothing;
+    }
+
+    // ── StatRow — lightweight stat label + value(s) row for the detail panel ──
+
+    public sealed class StatRow : System.Windows.Controls.Panel
+    {
+        public static readonly DependencyProperty LabelProperty =
+            DependencyProperty.Register(nameof(Label), typeof(string), typeof(StatRow),
+                new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.AffectsArrange));
+
+        public static readonly DependencyProperty ValProperty =
+            DependencyProperty.Register(nameof(Val), typeof(string), typeof(StatRow),
+                new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.AffectsArrange));
+
+        public static readonly DependencyProperty Val2Property =
+            DependencyProperty.Register(nameof(Val2), typeof(string), typeof(StatRow),
+                new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.AffectsArrange));
+
+        public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
+        public string Val   { get => (string)GetValue(ValProperty);   set => SetValue(ValProperty,   value); }
+        public string Val2  { get => (string)GetValue(Val2Property);  set => SetValue(Val2Property,  value); }
+
+        private readonly TextBlock _lbl  = new() { FontSize = 13, Width = 80, VerticalAlignment = VerticalAlignment.Center };
+        private readonly TextBlock _val  = new() { FontSize = 13, VerticalAlignment = VerticalAlignment.Center };
+        private readonly TextBlock _val2 = new() { FontSize = 13, Margin = new Thickness(8, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+
+        public StatRow()
+        {
+            Margin = new Thickness(0, 1, 0, 1);
+            _lbl.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryTextForeground");
+            _val.SetResourceReference(TextBlock.ForegroundProperty, "TextForeground");
+            _val2.SetResourceReference(TextBlock.ForegroundProperty, "SecondaryTextForeground");
+
+            _lbl.SetBinding(TextBlock.TextProperty,  new System.Windows.Data.Binding(nameof(Label)) { Source = this });
+            _val.SetBinding(TextBlock.TextProperty,  new System.Windows.Data.Binding(nameof(Val))   { Source = this });
+            _val2.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding(nameof(Val2))  { Source = this });
+
+            Children.Add(_lbl);
+            Children.Add(_val);
+            Children.Add(_val2);
+        }
+
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            _lbl.Measure(availableSize);
+            _val.Measure(new Size(Math.Max(0, availableSize.Width - 70), availableSize.Height));
+            _val2.Measure(availableSize);
+            double h = Math.Max(_lbl.DesiredSize.Height, Math.Max(_val.DesiredSize.Height, _val2.DesiredSize.Height));
+            return new Size(availableSize.Width, h);
+        }
+
+        protected override Size ArrangeOverride(Size finalSize)
+        {
+            double remaining = Math.Max(0, finalSize.Width - 70 - _val2.DesiredSize.Width - 6);
+            _lbl.Arrange( new Rect(0,              0, 70,       finalSize.Height));
+            _val.Arrange( new Rect(70,             0, remaining, finalSize.Height));
+            _val2.Arrange(new Rect(70 + remaining, 0, _val2.DesiredSize.Width, finalSize.Height));
+            return finalSize;
+        }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -52,6 +53,13 @@ namespace StreamTweak
         /// Set this in App.xaml.cs after creating the bridge.
         /// </summary>
         public Func<string>? AppStoresProvider { get; set; }
+
+        /// <summary>
+        /// Raised when a SESSIONDATA command is received from StreamLight.
+        /// The argument is the deserialized ClientBatch for the current session.
+        /// Subscribe in App.xaml.cs to feed the TelemetryAccumulator.
+        /// </summary>
+        public event Action<ClientBatch>? SessionDataReceived;
 
         private TcpListener? _listener;
         private CancellationTokenSource? _cts;
@@ -154,6 +162,33 @@ namespace StreamTweak
                         case "APPSTORES":
                             string appStores = AppStoresProvider?.Invoke() ?? "{}";
                             await writer.WriteLineAsync(appStores);
+                            break;
+
+                        case "SESSIONID":
+                            string sessionId = SessionLogger.ActiveSessionId ?? "NONE";
+                            await writer.WriteLineAsync(sessionId);
+                            break;
+
+                        case "SESSIONDATA":
+                            string? payload = await reader.ReadLineAsync(ct);
+                            if (string.IsNullOrWhiteSpace(payload))
+                            {
+                                await writer.WriteLineAsync("ERR");
+                                break;
+                            }
+                            try
+                            {
+                                var batch = JsonSerializer.Deserialize<ClientBatch>(payload,
+                                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                                if (batch != null)
+                                    SessionDataReceived?.Invoke(batch);
+                                await writer.WriteLineAsync("OK");
+                            }
+                            catch
+                            {
+                                DebugLog("StreamTweakBridge: failed to parse SESSIONDATA payload");
+                                await writer.WriteLineAsync("ERR");
+                            }
                             break;
 
                         default:
