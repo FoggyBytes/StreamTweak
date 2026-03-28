@@ -69,7 +69,16 @@ StreamLight and StreamTweak are designed to work together, giving you full contr
 - **Session quality report:** click the chart button on any session row to open a full-panel telemetry overlay with CLIENT stats (Jitter, Drops, RTT, Decode, Bitrate), HOST stats (GPU, Encoder, GPU Temp, CPU, Net TX), four time-series sparkline charts (RTT, Frame Drops, Bitrate, Decode Latency) with axes and scale labels, and a quality grade badge (Excellent / Good / Poor).
 - **Home Dashboard:** Version info, GitHub link, license badge, donation button, and a real-time status overview for all six managed settings — all in the Home panel.
 
-## ✨ What's New in Version 5.2.1 — The "Chart Update"
+## ✨ What's New in Version 5.2.2 — The "Telemetry & Game Library Fix"
+
+* **Xbox/Game Pass scanner fixed —** the `.GamingRoot` header offset was wrong (5 bytes instead of the correct 8), producing a corrupted path that never resolved; Xbox and Game Pass games (e.g. Forza Motorsport) were never detected. Fixed — they now appear in the library after sync
+* **Game Library race condition fixed —** Add and Remove operations now hold the sync lock, preventing concurrent writes from corrupting `gamelibrarystate.json` or `apps.json` when a full sync runs simultaneously
+* **Atomic file writes —** `gamelibrarystate.json` and Steam cover art PNGs are now written to a `.tmp` file first and moved atomically; a crash or forced shutdown mid-write no longer produces a corrupt file that silently wipes the game library or permanently breaks a cover image
+* **Session telemetry fixes —** drop rate denominator corrected; RTT=0 samples filtered from averages; time series capped at 600 points to prevent `sessions.json` from growing unbounded; file concurrency guard added to `SessionLogger`
+* **Session quality grade —** a single RTT spike above 200 ms now downgrades the RTT grade by one level even when the average is good
+* **SparklineControl —** Y-axis labels now reflect the actual visible scale after margin padding
+
+### Previously in 5.2.1 — The "Chart Update"
 
 * **Session telemetry charts revised —** the four sparklines now show RTT (ms), Frame Drops, Bitrate (Mbps), and Decode Latency (ms); FPS has been replaced by Decode Latency because FPS collapses to near-zero on static screens regardless of streaming quality, making it an unreliable indicator; the four retained metrics jointly cover the full quality picture: RTT (network latency), Frame Drops (packet loss), Bitrate (encoder output and bandwidth headroom), Decode Latency (client hardware load)
 * **Jitter in session stats —** RTT variance is now collected per sample from StreamLight 2.1.1+ and stored as jitter_avg / jitter_max per session; displayed in the CLIENT stats panel alongside RTT
@@ -329,7 +338,7 @@ LogParser.FindStreamingAppInfo()
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_5.2.0_Installer.exe`
+2. Download the latest `StreamTweak_5.2.2_Installer.exe`
 3. Run the installer and enjoy seamless streaming.
 
 ## 🙏 Support the Project

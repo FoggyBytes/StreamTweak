@@ -387,18 +387,19 @@ namespace StreamTweak
                     string gamingRoot = Path.Combine(drive.RootDirectory.FullName, ".GamingRoot");
                     if (!File.Exists(gamingRoot)) continue;
 
-                    // .GamingRoot format: RGBX magic (4 bytes) + 1 unknown byte + UTF-16 LE path
+                    // .GamingRoot format: RGBX magic (4 bytes) + version DWORD (4 bytes) + UTF-16 LE path
                     // The path is relative to the drive root (e.g. "XboxGames\").
                     byte[] data = File.ReadAllBytes(gamingRoot);
-                    if (data.Length < 6) continue;
+                    const int HeaderSize = 8;
+                    if (data.Length <= HeaderSize) continue;
                     if (data[0] != 'R' || data[1] != 'G' || data[2] != 'B' || data[3] != 'X') continue;
 
-                    // Decode the UTF-16 LE path starting at byte 5, stripping the null terminator.
-                    int pathBytes = data.Length - 5;
+                    // Decode the UTF-16 LE path starting after the 8-byte header.
+                    int pathBytes = data.Length - HeaderSize;
                     // Round down to an even number so GetString doesn't choke on a stray byte.
                     if (pathBytes % 2 != 0) pathBytes--;
                     string relativePath = System.Text.Encoding.Unicode
-                        .GetString(data, 5, pathBytes)
+                        .GetString(data, HeaderSize, pathBytes)
                         .TrimEnd('\0');
                     string gamesDir = Path.Combine(drive.RootDirectory.FullName, relativePath).TrimEnd('\\');
                     if (!Directory.Exists(gamesDir)) continue;

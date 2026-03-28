@@ -97,14 +97,19 @@ namespace StreamTweak
 
         public void Save()
         {
+            string tmp = FilePath + ".tmp";
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-                File.WriteAllText(FilePath, JsonSerializer.Serialize(this,
+                File.WriteAllText(tmp, JsonSerializer.Serialize(this,
                     new JsonSerializerOptions { WriteIndented = true }));
+                File.Move(tmp, FilePath, overwrite: true);
                 lock (_currentLock) { _current = this; } // keep singleton in sync
             }
-            catch { }
+            catch
+            {
+                try { File.Delete(tmp); } catch { }
+            }
         }
 
         // ── APPSTORES payload ─────────────────────────────────────────────────

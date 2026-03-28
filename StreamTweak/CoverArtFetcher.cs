@@ -63,6 +63,7 @@ namespace StreamTweak
         private static async Task FetchOneAsync(DiscoveredGame game, string cacheDir, SemaphoreSlim semaphore)
         {
             await semaphore.WaitAsync();
+            string tmp = string.Empty;
             try
             {
                 string? url = GetDownloadUrl(game);
@@ -74,10 +75,13 @@ namespace StreamTweak
                 string cachePath = Path.Combine(cacheDir, fileName);
                 if (File.Exists(cachePath)) return; // already cached
 
+                tmp = cachePath + ".tmp";
+
                 byte[] bytes = await _http.GetByteArrayAsync(url);
 
                 // Sunshine/Vibeshine requires PNG for image-path.
                 // Steam CDN delivers JPEG → decode and re-encode as PNG.
+                // Write to .tmp first; move atomically to avoid a corrupt file on crash.
                 using var jpegStream = new MemoryStream(bytes);
                 var decoder = BitmapDecoder.Create(
                     jpegStream,
@@ -85,12 +89,18 @@ namespace StreamTweak
                     BitmapCacheOption.OnLoad);
                 var frame = decoder.Frames[0];
 
-                using var pngStream = new FileStream(cachePath, FileMode.Create, FileAccess.Write);
-                var encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(frame));
-                encoder.Save(pngStream);
+                using (var pngStream = new FileStream(tmp, FileMode.Create, FileAccess.Write))
+                {
+                    var encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(frame));
+                    encoder.Save(pngStream);
+                }
+                File.Move(tmp, cachePath, overwrite: true);
             }
-            catch { /* silently skip on network/IO errors */ }
+            catch
+            {
+                if (tmp.Length > 0) try { File.Delete(tmp); } catch { }
+            }
             finally
             {
                 semaphore.Release();

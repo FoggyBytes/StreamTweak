@@ -129,7 +129,7 @@ namespace StreamTweak
                         ((e.SteamAppId != null && e.SteamAppId == g.SteamAppId) ||
                         (e.StoreId    != null && e.StoreId    == g.StoreId && e.Store == g.Store) ||
                         e.Name.Equals(g.Name, StringComparison.OrdinalIgnoreCase)))
-                        ?.Enabled ?? true
+                        ?.Enabled ?? false
                 ).ToList();
 
                 // Add enabled manual games to the sync list
@@ -168,6 +168,8 @@ namespace StreamTweak
         /// </summary>
         public static async Task<string> AddManualGameAsync(string exePath)
         {
+            if (!await _syncLock.WaitAsync(TimeSpan.FromSeconds(5)))
+                return "Sync in progress — please try again.";
             try
             {
                 string? appsJson = SunshineSync.FindAppsJsonPath();
@@ -207,6 +209,10 @@ namespace StreamTweak
             {
                 return $"Failed to add game: {ex.Message}";
             }
+            finally
+            {
+                _syncLock.Release();
+            }
         }
 
         /// <summary>
@@ -214,6 +220,8 @@ namespace StreamTweak
         /// </summary>
         public static async Task<string> RemoveGameAsync(GameLibraryEntry entry)
         {
+            if (!await _syncLock.WaitAsync(TimeSpan.FromSeconds(5)))
+                return "Sync in progress — please try again.";
             try
             {
                 var state = GameLibraryState.Current;
@@ -234,6 +242,10 @@ namespace StreamTweak
             catch (Exception ex)
             {
                 return $"Failed to remove game: {ex.Message}";
+            }
+            finally
+            {
+                _syncLock.Release();
             }
         }
 

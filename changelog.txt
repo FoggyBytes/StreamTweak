@@ -4,10 +4,10 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
-Version 5.2.2 - The "Telemetry Fix" (28/03/2026)
+Version 5.2.2 - The "Telemetry & Game Library Fix" (28/03/2026)
 ------------------------------------------
 
-🐛 BUG FIXES:
+🐛 BUG FIXES — SESSION TELEMETRY:
 • Session telemetry — drop rate denominator: the drop rate was previously calculated against the target FPS per second rather than actual frames received. It now uses rendered + dropped frames as the denominator, giving an accurate rate even when the decoder runs below target (VRR, throttling, static screens)
 • Session telemetry — RTT=0 filtering: samples where LiGetEstimatedRttInfo had not yet produced an RTT estimate (first tick after connection) were included in the average, pulling it down. These samples are now excluded from all RTT/jitter accumulators and the sparkline series
 • Session telemetry — time series cap: sparkline data was persisted with one raw sample per second and no size limit. Time series are now downsampled to 600 points via bucket averaging before persistence, preventing sessions.json from growing unbounded on long sessions
@@ -16,6 +16,14 @@ Version 5.2.2 - The "Telemetry Fix" (28/03/2026)
 • SparklineControl — Y-axis label mismatch: the max and midpoint labels showed the raw data range before the margin was added, while the polyline was drawn on the margin-padded range. On low-variance data (e.g. RTT 1–3 ms) both labels collapsed to the same integer (e.g. "2" top and "2" midpoint). Labels now reflect the actual visible scale
 • Home panel — HDR / Auto HDR status: the HDR and Auto HDR pills were not updated in real-time. They now refresh on every Home tab click (live read from Windows), on Display tab open/refresh, and on toggle. Opening the window during an active streaming session also triggers a live read, correctly reflecting virtual display HDR state
 • Internal cleanup: removed unused _fpsTimeSeries accumulator that was collecting one float per second for the entire session duration without ever being persisted or displayed
+
+🐛 BUG FIXES — GAME LIBRARY:
+• Xbox/Game Pass scanner — .GamingRoot parsing: the header offset was computed as 5 bytes (magic 4 + 1 unknown) instead of the correct 8 bytes (magic 4 + version DWORD 4), producing a corrupted relative path that never resolved to an existing directory; Xbox and Game Pass games were therefore never detected. Offset corrected to 8 — Forza Motorsport and other Xbox App titles now appear in the library after sync
+• Game Library — race condition on Add / Remove: AddManualGameAsync and RemoveGameAsync accessed GameLibraryState and apps.json without holding _syncLock, allowing concurrent writes to race with an in-progress full sync and corrupt either gamelibrarystate.json or apps.json. Both methods now acquire _syncLock with a 5-second timeout before proceeding
+• gamelibrarystate.json — non-atomic write: Save() wrote directly to the destination file; a crash or forced shutdown mid-write produced a truncated JSON file that was silently discarded on next startup, causing the entire game library to disappear. Save() now writes to a .tmp file first and moves it atomically over the destination
+• Cover art cache — non-atomic PNG write: CoverArtFetcher wrote decoded PNG frames directly to the cache path; an interrupted write left a permanently corrupt file that the existence check considered valid, preventing the image from ever being re-fetched. Now writes to a .tmp path and moves atomically, matching the pattern already used in StoreCoverFetcher
+• SunshineSync.AddApp — incomplete deduplication: the duplicate check only matched entries marked _streamtweak_managed, so adding a manual game whose name matched an existing Sunshine-native app produced a duplicate entry in apps.json. The check now matches any entry regardless of the managed flag
+• GameLibraryService — inverted sync fail-safe: the ?? true fallback in the gamesToSync filter included any game that could not be matched in the merged list, which is a dead code path under normal operation but would incorrectly sync disabled games if the merge logic were ever extended. Changed to ?? false for correct fail-safe semantics
 
 Version 5.2.1 - The "Chart Update" (28/03/2026)
 ------------------------------------------
