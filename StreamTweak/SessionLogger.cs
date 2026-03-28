@@ -86,6 +86,7 @@ namespace StreamTweak
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "StreamTweak", "sessions.json");
 
+        private static readonly object _fileLock = new();
         private static string? _activeSessionId = null;
 
         public static string? ActiveSessionId => _activeSessionId;
@@ -190,20 +191,26 @@ namespace StreamTweak
 
         public static List<SessionEntry> Load()
         {
-            try
+            lock (_fileLock)
             {
-                if (!File.Exists(LogPath)) return new List<SessionEntry>();
-                string json = File.ReadAllText(LogPath);
-                return JsonSerializer.Deserialize<List<SessionEntry>>(json) ?? new List<SessionEntry>();
+                try
+                {
+                    if (!File.Exists(LogPath)) return new List<SessionEntry>();
+                    string json = File.ReadAllText(LogPath);
+                    return JsonSerializer.Deserialize<List<SessionEntry>>(json) ?? new List<SessionEntry>();
+                }
+                catch { return new List<SessionEntry>(); }
             }
-            catch { return new List<SessionEntry>(); }
         }
 
         private static void Save(List<SessionEntry> sessions)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
-            File.WriteAllText(LogPath, JsonSerializer.Serialize(sessions,
-                new JsonSerializerOptions { WriteIndented = true }));
+            lock (_fileLock)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
+                File.WriteAllText(LogPath, JsonSerializer.Serialize(sessions,
+                    new JsonSerializerOptions { WriteIndented = true }));
+            }
         }
     }
 }

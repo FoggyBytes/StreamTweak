@@ -91,7 +91,6 @@ namespace StreamTweak
         private readonly List<int>   _netTxSamples    = new();
 
         // Time series per le sparkline
-        private readonly List<float> _fpsTimeSeries     = new();
         private readonly List<float> _rttTimeSeries     = new();
         private readonly List<float> _dropsTimeSeries   = new();
         private readonly List<float> _bitrateTimeSeries = new();
@@ -114,18 +113,29 @@ namespace StreamTweak
                     _fpsAvgSamples.Add(s.FpsAvg);
                     _fpsMinSamples.Add(s.FpsMin);
                     _dropSamples.Add(s.Drops);
-                    _rttAvgSamples.Add(s.RttAvg);
-                    _rttMaxSamples.Add(s.RttMax);
-                    _jitterSamples.Add(s.JitterAvg);
-                    _jitterMaxSamples.Add(s.JitterMax);
                     _decodeSamples.Add(s.DecodeMs);
                     _bitrateSamples.Add(s.BitrateAvgMbps);
 
-                    _totalFrames += (long)(_targetFps > 0 ? _targetFps : s.FpsAvg);
+                    // RTT=0 means LiGetEstimatedRttInfo has not yet produced an
+                    // estimate (typically the first tick after connect). Exclude
+                    // from all RTT/jitter accumulators and the sparkline series to
+                    // avoid pulling the average down artificially.
+                    if (s.RttAvg > 0f)
+                    {
+                        _rttAvgSamples.Add(s.RttAvg);
+                        _rttMaxSamples.Add(s.RttMax);
+                        _jitterSamples.Add(s.JitterAvg);
+                        _jitterMaxSamples.Add(s.JitterMax);
+                    }
+
+                    // Denominator = frames actually received (rendered + dropped),
+                    // not target FPS — avoids inflating the rate when the decoder
+                    // runs below target (throttling, VRR, static screens).
+                    _totalFrames += (long)Math.Max(1f, s.FpsAvg + s.Drops);
                     _totalDrops  += s.Drops;
 
-                    _fpsTimeSeries.Add(s.FpsAvg);
-                    _rttTimeSeries.Add(s.RttAvg);
+                    if (s.RttAvg > 0f)
+                        _rttTimeSeries.Add(s.RttAvg);
                     _dropsTimeSeries.Add(s.Drops);
                     _bitrateTimeSeries.Add(s.BitrateAvgMbps);
                     _decodeTimeSeries.Add(s.DecodeMs);
@@ -154,10 +164,10 @@ namespace StreamTweak
                     DropRatePct     = _totalFrames > 0
                                          ? (float)_totalDrops / _totalFrames * 100f
                                          : 0f,
-                    RttAvgMs        = count > 0 ? _rttAvgSamples.Average()          : 0f,
-                    RttMaxMs        = count > 0 ? _rttMaxSamples.Max()               : 0f,
-                    JitterAvgMs     = count > 0 ? _jitterSamples.Average()           : 0f,
-                    JitterMaxMs     = count > 0 ? _jitterMaxSamples.Max()            : 0f,
+                    RttAvgMs        = _rttAvgSamples.Count  > 0 ? _rttAvgSamples.Average()    : 0f,
+                    RttMaxMs        = _rttMaxSamples.Count  > 0 ? _rttMaxSamples.Max()         : 0f,
+                    JitterAvgMs     = _jitterSamples.Count  > 0 ? _jitterSamples.Average()     : 0f,
+                    JitterMaxMs     = _jitterMaxSamples.Count > 0 ? _jitterMaxSamples.Max()    : 0f,
                     DecodeAvgMs     = count > 0 ? _decodeSamples.Average()           : 0f,
                     BitrateAvgMbps  = count > 0 ? _bitrateSamples.Average()          : 0f,
 
@@ -172,11 +182,12 @@ namespace StreamTweak
                     HostNetTxAvg    = _netTxSamples.Count   > 0 ? (int)_netTxSamples.Average()   : -1,
                 };
 
+                const int MaxSeriesPoints = 600;
                 return (stats,
-                    new List<float>(_rttTimeSeries),
-                    new List<float>(_dropsTimeSeries),
-                    new List<float>(_bitrateTimeSeries),
-                    new List<float>(_decodeTimeSeries));
+                    Downsample(_rttTimeSeries,     MaxSeriesPoints),
+                    Downsample(_dropsTimeSeries,   MaxSeriesPoints),
+                    Downsample(_bitrateTimeSeries, MaxSeriesPoints),
+                    Downsample(_decodeTimeSeries,  MaxSeriesPoints));
             }
         }
 
@@ -198,7 +209,6 @@ namespace StreamTweak
                 _gpuTempSamples.Clear();
                 _cpuSamples.Clear();
                 _netTxSamples.Clear();
-                _fpsTimeSeries.Clear();
                 _rttTimeSeries.Clear();
                 _dropsTimeSeries.Clear();
                 _bitrateTimeSeries.Clear();
@@ -210,6 +220,25 @@ namespace StreamTweak
         }
 
         public int TargetFps { get { lock (_lock) return _targetFps; } }
+
+        // Reduces a time series to at most maxPoints by bucket-averaging.
+        // Returns a copy; if the series is already within the limit, it is
+        // returned as-is (new list) without any averaging.
+        private static List<float> Downsample(List<float> src, int maxPoints)
+        {
+            if (src.Count <= maxPoints) return new List<float>(src);
+            float step = (float)src.Count / maxPoints;
+            var result = new List<float>(maxPoints);
+            for (int i = 0; i < maxPoints; i++)
+            {
+                int start = (int)(i * step);
+                int end   = Math.Min((int)((i + 1) * step), src.Count);
+                float sum = 0f;
+                for (int j = start; j < end; j++) sum += src[j];
+                result.Add(sum / (end - start));
+            }
+            return result;
+        }
     }
 
     // ── Calcolo del grade ─────────────────────────────────────────────────────
@@ -231,6 +260,11 @@ namespace StreamTweak
             var gradeRtt  = stats.RttAvgMs < 25f      ? QualityGrade.High
                           : stats.RttAvgMs <= 60f     ? QualityGrade.Medium
                           :                             QualityGrade.Low;
+
+            // A severe spike (>200ms) degrades the grade by one level even when
+            // the average is good — the user will have felt that momentary lag.
+            if (stats.RttMaxMs > 200f && gradeRtt < QualityGrade.Low)
+                gradeRtt = (QualityGrade)((int)gradeRtt + 1);
 
             // GpuEnc: usa avg; non penalizza se metrica non disponibile (-1)
             var gradeEnc  = stats.HostGpuEncAvg < 0  ? QualityGrade.High

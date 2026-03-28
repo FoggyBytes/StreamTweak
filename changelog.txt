@@ -4,6 +4,19 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 5.2.2 - The "Telemetry Fix" (28/03/2026)
+------------------------------------------
+
+🐛 BUG FIXES:
+• Session telemetry — drop rate denominator: the drop rate was previously calculated against the target FPS per second rather than actual frames received. It now uses rendered + dropped frames as the denominator, giving an accurate rate even when the decoder runs below target (VRR, throttling, static screens)
+• Session telemetry — RTT=0 filtering: samples where LiGetEstimatedRttInfo had not yet produced an RTT estimate (first tick after connection) were included in the average, pulling it down. These samples are now excluded from all RTT/jitter accumulators and the sparkline series
+• Session telemetry — time series cap: sparkline data was persisted with one raw sample per second and no size limit. Time series are now downsampled to 600 points via bucket averaging before persistence, preventing sessions.json from growing unbounded on long sessions
+• Session telemetry — file concurrency: SessionLogger Load() and Save() are now guarded by a static lock, preventing sessions.json corruption if a concurrent write races (e.g. OS session-ending event vs. session stop)
+• Session quality grade — RTT spike sensitivity: a session with a good average RTT but at least one spike above 200 ms now has its RTT grade downgraded by one level, reflecting the perceptible lag experienced by the user
+• SparklineControl — Y-axis label mismatch: the max and midpoint labels showed the raw data range before the margin was added, while the polyline was drawn on the margin-padded range. On low-variance data (e.g. RTT 1–3 ms) both labels collapsed to the same integer (e.g. "2" top and "2" midpoint). Labels now reflect the actual visible scale
+• Home panel — HDR / Auto HDR status: the HDR and Auto HDR pills were not updated in real-time. They now refresh on every Home tab click (live read from Windows), on Display tab open/refresh, and on toggle. Opening the window during an active streaming session also triggers a live read, correctly reflecting virtual display HDR state
+• Internal cleanup: removed unused _fpsTimeSeries accumulator that was collecting one float per second for the entire session duration without ever being persisted or displayed
+
 Version 5.2.1 - The "Chart Update" (28/03/2026)
 ------------------------------------------
 

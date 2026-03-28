@@ -585,6 +585,7 @@ namespace StreamTweak
                     isAudioMonitorEnabled,
                     _audioSpatialFormat,
                     GameLibraryState.Current.SyncEnabled);
+                _ = settingsWindow.RefreshHomeHdrAsync();
 
                 var (mbps, conn) = GetCurrentSpeed();
                 string speedTxt = !conn ? "—"

@@ -149,11 +149,11 @@ namespace StreamTweak
             {
                 yMin = float.MaxValue; yMax = float.MinValue;
                 foreach (float v in renderPts) { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
-                displayMin = yMin; displayMax = yMax;
                 float margin = (yMax - yMin) * 0.1f;
                 if (margin < 1f) margin = 1f;
                 yMin = Math.Max(0f, yMin - margin);
                 yMax += margin;
+                displayMin = yMin; displayMax = yMax;
             }
             else { displayMin = yMin; displayMax = yMax; }
 

@@ -164,6 +164,7 @@ namespace StreamTweak
             GlossaryTabButton.Style  = (Style)this.Resources["TabButton"];
             PopulateAboutInfo();
             _ = CheckForUpdatesAsync();
+            _ = RefreshHomeHdrAsync();
         }
 
         private void NetworkTabButton_Click(object sender, RoutedEventArgs e)
@@ -1007,6 +1008,19 @@ private void RefreshStreamingAppInfo()
             });
         }
 
+        public async Task RefreshHomeHdrAsync()
+        {
+            try
+            {
+                var monitors = await HdrService.GetMonitorsAsync();
+                bool autoHdr = await HdrService.GetAutoHdrAsync();
+                _homeHdrEnabled     = monitors.Exists(m => m.HdrEnabled);
+                _homeAutoHdrEnabled = autoHdr;
+                RefreshHomePanelUI();
+            }
+            catch { }
+        }
+
         public void RefreshHomePanel(bool hdrEnabled, bool autoHdrEnabled,
                                      bool spatialEnabled, SpatialAudioFormat format,
                                      bool gameLibSync)
@@ -1147,6 +1161,10 @@ private void RefreshStreamingAppInfo()
             {
                 _currentMonitors = await HdrService.GetMonitorsAsync();
                 bool autoHdr = await HdrService.GetAutoHdrAsync();
+
+                _homeHdrEnabled     = _currentMonitors.Exists(m => m.HdrEnabled);
+                _homeAutoHdrEnabled = autoHdr;
+                RefreshHomePanelUI();
 
                 List<MonitorInfo> toShow = _currentMonitors;
 
@@ -1336,6 +1354,8 @@ private void RefreshStreamingAppInfo()
             // Immediately update the in-memory model — do not wait for Windows
             m.HdrEnabled = enable;
             BuildMonitorCards(_currentMonitors);
+            _homeHdrEnabled = _currentMonitors.Exists(x => x.HdrEnabled);
+            RefreshHomePanelUI();
 
             // Update the Auto HDR warning
             bool anyHdrOn = _currentMonitors.Exists(x => x.HdrEnabled);
@@ -1374,6 +1394,8 @@ private void RefreshStreamingAppInfo()
             AutoHdrWarning.Visibility = (enable && !anyHdrOn)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
+            _homeAutoHdrEnabled = enable;
+            RefreshHomePanelUI();
         }
 
         // ─── Refresh button ───────────────────────────────────────────────────────────
