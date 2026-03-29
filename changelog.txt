@@ -4,6 +4,12 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 5.3.1 (30/03/2026)
+------------------------------------------
+
+✨ NEW:
+• Network tab — Tailscale detection: if Tailscale is active, the Network tab shows the host's Tailscale IP (100.x.x.x range) with a one-click copy-to-clipboard button and fade-in/out "Copied" feedback
+
 Version 5.3.0 - The "Cover Art Update" (29/03/2026)
 ------------------------------------------
 

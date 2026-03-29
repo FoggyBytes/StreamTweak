@@ -32,6 +32,7 @@ namespace StreamTweak
         private bool isAutoStreamingEnabled = true;
         private bool _updateAvailable = false;
         private string currentAdapterName = string.Empty;
+        private CancellationTokenSource? _copiedFeedbackCts;
 
         public event EventHandler? SpeedApplied;
         public event EventHandler? StreamingModeChanged;
@@ -694,6 +695,7 @@ private void RefreshStreamingAppInfo()
             }
 
             UpdateStreamingButtonAppearance();
+            UpdateTailscaleStatus();
         }
 
         private void AdapterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -723,6 +725,67 @@ private void RefreshStreamingAppInfo()
                     CurrentSpeedTextBlock.Text = "Disconnected";
             }
             catch { CurrentSpeedTextBlock.Text = "Unknown"; }
+        }
+
+        private void UpdateTailscaleStatus()
+        {
+            var (detected, ip) = GetTailscaleInfo();
+            if (detected)
+            {
+                TailscaleIpTextBlock.Text = ip;
+                TailscaleIpTextBlock.FontWeight = FontWeights.Bold;
+                TailscaleIpTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("AccentColor");
+                TailscaleCopyButton.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                TailscaleIpTextBlock.Text = "Not detected";
+                TailscaleIpTextBlock.FontWeight = FontWeights.Normal;
+                TailscaleIpTextBlock.Foreground = (System.Windows.Media.Brush)FindResource("SecondaryTextForeground");
+                TailscaleCopyButton.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private static (bool detected, string ip) GetTailscaleInfo()
+        {
+            try
+            {
+                foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+                {
+                    if (!ni.Name.Contains("Tailscale", StringComparison.OrdinalIgnoreCase) &&
+                        !ni.Description.Contains("Tailscale", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    foreach (var addr in ni.GetIPProperties().UnicastAddresses)
+                    {
+                        if (addr.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork &&
+                            addr.Address.ToString().StartsWith("100."))
+                            return (true, addr.Address.ToString());
+                    }
+                    return (true, "IP unknown");
+                }
+            }
+            catch { }
+            return (false, string.Empty);
+        }
+
+        private async void TailscaleCopyButton_Click(object sender, RoutedEventArgs e)
+        {
+            Clipboard.SetText(TailscaleIpTextBlock.Text);
+
+            _copiedFeedbackCts?.Cancel();
+            _copiedFeedbackCts?.Dispose();
+            _copiedFeedbackCts = new CancellationTokenSource();
+            var token = _copiedFeedbackCts.Token;
+
+            TailscaleCopiedText.BeginAnimation(UIElement.OpacityProperty,
+                new System.Windows.Media.Animation.DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200)));
+
+            try { await Task.Delay(3000, token); }
+            catch (OperationCanceledException) { return; }
+
+            TailscaleCopiedText.BeginAnimation(UIElement.OpacityProperty,
+                new System.Windows.Media.Animation.DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(300)));
         }
 
         private void LoadAdapterSpeeds(string adapterName)

@@ -25,6 +25,7 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Auto Streaming Mode — monitors Sunshine/Apollo/Vibeshine/Vibepollo logs and throttles the host NIC to 1 Gbps on client connect; restores original speed on disconnect
 - Manual streaming control — one-click throttle/restore without waiting for log events
 - UAC-free — a LocalSystem Windows Service handles all speed changes via Named Pipe; no prompts ever
+- [Tailscale](https://tailscale.com) detection — if Tailscale is running, the Network tab shows the host's Tailscale IP with a copy button. Useful for remote streaming: instead of the local LAN address, connect StreamLight to the Tailscale IP to reach your PC from outside your home network — no port forwarding needed
 
 **🖥️ Display**
 - HDR toggle — enable or disable HDR per monitor from StreamTweak, without opening Windows Settings
@@ -50,7 +51,12 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 5.3.0 — The "Cover Art Update"
+## ✨ What's New in 5.3.1
+
+- **Tailscale detection** — if [Tailscale](https://tailscale.com) is running, the Network tab shows the host's Tailscale IP with a copy-to-clipboard button
+
+<details>
+<summary>5.3.0 — The "Cover Art Update"</summary>
 
 - **Game Library redesigned** — 4-column cover art grid replaces the text DataGrid; each card shows the cover image, store badge overlay, sync toggle, and Remove button
 - **Store badge overlays** — per-game store icon + name (Steam, Epic, GOG, Ubisoft, Xbox, Battle.net, EA) rendered as SVG geometry, same assets as StreamLight
@@ -59,6 +65,7 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - **App Manager exe icons** — each entry in the Streaming App Manager now shows the app's own .exe icon
 - **Session chart duration fixed** — sparklines and session headers showed "10m 00s" for any session longer than 10 minutes due to the downsampled point count being interpreted as seconds; now uses the real `EndTime − StartTime`
 - **Removed games no longer re-added on startup** — games removed via the Remove button are now blacklisted in a persisted exclusion list; auto-sync at startup skips them; a manual Sync Now clears the list and restores full discovery
+</details>
 
 For full version history see [changelog.txt](changelog.txt).
 
@@ -70,7 +77,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_5.3.0_Installer.exe` and run it.
+2. Download the latest `StreamTweak_5.3.1_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)
