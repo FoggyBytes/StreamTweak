@@ -77,6 +77,22 @@ namespace StreamTweak
             set => SetValue(MaxValueProperty, value);
         }
 
+        public static readonly DependencyProperty DurationSecondsProperty =
+            DependencyProperty.Register(nameof(DurationSeconds), typeof(int),
+                typeof(SparklineControl),
+                new FrameworkPropertyMetadata(0,
+                    FrameworkPropertyMetadataOptions.AffectsRender));
+
+        /// <summary>
+        /// Real session duration in seconds. When set, used for the X-axis label instead of
+        /// the raw point count (which is always ≤600 after downsampling regardless of session length).
+        /// </summary>
+        public int DurationSeconds
+        {
+            get => (int)GetValue(DurationSecondsProperty);
+            set => SetValue(DurationSecondsProperty, value);
+        }
+
         // ── Layout constants ──────────────────────────────────────────────────
 
         private const double YLabelW = 28;  // left margin for Y-axis labels
@@ -123,7 +139,7 @@ namespace StreamTweak
                 var t0Ft = MakeFt("0", typeface, 8.5, lblBrush, dpi);
                 dc.DrawText(t0Ft, new Point(cx, cy + ch + 2));
 
-                int secs = rawCount;
+                int secs = DurationSeconds > 0 ? DurationSeconds : rawCount;
                 string durStr = secs >= 3600
                     ? $"{secs / 3600}h{(secs % 3600) / 60}m{secs % 60:00}s"
                     : secs >= 60

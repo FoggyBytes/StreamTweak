@@ -9,14 +9,34 @@
 		<UseWPF>true</UseWPF>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<ApplicationIcon>Resources\streamtweak.ico</ApplicationIcon>
-		<Version>5.2.2</Version>
-		<AssemblyVersion>5.2.2.0</AssemblyVersion>
-		<FileVersion>5.2.2.0</FileVersion>
+		<Version>5.3.0</Version>
+		<AssemblyVersion>5.3.0.0</AssemblyVersion>
+		<FileVersion>5.3.0.0</FileVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<None Remove="Resources\streammodeko.ico" />
 		<None Remove="Resources\streamtweak.ico" />
+		<None Remove="Resources\Twemoji\*.png" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Resource Include="Resources\Twemoji\house_3d.png"/>
+		<Resource Include="Resources\Twemoji\globe_3d.png"/>
+		<Resource Include="Resources\Twemoji\desktop_3d.png"/>
+		<Resource Include="Resources\Twemoji\headphones_3d.png"/>
+		<Resource Include="Resources\Twemoji\card_index_dividers_3d.png"/>
+		<Resource Include="Resources\Twemoji\video_game_3d.png"/>
+		<Resource Include="Resources\Twemoji\clipboard_3d.png"/>
+		<Resource Include="Resources\Twemoji\open_book_3d.png"/>
+		<Resource Include="Resources\Twemoji\link_3d.png"/>
+		<Resource Include="Resources\Twemoji\bar_chart_3d.png"/>
+		<Resource Include="Resources\Twemoji\credit_card_3d.png"/>
+		<Resource Include="Resources\Twemoji\warning_3d.png"/>
+		<Resource Include="Resources\Twemoji\gear_3d.png"/>
+		<Resource Include="Resources\Twemoji\satellite_3d.png"/>
+		<Resource Include="Resources\Twemoji\trophy_3d.png"/>
+		<Resource Include="Resources\Twemoji\wrench_3d.png"/>
 	</ItemGroup>
 
 	<ItemGroup>

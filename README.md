@@ -20,43 +20,43 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 
 ## 🔥 Features
 
-**Network**
+**🌐 Network**
 - Auto Streaming Mode — monitors Sunshine/Apollo/Vibeshine/Vibepollo logs and throttles the host NIC to 1 Gbps on client connect; restores original speed on disconnect
 - Manual streaming control — one-click throttle/restore without waiting for log events
 - UAC-free — a LocalSystem Windows Service handles all speed changes via Named Pipe; no prompts ever
 
-**Display**
+**🖥️ Display**
 - HDR toggle — enable or disable HDR per monitor from StreamTweak, without opening Windows Settings
 - Auto HDR toggle — enable or disable Windows Auto HDR system-wide; change broadcast instantly to all running apps
 
-**Audio**
+**🎧 Audio**
 - Auto spatial audio — activates Dolby Atmos for Headphones or Windows Sonic 30 seconds after session start, on the output device of your choice
 - Output device selector — any audio render device; Steam Streaming Speakers pre-selected when present
 - Live availability indicators — green/red dot per format per device before activation
 
-**Streaming App Manager**
+**🗂️ Streaming App Manager**
 - Auto kill & relaunch — define apps to terminate at session start and relaunch at session end (e.g. Hue Sync)
 - Per-app AutoManage toggle — exclude individual apps from automation without removing them from the list
 
-**Game Library Sync**
+**🎮 Game Library Sync**
 - Multi-store discovery — Steam, Epic Games, GOG, Ubisoft Connect, Xbox/Game Pass, EA App, Battle.net
-- Native cover art — fetched from each store's CDN and cached as PNG; no third-party services
+- Native cover art — fetched from each store's CDN and cached as PNG; no third-party services; displayed in a 4-column grid with store badge overlays
 - Safe sync — manually created Sunshine entries are never touched; uninstalled games removed on next sync
-- Manual game management — Add any exe not auto-detected; remove individual entries with the − button
+- Manual game management — Add any exe not auto-detected; remove individual entries with the Remove button
 
-**Session History & Telemetry**
+**📋 Session History & Telemetry**
 - Full session log — every session recorded with NIC throttle state, duration, and end reason
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 5.2.2 — The "Telemetry & Game Library Fix"
+## ✨ What's New in 5.3.0 — The "Cover Art Update"
 
-- **Xbox/Game Pass scanner fixed** — `.GamingRoot` header offset corrected (8 bytes, not 5); Xbox and Game Pass games now appear in the library after sync
-- **Game Library race condition fixed** — Add and Remove now hold the sync lock; concurrent writes no longer corrupt `gamelibrarystate.json` or `apps.json`
-- **Atomic file writes** — game library state and Steam cover PNGs written to `.tmp` first, then moved atomically; a crash mid-write no longer wipes the library or permanently breaks a cover
-- **Session telemetry fixes** — drop rate denominator corrected; RTT=0 samples filtered; time series capped at 600 points; `SessionLogger` concurrency guard added
-- **RTT spike grading** — a single spike above 200 ms now downgrades the RTT grade even when the average is good
-- **SparklineControl** — Y-axis labels now reflect the actual visible scale after margin padding
+- **Game Library redesigned** — 4-column cover art grid replaces the text DataGrid; each card shows the cover image, store badge overlay, sync toggle, and Remove button
+- **Store badge overlays** — per-game store icon + name (Steam, Epic, GOG, Ubisoft, Xbox, Battle.net, EA) rendered as SVG geometry, same assets as StreamLight
+- **2:3 aspect ratio normalization** — all covers normalized to Steam's portrait ratio; wider covers (other stores) center-cropped left/right for a uniform grid
+- **Fluent Emoji 3D icons** — all Segoe MDL2 Assets glyphs replaced with Microsoft Fluent Emoji 3D PNGs throughout the UI
+- **App Manager exe icons** — each entry in the Streaming App Manager now shows the app's own .exe icon
+- **Session chart duration fixed** — sparklines and session headers showed "10m 00s" for any session longer than 10 minutes due to the downsampled point count being interpreted as seconds; now uses the real `EndTime − StartTime`
 
 For full version history see [changelog.txt](changelog.txt).
 
@@ -68,7 +68,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_5.2.2_Installer.exe` and run it.
+2. Download the latest `StreamTweak_5.3.0_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

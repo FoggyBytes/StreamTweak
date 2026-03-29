@@ -19,7 +19,11 @@
         <local:QualityGradeColorConverter       x:Key="GradeColorConverter"/>
         <local:QualityGradeLabelConverter       x:Key="GradeLabelConverter"/>
         <local:QualityGradeShortLabelConverter  x:Key="GradeShortLabelConverter"/>
-        <BooleanToVisibilityConverter      x:Key="BoolToVis"/>
+        <BooleanToVisibilityConverter           x:Key="BoolToVis"/>
+        <local:CoverPathToImageConverter        x:Key="CoverPathConverter"/>
+        <local:StoreBadgeGeometryConverter      x:Key="StoreBadgeGeomConverter"/>
+        <local:StoreBadgeNameConverter          x:Key="StoreBadgeNameConverter"/>
+        <local:StoreBadgeVisibilityConverter    x:Key="StoreBadgeVisConverter"/>
 
         <!-- ═══════════════ Color Palette ═══════════════ -->
         <SolidColorBrush x:Key="WindowBackground"         Color="#19FFFFFF"/>
@@ -428,9 +432,10 @@
                                 HorizontalAlignment="Stretch"
                                 Click="HomeTabButton_Click">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE80F;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="15" FontWeight="Normal"
-                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <Image Source="/Resources/Twemoji/house_3d.png"
+                                       Width="18" Height="18"
+                                       Margin="0,0,8,0" VerticalAlignment="Center"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
                                 <TextBlock Text="Home" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
@@ -440,9 +445,10 @@
                                 HorizontalAlignment="Stretch"
                                 Click="NetworkTabButton_Click">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE12B;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="15" FontWeight="Normal"
-                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <Image Source="/Resources/Twemoji/globe_3d.png"
+                                       Width="18" Height="18"
+                                       Margin="0,0,8,0" VerticalAlignment="Center"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
                                 <TextBlock Text="Network" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
@@ -452,9 +458,10 @@
                                 HorizontalAlignment="Stretch"
                                 Click="DisplayTabButton_Click">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE7F4;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="15" FontWeight="Normal"
-                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <Image Source="/Resources/Twemoji/desktop_3d.png"
+                                       Width="18" Height="18"
+                                       Margin="0,0,8,0" VerticalAlignment="Center"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
                                 <TextBlock Text="Display" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
@@ -464,9 +471,10 @@
                                 HorizontalAlignment="Stretch"
                                 Click="AudioTabButton_Click">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE7F6;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="15" FontWeight="Normal"
-                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <Image Source="/Resources/Twemoji/headphones_3d.png"
+                                       Width="18" Height="18"
+                                       Margin="0,0,8,0" VerticalAlignment="Center"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
                                 <TextBlock Text="Audio" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
@@ -476,9 +484,10 @@
                                 HorizontalAlignment="Stretch"
                                 Click="AppTabButton_Click">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE8A9;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="15" FontWeight="Normal"
-                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <Image Source="/Resources/Twemoji/card_index_dividers_3d.png"
+                                       Width="18" Height="18"
+                                       Margin="0,0,8,0" VerticalAlignment="Center"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
                                 <TextBlock Text="App" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
@@ -488,9 +497,10 @@
                                 HorizontalAlignment="Stretch"
                                 Click="GameLibTabButton_Click">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE7FC;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="15" FontWeight="Normal"
-                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <Image Source="/Resources/Twemoji/video_game_3d.png"
+                                       Width="18" Height="18"
+                                       Margin="0,0,8,0" VerticalAlignment="Center"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
                                 <TextBlock Text="Games" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
@@ -500,9 +510,10 @@
                                 HorizontalAlignment="Stretch"
                                 Click="LogsTabButton_Click">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE823;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="15" FontWeight="Normal"
-                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <Image Source="/Resources/Twemoji/clipboard_3d.png"
+                                       Width="18" Height="18"
+                                       Margin="0,0,8,0" VerticalAlignment="Center"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
                                 <TextBlock Text="Logs" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
@@ -512,9 +523,10 @@
                                 HorizontalAlignment="Stretch"
                                 Click="GlossaryTabButton_Click">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="&#xE7C1;" FontFamily="Segoe MDL2 Assets"
-                                           FontSize="15" FontWeight="Normal"
-                                           Margin="0,0,8,0" VerticalAlignment="Center"/>
+                                <Image Source="/Resources/Twemoji/open_book_3d.png"
+                                       Width="18" Height="18"
+                                       Margin="0,0,8,0" VerticalAlignment="Center"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
                                 <TextBlock Text="Glossary" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
                             </StackPanel>
                         </Button>
@@ -601,8 +613,10 @@
                                     </Style>
                                 </Button.Style>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="&#xE8F7;" FontFamily="Segoe MDL2 Assets"
-                                               FontSize="11" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                                    <Image Source="/Resources/Twemoji/link_3d.png"
+                                           Width="14" Height="14"
+                                           Margin="0,0,5,0" VerticalAlignment="Center"
+                                           RenderOptions.BitmapScalingMode="HighQuality"/>
                                     <TextBlock Text="View on GitHub" FontSize="11" FontWeight="SemiBold"
                                                VerticalAlignment="Center"/>
                                 </StackPanel>
@@ -616,7 +630,7 @@
                                     </Style>
                                 </Button.Style>
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <TextBlock Text="💳" FontSize="11" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <Image Source="/Resources/Twemoji/credit_card_3d.png" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,5,0" RenderOptions.BitmapScalingMode="HighQuality"/>
                                     <TextBlock Text="Donate via PayPal" FontSize="11" FontWeight="SemiBold"
                                                VerticalAlignment="Center"/>
                                 </StackPanel>
@@ -802,7 +816,10 @@
                                 <Run Text="Auto-sets network speed to 1Gbps when Moonlight streams."/>
                             </TextBlock>
                             <TextBlock FontSize="12" Foreground="{DynamicResource SecondaryTextForeground}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,3" LineHeight="16">
-                                <Run Text="⚠️ A brief disconnect will occur during speed adjustment."/>
+                                <InlineUIContainer BaselineAlignment="Center">
+                                    <Image Source="/Resources/Twemoji/warning_3d.png" Width="12" Height="12" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                </InlineUIContainer>
+                                <Run Text=" A brief disconnect will occur during speed adjustment."/>
                             </TextBlock>
                             <TextBlock FontSize="12" Foreground="{DynamicResource SecondaryTextForeground}" TextWrapping="Wrap" TextAlignment="Center" Margin="0,0,0,0" LineHeight="16">
                                 <Run Text="Reconnect within 30 seconds or the original speed will be restored."/>
@@ -908,10 +925,14 @@
                                                    Foreground="{DynamicResource SecondaryTextForeground}"/>
                                         <TextBlock x:Name="AutoHdrWarning"
                                                    Visibility="Collapsed"
-                                                   Text="⚠  Auto HDR requires at least one display with HDR enabled."
                                                    FontSize="12" Margin="0,4,0,0"
                                                    TextWrapping="Wrap"
-                                                   Foreground="{DynamicResource WarningForeground}"/>
+                                                   Foreground="{DynamicResource WarningForeground}">
+                                            <InlineUIContainer BaselineAlignment="Center">
+                                                <Image Source="/Resources/Twemoji/warning_3d.png" Width="12" Height="12" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            </InlineUIContainer>
+                                            <Run Text="  Auto HDR requires at least one display with HDR enabled."/>
+                                        </TextBlock>
                                     </StackPanel>
                                     <CheckBox x:Name="AutoHdrToggle"
                                               Grid.Column="1"
@@ -958,10 +979,11 @@
                             <Separator Background="{DynamicResource BorderColor}" Margin="0,0,0,0"/>
                         </StackPanel>
 
-                        <TextBlock Grid.Row="2" Text="&#xE7F6;" FontFamily="Segoe MDL2 Assets" FontSize="32"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,10,0,10"
-                                   Foreground="{DynamicResource AccentColor}"/>
+                        <Image Grid.Row="2" Source="/Resources/Twemoji/headphones_3d.png"
+                               Width="48" Height="48"
+                               HorizontalAlignment="Center"
+                               Margin="0,10,0,10"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
 
                         <!-- Output device selector -->
                         <ComboBox Grid.Row="3" x:Name="AudioDeviceComboBox" Margin="0,0,0,10"
@@ -1103,9 +1125,6 @@
 
                                                 <!-- Telemetry button (hidden when no data) -->
                                                 <Button Grid.Column="0"
-                                                        Content="&#xE9D9;"
-                                                        FontFamily="Segoe MDL2 Assets"
-                                                        FontSize="12"
                                                         Foreground="White"
                                                         Width="22" Height="20"
                                                         HorizontalAlignment="Center"
@@ -1113,6 +1132,9 @@
                                                         ToolTip="View session telemetry"
                                                         Click="SessionRow_Click"
                                                         Cursor="Hand">
+                                                    <Image Source="/Resources/Twemoji/bar_chart_3d.png"
+                                                           Width="14" Height="14"
+                                                           RenderOptions.BitmapScalingMode="HighQuality"/>
                                                     <Button.Style>
                                                         <Style TargetType="Button">
                                                             <Setter Property="Background"  Value="#22FFFFFF"/>
@@ -1314,24 +1336,28 @@
                                                 </Grid.ColumnDefinitions>
                                                 <local:SparklineControl Grid.Row="0" Grid.Column="0"
                                                     Points="{Binding RttTimeSeries}"
+                                                    DurationSeconds="{Binding SessionDurationSeconds}"
                                                     Label="RTT ms"
                                                     StrokeBrush="#FFFF9800"
                                                     Tag="Rtt" Cursor="Hand"
                                                     MouseLeftButtonUp="Chart_Click"/>
                                                 <local:SparklineControl Grid.Row="0" Grid.Column="2"
                                                     Points="{Binding DropsTimeSeries}"
+                                                    DurationSeconds="{Binding SessionDurationSeconds}"
                                                     Label="Frame Drops"
                                                     StrokeBrush="#FFEF5350"
                                                     Tag="Drops" Cursor="Hand"
                                                     MouseLeftButtonUp="Chart_Click"/>
                                                 <local:SparklineControl Grid.Row="2" Grid.Column="0"
                                                     Points="{Binding BitrateTimeSeries}"
+                                                    DurationSeconds="{Binding SessionDurationSeconds}"
                                                     Label="Bitrate Mbps"
                                                     StrokeBrush="#FF29B6F6"
                                                     Tag="Bitrate" Cursor="Hand"
                                                     MouseLeftButtonUp="Chart_Click"/>
                                                 <local:SparklineControl Grid.Row="2" Grid.Column="2"
                                                     Points="{Binding DecodeTimeSeries}"
+                                                    DurationSeconds="{Binding SessionDurationSeconds}"
                                                     Label="Decode ms"
                                                     StrokeBrush="#FFA78BFA"
                                                     Tag="Decode" Cursor="Hand"
@@ -1445,11 +1471,16 @@
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Orientation="Vertical" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12"/>
-                                            <TextBlock Text="{Binding Path}" FontSize="11"
-                                                       Foreground="{DynamicResource SecondaryTextForeground}"
-                                                       TextTrimming="CharacterEllipsis"/>
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Image Source="{Binding Icon}" Width="20" Height="20"
+                                                   VerticalAlignment="Center" Margin="0,0,10,0"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            <StackPanel Orientation="Vertical" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12"/>
+                                                <TextBlock Text="{Binding Path}" FontSize="11"
+                                                           Foreground="{DynamicResource SecondaryTextForeground}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </StackPanel>
                                         </StackPanel>
                                         <CheckBox Grid.Column="1"
                                                   Style="{StaticResource ToggleSwitchStyle}"
@@ -1520,149 +1551,86 @@
                         </Grid>
 
                         <!-- Sync Now + Clear Sync buttons + status -->
-                        <Grid Grid.Row="3" Margin="0,0,0,10">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Button Grid.Column="0" x:Name="SyncNowButton"
+                        <StackPanel Grid.Row="3" Margin="0,0,0,10"
+                                    Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button x:Name="SyncNowButton"
                                     Content="Sync Now" Style="{StaticResource ModernButton}"
                                     Height="30" Width="90"
                                     Click="SyncNow_Click"/>
-                            <Button Grid.Column="1" x:Name="ClearSyncButton"
+                            <Button x:Name="ClearSyncButton"
                                     Content="Clear Sync" Style="{StaticResource ModernButton}"
                                     Height="30" Width="90" Margin="8,0,0,0"
                                     Click="ClearSync_Click"/>
-                            <Button Grid.Column="2" x:Name="AddGameButton"
+                            <Button x:Name="AddGameButton"
                                     Content="Add" Style="{StaticResource ModernButton}"
                                     Height="30" Width="60" Margin="8,0,0,0"
                                     Click="AddGame_Click"/>
-                            <TextBlock Grid.Column="3" x:Name="GameLibStatusLabel"
+                            <TextBlock x:Name="GameLibStatusLabel"
                                        VerticalAlignment="Center" Margin="10,0,0,0"
                                        FontSize="11" Foreground="{DynamicResource SecondaryTextForeground}"
                                        TextWrapping="Wrap" Text="Not yet synced."/>
-                        </Grid>
+                        </StackPanel>
 
-                        <!-- Discovered game list — per-game sync toggle -->
-                        <DataGrid Grid.Row="4" x:Name="GameLibList"
-                                  AutoGenerateColumns="False"
-                                  CanUserAddRows="False"
-                                  CanUserDeleteRows="False"
-                                  CanUserResizeColumns="True"
-                                  CanUserSortColumns="True"
-                                  SelectionMode="Single"
-                                  Background="{DynamicResource WindowBackground}"
-                                  BorderBrush="{DynamicResource BorderColor}"
-                                  BorderThickness="1"
-                                  Foreground="{DynamicResource TextForeground}"
-                                  GridLinesVisibility="Horizontal"
-                                  HorizontalGridLinesBrush="{DynamicResource BorderColor}"
-                                  RowBackground="Transparent"
-                                  AlternatingRowBackground="#0CFFFFFF"
-                                  HeadersVisibility="Column"
-                                  Margin="0,0,0,8"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
-
-                            <DataGrid.ColumnHeaderStyle>
-                                <Style TargetType="DataGridColumnHeader">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource SecondaryTextForeground}"/>
-                                    <Setter Property="FontSize" Value="11"/>
-                                    <Setter Property="FontWeight" Value="SemiBold"/>
-                                    <Setter Property="Padding" Value="8,5"/>
-                                    <Setter Property="BorderBrush" Value="{DynamicResource BorderColor}"/>
-                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                                </Style>
-                            </DataGrid.ColumnHeaderStyle>
-
-                            <DataGrid.CellStyle>
-                                <Style TargetType="DataGridCell">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource TextForeground}"/>
-                                    <Setter Property="BorderThickness" Value="0"/>
-                                    <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter Property="Background" Value="#33BE5438"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </DataGrid.CellStyle>
-
-                            <DataGrid.RowStyle>
-                                <Style TargetType="DataGridRow">
-                                    <Setter Property="Background" Value="Transparent"/>
-                                    <Setter Property="Foreground" Value="{DynamicResource TextForeground}"/>
-                                    <Setter Property="BorderThickness" Value="0"/>
-                                    <Style.Triggers>
-                                        <Trigger Property="IsSelected" Value="True">
-                                            <Setter Property="Background" Value="#22BE5438"/>
-                                        </Trigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </DataGrid.RowStyle>
-
-                            <DataGrid.Columns>
-
-                                <!-- Sync toggle -->
-                                <DataGridTemplateColumn Header="Sync" Width="54" IsReadOnly="False" CanUserSort="True" SortMemberPath="Enabled">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <CheckBox Style="{StaticResource ToggleSwitchStyle}"
-                                                      IsChecked="{Binding Enabled, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}"
-                                                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                      Margin="0,2"
-                                                      Click="GameLibEntry_EnabledChanged"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-
-                                <!-- Name (read-only) -->
-                                <DataGridTextColumn Header="Name" Width="*" IsReadOnly="True"
-                                                    Binding="{Binding Name}">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="VerticalAlignment" Value="Center"/>
-                                            <Setter Property="Padding" Value="6,3"/>
-                                            <Setter Property="FontSize" Value="12"/>
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
-
-                                <!-- Store (read-only) -->
-                                <DataGridTextColumn Header="Store" Width="105" IsReadOnly="True"
-                                                    Binding="{Binding Store}">
-                                    <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="VerticalAlignment" Value="Center"/>
-                                            <Setter Property="Padding" Value="6,3"/>
-                                            <Setter Property="FontSize" Value="11"/>
-                                            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextForeground}"/>
-                                        </Style>
-                                    </DataGridTextColumn.ElementStyle>
-                                </DataGridTextColumn>
-
-                                <!-- Remove button -->
-                                <DataGridTemplateColumn Header="" Width="32" IsReadOnly="True" CanUserResize="False" CanUserSort="False">
-                                    <DataGridTemplateColumn.CellTemplate>
-                                        <DataTemplate>
-                                            <Button Content="−" FontSize="14" FontWeight="Bold"
-                                                    Width="22" Height="22"
-                                                    Padding="0" Margin="0"
-                                                    HorizontalContentAlignment="Center"
-                                                    VerticalContentAlignment="Center"
-                                                    Background="#33FFFFFF" Foreground="#FFCCCCCC"
-                                                    BorderThickness="0" Cursor="Hand"
-                                                    ToolTip="Remove from list"
-                                                    Click="RemoveGame_Click"/>
-                                        </DataTemplate>
-                                    </DataGridTemplateColumn.CellTemplate>
-                                </DataGridTemplateColumn>
-
-                            </DataGrid.Columns>
-                        </DataGrid>
+                        <!-- Discovered game list — cover art grid -->
+                        <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl x:Name="GameLibList" Margin="0,0,0,8">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <UniformGrid Columns="4"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Margin="4"
+                                                Background="{DynamicResource PanelBackground}"
+                                                BorderBrush="{DynamicResource BorderColor}"
+                                                BorderThickness="1" CornerRadius="6">
+                                            <StackPanel>
+                                                <!-- Cover image with store badge overlay -->
+                                                <Grid>
+                                                    <Border Background="#1A1A2A" CornerRadius="5,5,0,0">
+                                                        <Image Source="{Binding CoverImagePath, Converter={StaticResource CoverPathConverter}}"
+                                                               Stretch="Uniform"
+                                                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                    </Border>
+                                                    <!-- Store badge -->
+                                                    <Border Visibility="{Binding Store, Converter={StaticResource StoreBadgeVisConverter}}"
+                                                            Background="#CC000000" CornerRadius="3" Padding="4,2"
+                                                            HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                                            Margin="0,0,5,5">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Viewbox Width="11" Height="11" Margin="0,0,3,0"
+                                                                     SnapsToDevicePixels="True">
+                                                                <Path Data="{Binding Store, Converter={StaticResource StoreBadgeGeomConverter}}"
+                                                                      Fill="White"/>
+                                                            </Viewbox>
+                                                            <TextBlock Text="{Binding Store, Converter={StaticResource StoreBadgeNameConverter}}"
+                                                                       FontSize="9" Foreground="White"
+                                                                       VerticalAlignment="Center"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </Grid>
+                                                <!-- Sync toggle + remove button -->
+                                                <StackPanel Orientation="Horizontal"
+                                                            HorizontalAlignment="Center"
+                                                            Margin="0,7,0,7">
+                                                    <CheckBox Style="{StaticResource ToggleSwitchStyle}"
+                                                              IsChecked="{Binding Enabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                              VerticalAlignment="Center" Margin="0,0,8,0"
+                                                              Click="GameLibEntry_EnabledChanged"/>
+                                                    <Button Content="Remove"
+                                                            Style="{StaticResource ModernButton}"
+                                                            FontSize="11"
+                                                            Width="60" Height="28"
+                                                            Click="RemoveGame_Click"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
 
 
                     </Grid>
@@ -1697,10 +1665,14 @@
                                             TextElement.FontFamily="Cascadia Code, Cascadia Mono, Consolas, Courier New">
 
                                     <!-- ── NETWORK ── -->
-                                    <TextBlock Text="🌐  // NETWORK"
-                                               FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="10" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
-                                               Margin="0,2,0,2"/>
+                                               Margin="0,2,0,2">
+                                        <InlineUIContainer BaselineAlignment="Center">
+                                            <Image Source="/Resources/Twemoji/globe_3d.png" Width="12" Height="12" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        </InlineUIContainer>
+                                        <Run Text="  // NETWORK"/>
+                                    </TextBlock>
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -1724,10 +1696,14 @@
                                         <TextBlock Grid.Column="1" Text="Outbound network throughput from the host, expressed in Mbps." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <!-- ── STREAMING · CLIENT ── -->
-                                    <TextBlock Text="📡  // STREAMING · CLIENT"
-                                               FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="10" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
-                                               Margin="0,18,0,2"/>
+                                               Margin="0,18,0,2">
+                                        <InlineUIContainer BaselineAlignment="Center">
+                                            <Image Source="/Resources/Twemoji/satellite_3d.png" Width="12" Height="12" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        </InlineUIContainer>
+                                        <Run Text="  // STREAMING · CLIENT"/>
+                                    </TextBlock>
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -1751,10 +1727,14 @@
                                         <TextBlock Grid.Column="1" Text="Time the client takes to decode each received video frame, in milliseconds." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <!-- ── HOST METRICS ── -->
-                                    <TextBlock Text="📊  // HOST METRICS"
-                                               FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="10" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
-                                               Margin="0,18,0,2"/>
+                                               Margin="0,18,0,2">
+                                        <InlineUIContainer BaselineAlignment="Center">
+                                            <Image Source="/Resources/Twemoji/bar_chart_3d.png" Width="12" Height="12" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        </InlineUIContainer>
+                                        <Run Text="  // HOST METRICS"/>
+                                    </TextBlock>
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -1778,10 +1758,14 @@
                                         <TextBlock Grid.Column="1" Text="Main processor utilization averaged across all cores (%)." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <!-- ── DISPLAY & AUDIO ── -->
-                                    <TextBlock Text="🖥️  // DISPLAY &amp; AUDIO"
-                                               FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="10" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
-                                               Margin="0,18,0,2"/>
+                                               Margin="0,18,0,2">
+                                        <InlineUIContainer BaselineAlignment="Center">
+                                            <Image Source="/Resources/Twemoji/desktop_3d.png" Width="12" Height="12" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        </InlineUIContainer>
+                                        <Run Text="  // DISPLAY &amp; AUDIO"/>
+                                    </TextBlock>
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -1805,10 +1789,14 @@
                                         <TextBlock Grid.Column="1" Text="Virtual audio device created by Steam during a remote play session." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <!-- ── STREAMING SERVERS ── -->
-                                    <TextBlock Text="⚙️  // STREAMING SERVERS"
-                                               FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="10" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
-                                               Margin="0,18,0,2"/>
+                                               Margin="0,18,0,2">
+                                        <InlineUIContainer BaselineAlignment="Center">
+                                            <Image Source="/Resources/Twemoji/gear_3d.png" Width="12" Height="12" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        </InlineUIContainer>
+                                        <Run Text="  // STREAMING SERVERS"/>
+                                    </TextBlock>
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -1817,10 +1805,14 @@
 
 
                                     <!-- ── SESSION QUALITY ── -->
-                                    <TextBlock Text="🏆  // SESSION QUALITY"
-                                               FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="10" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
-                                               Margin="0,18,0,2"/>
+                                               Margin="0,18,0,2">
+                                        <InlineUIContainer BaselineAlignment="Center">
+                                            <Image Source="/Resources/Twemoji/trophy_3d.png" Width="12" Height="12" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        </InlineUIContainer>
+                                        <Run Text="  // SESSION QUALITY"/>
+                                    </TextBlock>
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
 
@@ -1830,10 +1822,14 @@
 
 
                                     <!-- ── APP MANAGEMENT ── -->
-                                    <TextBlock Text="🔧  // APP MANAGEMENT"
-                                               FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="10" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
-                                               Margin="0,18,0,2"/>
+                                               Margin="0,18,0,2">
+                                        <InlineUIContainer BaselineAlignment="Center">
+                                            <Image Source="/Resources/Twemoji/wrench_3d.png" Width="12" Height="12" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                        </InlineUIContainer>
+                                        <Run Text="  // APP MANAGEMENT"/>
+                                    </TextBlock>
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>

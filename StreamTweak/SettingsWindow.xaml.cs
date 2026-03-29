@@ -6,6 +6,8 @@ using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Windows.Media.Imaging;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -1575,8 +1577,40 @@ private void RefreshStreamingAppInfo()
             SaveManagedApps();
         }
 
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
+        private struct SHFILEINFO
+        {
+            public IntPtr hIcon;
+            public int iIcon;
+            public uint dwAttributes;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)] public string szDisplayName;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]  public string szTypeName;
+        }
+
+        [DllImport("shell32.dll", CharSet = CharSet.Auto)]
+        private static extern IntPtr SHGetFileInfo(string pszPath, uint dwFileAttributes, ref SHFILEINFO psfi, uint cbSizeFileInfo, uint uFlags);
+
+        [DllImport("user32.dll")]
+        private static extern bool DestroyIcon(IntPtr hIcon);
+
+        private static ImageSource? ExtractAppIcon(string path)
+        {
+            if (!File.Exists(path)) return null;
+            var shfi = new SHFILEINFO();
+            var result = SHGetFileInfo(path, 0, ref shfi, (uint)Marshal.SizeOf(shfi), 0x100 /* SHGFI_ICON | SHGFI_LARGEICON */);
+            if (result == IntPtr.Zero || shfi.hIcon == IntPtr.Zero) return null;
+            try
+            {
+                return Imaging.CreateBitmapSourceFromHIcon(
+                    shfi.hIcon, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            }
+            finally { DestroyIcon(shfi.hIcon); }
+        }
+
         private void RefreshManagedAppsList()
         {
+            foreach (var app in _managedApps)
+                app.Icon ??= ExtractAppIcon(app.Path);
             ManagedAppsList.ItemsSource = null;
             ManagedAppsList.ItemsSource = _managedApps;
         }
@@ -1728,6 +1762,9 @@ private void RefreshStreamingAppInfo()
         public string Name { get; set; } = string.Empty;
         public string Path { get; set; } = string.Empty;
         public bool AutoManage { get; set; } = true;
+
+        [JsonIgnore]
+        public ImageSource? Icon { get; set; }
     }
 
     // ── Quality grade → Color converter ──────────────────────────────────────

@@ -19,17 +19,12 @@ namespace StreamTweak
             Title = $"{label} — StreamTweak";
             MetricLabel.Text = label;
 
-            int secs = data.Count;
-            string dur = secs >= 3600
-                ? $"{secs / 3600}h {(secs % 3600) / 60}m {secs % 60:00}s"
-                : secs >= 60
-                    ? $"{secs / 60}m {secs % 60:00}s"
-                    : $"{secs}s";
-            SubtitleLabel.Text = $"{session.StartTimeDisplay}  ·  {dur}";
+            SubtitleLabel.Text = $"{session.StartTimeDisplay}  ·  {session.TelemetryDurationDisplay}";
 
-            DetailChart.Points      = data;
-            DetailChart.Label       = label;
-            DetailChart.StrokeBrush = color;
+            DetailChart.Points          = data;
+            DetailChart.Label           = label;
+            DetailChart.StrokeBrush     = color;
+            DetailChart.DurationSeconds = session.SessionDurationSeconds;
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)

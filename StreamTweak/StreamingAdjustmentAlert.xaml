@@ -16,8 +16,12 @@
             <Image Source="pack://application:,,,/Resources/streamtweak.ico" Width="48" Height="48" 
                    HorizontalAlignment="Center" Margin="0,0,0,16"/>
 
-            <TextBlock Text="⚙️ Adjusting Network Speed" 
-                       FontWeight="Bold" FontSize="18" TextAlignment="Center" Margin="0,0,0,14"/>
+            <TextBlock FontWeight="Bold" FontSize="18" TextAlignment="Center" Margin="0,0,0,14">
+                <InlineUIContainer BaselineAlignment="Center">
+                    <Image Source="/Resources/Twemoji/gear_3d.png" Width="18" Height="18" RenderOptions.BitmapScalingMode="HighQuality"/>
+                </InlineUIContainer>
+                <Run Text=" Adjusting Network Speed"/>
+            </TextBlock>
 
             <TextBlock Text="Setting network speed to 1Gbps for optimal streaming." 
                        FontSize="13" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,12" LineHeight="20"/>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace StreamTweak
 {
@@ -37,6 +38,50 @@ namespace StreamTweak
         /// auto-discovered games re-resolve their ExePath on each scan.
         /// </summary>
         public string? ExePath { get; set; }
+
+        // ── UI helpers (not persisted) ────────────────────────────────────────
+
+        private static readonly string CoverCacheDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "StreamTweak", "covers");
+
+        /// <summary>
+        /// Absolute path to the cached cover PNG for this game, or null if not yet downloaded.
+        /// Uses the same naming convention as CoverArtFetcher / StoreCoverFetcher.
+        /// </summary>
+        [JsonIgnore]
+        public string? CoverImagePath
+        {
+            get
+            {
+                string? fileName = GetCoverFileName();
+                if (fileName == null) return null;
+                string path = Path.Combine(CoverCacheDir, fileName);
+                return File.Exists(path) ? path : null;
+            }
+        }
+
+        private string? GetCoverFileName()
+        {
+            if (SteamAppId != null)
+                return $"steam_{SteamAppId}.png";
+
+            string store = Store.Replace(" ", "").ToLowerInvariant();
+
+            if (StoreId != null)
+            {
+                string safeId = new string(StoreId
+                    .Where(c => char.IsLetterOrDigit(c) || c == '-' || c == '_' || c == '.')
+                    .ToArray());
+                if (!string.IsNullOrEmpty(safeId))
+                    return $"{store}_{safeId}.png";
+            }
+
+            string safe = new string(Name
+                .Where(c => char.IsLetterOrDigit(c) || c == '-')
+                .ToArray());
+            return string.IsNullOrEmpty(safe) ? null : $"{store}_{safe}.png";
+        }
     }
 
     /// <summary>

@@ -4,6 +4,19 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 5.3.0 - The "Cover Art Update" (29/03/2026)
+------------------------------------------
+
+🎨 UI — GAMES TAB:
+• Game Library tab redesigned: the text-based DataGrid has been replaced with a 4-column cover art grid; each card shows the game's cover image, a store badge overlay (bottom-right), a sync toggle, and a Remove button
+• Store badge overlays: per-game store badge (icon + name) rendered as a semi-transparent pill using SVG path data ported from StreamLight's store_*.svg assets — zero additional dependencies
+• 2:3 aspect ratio normalization: all cover images are normalized to Steam's native 2:3 portrait ratio before display; covers from other stores that are wider than 2:3 are center-cropped left/right so every card has the same height regardless of the source image dimensions
+• Fluent Emoji 3D icons: all Segoe MDL2 Assets private-use-area characters in the UI (tab icons, panel headers, alert windows, Glossary category headers) have been replaced with Microsoft Fluent Emoji 3D PNGs — same rendering as Windows 11 system UI and GitHub/Claude Code
+• App Manager list: each entry now shows the application's own .exe icon (extracted via SHGetFileInfo / Shell32) next to the app name for instant visual identification
+
+🐛 BUG FIX — SESSION TELEMETRY:
+• Sparkline duration display — sessions longer than 10 minutes showed "10m 00s" on the X-axis of all four charts and in the session header, regardless of actual duration. Root cause: the time series are downsampled to 600 points before persistence; SparklineControl interpreted the point count (always ≤600) as seconds, capping every session at 10 minutes. Fixed by adding a DurationSeconds dependency property to SparklineControl; the real duration (EndTime − StartTime) is now passed via binding for charts in the session overlay and directly in ChartDetailWindow for the fullscreen chart view. TelemetryDurationDisplay in SessionEntry updated to use the same source. The underlying data was never affected — all 600 bucket-averaged points already represented the full session.
+
 Version 5.2.2 - The "Telemetry & Game Library Fix" (28/03/2026)
 ------------------------------------------
 

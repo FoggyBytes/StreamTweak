@@ -64,13 +64,20 @@ namespace StreamTweak
         {
             get
             {
-                int secs = RttTimeSeries?.Count ?? DecodeTimeSeries?.Count ?? 0;
-                if (secs == 0) return DurationDisplay;
-                return secs >= 60
-                    ? $"{secs / 60}m {secs % 60}s"
-                    : $"{secs}s";
+                if (EndTime == null) return DurationDisplay;
+                var d = EndTime.Value - StartTime;
+                int secs = (int)d.TotalSeconds;
+                return secs >= 3600
+                    ? $"{secs / 3600}h{(secs % 3600) / 60}m{secs % 60:00}s"
+                    : secs >= 60
+                        ? $"{secs / 60}m{secs % 60:00}s"
+                        : $"{secs}s";
             }
         }
+
+        [JsonIgnore]
+        public int SessionDurationSeconds =>
+            EndTime.HasValue ? (int)(EndTime.Value - StartTime).TotalSeconds : 0;
 
         [JsonIgnore]
         public string NicThrottleDisplay => string.IsNullOrEmpty(OriginalSpeed) ? "No" : "Yes";
