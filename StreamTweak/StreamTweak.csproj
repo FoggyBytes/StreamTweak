@@ -21,8 +21,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Resource Include="Resources\Twemoji\house_3d.png"/>
-		<Resource Include="Resources\Twemoji\globe_3d.png"/>
+		<Resource Include="Resources\streamtweak.png"/>
+<Resource Include="Resources\Twemoji\globe_3d.png"/>
 		<Resource Include="Resources\Twemoji\desktop_3d.png"/>
 		<Resource Include="Resources\Twemoji\headphones_3d.png"/>
 		<Resource Include="Resources\Twemoji\card_index_dividers_3d.png"/>

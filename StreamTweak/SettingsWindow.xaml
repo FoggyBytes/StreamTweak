@@ -432,7 +432,7 @@
                                 HorizontalAlignment="Stretch"
                                 Click="HomeTabButton_Click">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <Image Source="/Resources/Twemoji/house_3d.png"
+                                <Image Source="/Resources/streamtweak.png"
                                        Width="18" Height="18"
                                        Margin="0,0,8,0" VerticalAlignment="Center"
                                        RenderOptions.BitmapScalingMode="HighQuality"/>
