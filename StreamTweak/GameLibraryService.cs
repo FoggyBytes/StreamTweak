@@ -28,9 +28,11 @@ namespace StreamTweak
 
         /// <summary>
         /// Performs a full sync and returns a human-readable status string.
+        /// Pass isManual=true when triggered by the user's "Sync Now" button —
+        /// this clears the excluded-games blacklist so removed games reappear.
         /// Never throws — errors are returned as a status message.
         /// </summary>
-        public static async Task<string> PerformSyncAsync()
+        public static async Task<string> PerformSyncAsync(bool isManual = false)
         {
             if (!await _syncLock.WaitAsync(0))
                 return "Sync already in progress.";
@@ -41,13 +43,18 @@ namespace StreamTweak
                 if (appsJson == null)
                     return "Sunshine not found. Make sure Sunshine, Apollo, Vibeshine or Vibepollo is installed.";
 
+                var state = GameLibraryState.Current;
+
+                // Manual sync clears the exclusion list so previously removed games reappear.
+                if (isManual)
+                    state.ExcludedGames.Clear();
+
                 // 2. Scan game libraries
                 var games = await Task.Run(() => GameLibraryScanner.ScanAll());
                 if (games.Count == 0)
                     return "No installed games found.";
 
                 // 3. Enrich with Steam metadata (correct names, type filter)
-                var state = GameLibraryState.Current;
                 games = await SteamMetadataFetcher.EnrichAsync(games, state.Games);
                 if (games.Count == 0)
                     return "No games found after filtering.";
@@ -61,6 +68,16 @@ namespace StreamTweak
                              StringComparer.OrdinalIgnoreCase)
                     .Select(g => g.First())
                     .ToList();
+
+                // Auto-sync: skip games the user explicitly removed.
+                if (!isManual && state.ExcludedGames.Count > 0)
+                {
+                    var excluded = new System.Collections.Generic.HashSet<string>(
+                        state.ExcludedGames, StringComparer.OrdinalIgnoreCase);
+                    games = games.Where(g => !excluded.Contains(GetExclusionKey(g))).ToList();
+                    if (games.Count == 0)
+                        return "No games found after filtering.";
+                }
 
                 // 4. Download missing cover art
                 // Step 4a: Steam CDN (fast, no API key required)
@@ -163,6 +180,11 @@ namespace StreamTweak
             }
         }
 
+        private static string GetExclusionKey(DiscoveredGame g) =>
+            g.SteamAppId != null ? $"steam:{g.SteamAppId}" :
+            g.StoreId    != null ? $"{g.Store}:{g.StoreId}" :
+                                   $"{g.Store}:{g.Name}";
+
         /// <summary>
         /// Adds a single manually-selected game to the library and syncs it to Sunshine.
         /// </summary>
@@ -226,6 +248,15 @@ namespace StreamTweak
             {
                 var state = GameLibraryState.Current;
                 state.Games.Remove(entry);
+
+                // Blacklist non-manual games so auto-sync doesn't re-add them.
+                if (!entry.IsManual)
+                {
+                    string key = GameLibraryState.GetExclusionKey(entry);
+                    if (!state.ExcludedGames.Contains(key, StringComparer.OrdinalIgnoreCase))
+                        state.ExcludedGames.Add(key);
+                }
+
                 state.Save();
 
                 string? appsJson = SunshineSync.FindAppsJsonPath();
@@ -270,6 +301,7 @@ namespace StreamTweak
 
                 var state = GameLibraryState.Current;
                 state.Games.Clear();
+                state.ExcludedGames.Clear();
                 state.LastSyncUtc = null;
                 state.Save();
 

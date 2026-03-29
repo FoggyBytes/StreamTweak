@@ -95,6 +95,21 @@ namespace StreamTweak
         public DateTime? LastSyncUtc { get; set; }
         public List<GameLibraryEntry> Games { get; set; } = new();
 
+        /// <summary>
+        /// Stable keys of games the user has explicitly removed via the Remove button.
+        /// Auto-sync skips any discovered game whose key is in this set.
+        /// Cleared when the user clicks "Sync Now" manually.
+        /// </summary>
+        public List<string> ExcludedGames { get; set; } = new();
+
+        // ── Helpers ──────────────────────────────────────────────────────────
+
+        /// <summary>Returns the stable exclusion key for a game entry.</summary>
+        public static string GetExclusionKey(GameLibraryEntry e) =>
+            e.SteamAppId != null ? $"steam:{e.SteamAppId}" :
+            e.StoreId    != null ? $"{e.Store}:{e.StoreId}" :
+                                   $"{e.Store}:{e.Name}";
+
 
         // ── Static singleton ─────────────────────────────────────────────────
 

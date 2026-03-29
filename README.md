@@ -57,6 +57,7 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - **Fluent Emoji 3D icons** — all Segoe MDL2 Assets glyphs replaced with Microsoft Fluent Emoji 3D PNGs throughout the UI
 - **App Manager exe icons** — each entry in the Streaming App Manager now shows the app's own .exe icon
 - **Session chart duration fixed** — sparklines and session headers showed "10m 00s" for any session longer than 10 minutes due to the downsampled point count being interpreted as seconds; now uses the real `EndTime − StartTime`
+- **Removed games no longer re-added on startup** — games removed via the Remove button are now blacklisted in a persisted exclusion list; auto-sync at startup skips them; a manual Sync Now clears the list and restores full discovery
 
 For full version history see [changelog.txt](changelog.txt).
 

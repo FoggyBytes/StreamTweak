@@ -1680,7 +1680,7 @@ private void RefreshStreamingAppInfo()
             try
             {
                 GameLibStatusLabel.Text = "Scanning game libraries…";
-                string status = await GameLibraryService.PerformSyncAsync();
+                string status = await GameLibraryService.PerformSyncAsync(isManual: true);
                 GameLibStatusLabel.Text = status;
                 RefreshGameLibList();
             }

@@ -14,8 +14,9 @@ Version 5.3.0 - The "Cover Art Update" (29/03/2026)
 • Fluent Emoji 3D icons: all Segoe MDL2 Assets private-use-area characters in the UI (tab icons, panel headers, alert windows, Glossary category headers) have been replaced with Microsoft Fluent Emoji 3D PNGs — same rendering as Windows 11 system UI and GitHub/Claude Code
 • App Manager list: each entry now shows the application's own .exe icon (extracted via SHGetFileInfo / Shell32) next to the app name for instant visual identification
 
-🐛 BUG FIX — SESSION TELEMETRY:
+🐛 BUG FIXES:
 • Sparkline duration display — sessions longer than 10 minutes showed "10m 00s" on the X-axis of all four charts and in the session header, regardless of actual duration. Root cause: the time series are downsampled to 600 points before persistence; SparklineControl interpreted the point count (always ≤600) as seconds, capping every session at 10 minutes. Fixed by adding a DurationSeconds dependency property to SparklineControl; the real duration (EndTime − StartTime) is now passed via binding for charts in the session overlay and directly in ChartDetailWindow for the fullscreen chart view. TelemetryDurationDisplay in SessionEntry updated to use the same source. The underlying data was never affected — all 600 bucket-averaged points already represented the full session.
+• Game Library — removed games re-added on startup sync: when a game was removed via the Remove button, the next auto-sync at startup would re-discover it from the store scanner and add it back. Removed games are now blacklisted in a persisted ExcludedGames list (gamelibrarystate.json); auto-sync silently skips any game whose key appears in the list. Clicking "Sync Now" manually clears the exclusion list and restores full discovery, so the user can intentionally re-add a previously removed game by doing an explicit sync.
 
 Version 5.2.2 - The "Telemetry & Game Library Fix" (28/03/2026)
 ------------------------------------------
