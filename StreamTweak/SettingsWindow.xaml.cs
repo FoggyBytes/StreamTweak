@@ -23,7 +23,8 @@ namespace StreamTweak
     {
         [DllImport("DwmApi")]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, int[] attrValue, int attrSize);
-        private const int DWMWA_USE_IMMERSIVE_DARK_MODE  = 20;
+        private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
+
 
         private readonly string configFilePath;
         private Dictionary<string, string>? currentAdapterSpeeds;
@@ -34,6 +35,7 @@ namespace StreamTweak
         private string currentAdapterName = string.Empty;
         private CancellationTokenSource? _copiedFeedbackCts;
 
+        public event EventHandler? ExitRequested;
         public event EventHandler? SpeedApplied;
         public event EventHandler? StreamingModeChanged;
         public event EventHandler? AutoStreamingEnabledChanged;
@@ -125,6 +127,71 @@ namespace StreamTweak
                 NoHistoryLabel.Visibility = Visibility.Collapsed;
                 SessionHistoryList.ItemsSource = sessions;
             }
+            RefreshLastSessionCard(sessions);
+        }
+
+        private void RefreshLastSessionCard(List<SessionEntry>? sessions = null)
+        {
+            sessions ??= SessionLogger.Load();
+            var last = sessions.FirstOrDefault(s => s.EndTime.HasValue);
+
+            if (last == null)
+            {
+                HomeLastSessionCard.Visibility = Visibility.Collapsed;
+                HomeNoSessionText.Visibility   = Visibility.Visible;
+                return;
+            }
+
+            HomeNoSessionText.Visibility   = Visibility.Collapsed;
+            HomeLastSessionCard.Visibility = Visibility.Visible;
+
+            HomeLastSessionDate.Text     = last.StartTime.ToString("dd/MM/yyyy");
+            HomeLastSessionDuration.Text = last.DurationDisplay;
+
+            if (last.Grade.HasValue)
+            {
+                HomeLastSessionGradeBorder.Visibility = Visibility.Visible;
+                var (label, color) = last.Grade.Value switch
+                {
+                    QualityGrade.High   => ("Excellent", Color.FromRgb(76, 175, 80)),
+                    QualityGrade.Medium => ("Good",      Color.FromRgb(255, 152, 0)),
+                    _                   => ("Poor",      Color.FromRgb(244, 67, 54))
+                };
+                HomeLastSessionGradeText.Text          = label;
+                HomeLastSessionGradeBorder.Background  = new SolidColorBrush(color);
+            }
+            else
+            {
+                HomeLastSessionGradeBorder.Visibility = Visibility.Collapsed;
+            }
+
+            if (last.QualityStats != null && last.QualityStats.SampleCount > 0)
+            {
+                HomeLastSessionTelemetryRow.Visibility = Visibility.Visible;
+                HomeLastSessionRtt.Text   = $"RTT avg  {last.QualityStats.RttAvgMs:F0} ms";
+                HomeLastSessionDrops.Text = $"Frame drops  {last.QualityStats.DropRatePct:F1}%";
+            }
+            else
+            {
+                HomeLastSessionTelemetryRow.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void SessionHistoryList_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (SessionHistoryList.View is not GridView gv) return;
+            double available = SessionHistoryList.ActualWidth - SystemParameters.VerticalScrollBarWidth - 2;
+            if (available < 30) return;
+
+            const double col0 = 30;
+            double flex = available - col0;
+
+            gv.Columns[0].Width = col0;
+            gv.Columns[1].Width = flex * 0.26;  // Date / Time
+            gv.Columns[2].Width = flex * 0.14;  // Duration
+            gv.Columns[3].Width = flex * 0.17;  // NIC Throttle
+            gv.Columns[4].Width = flex * 0.30;  // Original NIC Speed
+            gv.Columns[5].Width = flex * 0.13;  // Quality
         }
 
         // ─── Theme ──────────────────────────────────────────────────────────
@@ -145,7 +212,16 @@ namespace StreamTweak
             Application.Current.Resources["AccentHoverColor"] = hoverBrush;
         }
 
-        private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
+        private void CloseButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new ConfirmExitDialog { Owner = this };
+            dlg.ShowDialog();
+            if (dlg.Confirmed)
+                ExitRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void MinimizeButton_Click(object sender, RoutedEventArgs e)
+            => WindowState = WindowState.Minimized;
 
         private void HomeTabButton_Click(object sender, RoutedEventArgs e)
         {
@@ -168,6 +244,7 @@ namespace StreamTweak
             PopulateAboutInfo();
             _ = CheckForUpdatesAsync();
             _ = RefreshHomeHdrAsync();
+            RefreshLastSessionCard();
         }
 
         private void NetworkTabButton_Click(object sender, RoutedEventArgs e)
@@ -1100,7 +1177,9 @@ private void RefreshStreamingAppInfo()
             SetPill(HomeAutoStreamPill, HomeAutoStreamText, isAutoStreamingEnabled,            "On");
             SetPill(HomeHdrPill,        HomeHdrText,        _homeHdrEnabled,                   "On");
             SetPill(HomeAutoHdrPill,    HomeAutoHdrText,    _homeAutoHdrEnabled,               "On");
-            SetPill(HomeGameLibPill,    HomeGameLibText,    GameLibraryState.Current.SyncEnabled, "On");
+            int gameCount = GameLibraryState.Current.Games.Count;
+            string gameLabel = gameCount > 0 ? $"{gameCount} games" : "On";
+            SetPill(HomeGameLibPill, HomeGameLibText, GameLibraryState.Current.SyncEnabled, gameLabel);
 
             if (_isAudioMonitorEnabled)
             {

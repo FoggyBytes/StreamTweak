@@ -51,9 +51,17 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 5.3.1
+## ✨ What's New in 5.4.0
+
+- **Home panel redesigned** — centered header with logo and version info, a Streaming Session card with animated status dot, a Last session card with grade badge and telemetry, and a 3×2 status grid (NIC Speed, Auto Streaming, HDR, Spatial Audio, Game Library, Auto HDR) with Fluent Emoji icons and color-coded pill badges
+- **Window expanded** — 920×692 (was 760×580); minimize button added to the custom title bar
+- **Custom exit dialog** — clicking ✕ shows a dark-themed WPF dialog with Windows 11 native rounded corners instead of the legacy grey MessageBox
+
+<details>
+<summary>5.3.1</summary>
 
 - **Tailscale detection** — if [Tailscale](https://tailscale.com) is running, the Network tab shows the host's Tailscale IP with a copy-to-clipboard button
+</details>
 
 <details>
 <summary>5.3.0 — The "Cover Art Update"</summary>
@@ -77,7 +85,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_5.3.1_Installer.exe` and run it.
+2. Download the latest `StreamTweak_5.4.0_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

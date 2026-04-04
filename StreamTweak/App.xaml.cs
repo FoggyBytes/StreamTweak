@@ -519,6 +519,8 @@ namespace StreamTweak
             {
                 settingsWindow = new SettingsWindow();
 
+                settingsWindow.ExitRequested += (s, args) => ExitApp();
+
                 settingsWindow.SpeedApplied += async (s, args) =>
                 {
                     LoadConfig();
@@ -614,7 +616,9 @@ namespace StreamTweak
                 SessionLogger.EndSession("Host Shutdown");
         }
 
-        private void MenuExit_Click(object sender, RoutedEventArgs e)
+        private void MenuExit_Click(object sender, RoutedEventArgs e) => ExitApp();
+
+        private void ExitApp()
         {
             if (_isAutoSessionActive)
                 SessionLogger.EndSession("App Closed");

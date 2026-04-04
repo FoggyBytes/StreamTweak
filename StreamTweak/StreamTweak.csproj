@@ -9,9 +9,9 @@
 		<UseWPF>true</UseWPF>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
 		<ApplicationIcon>Resources\streamtweak.ico</ApplicationIcon>
-		<Version>5.3.1</Version>
-		<AssemblyVersion>5.3.1.0</AssemblyVersion>
-		<FileVersion>5.3.1.0</FileVersion>
+		<Version>5.4.0</Version>
+		<AssemblyVersion>5.4.0.0</AssemblyVersion>
+		<FileVersion>5.4.0.0</FileVersion>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -37,6 +37,10 @@
 		<Resource Include="Resources\Twemoji\satellite_3d.png"/>
 		<Resource Include="Resources\Twemoji\trophy_3d.png"/>
 		<Resource Include="Resources\Twemoji\wrench_3d.png"/>
+		<Resource Include="Resources\Twemoji\rainbow_3d.png"/>
+		<Resource Include="Resources\Twemoji\high_voltage_3d.png"/>
+		<Resource Include="Resources\Twemoji\television_3d.png"/>
+		<Resource Include="Resources\Twemoji\play_button_3d.png"/>
 	</ItemGroup>
 
 	<ItemGroup>

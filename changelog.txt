@@ -4,6 +4,24 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 5.4.0 - The "UI Refresh" (04/04/2026)
+------------------------------------------
+
+🎨 UI — HOME PANEL OVERHAUL:
+• Window size increased from 760×580 to 920×692 to better accommodate the Home dashboard and Games cover grid
+• Window is now minimizable (minimize button added to custom title bar alongside the close button)
+• Home panel completely redesigned:
+  — Header centered: app logo, title, version, build date and update status on a single block
+  — Streaming Session card: full-width card showing a real-time Active/Inactive status dot with pulsing animation, replacing the previous plain text row
+  — Last session card: date, duration, quality grade badge (Excellent/Good/Poor), RTT average and frame drop rate displayed as a dedicated card above the status grid
+  — 3×2 status card grid: NIC Speed, Auto Streaming, HDR, Spatial Audio, Game Library, Auto HDR — each card has a Fluent Emoji 3D icon, a SemiBold label, and a color-coded pill badge showing the current value or On/Off state
+  — Game Library card shows the count of games currently synced to Sunshine (e.g. "13 games")
+  — Auto Streaming card uses the globe icon, consistent with the Network tab in the sidebar
+
+🐛 BUG FIXES & IMPROVEMENTS:
+• Custom exit dialog: clicking ✕ now shows a themed WPF dialog (dark background, Windows 11 native rounded corners via DwmSetWindowAttribute) instead of the legacy grey Win32 MessageBox
+• SessionLogger.Load() called once per Home tab refresh instead of twice — eliminates a redundant sessions.json read on every tab activation and at startup
+
 Version 5.3.1 (30/03/2026)
 ------------------------------------------
 
