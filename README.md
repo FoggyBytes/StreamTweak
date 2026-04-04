@@ -51,11 +51,26 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 5.4.0
+## ✨ What's New in 5.4.2
+
+- **Dolby / Windows Sonic activation verified** — StreamTweak now reads back `ActiveSpatialAudioFormat` from Windows after calling the activation API; "✓ enabled" is only shown when Windows confirms the format is actually active
+- **Retrospective activation fixed** — when StreamTweak launches while a session is already in progress, Dolby/Windows Sonic now activates correctly (was silently skipped due to a startup ordering bug)
+- **Faster retrospective activation** — delay reduced to 5 s (was 30 s) when a session is already active at startup, since the audio system is already running
+- **Reliable session detection at startup** — StreamTweak now checks active TCP connections on port 48010 (RTSP) to detect an ongoing session instantly at startup, with no dependency on log files or StreamLight; works with any Moonlight-compatible client
+
+<details>
+<summary>5.4.1</summary>
+
+- **Minimize to tray** — the minimize button now hides the window to the system tray instead of leaving it in the taskbar; double-click the tray icon to restore
+</details>
+
+<details>
+<summary>5.4.0 — The "UI Refresh"</summary>
 
 - **Home panel redesigned** — centered header with logo and version info, a Streaming Session card with animated status dot, a Last session card with grade badge and telemetry, and a 3×2 status grid (NIC Speed, Auto Streaming, HDR, Spatial Audio, Game Library, Auto HDR) with Fluent Emoji icons and color-coded pill badges
 - **Window expanded** — 920×692 (was 760×580); minimize button added to the custom title bar
 - **Custom exit dialog** — clicking ✕ shows a dark-themed WPF dialog with Windows 11 native rounded corners instead of the legacy grey MessageBox
+</details>
 
 <details>
 <summary>5.3.1</summary>
@@ -85,7 +100,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_5.4.0_Installer.exe` and run it.
+2. Download the latest `StreamTweak_5.4.2_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

@@ -4,6 +4,22 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 5.4.2 (04/04/2026)
+------------------------------------------
+
+🐛 BUG FIXES:
+• Dolby Atmos / Windows Sonic activation now verified against Windows after calling SetDefaultSpatialAudioFormatAsync — previously StreamTweak showed "✓ enabled" even when Windows had not applied the format change
+• Retrospective session detection: Dolby/Windows Sonic was never activated when StreamTweak launched mid-session — fixed by enabling the audio monitor before starting the log monitor so the startup event is not missed
+• Retrospective activation delay reduced to 5 s (was 30 s) — audio is already initialized when a session is already active at startup
+• Retrospective session detection now works for long sessions: when verbose logging pushed CLIENT CONNECTED outside the tail-scan window (60 KB), the active session was not detected; a head-of-file scan now catches this case
+• Retrospective session detection: if StreamLight sends SESSIONDATA with no active session (StreamTweak restarted mid-stream), the incoming batch is now used as the retrospective signal — triggers Dolby activation and session tracking within 1 second of startup; more reliable than TCP or log checks since StreamLight sends data every second regardless
+
+Version 5.4.1 (04/04/2026)
+------------------------------------------
+
+🐛 BUG FIXES:
+• Minimize button now hides the window to the system tray instead of leaving it in the taskbar — click the tray icon to restore
+
 Version 5.4.0 - The "UI Refresh" (04/04/2026)
 ------------------------------------------
 

@@ -221,7 +221,7 @@ namespace StreamTweak
         }
 
         private void MinimizeButton_Click(object sender, RoutedEventArgs e)
-            => WindowState = WindowState.Minimized;
+            => Hide();
 
         private void HomeTabButton_Click(object sender, RoutedEventArgs e)
         {

@@ -48,14 +48,17 @@ namespace StreamTweak
 
         // ─── Streaming events (called by App.xaml.cs) ─────────────────────────
 
-        public void OnStreamingStarted()
+        public void OnStreamingStarted(bool isRetrospective = false)
         {
             if (!IsEnabled || _activatedThisSession) return;
             _cts?.Cancel();
             _cts?.Dispose();
             _cts = new CancellationTokenSource();
-            _ = Task.Run(() => DelayedEnableSpatialAudioAsync(_cts.Token));
-            NotifyStatus($"Stream detected — waiting {WaitSeconds}s…");
+            int waitSeconds = isRetrospective ? 5 : WaitSeconds;
+            _ = Task.Run(() => DelayedEnableSpatialAudioAsync(_cts.Token, waitSeconds));
+            NotifyStatus(isRetrospective
+                ? $"Active session detected — activating in {waitSeconds}s…"
+                : $"Stream detected — waiting {waitSeconds}s…");
         }
 
         public void OnStreamingStopped()
@@ -75,11 +78,11 @@ namespace StreamTweak
 
         // ─── Delayed activation ───────────────────────────────────────────────
 
-        private async Task DelayedEnableSpatialAudioAsync(CancellationToken token)
+        private async Task DelayedEnableSpatialAudioAsync(CancellationToken token, int waitSeconds = WaitSeconds)
         {
             try
             {
-                await Task.Delay(TimeSpan.FromSeconds(WaitSeconds), token);
+                await Task.Delay(TimeSpan.FromSeconds(waitSeconds), token);
                 if (token.IsCancellationRequested) return;
 
                 // Retry loop — handles the case where the Windows Audio service is still
@@ -106,7 +109,7 @@ namespace StreamTweak
                 }
             }
             catch (OperationCanceledException) { }
-            catch { }
+            catch (Exception ex) { NotifyStatus($"Audio error: {ex.Message}"); }
         }
 
         // ─── Device discovery ─────────────────────────────────────────────────
@@ -148,8 +151,16 @@ namespace StreamTweak
                 {
                     // Reset to OS default (Windows Sonic) by clearing the active format
                     await config.SetDefaultSpatialAudioFormatAsync(string.Empty);
-                    _activatedThisSession = true;
-                    NotifyStatus("✓ Windows Sonic for Headphones enabled.");
+                    string? activeAfter = config.ActiveSpatialAudioFormat;
+                    if (string.IsNullOrEmpty(activeAfter))
+                    {
+                        _activatedThisSession = true;
+                        NotifyStatus("✓ Windows Sonic for Headphones enabled.");
+                    }
+                    else
+                    {
+                        NotifyStatus($"Windows Sonic not confirmed by Windows (active: {activeAfter}).");
+                    }
                 }
                 else
                 {
@@ -162,8 +173,16 @@ namespace StreamTweak
                     }
 
                     await config.SetDefaultSpatialAudioFormatAsync(dolbyFormat);
-                    _activatedThisSession = true;
-                    NotifyStatus("✓ Dolby Atmos for Headphones enabled.");
+                    string? activeAfter = config.ActiveSpatialAudioFormat;
+                    if (string.Equals(activeAfter, dolbyFormat, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _activatedThisSession = true;
+                        NotifyStatus("✓ Dolby Atmos for Headphones enabled.");
+                    }
+                    else
+                    {
+                        NotifyStatus($"Dolby not confirmed by Windows (active: {(string.IsNullOrEmpty(activeAfter) ? "none" : activeAfter)}).");
+                    }
                 }
             }
             catch (Exception ex)

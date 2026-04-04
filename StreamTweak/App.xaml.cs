@@ -83,9 +83,9 @@ namespace StreamTweak
             string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"Resources\streamtweak.ico");
             ToastHelper.Initialize("StreamTweak", iconPath);
 
-            StartAutoStreamingMonitor();
             _dolbyMonitor.StatusChanged += OnDolbyStatusChanged;
             StartDolbyMonitor();
+            StartAutoStreamingMonitor();
             _ = InitHdrStateAsync();
 
             // Start Moonlight fork TCP bridge
@@ -601,6 +601,8 @@ namespace StreamTweak
             }
             else
             {
+                if (!settingsWindow.IsVisible)
+                    settingsWindow.Show();
                 if (settingsWindow.WindowState == WindowState.Minimized)
                     settingsWindow.WindowState = WindowState.Normal;
                 settingsWindow.Activate();
@@ -678,7 +680,7 @@ namespace StreamTweak
                 {
                     if (e.Event == LogParser.StreamingEvent.StreamStarted)
                     {
-                        _dolbyMonitor.OnStreamingStarted();
+                        _dolbyMonitor.OnStreamingStarted(e.IsRetrospective);
                         if (!isAutoStreamingActive && !_isAutoSessionActive && !_sessionStartInProgress)
                             HandleAutoStreamStart(skipNicThrottle: e.IsRetrospective);
                         else
@@ -934,15 +936,33 @@ namespace StreamTweak
         /// <summary>
         /// Called on a thread-pool thread when StreamLight sends a SESSIONDATA batch.
         /// Guards on active session and session ID cross-check before accumulating.
+        /// If SESSIONDATA arrives with no active session, StreamTweak restarted mid-stream:
+        /// trigger retrospective session start (Dolby activation + session tracking).
         /// </summary>
         private void OnSessionDataReceived(ClientBatch batch)
         {
             try
             {
-                // Accept batches whenever a session is being logged, regardless of NIC
-                // throttle mode or _isAutoSessionActive state. This ensures telemetry
-                // works even when auto streaming is disabled.
-                if (SessionLogger.ActiveSessionId == null) return;
+                if (SessionLogger.ActiveSessionId == null)
+                {
+                    // SESSIONDATA with no active session means StreamTweak was restarted
+                    // while a stream was already in progress. Use this as the retrospective
+                    // signal — more reliable than TCP or log checks because StreamLight is
+                    // already sending data every second.
+                    if (!_isAutoSessionActive && !_sessionStartInProgress)
+                    {
+                        DebugLog("Bridge: SESSIONDATA received with no active session — triggering retrospective start");
+                        Application.Current.Dispatcher.BeginInvoke(() =>
+                        {
+                            if (!_isAutoSessionActive && !_sessionStartInProgress)
+                            {
+                                _dolbyMonitor.OnStreamingStarted(isRetrospective: true);
+                                HandleAutoStreamStart(skipNicThrottle: true);
+                            }
+                        });
+                    }
+                    return;
+                }
 
                 var hostSample = _metricsCollector.GetLatestSample();
                 _telemetryAccumulator.AddBatch(batch, hostSample);

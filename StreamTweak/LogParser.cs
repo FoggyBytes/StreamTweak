@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Runtime.InteropServices;
 using Microsoft.Win32;
 
 namespace StreamTweak
@@ -261,6 +265,132 @@ namespace StreamTweak
         }
 
         #endregion
+
+        // ─── Active session detection via TCP ─────────────────────────────────
+
+        // Primary: find the streaming server process and check via GetExtendedTcpTable
+        // whether it has any ESTABLISHED TCP connection to a non-loopback remote IP.
+        // This works regardless of which port the user configured (not hardcoded to 48010).
+        // Fallback: check port 48010 directly via IPGlobalProperties (original approach).
+        public static bool HasActiveMoonlightSession()
+        {
+            // Primary: process-scoped TCP check
+            try
+            {
+                var serverInfo = FindStreamingAppInfo();
+                if (serverInfo?.ExePath != null)
+                {
+                    string exeName = Path.GetFileNameWithoutExtension(serverInfo.ExePath);
+                    Process[]? procs = null;
+                    try
+                    {
+                        procs = Process.GetProcessesByName(exeName);
+                        if (procs.Length > 0)
+                        {
+                            int pid = procs[0].Id;
+                            bool active = TcpHelper.HasEstablishedExternalConnection(pid);
+                            DebugLog(active
+                                ? $"TCP check: {exeName} (PID {pid}) has external established connections — session active"
+                                : $"TCP check: {exeName} (PID {pid}) has no external established connections");
+                            return active;
+                        }
+                        DebugLog($"TCP check: {exeName} process not found");
+                    }
+                    finally
+                    {
+                        if (procs != null)
+                            foreach (var p in procs) p.Dispose();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"TCP check (process) error: {ex.Message}");
+            }
+
+            // Fallback: port 48010 (RTSP default) via IPGlobalProperties
+            try
+            {
+                var connections = IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections();
+                bool active = connections.Any(c =>
+                    c.LocalEndPoint.Port == 48010 &&
+                    c.State == TcpState.Established &&
+                    !IPAddress.IsLoopback(c.RemoteEndPoint.Address));
+                DebugLog(active
+                    ? "TCP check (fallback): session detected on port 48010"
+                    : "TCP check (fallback): no session on port 48010");
+                return active;
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"TCP check (fallback) error: {ex.Message}");
+                return false;
+            }
+        }
+
+        // ─── P/Invoke helper: GetExtendedTcpTable ─────────────────────────────
+
+        private static class TcpHelper
+        {
+            private enum TcpTableClass
+            {
+                TcpTableOwnerPidConnections = 4
+            }
+
+            [StructLayout(LayoutKind.Sequential)]
+            private struct MIB_TCPROW_OWNER_PID
+            {
+                public uint dwState;
+                public uint dwLocalAddr;
+                public uint dwLocalPort;
+                public uint dwRemoteAddr;
+                public uint dwRemotePort;
+                public uint dwOwningPid;
+            }
+
+            [DllImport("iphlpapi.dll", SetLastError = true)]
+            private static extern uint GetExtendedTcpTable(IntPtr pTcpTable, ref int dwOutBufLen,
+                bool sort, int ipVersion, TcpTableClass tblClass, uint reserved);
+
+            private const uint MIB_TCP_STATE_ESTAB = 5;
+            private const int AF_INET = 2;
+
+            public static bool HasEstablishedExternalConnection(int pid)
+            {
+                int bufLen = 0;
+                GetExtendedTcpTable(IntPtr.Zero, ref bufLen, false, AF_INET,
+                    TcpTableClass.TcpTableOwnerPidConnections, 0);
+
+                IntPtr buf = Marshal.AllocHGlobal(bufLen);
+                try
+                {
+                    uint ret = GetExtendedTcpTable(buf, ref bufLen, false, AF_INET,
+                        TcpTableClass.TcpTableOwnerPidConnections, 0);
+                    if (ret != 0) return false;
+
+                    int rowCount = Marshal.ReadInt32(buf);
+                    int rowSize  = Marshal.SizeOf<MIB_TCPROW_OWNER_PID>();
+
+                    for (int i = 0; i < rowCount; i++)
+                    {
+                        var row = Marshal.PtrToStructure<MIB_TCPROW_OWNER_PID>(
+                            buf + 4 + i * rowSize);
+
+                        if (row.dwOwningPid != (uint)pid) continue;
+                        if (row.dwState    != MIB_TCP_STATE_ESTAB) continue;
+
+                        var remoteIp = new IPAddress(row.dwRemoteAddr);
+                        if (!IPAddress.IsLoopback(remoteIp))
+                            return true;
+                    }
+                    return false;
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(buf);
+                }
+            }
+        }
 
         private static void DebugLog(string message) => DebugLogger.Log(message);
 

@@ -41,18 +41,29 @@ namespace StreamTweak
 
             currentLogFilePath = LogParser.FindStreamingServiceLogFile();
 
-            if (string.IsNullOrEmpty(currentLogFilePath))
-            {
-                DebugLog("No log file found at startup — will keep retrying via rediscovery");
-            }
-            else
+            if (!string.IsNullOrEmpty(currentLogFilePath))
             {
                 monitoredDirectory = Path.GetDirectoryName(currentLogFilePath);
                 DebugLog($"Starting log monitoring in directory: {monitoredDirectory}");
                 DebugLog($"Initial log file: {Path.GetFileName(currentLogFilePath)}");
-                // Check if a streaming session was already active before StreamTweak started.
-                // This handles the case where StreamTweak is launched mid-session (e.g. after
-                // auto-login or a crash/restart) and would otherwise miss the session-start event.
+            }
+            else
+            {
+                DebugLog("No log file found at startup — will keep retrying via rediscovery");
+            }
+
+            // Primary: check active TCP connections on port 48010 (RTSP).
+            // Sunshine / Apollo / Vibeshine / Vibepollo maintain this connection
+            // for the entire session — instantaneous, no log parsing, works with
+            // any Moonlight-compatible client (not just StreamLight).
+            if (LogParser.HasActiveMoonlightSession())
+            {
+                FireRetrospectiveStarted();
+            }
+            else if (!string.IsNullOrEmpty(currentLogFilePath))
+            {
+                // Fallback: log file scan — covers edge cases (e.g. brief TCP gap
+                // during StreamTweak reinstall while session continues on UDP).
                 CheckForExistingSession(currentLogFilePath);
             }
 
@@ -265,32 +276,41 @@ namespace StreamTweak
         {
             try
             {
-                string[] lines = ReadTailLines(logFilePath, 300);
-
-                for (int i = lines.Length - 1; i >= 0; i--)
+                // Phase 1: scan the tail backwards for the most recent streaming event.
+                // Covers short/recent sessions and static single-file logs (Sunshine/Apollo).
+                string[] tailLines = ReadTailLines(logFilePath, 300);
+                for (int i = tailLines.Length - 1; i >= 0; i--)
                 {
-                    LogParser.StreamingEvent ev = LogParser.ParseLogLine(lines[i]);
-
+                    LogParser.StreamingEvent ev = LogParser.ParseLogLine(tailLines[i]);
                     if (ev == LogParser.StreamingEvent.StreamStarted)
                     {
-                        DebugLog("Active session detected at startup — raising StreamStarted retroactively");
-                        seenStreamStarted = true;
-                        StreamingEventDetected?.Invoke(this, new StreamingEventArgs
-                        {
-                            Event = LogParser.StreamingEvent.StreamStarted,
-                            IsRetrospective = true
-                        });
+                        DebugLog("Active session detected in tail at startup — raising StreamStarted retroactively");
+                        FireRetrospectiveStarted();
                         return;
                     }
-
                     if (ev == LogParser.StreamingEvent.StreamStopped)
                     {
-                        DebugLog("No active session at startup (last event was StreamStopped)");
+                        DebugLog("No active session at startup (StreamStopped found in tail)");
                         return;
                     }
                 }
 
-                DebugLog("No streaming events in log tail — assuming no active session at startup");
+                // Phase 2: no events found in the tail.
+                // For per-session log files (Vibeshine/Vibepollo style), a long-running session
+                // produces enough verbose output to push the initial CLIENT CONNECTED line outside
+                // the tail window. In that case, check the file head for a StreamStarted event
+                // with no corresponding StreamStopped anywhere in the tail.
+                string[] headLines = ReadHeadLines(logFilePath, 200);
+                bool headHasStart = headLines.Any(l =>
+                    LogParser.ParseLogLine(l) == LogParser.StreamingEvent.StreamStarted);
+                if (headHasStart)
+                {
+                    DebugLog("Active session detected in file head at startup (long session) — raising StreamStarted retroactively");
+                    FireRetrospectiveStarted();
+                    return;
+                }
+
+                DebugLog("No streaming events found — assuming no active session at startup");
             }
             catch (Exception ex)
             {
@@ -298,10 +318,35 @@ namespace StreamTweak
             }
         }
 
+        private void FireRetrospectiveStarted()
+        {
+            seenStreamStarted = true;
+            StreamingEventDetected?.Invoke(this, new StreamingEventArgs
+            {
+                Event = LogParser.StreamingEvent.StreamStarted,
+                IsRetrospective = true
+            });
+        }
+
         /// <summary>
         /// Returns the last <paramref name="lineCount"/> lines of a file using a shared read handle.
         /// Reads at most lineCount × 200 bytes from the end to avoid loading large log files entirely.
         /// </summary>
+        private static string[] ReadHeadLines(string filePath, int lineCount)
+        {
+            try
+            {
+                using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var reader = new StreamReader(fs);
+                var lines = new System.Collections.Generic.List<string>(lineCount);
+                string? line;
+                while (lines.Count < lineCount && (line = reader.ReadLine()) != null)
+                    lines.Add(line);
+                return lines.ToArray();
+            }
+            catch { return Array.Empty<string>(); }
+        }
+
         private static string[] ReadTailLines(string filePath, int lineCount)
         {
             const long bytesPerLine = 200;
