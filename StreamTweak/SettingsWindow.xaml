@@ -352,6 +352,142 @@
             </Setter>
         </Style>
 
+        <!-- ═══════════════ ScrollBar ═══════════════ -->
+        <Style x:Key="ScrollBarThumb" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border x:Name="Bd" CornerRadius="4"
+                                Background="#606060" Margin="2,0"/>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#FFBE5438"/>
+                            </Trigger>
+                            <Trigger Property="IsDragging" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#FFA0361A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrollBarPageButton" TargetType="RepeatButton">
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="Transparent"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrollBarLineButtonUp" TargetType="RepeatButton">
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Height" Value="14"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="2">
+                            <Path x:Name="Arrow"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Fill="#808080"
+                                  Data="M 1,5 L 5,1 L 9,5 Z"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#22FFFFFF"/>
+                                <Setter TargetName="Arrow" Property="Fill" Value="#FFBE5438"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Arrow" Property="Fill" Value="#FFA0361A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ScrollBarLineButtonDown" TargetType="RepeatButton">
+            <Setter Property="IsTabStop" Value="False"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Height" Value="14"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="2">
+                            <Path x:Name="Arrow"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"
+                                  Fill="#808080"
+                                  Data="M 1,1 L 5,5 L 9,1 Z"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#22FFFFFF"/>
+                                <Setter TargetName="Arrow" Property="Fill" Value="#FFBE5438"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Arrow" Property="Fill" Value="#FFA0361A"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="10"/>
+            <Setter Property="MinWidth" Value="10"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <!-- Up button -->
+                            <RepeatButton Grid.Row="0"
+                                          Style="{StaticResource ScrollBarLineButtonUp}"
+                                          Command="ScrollBar.LineUpCommand"/>
+                            <!-- Track background -->
+                            <Border Grid.Row="1" CornerRadius="4" Background="#22FFFFFF" Margin="2,2"/>
+                            <Track Grid.Row="1" x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Style="{StaticResource ScrollBarPageButton}"
+                                                  Command="ScrollBar.PageUpCommand"/>
+                                </Track.DecreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource ScrollBarThumb}" MinHeight="24"/>
+                                </Track.Thumb>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Style="{StaticResource ScrollBarPageButton}"
+                                                  Command="ScrollBar.PageDownCommand"/>
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                            <!-- Down button -->
+                            <RepeatButton Grid.Row="2"
+                                          Style="{StaticResource ScrollBarLineButtonDown}"
+                                          Command="ScrollBar.LineDownCommand"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Orientation" Value="Horizontal">
+                                <Setter Property="Height" Value="10"/>
+                                <Setter Property="MinHeight" Value="10"/>
+                                <Setter Property="Width" Value="Auto"/>
+                                <Setter Property="MinWidth" Value="0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- ═══════════════ Close Button ═══════════════ -->
         <Style x:Key="CloseButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
@@ -1924,7 +2060,7 @@
 
                         <StackPanel Grid.Row="0">
                             <TextBlock Text="Glossary"
-                                       FontSize="12" FontWeight="SemiBold"
+                                       FontSize="13" FontWeight="SemiBold"
                                        HorizontalAlignment="Center" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextForeground}"/>
                             <Separator Background="{DynamicResource BorderColor}" Margin="0,0,0,8"/>
@@ -1940,7 +2076,7 @@
                                             TextElement.FontFamily="Cascadia Code, Cascadia Mono, Consolas, Courier New">
 
                                     <!-- ── NETWORK ── -->
-                                    <TextBlock FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="11" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
                                                Margin="0,2,0,2">
                                         <InlineUIContainer BaselineAlignment="Center">
@@ -1951,27 +2087,27 @@
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="NIC" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Network Interface Card — the physical network adapter in the computer." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="NIC" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Network Interface Card — the physical network adapter in the computer." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Link Speed" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Negotiated transmission speed between two network adapters (e.g. 1 Gbps, 2.5 Gbps)." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Link Speed" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Negotiated transmission speed between two network adapters (e.g. 1 Gbps, 2.5 Gbps)." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="NIC Throttle" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Temporary reduction of the host NIC speed to match the client, eliminating bufferbloat." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="NIC Throttle" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Temporary reduction of the host NIC speed to match the client, eliminating bufferbloat." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Bufferbloat" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="High latency caused by excessive packet queuing in network buffers between host and client." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Bufferbloat" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="High latency caused by excessive packet queuing in network buffers between host and client." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Net TX" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Outbound network throughput from the host, expressed in Mbps." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Net TX" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Outbound network throughput from the host, expressed in Mbps." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <!-- ── STREAMING · CLIENT ── -->
-                                    <TextBlock FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="11" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
                                                Margin="0,18,0,2">
                                         <InlineUIContainer BaselineAlignment="Center">
@@ -1982,27 +2118,27 @@
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="RTT" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Round Trip Time — time for a packet to travel from client to host and back." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="RTT" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Round Trip Time — time for a packet to travel from client to host and back." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Jitter" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="RTT variability. Low but unstable RTT causes perceptible micro-stutter during streaming." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Jitter" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="RTT variability. Low but unstable RTT causes perceptible micro-stutter during streaming." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Frame Drops" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Video frames lost in transit during network transmission." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Frame Drops" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Video frames lost in transit during network transmission." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Bitrate" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Amount of video data transmitted per second, expressed in Mbps." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Bitrate" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Amount of video data transmitted per second, expressed in Mbps." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Decode Latency" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Time the client takes to decode each received video frame, in milliseconds." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Decode Latency" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Time the client takes to decode each received video frame, in milliseconds." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <!-- ── HOST METRICS ── -->
-                                    <TextBlock FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="11" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
                                                Margin="0,18,0,2">
                                         <InlineUIContainer BaselineAlignment="Center">
@@ -2013,27 +2149,27 @@
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="GPU" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Graphics Processing Unit — 3D engine utilization of the graphics card (%)." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="GPU" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Graphics Processing Unit — 3D engine utilization of the graphics card (%)." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="GPU Encoder" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Hardware video encoding engine on the GPU used to compress the stream (NVENC on NVIDIA)." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="GPU Encoder" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Hardware video encoding engine on the GPU used to compress the stream (NVENC on NVIDIA)." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="GPU Temp" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="GPU temperature in degrees Celsius. Available on NVIDIA hardware only via NVML." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="GPU Temp" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="GPU temperature in degrees Celsius. Available on NVIDIA hardware only via NVML." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="VRAM" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Dedicated video memory of the GPU, shown as used / total in MB." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="VRAM" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Dedicated video memory of the GPU, shown as used / total in MB." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="CPU" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Main processor utilization averaged across all cores (%)." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="CPU" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Main processor utilization averaged across all cores (%)." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <!-- ── DISPLAY & AUDIO ── -->
-                                    <TextBlock FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="11" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
                                                Margin="0,18,0,2">
                                         <InlineUIContainer BaselineAlignment="Center">
@@ -2044,27 +2180,27 @@
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="HDR" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="High Dynamic Range — display mode that expands luminance range beyond standard SDR limits." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="HDR" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="High Dynamic Range — display mode that expands luminance range beyond standard SDR limits." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Dolby Atmos" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Spatial audio format that positions sound as 3D objects around the listener." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Dolby Atmos" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Spatial audio format that positions sound as 3D objects around the listener." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Windows Sonic" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Microsoft's spatial audio platform, an alternative to Dolby Atmos for headphones." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Windows Sonic" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Microsoft's spatial audio platform, an alternative to Dolby Atmos for headphones." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Spatial Audio" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Technology simulating three-dimensional surround sound through headphones or speakers." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Spatial Audio" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Technology simulating three-dimensional surround sound through headphones or speakers." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Steam Streaming&#x0a;Speakers" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Virtual audio device created by Steam during a remote play session." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Steam Streaming&#x0a;Speakers" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Virtual audio device created by Steam during a remote play session." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
                                     <!-- ── STREAMING SERVERS ── -->
-                                    <TextBlock FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="11" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
                                                Margin="0,18,0,2">
                                         <InlineUIContainer BaselineAlignment="Center">
@@ -2075,12 +2211,12 @@
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Sunshine /&#x0a;Apollo /&#x0a;Vibeshine /&#x0a;Vibepollo" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Open-source game streaming server software installed on the host, all compatible with StreamTweak." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Sunshine /&#x0a;Apollo /&#x0a;Vibeshine /&#x0a;Vibepollo" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Open-source game streaming server software installed on the host, all compatible with StreamTweak." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
 
                                     <!-- ── SESSION QUALITY ── -->
-                                    <TextBlock FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="11" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
                                                Margin="0,18,0,2">
                                         <InlineUIContainer BaselineAlignment="Center">
@@ -2092,12 +2228,12 @@
 
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="Quality Grade" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="Composite assessment of session quality based on drop rate, RTT, and GPU encoder load: Excellent, Good, or Poor." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="Quality Grade" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="Composite assessment of session quality based on drop rate, RTT, and GPU encoder load: Excellent, Good, or Poor." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
 
                                     <!-- ── APP MANAGEMENT ── -->
-                                    <TextBlock FontSize="10" FontWeight="SemiBold"
+                                    <TextBlock FontSize="11" FontWeight="SemiBold"
                                                Foreground="{DynamicResource AccentColor}"
                                                Margin="0,18,0,2">
                                         <InlineUIContainer BaselineAlignment="Center">
@@ -2108,8 +2244,8 @@
                                     <Rectangle Height="0.5" Fill="{DynamicResource AccentColor}" Opacity="0.25" Margin="0,0,0,8"/>
 
                                     <Grid Margin="0,0,0,6"><Grid.ColumnDefinitions><ColumnDefinition Width="150"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="AutoManage" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
-                                        <TextBlock Grid.Column="1" Text="When enabled, an app is automatically terminated at stream start and relaunched when the session ends." FontSize="11.5" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
+                                        <TextBlock Grid.Column="0" Text="AutoManage" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource AccentColor}" TextWrapping="Wrap"/>
+                                        <TextBlock Grid.Column="1" Text="When enabled, an app is automatically terminated at stream start and relaunched when the session ends." FontSize="13" Foreground="#FFFFFFFF" TextWrapping="Wrap" Margin="8,0,0,0"/></Grid>
 
 
                                 </StackPanel>
