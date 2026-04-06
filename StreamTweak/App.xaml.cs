@@ -36,6 +36,9 @@ namespace StreamTweak
         // from starting a new session while the first start is still pending (e.g. during
         // the 7.9-second NIC renegotiation delay).
         private bool _sessionStartInProgress = false;
+        // One-shot: armed at startup to allow retrospective detection via SESSIONDATA.
+        // Disarmed after the first SESSIONDATA check so session-end races never re-trigger it.
+        private bool _bridgeRetrospectiveArmed = true;
 
         // Spatial audio monitoring
         private readonly DolbyAudioMonitor _dolbyMonitor = new();
@@ -945,21 +948,26 @@ namespace StreamTweak
             {
                 if (SessionLogger.ActiveSessionId == null)
                 {
-                    // SESSIONDATA with no active session means StreamTweak was restarted
-                    // while a stream was already in progress. Use this as the retrospective
-                    // signal — more reliable than TCP or log checks because StreamLight is
-                    // already sending data every second.
-                    if (!_isAutoSessionActive && !_sessionStartInProgress)
+                    // SESSIONDATA with no active session: either StreamTweak restarted
+                    // mid-stream (legitimate retrospective case) or a race at session end
+                    // (last batch arriving after EndSession cleared ActiveSessionId).
+                    // The one-shot flag ensures we only act on the startup case — once
+                    // disarmed, any later SESSIONDATA with no active session is ignored.
+                    if (_bridgeRetrospectiveArmed)
                     {
-                        DebugLog("Bridge: SESSIONDATA received with no active session — triggering retrospective start");
-                        Application.Current.Dispatcher.BeginInvoke(() =>
+                        _bridgeRetrospectiveArmed = false; // disarm immediately — one-shot
+                        if (!_isAutoSessionActive && !_sessionStartInProgress)
                         {
-                            if (!_isAutoSessionActive && !_sessionStartInProgress)
+                            DebugLog("Bridge: SESSIONDATA received with no active session — triggering retrospective start");
+                            Application.Current.Dispatcher.BeginInvoke(() =>
                             {
-                                _dolbyMonitor.OnStreamingStarted(isRetrospective: true);
-                                HandleAutoStreamStart(skipNicThrottle: true);
-                            }
-                        });
+                                if (!_isAutoSessionActive && !_sessionStartInProgress)
+                                {
+                                    _dolbyMonitor.OnStreamingStarted(isRetrospective: true);
+                                    HandleAutoStreamStart(skipNicThrottle: true);
+                                }
+                            });
+                        }
                     }
                     return;
                 }

@@ -4,6 +4,13 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 5.4.3 (06/04/2026)
+------------------------------------------
+
+🐛 BUG FIXES:
+• Retrospective session detection via SESSIONDATA now fires at most once per app instance — a one-shot flag prevents session-end races from re-triggering a fake active session when the last SESSIONDATA batch arrived after EndSession cleared ActiveSessionId
+• Audio panel description text simplified: removed the "When a streaming session is detected…" preamble
+
 Version 5.4.2 (04/04/2026)
 ------------------------------------------
 

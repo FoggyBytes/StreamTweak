@@ -51,12 +51,18 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 5.4.2
+## ✨ What's New in 5.4.3
+
+- **False active session fixed** — a race condition at session end could cause StreamTweak to incorrectly detect a new active session immediately after one ended; the SESSIONDATA-based retrospective trigger is now one-shot per app instance
+
+<details>
+<summary>5.4.2</summary>
 
 - **Dolby / Windows Sonic activation verified** — StreamTweak now reads back `ActiveSpatialAudioFormat` from Windows after calling the activation API; "✓ enabled" is only shown when Windows confirms the format is actually active
 - **Retrospective activation fixed** — when StreamTweak launches while a session is already in progress, Dolby/Windows Sonic now activates correctly (was silently skipped due to a startup ordering bug)
 - **Faster retrospective activation** — delay reduced to 5 s (was 30 s) when a session is already active at startup, since the audio system is already running
-- **Reliable session detection at startup** — StreamTweak now checks active TCP connections on port 48010 (RTSP) to detect an ongoing session instantly at startup, with no dependency on log files or StreamLight; works with any Moonlight-compatible client
+- **Reliable session detection at startup** — uses `GetExtendedTcpTable` (P/Invoke) to check if the streaming server process has external established connections, then falls back to log scan
+</details>
 
 <details>
 <summary>5.4.1</summary>
@@ -100,7 +106,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_5.4.2_Installer.exe` and run it.
+2. Download the latest `StreamTweak_5.4.3_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

@@ -1376,7 +1376,7 @@
                         <TextBlock Grid.Row="11" FontSize="12"
                                    Foreground="{DynamicResource SecondaryTextForeground}"
                                    TextWrapping="Wrap" TextAlignment="Center" LineHeight="16"
-                                   Text="When a streaming session is detected and stays active for 30 seconds, the selected spatial audio format will be enabled on the chosen output device."/>
+                                   Text="The selected spatial audio format will be enabled on the chosen output device."/>
 
                         <!-- Status box -->
                         <Border Grid.Row="13" Padding="10,8"
