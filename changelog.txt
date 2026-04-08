@@ -4,6 +4,15 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 5.4.4 (08/04/2026)
+------------------------------------------
+
+🐛 BUG FIXES:
+• Sessions ending due to host shutdown or manual app exit now correctly save telemetry and quality grade — previously the App Closed / Host Shutdown paths bypassed the accumulator finalisation, leaving those sessions with no grade
+
+🎨 UI:
+• Home panel emoji icons resized to 18×18 (from 14×14) to match the sidebar
+
 Version 5.4.3 (06/04/2026)
 ------------------------------------------
 

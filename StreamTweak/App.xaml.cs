@@ -618,7 +618,10 @@ namespace StreamTweak
         private void App_SessionEnding(object sender, SessionEndingCancelEventArgs e)
         {
             if (_isAutoSessionActive)
+            {
+                FinalizeSessionTelemetry();
                 SessionLogger.EndSession("Host Shutdown");
+            }
         }
 
         private void MenuExit_Click(object sender, RoutedEventArgs e) => ExitApp();
@@ -626,7 +629,10 @@ namespace StreamTweak
         private void ExitApp()
         {
             if (_isAutoSessionActive)
+            {
+                FinalizeSessionTelemetry();
                 SessionLogger.EndSession("App Closed");
+            }
             _bridge.PrepareRequested    -= OnBridgePrepareRequested;
             _bridge.RestoreRequested    -= OnBridgeRestoreRequested;
             _bridge.SessionDataReceived -= OnSessionDataReceived;
@@ -804,19 +810,7 @@ namespace StreamTweak
 
                 if (_isAutoSessionActive)
                 {
-                    // Persist telemetry before EndSession clears the active session ID
-                    string? sessionId = SessionLogger.ActiveSessionId;
-                    if (sessionId != null)
-                    {
-                        var (stats, rttSeries, dropsSeries, bitrateSeries, decodeSeries) = _telemetryAccumulator.Finalize();
-                        if (stats.SampleCount >= 2)
-                        {
-                            var grade = QualityGradeCalculator.Evaluate(stats, _telemetryAccumulator.TargetFps);
-                            SessionLogger.UpdateSessionTelemetry(sessionId, stats, grade, rttSeries, dropsSeries, bitrateSeries, decodeSeries);
-                        }
-                        _telemetryAccumulator.Reset();
-                    }
-
+                    FinalizeSessionTelemetry();
                     SessionLogger.EndSession(endReason);
                     ManagedAppController.StartApps(_appsToRelaunch);
                     _appsToRelaunch.Clear();
@@ -825,6 +819,28 @@ namespace StreamTweak
                     settingsWindow?.RefreshSessionHistory();
                     settingsWindow?.SetSessionActive(false);
                 }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Saves accumulated telemetry for the active session before EndSession is called.
+        /// Must be called on the UI thread. Safe to call even if no data has accumulated.
+        /// </summary>
+        private void FinalizeSessionTelemetry()
+        {
+            try
+            {
+                string? sessionId = SessionLogger.ActiveSessionId;
+                if (sessionId == null) return;
+
+                var (stats, rttSeries, dropsSeries, bitrateSeries, decodeSeries) = _telemetryAccumulator.Finalize();
+                if (stats.SampleCount >= 2)
+                {
+                    var grade = QualityGradeCalculator.Evaluate(stats, _telemetryAccumulator.TargetFps);
+                    SessionLogger.UpdateSessionTelemetry(sessionId, stats, grade, rttSeries, dropsSeries, bitrateSeries, decodeSeries);
+                }
+                _telemetryAccumulator.Reset();
             }
             catch { }
         }

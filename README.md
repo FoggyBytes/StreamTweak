@@ -51,9 +51,16 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 5.4.3
+## ✨ What's New in 5.4.4
+
+- **Quality grade on host shutdown** — sessions that ended because the host shut down or StreamTweak was closed manually now correctly save the telemetry and quality grade; previously those sessions always showed "—"
+- **Home panel emoji sizes** — emoji icons in the Home panel are now 18×18, matching the sidebar
+
+<details>
+<summary>5.4.3</summary>
 
 - **False active session fixed** — a race condition at session end could cause StreamTweak to incorrectly detect a new active session immediately after one ended; the SESSIONDATA-based retrospective trigger is now one-shot per app instance
+</details>
 
 <details>
 <summary>5.4.2</summary>
