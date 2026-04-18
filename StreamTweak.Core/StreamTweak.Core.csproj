@@ -4,6 +4,7 @@
     <!-- Stesso TFM del progetto WPF: garantisce accesso alle stesse API WinRT (Spatial Audio,
          Windows.Graphics.Imaging, ecc.) senza dipendenze WPF (UseWPF non è presente). -->
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
