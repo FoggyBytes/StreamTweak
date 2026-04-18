@@ -54,8 +54,6 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 ## ✨ What's New in 6.0.3 — "The Game Info Update"
 
 - **Developer & release date** — each game in the library now shows its developer and release date; Steam games are fetched via the official Steam Store API, non-Steam games via PCGamingWiki
-- **Inline labels** — "Developers: **[bold name]**" and "Release Date: [date]" for quick scanning
-- **No more wrapping** — the info column is wider (240 px) and long studio names are trimmed with ellipsis instead of breaking onto a second line
 
 <details>
 <summary>6.0.2 — "The Layout Update"</summary>
