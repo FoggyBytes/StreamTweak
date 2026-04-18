@@ -42,12 +42,12 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 
 **🎮 Game Library Sync**
 - Multi-store discovery — Steam, Epic Games, GOG, Ubisoft Connect, Xbox/Game Pass, EA App, Battle.net
-- Native cover art — fetched from each store's CDN and cached as PNG; no third-party services; displayed in a 4-column grid with store badge overlays
+- Native cover art — fetched from each store's CDN and cached as PNG
 - Safe sync — manually created Sunshine entries are never touched; uninstalled games removed on next sync
 - Manual game management — Add any exe not auto-detected; remove individual entries with the Remove button
 
 **📋 Session History & Telemetry**
-- Full session log — every session recorded with NIC throttle state, duration, and end reason
+- Full session log — every session recorded with duration, RTT avg, frame drops %, games
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
