@@ -5,7 +5,9 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Media.Imaging;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Graphics.Imaging;
+using Windows.Storage.Streams;
 
 namespace StreamTweak
 {
@@ -80,20 +82,21 @@ namespace StreamTweak
                 byte[] bytes = await _http.GetByteArrayAsync(url);
 
                 // Sunshine/Vibeshine requires PNG for image-path.
-                // Steam CDN delivers JPEG → decode and re-encode as PNG.
+                // Steam CDN delivers JPEG → decode and re-encode as PNG via Windows.Graphics.Imaging.
                 // Write to .tmp first; move atomically to avoid a corrupt file on crash.
-                using var jpegStream = new MemoryStream(bytes);
-                var decoder = BitmapDecoder.Create(
-                    jpegStream,
-                    BitmapCreateOptions.None,
-                    BitmapCacheOption.OnLoad);
-                var frame = decoder.Frames[0];
+                using var inRas = new InMemoryRandomAccessStream();
+                await inRas.WriteAsync(bytes.AsBuffer());
+                inRas.Seek(0);
 
-                using (var pngStream = new FileStream(tmp, FileMode.Create, FileAccess.Write))
+                var decoder = await BitmapDecoder.CreateAsync(inRas);
+                var softBitmap = await decoder.GetSoftwareBitmapAsync();
+
+                using (var pngStream = File.Create(tmp))
+                using (var outRas = pngStream.AsRandomAccessStream())
                 {
-                    var encoder = new PngBitmapEncoder();
-                    encoder.Frames.Add(BitmapFrame.Create(frame));
-                    encoder.Save(pngStream);
+                    var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, outRas);
+                    encoder.SetSoftwareBitmap(softBitmap);
+                    await encoder.FlushAsync();
                 }
                 File.Move(tmp, cachePath, overwrite: true);
             }

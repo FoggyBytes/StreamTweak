@@ -1,0 +1,38 @@
+<Application
+    x:Class="StreamTweak.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:StreamTweak.Converters">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- WinUI 3 Fluent control styles -->
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- ThemeResource overrides — must live in ThemeDictionaries to beat the WinUI
+                 theme-lookup chain (plain resources are searched after theme dictionaries). -->
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <x:Double x:Key="FlyoutThemeMaxHeight">900</x:Double>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <x:Double x:Key="FlyoutThemeMaxHeight">900</x:Double>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <x:Double x:Key="FlyoutThemeMaxHeight">900</x:Double>
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <x:Double x:Key="FlyoutThemeMaxHeight">900</x:Double>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+
+            <!-- Global converters -->
+            <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+            <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+            <converters:HexToSolidColorBrushConverter x:Key="HexToSolidColorBrushConverter"/>
+            <converters:BoolToInfoBarSeverityConverter x:Key="BoolToInfoBarSeverityConverter"/>
+            <converters:GameNameToCoverConverter x:Key="GameNameToCoverConverter"/>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

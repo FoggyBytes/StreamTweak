@@ -1,0 +1,172 @@
+<Page
+    x:Class="StreamTweak.Views.GlossaryView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="Transparent">
+
+    <Grid Margin="20,16,20,24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Glossary"
+                   Style="{StaticResource BodyStrongTextBlockStyle}"
+                   Margin="0,0,0,10"/>
+
+        <!-- Terminal-style content panel -->
+        <Border Grid.Row="1"
+                Background="#0D0D0D"
+                BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          Padding="18,14,22,14">
+                <StackPanel Spacing="0">
+                    <StackPanel.Resources>
+                        <!-- FontFamily cannot be set on Panel in WinUI 3 — apply via implicit style -->
+                        <Style TargetType="TextBlock">
+                            <Setter Property="FontFamily" Value="Cascadia Code, Cascadia Mono, Consolas, Courier New"/>
+                        </Style>
+                    </StackPanel.Resources>
+
+                    <!-- ── NETWORK ── -->
+                    <TextBlock Text="// NETWORK"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                               Margin="0,4,0,2"/>
+                    <Rectangle Height="0.5" Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                               Opacity="0.25" Margin="0,0,0,8"/>
+
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="NIC"
+                                       Definition="Network Interface Card — the physical network adapter in the computer."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Link Speed"
+                                       Definition="Negotiated transmission speed between two network adapters (e.g. 1 Gbps, 2.5 Gbps)."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="NIC Throttle"
+                                       Definition="Temporary reduction of the host NIC speed to match the client, eliminating bufferbloat."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Bufferbloat"
+                                       Definition="High latency caused by excessive packet queuing in network buffers between host and client."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Net TX"
+                                       Definition="Outbound network throughput from the host, expressed in Mbps."/>
+
+                    <!-- ── STREAMING · CLIENT ── -->
+                    <TextBlock Text="// STREAMING · CLIENT"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                               Margin="0,18,0,2"/>
+                    <Rectangle Height="0.5" Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                               Opacity="0.25" Margin="0,0,0,8"/>
+
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="RTT"
+                                       Definition="Round Trip Time — time for a packet to travel from client to host and back."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Jitter"
+                                       Definition="RTT variability. Low but unstable RTT causes perceptible micro-stutter during streaming."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Frame Drops"
+                                       Definition="Video frames lost in transit during network transmission."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Bitrate"
+                                       Definition="Amount of video data transmitted per second, expressed in Mbps."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Decode Latency"
+                                       Definition="Time the client takes to decode each received video frame, in milliseconds."/>
+
+                    <!-- ── HOST METRICS ── -->
+                    <TextBlock Text="// HOST METRICS"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                               Margin="0,18,0,2"/>
+                    <Rectangle Height="0.5" Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                               Opacity="0.25" Margin="0,0,0,8"/>
+
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="GPU"
+                                       Definition="Graphics Processing Unit — 3D engine utilization of the graphics card (%)."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="GPU Encoder"
+                                       Definition="Hardware video encoding engine on the GPU used to compress the stream (NVENC on NVIDIA)."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="GPU Temp"
+                                       Definition="GPU temperature in degrees Celsius. Available on NVIDIA hardware only via NVML."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="VRAM"
+                                       Definition="Dedicated video memory of the GPU, shown as used / total in MB."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="CPU"
+                                       Definition="Main processor utilization averaged across all cores (%)."/>
+
+                    <!-- ── DISPLAY &amp; AUDIO ── -->
+                    <TextBlock Text="// DISPLAY &amp; AUDIO"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                               Margin="0,18,0,2"/>
+                    <Rectangle Height="0.5" Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                               Opacity="0.25" Margin="0,0,0,8"/>
+
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="HDR"
+                                       Definition="High Dynamic Range — display mode that expands luminance range beyond standard SDR limits."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Dolby Atmos"
+                                       Definition="Spatial audio format that positions sound as 3D objects around the listener."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Windows Sonic"
+                                       Definition="Microsoft's spatial audio platform, an alternative to Dolby Atmos for headphones."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Spatial Audio"
+                                       Definition="Technology simulating three-dimensional surround sound through headphones or speakers."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Steam Streaming Speakers"
+                                       Definition="Virtual audio device created by Steam during a remote play session."/>
+
+                    <!-- ── STREAMING SERVERS ── -->
+                    <TextBlock Text="// STREAMING SERVERS"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                               Margin="0,18,0,2"/>
+                    <Rectangle Height="0.5" Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                               Opacity="0.25" Margin="0,0,0,8"/>
+
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Sunshine / Apollo / Vibeshine / Vibepollo"
+                                       Definition="Open-source game streaming server software installed on the host, all compatible with StreamTweak."/>
+
+                    <!-- ── SESSION QUALITY ── -->
+                    <TextBlock Text="// SESSION QUALITY"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                               Margin="0,18,0,2"/>
+                    <Rectangle Height="0.5" Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                               Opacity="0.25" Margin="0,0,0,8"/>
+
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Quality Grade"
+                                       Definition="Composite assessment of session quality based on drop rate, RTT, and GPU encoder load: Excellent, Good, or Poor."/>
+
+                    <!-- ── APP MANAGEMENT ── -->
+                    <TextBlock Text="// APP MANAGEMENT"
+                               FontSize="11" FontWeight="SemiBold"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                               Margin="0,18,0,2"/>
+                    <Rectangle Height="0.5" Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                               Opacity="0.25" Margin="0,0,0,8"/>
+
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="AutoManage"
+                                       Definition="When enabled, an app is automatically terminated at stream start and relaunched when the session ends."
+                                       IsLast="True"/>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+    </Grid>
+
+</Page>

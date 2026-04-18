@@ -24,7 +24,8 @@ namespace StreamTweak
         string? SteamAppId,
         string ExePath,
         string? StoreId = null,
-        string? CoverUrl = null);
+        string? CoverUrl = null,
+        string? InstallDir = null);
 
     /// <summary>
     /// Scans installed game libraries on the local machine.
@@ -555,9 +556,6 @@ namespace StreamTweak
 
         private static IEnumerable<DiscoveredGame> ScanBattleNet()
         {
-            string? clientExe = FindBattleNetExe();
-            if (clientExe == null) yield break;
-
             string aggPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
                 "Battle.net", "Agent", "aggregate.json");
@@ -566,6 +564,9 @@ namespace StreamTweak
             JsonDocument doc;
             try { doc = JsonDocument.Parse(File.ReadAllText(aggPath)); }
             catch { yield break; }
+
+            // Battle.net client exe — used only as fallback when icon_path is missing
+            string? clientExeFallback = null;
 
             using (doc)
             {
@@ -583,7 +584,42 @@ namespace StreamTweak
                         ? nameEl.GetString() : null;
                     if (string.IsNullOrWhiteSpace(name)) name = uid;
 
-                    yield return new DiscoveredGame(name!, "Battle.net", null, clientExe, uid);
+                    // icon_path holds the per-game launcher exe (e.g. "Diablo II Resurrected Launcher.exe").
+                    // Normalize slashes so Path APIs work correctly on Windows.
+                    string? iconPath = item.TryGetProperty("icon_path", out var ipEl)
+                        ? ipEl.GetString()?.Replace('/', Path.DirectorySeparatorChar) : null;
+
+                    string exePath;
+                    if (!string.IsNullOrEmpty(iconPath) && File.Exists(iconPath))
+                    {
+                        exePath = iconPath;
+                    }
+                    else
+                    {
+                        // Fallback: use the Battle.net client (lazy-resolved once)
+                        clientExeFallback ??= FindBattleNetExe();
+                        if (string.IsNullOrEmpty(clientExeFallback)) continue;
+                        exePath = clientExeFallback;
+                    }
+
+                    // Derive root install directory from icon_path for directory-based monitoring.
+                    // If icon_path is inside an x86 or x86_64 sub-folder, step up to the parent.
+                    string? installDir = null;
+                    if (!string.IsNullOrEmpty(iconPath))
+                    {
+                        string? dir = Path.GetDirectoryName(iconPath);
+                        if (!string.IsNullOrEmpty(dir))
+                        {
+                            string leaf = Path.GetFileName(dir);
+                            installDir = string.Equals(leaf, "x86",    StringComparison.OrdinalIgnoreCase) ||
+                                         string.Equals(leaf, "x86_64", StringComparison.OrdinalIgnoreCase)
+                                ? Path.GetDirectoryName(dir) ?? dir
+                                : dir;
+                        }
+                    }
+
+                    yield return new DiscoveredGame(name!, "Battle.net", null, exePath, uid,
+                        InstallDir: installDir);
                 }
             }
         }

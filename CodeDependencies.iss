@@ -810,6 +810,25 @@ begin
   end;
 end;
 
+procedure Dependency_AddWindowsAppRuntime18;
+var
+  PackageKey: String;
+begin
+  // https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads
+  // Windows App SDK 1.8 (1.8.260209005) — required by WinUI 3 unpackaged apps.
+  // Detection: check for the DDLM framework package in the per-machine package registry.
+  // The installer handles idempotency itself (exits 0 if already present),
+  // so ForceSuccess=True is safe. x64-only: Windows App SDK 1.8+ has no x86 variant.
+  PackageKey := 'SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\PackageRepository\Packages';
+  if not RegKeyExists(HKLM, PackageKey + '\Microsoft.WindowsAppRuntime.1.8_8wekyb3d8bbwe') then begin
+    Dependency_Add('WindowsAppRuntimeInstall-x64.exe',
+      '--quiet',
+      'Windows App Runtime 1.8',
+      'https://aka.ms/windowsappsdk/1.8/latest/windowsappruntimeinstall-x64.exe',
+      '', True, False);
+  end;
+end;
+
 [Files]
 #ifdef Dependency_Path_DirectX
 Source: "{#Dependency_Path_DirectX}dxwebsetup.exe"; Flags: dontcopy noencryption

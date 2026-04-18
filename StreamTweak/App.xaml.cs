@@ -86,7 +86,8 @@ namespace StreamTweak
             string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"Resources\streamtweak.ico");
             ToastHelper.Initialize("StreamTweak", iconPath);
 
-            _dolbyMonitor.StatusChanged += OnDolbyStatusChanged;
+            _dolbyMonitor.StatusChanged   += OnDolbyStatusChanged;
+            _dolbyMonitor.FormatActivated += OnDolbyFormatActivated;
             StartDolbyMonitor();
             StartAutoStreamingMonitor();
             _ = InitHdrStateAsync();
@@ -1031,6 +1032,13 @@ namespace StreamTweak
             _lastDolbyStatus = status;
             Application.Current.Dispatcher.Invoke(() =>
                 settingsWindow?.SyncDolbyMonitorStatus(status));
+        }
+
+        private void OnDolbyFormatActivated(SpatialAudioFormat _)
+        {
+            // Auto-activation changed the real Windows state — sync the format toggles in the UI.
+            Application.Current.Dispatcher.Invoke(() =>
+                settingsWindow?.RefreshSpatialToggleStatesAsync());
         }
 
         #endregion

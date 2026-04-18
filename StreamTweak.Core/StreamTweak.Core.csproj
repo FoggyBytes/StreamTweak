@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Stesso TFM del progetto WPF: garantisce accesso alle stesse API WinRT (Spatial Audio,
+         Windows.Graphics.Imaging, ecc.) senza dipendenze WPF (UseWPF non è presente). -->
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Platforms>x64</Platforms>
+    <!-- RootNamespace invariato: i file spostati non richiedono modifiche agli using -->
+    <RootNamespace>StreamTweak</RootNamespace>
+    <AssemblyName>StreamTweak.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- CIM/WMI per NetworkManager e SpeedChanger -->
+    <PackageReference Include="Microsoft.Management.Infrastructure" Version="3.0.0" />
+    <!-- PDH PerformanceCounter per HostMetricsCollector -->
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
+    <!-- SQLite per GOG library scanner (Chrome/GOG database) -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+
+</Project>

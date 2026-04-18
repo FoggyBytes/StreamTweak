@@ -1325,25 +1325,47 @@
                         <ComboBox Grid.Row="3" x:Name="AudioDeviceComboBox" Margin="0,0,0,10"
                                   SelectionChanged="AudioDeviceComboBox_SelectionChanged"/>
 
-                        <!-- Dolby Atmos availability -->
-                        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,5">
-                            <TextBlock x:Name="DolbyAccessIcon" Text="●" FontSize="12"
-                                       VerticalAlignment="Center" Margin="0,0,5,0"
-                                       Foreground="Gray"/>
-                            <TextBlock x:Name="DolbyAccessText" FontSize="12" VerticalAlignment="Center"
-                                       Text="Checking Dolby Atmos for Headphones…"
-                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
-                        </StackPanel>
+                        <!-- Dolby Atmos format toggle -->
+                        <Grid Grid.Row="4" Margin="4,0,4,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="DolbyAccessIcon" Text="●" FontSize="10"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"
+                                           Foreground="Gray"/>
+                                <TextBlock Text="Dolby Atmos for Headphones" FontSize="12"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SecondaryTextForeground}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" x:Name="DolbyFormatToggle"
+                                      Style="{StaticResource ToggleSwitchStyle}"
+                                      VerticalAlignment="Center"
+                                      Checked="DolbyFormatToggle_Changed"
+                                      Unchecked="DolbyFormatToggle_Changed"/>
+                        </Grid>
 
-                        <!-- Windows Sonic availability -->
-                        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock x:Name="SonicAccessIcon" Text="●" FontSize="12"
-                                       VerticalAlignment="Center" Margin="0,0,5,0"
-                                       Foreground="Gray"/>
-                            <TextBlock x:Name="SonicAccessText" FontSize="12" VerticalAlignment="Center"
-                                       Text="Checking Windows Sonic for Headphones…"
-                                       Foreground="{DynamicResource SecondaryTextForeground}"/>
-                        </StackPanel>
+                        <!-- Windows Sonic format toggle -->
+                        <Grid Grid.Row="5" Margin="4,0,4,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="SonicAccessIcon" Text="●" FontSize="10"
+                                           VerticalAlignment="Center" Margin="0,0,6,0"
+                                           Foreground="Gray"/>
+                                <TextBlock Text="Windows Sonic for Headphones" FontSize="12"
+                                           VerticalAlignment="Center"
+                                           Foreground="{DynamicResource SecondaryTextForeground}"/>
+                            </StackPanel>
+                            <CheckBox Grid.Column="1" x:Name="SonicFormatToggle"
+                                      Style="{StaticResource ToggleSwitchStyle}"
+                                      VerticalAlignment="Center"
+                                      Checked="SonicFormatToggle_Changed"
+                                      Unchecked="SonicFormatToggle_Changed"/>
+                        </Grid>
 
                         <!-- Separator -->
                         <Separator Grid.Row="7" Background="{DynamicResource BorderColor}"/>
@@ -1358,25 +1380,19 @@
                                       Unchecked="SpatialAudioToggle_Changed"/>
                         </StackPanel>
 
-                        <!-- Format selection -->
-                        <StackPanel Grid.Row="10" Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,12">
-                            <RadioButton x:Name="DolbyFormatRadio"
-                                         Content="Dolby Atmos for Headphones"
-                                         Style="{StaticResource SpatialFormatRadioStyle}"
-                                         GroupName="SpatialFormat" Margin="0,0,24,0"
-                                         Checked="AudioFormatRadio_Changed"/>
-                            <RadioButton x:Name="SonicFormatRadio"
-                                         Content="Windows Sonic for Headphones"
-                                         Style="{StaticResource SpatialFormatRadioStyle}"
-                                         GroupName="SpatialFormat"
-                                         Checked="AudioFormatRadio_Changed"/>
-                        </StackPanel>
+                        <!-- Auto format selection -->
+                        <ComboBox Grid.Row="10" x:Name="AutoSpatialFormatCombo"
+                                  HorizontalAlignment="Center" Width="240" Margin="0,0,0,12"
+                                  SelectionChanged="AutoSpatialFormatCombo_SelectionChanged">
+                            <ComboBoxItem Content="Dolby Atmos for Headphones"   Tag="DolbyAtmos"/>
+                            <ComboBoxItem Content="Windows Sonic for Headphones" Tag="WindowsSonic"/>
+                        </ComboBox>
 
                         <!-- Description -->
                         <TextBlock Grid.Row="11" FontSize="12"
                                    Foreground="{DynamicResource SecondaryTextForeground}"
                                    TextWrapping="Wrap" TextAlignment="Center" LineHeight="16"
-                                   Text="The selected spatial audio format will be enabled on the chosen output device."/>
+                                   Text="Auto Spatial Audio activates the selected format on the chosen output device when streaming starts."/>
 
                         <!-- Status box -->
                         <Border Grid.Row="13" Padding="10,8"

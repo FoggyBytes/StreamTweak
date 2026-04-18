@@ -8,6 +8,7 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 		<UseWPF>true</UseWPF>
 		<RuntimeIdentifier>win-x64</RuntimeIdentifier>
+		<Platforms>x64</Platforms>
 		<ApplicationIcon>Resources\streamtweak.ico</ApplicationIcon>
 		<Version>5.4.4</Version>
 		<AssemblyVersion>5.4.4.0</AssemblyVersion>
@@ -53,6 +54,10 @@
 		<Content Include="Resources\streammodeok.ico">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</Content>
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\StreamTweak.Core\StreamTweak.Core.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

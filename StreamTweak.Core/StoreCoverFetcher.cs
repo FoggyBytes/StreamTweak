@@ -9,7 +9,9 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows.Media.Imaging;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Graphics.Imaging;
+using Windows.Storage.Streams;
 using System.Xml.Linq;
 using Microsoft.Data.Sqlite;
 
@@ -87,7 +89,7 @@ namespace StreamTweak
                         break;
 
                     case "Xbox":
-                        FetchXboxCover(game, cachePath);
+                        await FetchXboxCoverAsync(game, cachePath);
                         break;
 
                     case "Battle.net":
@@ -237,7 +239,7 @@ namespace StreamTweak
                                     byte[] bytes = await File.ReadAllBytesAsync(localPath);
                                     if (bytes.Length > 0)
                                     {
-                                        SaveBytesAsPng(bytes, cachePath);
+                                        await SaveBytesAsPngAsync(bytes, cachePath);
                                         return;
                                     }
                                 }
@@ -434,7 +436,7 @@ namespace StreamTweak
         // ── Xbox: local logo files ────────────────────────────────────────────
         // Reads ShellVisuals logo paths from MicrosoftGame.config and copies them to cache.
 
-        private static void FetchXboxCover(DiscoveredGame game, string cachePath)
+        private static async Task FetchXboxCoverAsync(DiscoveredGame game, string cachePath)
         {
             try
             {
@@ -466,7 +468,7 @@ namespace StreamTweak
                 if (string.Equals(Path.GetExtension(logoPath), ".png", StringComparison.OrdinalIgnoreCase))
                     File.Copy(logoPath, cachePath, overwrite: true);
                 else
-                    SaveBytesAsPng(File.ReadAllBytes(logoPath), cachePath);
+                    await SaveBytesAsPngAsync(File.ReadAllBytes(logoPath), cachePath);
             }
             catch { }
         }
@@ -601,25 +603,31 @@ namespace StreamTweak
         {
             byte[] bytes = await _http.GetByteArrayAsync(url);
             if (bytes.Length == 0) return;
-            SaveBytesAsPng(bytes, cachePath);
+            await SaveBytesAsPngAsync(bytes, cachePath);
         }
 
         /// <summary>
-        /// Decodes any image format supported by WIC (JPEG, PNG, BMP, WebP if codec installed)
+        /// Decodes any image format supported by Windows.Graphics.Imaging (JPEG, PNG, BMP, WebP)
         /// and re-encodes it as PNG. Required because Sunshine only accepts PNG for image-path.
         /// Writes to a temp file first so a failed conversion never leaves a corrupt PNG in cache.
         /// </summary>
-        private static void SaveBytesAsPng(byte[] bytes, string path)
+        private static async Task SaveBytesAsPngAsync(byte[] bytes, string path)
         {
             string tempPath = path + ".tmp";
             try
             {
-                using var inStream = new MemoryStream(bytes);
-                var decoder = BitmapDecoder.Create(inStream, BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
-                using var outStream = new FileStream(tempPath, FileMode.Create, FileAccess.Write);
-                var encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(decoder.Frames[0]));
-                encoder.Save(outStream);
+                using var inRas = new InMemoryRandomAccessStream();
+                await inRas.WriteAsync(bytes.AsBuffer());
+                inRas.Seek(0);
+
+                var decoder = await BitmapDecoder.CreateAsync(inRas);
+                var softBitmap = await decoder.GetSoftwareBitmapAsync();
+
+                using var outFile = File.Create(tempPath);
+                using var outRas = outFile.AsRandomAccessStream();
+                var encoder = await BitmapEncoder.CreateAsync(BitmapEncoder.PngEncoderId, outRas);
+                encoder.SetSoftwareBitmap(softBitmap);
+                await encoder.FlushAsync();
             }
             catch
             {

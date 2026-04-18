@@ -7,7 +7,7 @@ namespace StreamTweak
     /// Shared debug logger — writes timestamped entries to %LocalAppData%\StreamTweak\debug.log.
     /// All classes that previously had their own private DebugLog method use this instead.
     /// </summary>
-    internal static class DebugLogger
+    public static class DebugLogger
     {
         private static readonly string LogPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),

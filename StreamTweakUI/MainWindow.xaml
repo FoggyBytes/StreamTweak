@@ -1,0 +1,128 @@
+<Window
+    x:Class="StreamTweak.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:StreamTweak"
+    Title="StreamTweak">
+
+    <!-- Mica Material: blends the desktop wallpaper into the window background. -->
+    <Window.SystemBackdrop>
+        <MicaBackdrop Kind="Base"/>
+    </Window.SystemBackdrop>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32"/>  <!-- title bar strip -->
+            <RowDefinition Height="*"/>   <!-- navigation + content -->
+        </Grid.RowDefinitions>
+
+        <!-- Row 1: NavigationView starts at y=32 so the toggle button (≡) falls
+             naturally below the title bar, with no overlap.
+             IsTitleBarAutoPaddingEnabled="False": no extra padding needed since
+             the NavigationView already starts 32px below the window top. -->
+        <NavigationView x:Name="NavView"
+            Grid.Row="1"
+            PaneDisplayMode="Left"
+            OpenPaneLength="200"
+            IsPaneToggleButtonVisible="True"
+            IsSettingsVisible="False"
+            IsBackButtonVisible="Collapsed"
+            AlwaysShowHeader="False"
+            SelectionChanged="NavView_SelectionChanged"
+            IsTitleBarAutoPaddingEnabled="False">
+
+            <NavigationView.MenuItems>
+
+                <NavigationViewItem x:Name="NavHome" Tag="Home" Content="Home">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItemSeparator/>
+
+                <NavigationViewItem x:Name="NavNetwork" Tag="Network" Content="Network">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE701;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavDisplay" Tag="Display" Content="Display">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7F4;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavAudio" Tag="Audio" Content="Audio">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE767;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItemSeparator/>
+
+                <NavigationViewItem x:Name="NavApps" Tag="Apps" Content="Apps">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE71D;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavGameLibrary" Tag="GameLibrary" Content="Game Library">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7FC;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItemSeparator/>
+
+                <NavigationViewItem x:Name="NavLogs" Tag="Logs" Content="Logs">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9F9;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+            </NavigationView.MenuItems>
+
+            <!-- Footer: Glossary + Settings -->
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem x:Name="NavGlossary" Tag="Glossary" Content="Glossary">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE82D;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="NavSettings" Tag="Settings" Content="Settings">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE713;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
+
+            <!-- Content area: pages navigate here -->
+            <Frame x:Name="ContentFrame"/>
+
+        </NavigationView>
+
+        <!-- Row 0: full-width 32px title bar. z=last (drawn on top).
+             Icon + name on the left; the right portion is transparent/draggable.
+             Caption buttons (−, □, ×) are placed by AppWindow at the top-right.
+             SetTitleBar() registers this element as the drag region. -->
+        <Grid x:Name="AppTitleBar"
+              Grid.Row="0"
+              Background="Transparent">
+            <StackPanel Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Spacing="8" Margin="16,0,0,0"
+                        IsHitTestVisible="False">
+                <Image Source="ms-appx:///Resources/streamtweak.ico"
+                       Width="16" Height="16"
+                       VerticalAlignment="Center"/>
+                <TextBlock Text="StreamTweak"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           Opacity="0.9"/>
+            </StackPanel>
+        </Grid>
+
+    </Grid>
+
+</Window>

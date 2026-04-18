@@ -4,6 +4,21 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 6.0.0 - "The WinUI3 Update" (18/04/2026)
+------------------------------------------
+
+🏗 REWRITE — WPF → WinUI3:
+• StreamTweak's UI has been fully rewritten in WinUI3 (Windows App SDK 1.8), bringing it in line with the modern Windows 11 design system
+• Business logic extracted into a dedicated StreamTweak.Core library — cleaner architecture, same behavior
+• Full MVVM architecture: UI and logic are now properly separated
+
+🎨 UI/UX:
+• Sidebar navigation (NavigationView) replaces the old horizontal tab bar — Home, Network, Display, Audio, Apps, Game Library, Logs, Glossary, Settings
+• Mica backdrop — the window background subtly reflects your desktop wallpaper
+• Window minimize hides to system tray (no taskbar clutter); double-click to restore
+• Close button (✕) shows a native WinUI3 confirmation dialog
+• Window size is remembered across restarts, DPI-aware
+
 Version 5.4.4 (08/04/2026)
 ------------------------------------------
 

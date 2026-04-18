@@ -1,0 +1,235 @@
+<Page
+    x:Class="StreamTweak.Views.GameLibraryView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:StreamTweak.ViewModels"
+    Background="Transparent">
+
+    <Grid RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- status bar -->
+            <RowDefinition Height="*"/>     <!-- main card -->
+        </Grid.RowDefinitions>
+
+        <!-- ── Status InfoBar ────────────────────────────────────────────── -->
+        <InfoBar Grid.Row="0"
+                 Margin="20,16,20,0"
+                 IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
+                 Severity="{x:Bind ViewModel.StatusIsError, Mode=OneWay,
+                            Converter={StaticResource BoolToInfoBarSeverityConverter}}"
+                 Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                 IsClosable="True"
+                 Closed="StatusInfoBar_Closed"/>
+
+        <!-- ── Main card ─────────────────────────────────────────────────── -->
+        <Border Grid.Row="1"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1" CornerRadius="8"
+                Margin="20,0,20,24">
+            <Grid Margin="16,14">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>  <!-- header -->
+                    <RowDefinition Height="Auto"/>  <!-- toolbar -->
+                    <RowDefinition Height="*"/>     <!-- game list -->
+                </Grid.RowDefinitions>
+
+                <!-- Header -->
+                <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Spacing="2">
+                        <TextBlock Text="Game Library"
+                                   Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                        <TextBlock Text="{x:Bind ViewModel.LastSyncText, Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Opacity="0.6"/>
+                    </StackPanel>
+
+                    <!-- Sync enable toggle -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                VerticalAlignment="Center" Spacing="8">
+                        <TextBlock Text="{x:Bind ViewModel.SyncLabel, Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   VerticalAlignment="Center" Opacity="0.8"/>
+                        <ToggleSwitch IsOn="{x:Bind ViewModel.SyncEnabled, Mode=TwoWay}"
+                                      OffContent="{x:Null}" OnContent="{x:Null}"
+                                      MinWidth="0"
+                                      IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"/>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Toolbar -->
+                <StackPanel Grid.Row="1" Orientation="Horizontal"
+                            Spacing="8" Margin="0,0,0,12">
+
+                    <Button Content="Sync now"
+                            Style="{StaticResource AccentButtonStyle}"
+                            IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
+                            Click="SyncNow_Click"/>
+
+                    <Button Content="Add game"
+                            IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
+                            Click="AddGame_Click"
+                            ToolTipService.ToolTip="Add an executable manually"/>
+
+                    <Button Content="Clear sync"
+                            IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
+                            Click="ClearSync_Click"
+                            ToolTipService.ToolTip="Remove all managed entries from Sunshine and reset game list"/>
+
+                    <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                                  Width="20" Height="20"
+                                  Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay,
+                                               Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                </StackPanel>
+
+                <!-- Game list -->
+                <ScrollViewer Grid.Row="2"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Disabled">
+
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Games}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ObservableGameEntry">
+
+                                <Border Margin="0,0,0,6"
+                                        Padding="10,8,16,8"
+                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1" CornerRadius="6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/> <!-- cover   -->
+                                            <ColumnDefinition Width="*"/>    <!-- info    -->
+                                            <ColumnDefinition Width="52"/>   <!-- toggle  -->
+                                            <ColumnDefinition Width="Auto"/> <!-- play    -->
+                                            <ColumnDefinition Width="Auto"/> <!-- remove  -->
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Cover thumbnail (67 × 100 px, 2:3) -->
+                                        <Border Grid.Column="0"
+                                                Width="67" Height="100"
+                                                CornerRadius="4"
+                                                Margin="0,0,14,0"
+                                                Background="{ThemeResource SubtleFillColorTertiaryBrush}">
+                                            <Grid>
+                                                <Image Source="{x:Bind CoverImage, Mode=OneWay}"
+                                                       Stretch="UniformToFill"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"/>
+                                                <!-- Fallback: initials when cover not loaded -->
+                                                <TextBlock Text="{x:Bind Name}"
+                                                           TextWrapping="Wrap"
+                                                           TextAlignment="Center"
+                                                           FontSize="8"
+                                                           Opacity="0.45"
+                                                           Margin="3"
+                                                           VerticalAlignment="Center"
+                                                           HorizontalAlignment="Center"
+                                                           Visibility="{x:Bind HasNoCover, Mode=OneWay,
+                                                                        Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Game info -->
+                                        <StackPanel Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    Spacing="2"
+                                                    Margin="0,0,12,0">
+
+                                            <!-- Store badge: icon + name -->
+                                            <StackPanel Orientation="Horizontal" Spacing="5"
+                                                        Visibility="{x:Bind ShowBadge,
+                                                                     Converter={StaticResource BoolToVisibilityConverter}}">
+                                                <Image Width="13" Height="13" VerticalAlignment="Center">
+                                                    <Image.Source>
+                                                        <SvgImageSource UriSource="{x:Bind BadgeUri}"/>
+                                                    </Image.Source>
+                                                </Image>
+                                                <TextBlock Text="{x:Bind BadgeLabel}"
+                                                           FontSize="10"
+                                                           Opacity="0.6"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+
+                                            <!-- Game name -->
+                                            <TextBlock Text="{x:Bind Name}"
+                                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                       FontSize="13"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTipService.ToolTip="{x:Bind Name}"/>
+
+                                            <!-- Path / Manual badge -->
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Border CornerRadius="4" Padding="5,1"
+                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                        Visibility="{x:Bind IsManual,
+                                                                     Converter={StaticResource BoolToVisibilityConverter}}"
+                                                        VerticalAlignment="Center">
+                                                    <TextBlock Text="Manual" FontSize="9"
+                                                               FontWeight="SemiBold" Foreground="White"/>
+                                                </Border>
+                                                <TextBlock Text="{x:Bind PathDisplay}"
+                                                           Style="{StaticResource CaptionTextBlockStyle}"
+                                                           Opacity="0.5"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"
+                                                           ToolTipService.ToolTip="{x:Bind PathDisplay}"/>
+                                            </StackPanel>
+
+                                        </StackPanel>
+
+                                        <!-- Enable toggle -->
+                                        <ToggleSwitch Grid.Column="2"
+                                                      IsOn="{x:Bind Enabled, Mode=TwoWay}"
+                                                      OffContent="{x:Null}" OnContent="{x:Null}"
+                                                      MinWidth="0"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Left"
+                                                      ToolTipService.ToolTip="Include in Sunshine sync"/>
+
+                                        <!-- Play button -->
+                                        <Button Grid.Column="3"
+                                                Content="&#xE768;"
+                                                FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                FontSize="12"
+                                                Width="30" Height="30"
+                                                Padding="0"
+                                                VerticalAlignment="Center"
+                                                Margin="6,0,0,0"
+                                                Click="PlayGame_Click"
+                                                AutomationProperties.Name="Launch game"
+                                                ToolTipService.ToolTip="Launch game"/>
+
+                                        <!-- Remove button -->
+                                        <Button Grid.Column="4"
+                                                Content="&#xE711;"
+                                                FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                                FontSize="12"
+                                                Width="30" Height="30"
+                                                Padding="0"
+                                                VerticalAlignment="Center"
+                                                Margin="4,0,0,0"
+                                                Click="RemoveGame_Click"
+                                                AutomationProperties.Name="Remove from list"
+                                                ToolTipService.ToolTip="Remove from list"/>
+
+                                    </Grid>
+                                </Border>
+
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                </ScrollViewer>
+
+            </Grid>
+        </Border>
+    </Grid>
+
+</Page>

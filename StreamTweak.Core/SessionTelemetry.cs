@@ -44,6 +44,7 @@ namespace StreamTweak
         // Client metrics
         public float FpsAvg          { get; set; }
         public int   FpsMin          { get; set; }
+        public long  TotalDrops      { get; set; }
         public float DropRatePct     { get; set; }
         public float RttAvgMs        { get; set; }
         public float RttMaxMs        { get; set; }
@@ -161,6 +162,7 @@ namespace StreamTweak
                     SampleCount     = count,
                     FpsAvg          = count > 0 ? _fpsAvgSamples.Average()          : 0f,
                     FpsMin          = count > 0 ? _fpsMinSamples.Min()               : 0,
+                    TotalDrops      = _totalDrops,
                     DropRatePct     = _totalFrames > 0
                                          ? (float)_totalDrops / _totalFrames * 100f
                                          : 0f,

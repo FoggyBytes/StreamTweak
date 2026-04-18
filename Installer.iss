@@ -1,10 +1,11 @@
 ; =====================================================
-; StreamTweak v5.4.4 - GitHub Release Installer
+; StreamTweak v6.0.0 - GitHub Release Installer
+; WinUI 3 (Windows App SDK 1.8) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "5.4.4"
+#define MyAppVersion "6.0.0"
 #define MyAppPublisher "FoggyBytes"
-#define MyAppExeName "StreamTweak.exe"
+#define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
 #define ServiceName "StreamTweakService"
 #define ServiceExe "StreamTweakService.exe"
@@ -19,9 +20,9 @@ AppPublisher={#MyAppPublisher}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 InfoBeforeFile=changelog.txt
-SetupIconFile=StreamTweak\Resources\streamtweak.ico
-WizardSmallImageFile=StreamTweak\Resources\streamtweak.bmp
-WizardImageFile=StreamTweak\Resources\streamtweakinstaller.bmp
+SetupIconFile=StreamTweakUI\Resources\streamtweak.ico
+WizardSmallImageFile=StreamTweakUI\Resources\streamtweak.bmp
+WizardImageFile=StreamTweakUI\Resources\streamtweakinstaller.bmp
 UninstallDisplayIcon={app}\Resources\streamtweak.ico
 AllowNoIcons=yes
 DirExistsWarning=no
@@ -30,7 +31,12 @@ Compression=lzma2
 SolidCompression=yes
 OutputDir=Output
 OutputBaseFilename=StreamTweak_{#MyAppVersion}_Installer
+; WinUI 3 + Windows App SDK 1.8 require Windows 10 1809+ (build 17763)
+; StreamTweak targets 19041 (20H1) which is a stricter requirement.
+MinVersion=10.0.19041
 PrivilegesRequired=admin
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
 WizardStyle=modern
 DisableWelcomePage=no
 
@@ -41,22 +47,23 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 WelcomeLabel1=Welcome to the StreamTweak Setup Wizard
 WelcomeLabel2=
 
-[Tasks]
-Name: "autostart"; Description: "Start {#MyAppName} automatically when Windows starts"; GroupDescription: "Auto-start Options:"; Flags: checkedonce
-
 [Files]
-; Main application
-Source: "StreamTweak\bin\Release\net8.0-windows10.0.19041.0\win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "StreamTweak\Resources\*"; DestDir: "{app}\Resources"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "StreamTweak\Resources\streamtweak.bmp"; Flags: dontcopy
+; ── Main WinUI 3 application ─────────────────────────────────────────────────
+; dotnet build output. StreamTweak.Core.dll is included automatically (ProjectReference).
+; .pdb (debug symbols) and ref\ (compiler-only assemblies) are excluded.
+Source: "StreamTweakUI\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb,ref\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; ── Background service (LocalSystem account, manages NIC speed via CIM) ─────
+Source: "StreamTweakService\bin\x64\Release\net8.0-windows\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb,ref\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+; ── Release notes ────────────────────────────────────────────────────────────
 Source: "changelog.txt"; DestDir: "{app}"; Flags: ignoreversion
 
-; Background service (separate project build output)
-Source: "StreamTweakService\bin\Release\net8.0-windows\win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; ── Installer wizard logo (extracted to temp for the welcome page) ────────────
+Source: "StreamTweakUI\Resources\streamtweak.bmp"; Flags: dontcopy
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{commonstartup}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: autostart
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: postinstall skipifsilent nowait
@@ -116,8 +123,8 @@ begin
   begin
     AppDir := ExpandConstant('{app}');
 
-    // Stop and remove any existing instance before (re)creating
-    Exec('sc.exe', 'stop ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    // Stop and remove any existing service instance before (re)creating
+    Exec('sc.exe', 'stop '   + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Exec('sc.exe', 'delete ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
     // Create service with automatic start, running as LocalSystem
@@ -128,7 +135,7 @@ begin
       ' start= auto',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
-    // Set description
+    // Set service description
     Exec('sc.exe',
       'description ' + '{#ServiceName}' +
       ' "Applies network adapter speed changes for StreamTweak without UAC prompts."',
@@ -147,11 +154,16 @@ begin
   begin
     Exec('sc.exe', 'stop '   + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     Exec('sc.exe', 'delete ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    // Remove autostart registry entry if the user had it enabled in-app
+    RegDeleteValue(HKCU, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Run', 'StreamTweak');
   end;
 end;
 
 function InitializeSetup: Boolean;
 begin
-  Dependency_AddDotNet80Desktop;
+  // .NET 8 base runtime (Microsoft.NETCore.App) — WinUI 3 does not need Desktop runtime
+  Dependency_AddDotNet80;
+  // Windows App SDK 1.8 runtime — provides the WinUI 3 XAML framework (DDLM package)
+  Dependency_AddWindowsAppRuntime18;
   Result := True;
 end;

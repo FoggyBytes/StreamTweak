@@ -1,0 +1,142 @@
+<Page
+    x:Class="StreamTweak.Views.DisplayView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:StreamTweak.ViewModels"
+    Background="Transparent">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12" Padding="20,16,20,24">
+
+            <!-- ── Error bar ─────────────────────────────────────────────── -->
+            <InfoBar IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                     Severity="Error"
+                     Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}"
+                     IsClosable="False"/>
+
+            <!-- ── Per-Display HDR card ───────────────────────────────────── -->
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16,14">
+                <StackPanel Spacing="10">
+
+                    <Grid>
+                        <TextBlock Text="Per-Display HDR Output"
+                                   Style="{StaticResource BodyStrongTextBlockStyle}"
+                                   VerticalAlignment="Center"/>
+                        <Button HorizontalAlignment="Right"
+                                Style="{StaticResource DateTimePickerFlyoutButtonStyle}"
+                                Click="RefreshButton_Click"
+                                ToolTipService.ToolTip="Refresh display list">
+                            <FontIcon Glyph="&#xE72C;" FontSize="14"/>
+                        </Button>
+                    </Grid>
+
+                    <!-- Loading ring -->
+                    <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+                                  Width="24" Height="24"
+                                  HorizontalAlignment="Left"
+                                  Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay,
+                                               Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                    <!-- Monitor cards -->
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.Monitors}"
+                                  Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay,
+                                               Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MonitorEntry">
+                                <Border Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="1" CornerRadius="6"
+                                        Padding="12,10" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="52"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Left: name, resolution, HDR state -->
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2">
+
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{x:Bind FriendlyName}"
+                                                           Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                           VerticalAlignment="Center"/>
+                                                <Border CornerRadius="4" Padding="5,1"
+                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                        Visibility="{x:Bind IsVirtual,
+                                                                     Converter={StaticResource BoolToVisibilityConverter}}"
+                                                        VerticalAlignment="Center">
+                                                    <TextBlock Text="Virtual" FontSize="9"
+                                                               FontWeight="SemiBold" Foreground="White"/>
+                                                </Border>
+                                            </StackPanel>
+
+                                            <TextBlock Text="{x:Bind ResolutionText}"
+                                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                                       Opacity="0.65"/>
+
+                                            <TextBlock Text="{x:Bind HdrStateText, Mode=OneWay}"
+                                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                                       Foreground="{x:Bind HdrStateColorHex, Mode=OneWay,
+                                                                    Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                        </StackPanel>
+
+                                        <!-- Right: HDR toggle -->
+                                        <ToggleSwitch Grid.Column="1"
+                                                      IsOn="{x:Bind HdrEnabled, Mode=OneWay}"
+                                                      IsEnabled="{x:Bind HdrSupported}"
+                                                      OffContent="{x:Null}" OnContent="{x:Null}"
+                                                      MinWidth="0"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Left"
+                                                      Toggled="HdrToggle_Toggled"/>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                </StackPanel>
+            </Border>
+
+            <!-- ── Auto HDR card ─────────────────────────────────────────── -->
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16,14">
+                <StackPanel Spacing="12">
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="52"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2"
+                                    Margin="0,0,8,0">
+                            <TextBlock Text="Auto HDR"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                            <TextBlock Text="Enables Windows Auto HDR for supported SDR games."
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Opacity="0.7" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <ToggleSwitch Grid.Column="1"
+                                      IsOn="{x:Bind ViewModel.AutoHdrEnabled, Mode=TwoWay}"
+                                      OffContent="{x:Null}" OnContent="{x:Null}"
+                                      MinWidth="0"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Left"/>
+                    </Grid>
+
+                    <InfoBar IsOpen="{x:Bind ViewModel.ShowAutoHdrWarning, Mode=OneWay}"
+                             Severity="Warning"
+                             Title="No HDR display active"
+                             Message="Auto HDR requires at least one display with HDR enabled."
+                             IsClosable="False"/>
+
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</Page>

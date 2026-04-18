@@ -1,0 +1,27 @@
+<UserControl
+    x:Class="StreamTweak.Views.GlossaryRow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Grid Margin="0,0,0,6">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="160"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Grid.Column="0"
+                   x:Name="TermText"
+                   FontSize="13" FontWeight="Bold"
+                   FontFamily="Cascadia Code, Cascadia Mono, Consolas, Courier New"
+                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                   TextWrapping="Wrap"/>
+
+        <TextBlock Grid.Column="1"
+                   x:Name="DefinitionText"
+                   FontSize="13" Foreground="White"
+                   FontFamily="Cascadia Code, Cascadia Mono, Consolas, Courier New"
+                   TextWrapping="Wrap"
+                   Margin="8,0,0,0"/>
+    </Grid>
+
+</UserControl>

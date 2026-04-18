@@ -39,6 +39,21 @@ namespace StreamTweak
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<float>? DecodeTimeSeries { get; set; }
 
+        /// <summary>
+        /// Display names of games detected as running during this session (process monitor).
+        /// Null  → monitor never ran (session pre-dates this feature, or manual streaming mode).
+        /// Empty → monitor ran but no matching game process was found (e.g. desktop session).
+        /// Non-empty → one or more games were detected.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string>? GamesDetected { get; set; }
+
+        /// <summary>True when the process monitor ran and detected at least one game.</summary>
+        [JsonIgnore] public bool HasGamesDetected    => GamesDetected is { Count: > 0 };
+
+        /// <summary>True when the process monitor ran but found no matching game processes.</summary>
+        [JsonIgnore] public bool HasNoGamesDetected  => GamesDetected != null && GamesDetected.Count == 0;
+
         // ── Display properties ────────────────────────────────────────────────
 
         [JsonIgnore]
@@ -80,10 +95,54 @@ namespace StreamTweak
             EndTime.HasValue ? (int)(EndTime.Value - StartTime).TotalSeconds : 0;
 
         [JsonIgnore]
+        public bool NicThrottled => !string.IsNullOrEmpty(OriginalSpeed);
+
+        [JsonIgnore]
         public string NicThrottleDisplay => string.IsNullOrEmpty(OriginalSpeed) ? "No" : "Yes";
 
         [JsonIgnore]
         public string OriginalNicSpeedDisplay => string.IsNullOrEmpty(OriginalSpeed) ? "N/A" : OriginalSpeed;
+
+        [JsonIgnore]
+        public string RttAvgDisplay =>
+            QualityStats != null && QualityStats.RttAvgMs > 0
+                ? $"{QualityStats.RttAvgMs:F0} ms"
+                : "—";
+
+        [JsonIgnore]
+        public string DropRateDisplay =>
+            QualityStats != null
+                ? $"{QualityStats.DropRatePct:0.#}%"
+                : "—";
+
+        [JsonIgnore]
+        public string NetTxAvgDisplay =>
+            QualityStats?.HostNetTxAvg >= 0
+                ? $"{QualityStats.HostNetTxAvg} Mbps"
+                : "—";
+
+        // ── UI helpers for WinUI 3 (no WPF converters available in Core) ─────
+
+        [JsonIgnore]
+        public bool HasGrade => Grade != null;
+
+        [JsonIgnore]
+        public string GradeShortLabel => Grade switch
+        {
+            QualityGrade.High   => "Excellent",
+            QualityGrade.Medium => "Good",
+            QualityGrade.Low    => "Poor",
+            _                   => "—"
+        };
+
+        [JsonIgnore]
+        public string GradeColorHex => Grade switch
+        {
+            QualityGrade.High   => "#FF4CAF50",
+            QualityGrade.Medium => "#FFFFC107",
+            QualityGrade.Low    => "#FFDC4632",
+            _                   => "#FF808080"
+        };
     }
 
     public static class SessionLogger
@@ -175,7 +234,7 @@ namespace StreamTweak
             catch { }
         }
 
-        public static void EndSession(string endReason = "User")
+        public static void EndSession(string endReason = "User", List<string>? gamesDetected = null)
         {
             // Atomically capture and clear the session ID so concurrent callers
             // (e.g. App_SessionEnding on the OS thread + HandleAutoStreamStop on the UI thread)
@@ -190,6 +249,9 @@ namespace StreamTweak
                 {
                     entry!.EndTime = DateTime.Now;
                     entry.EndReason = endReason;
+                    // Store even when empty: null means monitor never ran; [] means monitor ran but found nothing.
+                    if (gamesDetected != null)
+                        entry.GamesDetected = gamesDetected;
                     Save(sessions);
                 }
             }
@@ -209,6 +271,9 @@ namespace StreamTweak
                 catch { return new List<SessionEntry>(); }
             }
         }
+
+        /// <summary>Persists a caller-supplied session list (e.g. after removing one entry).</summary>
+        public static void SavePublic(List<SessionEntry> sessions) => Save(sessions);
 
         private static void Save(List<SessionEntry> sessions)
         {

@@ -26,6 +26,12 @@ namespace StreamTweak
         // Guards against concurrent sync runs (e.g. auto-sync at startup + user clicking "Sync Now").
         private static readonly System.Threading.SemaphoreSlim _syncLock = new(1, 1);
 
+        // Detected streaming server name (Sunshine / Apollo / Vibeshine / Vibepollo).
+        // Lazily resolved once and cached for the app lifetime.
+        private static string? _hostAppName;
+        private static string HostAppName =>
+            _hostAppName ??= LogParser.FindStreamingAppInfo()?.AppName ?? "Sunshine";
+
         /// <summary>
         /// Performs a full sync and returns a human-readable status string.
         /// Pass isManual=true when triggered by the user's "Sync Now" button —
@@ -41,7 +47,7 @@ namespace StreamTweak
                 // 1. Find Sunshine
                 string? appsJson = SunshineSync.FindAppsJsonPath();
                 if (appsJson == null)
-                    return "Sunshine not found. Make sure Sunshine, Apollo, Vibeshine or Vibepollo is installed.";
+                    return $"{HostAppName} not found. Make sure Sunshine, Apollo, Vibeshine or Vibepollo is installed.";
 
                 var state = GameLibraryState.Current;
 
@@ -117,6 +123,8 @@ namespace StreamTweak
                         existing.Store      = g.Store;
                         existing.SteamAppId = g.SteamAppId;
                         existing.StoreId    = g.StoreId;
+                        existing.ExePath    = g.ExePath;      // refresh path from latest scan
+                        existing.InstallDir = g.InstallDir;   // refresh install dir (Battle.net)
                         return existing;
                     }
 
@@ -126,6 +134,8 @@ namespace StreamTweak
                         Store      = g.Store,
                         SteamAppId = g.SteamAppId,
                         StoreId    = g.StoreId,
+                        ExePath    = g.ExePath,               // persist path from scanner
+                        InstallDir = g.InstallDir,            // persist install dir (Battle.net)
                         Enabled    = true,
                     };
                 }).ToList();
@@ -196,7 +206,7 @@ namespace StreamTweak
             {
                 string? appsJson = SunshineSync.FindAppsJsonPath();
                 if (appsJson == null)
-                    return "Sunshine not found.";
+                    return $"{HostAppName} not found.";
 
                 // Derive display name from the executable
                 string name;
@@ -265,7 +275,7 @@ namespace StreamTweak
                     string? error = await Task.Run(() =>
                         SunshineSync.RemoveApp(appsJson, entry.Name));
                     if (error != null)
-                        return $"Removed from list, but could not update Sunshine: {error}";
+                        return $"Removed from list, but could not update {HostAppName}: {error}";
                 }
 
                 return $"Removed \"{entry.Name}\".";
@@ -292,7 +302,7 @@ namespace StreamTweak
             {
                 string? appsJson = SunshineSync.FindAppsJsonPath();
                 if (appsJson == null)
-                    return "Sunshine not found.";
+                    return $"{HostAppName} not found.";
 
                 string? error = await Task.Run(() => SunshineSync.ClearAll(appsJson));
                 if (error != null)
@@ -305,8 +315,8 @@ namespace StreamTweak
                 state.LastSyncUtc = null;
                 state.Save();
 
-                return "Sync cleared — managed apps removed from Sunshine. " +
-                       "Restart Sunshine to apply.";
+                return $"Sync cleared — managed apps removed from {HostAppName}. " +
+                       $"Restart {HostAppName} to apply.";
             }
             catch (Exception ex)
             {

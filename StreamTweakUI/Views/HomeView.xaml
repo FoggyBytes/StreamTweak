@@ -1,0 +1,453 @@
+<Page
+    x:Class="StreamTweak.Views.HomeView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:StreamTweak.ViewModels"
+    Background="Transparent">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="10" Padding="20,16,20,24">
+
+            <!-- ── Header: logo, version, update status ──────────────────────── -->
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20,14">
+                <StackPanel HorizontalAlignment="Center" Spacing="4">
+
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="12">
+                        <Image Source="ms-appx:///Resources/streamtweak.ico"
+                               Width="52" Height="52"
+                               VerticalAlignment="Center"/>
+                        <TextBlock Text="StreamTweak"
+                                   Style="{StaticResource TitleTextBlockStyle}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal"
+                                HorizontalAlignment="Center" Spacing="6">
+                        <TextBlock Text="{x:Bind ViewModel.VersionText, Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Opacity="0.6"/>
+                        <TextBlock Text="·"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Opacity="0.4"/>
+                        <TextBlock Text="Developed by FoggyBytes"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Opacity="0.6"/>
+                        <TextBlock Text="·"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Opacity="0.4"/>
+                        <TextBlock Text="{x:Bind ViewModel.BuildDateText, Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Opacity="0.6"/>
+                        <TextBlock Text="·"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Opacity="0.4"/>
+                        <ProgressRing Width="12" Height="12" IsActive="True"
+                                      VerticalAlignment="Center"
+                                      Visibility="{x:Bind ViewModel.IsCheckingUpdate, Mode=OneWay,
+                                                   Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <TextBlock Text="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                   VerticalAlignment="Center"
+                                   Visibility="{x:Bind ViewModel.IsUpdateGood, Mode=OneWay,
+                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <HyperlinkButton x:Name="UpdateStatusLink"
+                                         Content="{x:Bind ViewModel.UpdateStatus, Mode=OneWay}"
+                                         Padding="0" FontSize="12"
+                                         VerticalAlignment="Center"
+                                         Foreground="{x:Bind ViewModel.UpdateStatusColorHex, Mode=OneWay,
+                                                      Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                         IsEnabled="{x:Bind ViewModel.UpdateAvailable, Mode=OneWay}"
+                                         Click="UpdateStatusLink_Click"
+                                         Visibility="{x:Bind ViewModel.ShowUpdateLink, Mode=OneWay,
+                                                      Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
+
+                </StackPanel>
+            </Border>
+
+            <!-- ── Streaming Session status card ─────────────────────────────── -->
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16,14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                VerticalAlignment="Center" Spacing="8">
+                        <FontIcon Glyph="&#xE768;" FontSize="16" Opacity="0.7"/>
+                        <TextBlock Text="Streaming Session"
+                                   Style="{StaticResource BodyStrongTextBlockStyle}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                VerticalAlignment="Center" Spacing="6">
+                        <Ellipse x:Name="SessionDot" Width="10" Height="10"
+                                 VerticalAlignment="Center">
+                            <Ellipse.Resources>
+                                <Storyboard x:Name="PulseStoryboard"
+                                            RepeatBehavior="Forever" AutoReverse="True">
+                                    <DoubleAnimation Storyboard.TargetName="SessionDot"
+                                                     Storyboard.TargetProperty="Opacity"
+                                                     From="1.0" To="0.25"
+                                                     Duration="0:0:0.85"/>
+                                </Storyboard>
+                            </Ellipse.Resources>
+                        </Ellipse>
+                        <TextBlock x:Name="SessionStatusText" Text="Inactive"
+                                   Style="{StaticResource BodyTextBlockStyle}"
+                                   VerticalAlignment="Center"/>
+                        <Button Padding="10,4"
+                                Margin="4,0,0,0"
+                                VerticalAlignment="Center"
+                                Click="StopStreamButton_Click"
+                                Visibility="{x:Bind ViewModel.IsSessionActive, Mode=OneWay,
+                                             Converter={StaticResource BoolToVisibilityConverter}}"
+                                ToolTipService.ToolTip="Bring StreamLight to foreground">
+                            <StackPanel Orientation="Horizontal" Spacing="5">
+                                <FontIcon Glyph="&#xE769;"
+                                          FontSize="10"
+                                          VerticalAlignment="Center"/>
+                                <TextBlock Text="Pause"
+                                           FontSize="11"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ── Last session card ──────────────────────────────────────────── -->
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16,14"
+                    Visibility="{x:Bind ViewModel.HasLastSession, Mode=OneWay,
+                                 Converter={StaticResource BoolToVisibilityConverter}}">
+                <!--
+                    Three-column layout:
+                    Col 0 (Auto)  — session info (date, duration, stats)
+                    Col 1 (*)     — game covers centred in the remaining space
+                    Col 2 (Auto)  — quality grade badge
+                -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Col 0: Session info -->
+                    <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="Last session"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Opacity="0.5"/>
+                        <StackPanel Orientation="Horizontal" Spacing="14">
+                            <TextBlock Text="{x:Bind ViewModel.LastSessionDate, Mode=OneWay}"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                            <TextBlock Text="{x:Bind ViewModel.LastSessionDuration, Mode=OneWay}"
+                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                       Opacity="0.85"/>
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.LastSessionStats, Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Opacity="0.6"
+                                   Visibility="{x:Bind ViewModel.HasLastSessionStats, Mode=OneWay,
+                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
+
+                    <!-- Col 1: Covers centred (or "no games" fallback) -->
+                    <StackPanel Grid.Column="1"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Spacing="0">
+
+                        <!-- "No games detected" fallback (monitor ran but found nothing) -->
+                        <TextBlock Text="No games detected"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Opacity="0.4"
+                                   FontStyle="Italic"
+                                   HorizontalAlignment="Center"
+                                   Visibility="{x:Bind ViewModel.HasNoGamesDetected, Mode=OneWay,
+                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                        <!-- Detected game covers strip (scrollable when many games) -->
+                        <ScrollViewer HorizontalScrollBarVisibility="Auto"
+                                      VerticalScrollBarVisibility="Disabled"
+                                      Visibility="{x:Bind ViewModel.HasLastSessionCovers, Mode=OneWay,
+                                                   Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.LastSessionCovers, Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="6"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SessionGameCover">
+                                        <!-- Cover art only — 67×100 (2:3), name in tooltip -->
+                                        <Border Width="67" Height="100" CornerRadius="4"
+                                                Background="{ThemeResource SubtleFillColorTertiaryBrush}"
+                                                ToolTipService.ToolTip="{x:Bind GameName}">
+                                            <Grid>
+                                                <Image Source="{x:Bind CoverImage, Mode=OneWay}"
+                                                       Stretch="UniformToFill"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"/>
+                                                <!-- Initials fallback when cover not yet loaded -->
+                                                <TextBlock Text="{x:Bind GameName}"
+                                                           TextWrapping="Wrap"
+                                                           TextAlignment="Center"
+                                                           FontSize="7"
+                                                           Opacity="0.45"
+                                                           Margin="3"
+                                                           VerticalAlignment="Center"
+                                                           HorizontalAlignment="Center"
+                                                           Visibility="{x:Bind HasNoCover, Mode=OneWay,
+                                                                        Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </StackPanel>
+
+                    <!-- Col 2: Quality grade badge -->
+                    <Border Grid.Column="2"
+                            VerticalAlignment="Center"
+                            CornerRadius="6" Padding="14,6"
+                            Background="{x:Bind ViewModel.LastSessionGradeColorHex, Mode=OneWay,
+                                         Converter={StaticResource HexToSolidColorBrushConverter}}"
+                            Visibility="{x:Bind ViewModel.LastSessionHasGrade, Mode=OneWay,
+                                         Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="{x:Bind ViewModel.LastSessionGrade, Mode=OneWay}"
+                                   Style="{StaticResource BodyStrongTextBlockStyle}"
+                                   Foreground="White"/>
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ── Status tiles 3×2 grid ──────────────────────────────────────── -->
+            <Grid ColumnSpacing="10" RowSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- NIC Speed → Network -->
+                <Border Grid.Row="0" Grid.Column="0"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="12,10"
+                        Tapped="NicSpeedTile_Tapped">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE945;" FontSize="13" Opacity="0.6"/>
+                            <TextBlock Text="NIC Speed"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Opacity="0.65" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Border CornerRadius="4" Padding="8,3"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}" HorizontalAlignment="Left">
+                            <TextBlock Text="{x:Bind ViewModel.NicSpeedText, Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       FontWeight="SemiBold" Foreground="White"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Auto Streaming → Network -->
+                <Border Grid.Row="0" Grid.Column="1"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="12,10"
+                        Tapped="AutoStreamingTile_Tapped">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE768;" FontSize="13" Opacity="0.6"/>
+                            <TextBlock Text="Auto Streaming"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Opacity="0.65" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Border CornerRadius="4" Padding="8,3"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}" HorizontalAlignment="Left">
+                            <TextBlock Text="{x:Bind ViewModel.AutoStreamingText, Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       FontWeight="SemiBold" Foreground="White"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- HDR → Display -->
+                <Border Grid.Row="0" Grid.Column="2"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="12,10"
+                        Tapped="HdrTile_Tapped">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE706;" FontSize="13" Opacity="0.6"/>
+                            <TextBlock Text="HDR"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Opacity="0.65" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Border CornerRadius="4" Padding="8,3"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}" HorizontalAlignment="Left">
+                            <TextBlock Text="{x:Bind ViewModel.HdrText, Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       FontWeight="SemiBold" Foreground="White"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- Spatial Audio → Audio -->
+                <Border Grid.Row="1" Grid.Column="0"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="12,10"
+                        Tapped="SpatialAudioTile_Tapped">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE767;" FontSize="13" Opacity="0.6"/>
+                            <TextBlock Text="Spatial Audio"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Opacity="0.65" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Border CornerRadius="4" Padding="8,3"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}" HorizontalAlignment="Left">
+                            <TextBlock Text="{x:Bind ViewModel.SpatialAudioText, Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       FontWeight="SemiBold" Foreground="White"/>
+                        </Border>
+                        <!-- Activation progress subtext (e.g. "Activating…" / "✓ Dolby Atmos enabled.") -->
+                        <TextBlock Text="{x:Bind ViewModel.SpatialAudioActivationText, Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                   FontSize="10"
+                                   TextWrapping="Wrap"
+                                   Visibility="{x:Bind ViewModel.HasSpatialAudioActivationText, Mode=OneWay,
+                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Game Library → GameLibrary -->
+                <Border Grid.Row="1" Grid.Column="1"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="12,10"
+                        Tapped="GameLibraryTile_Tapped">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE7FC;" FontSize="13" Opacity="0.6"/>
+                            <TextBlock Text="Game Library"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Opacity="0.65" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Border CornerRadius="4" Padding="8,3"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}" HorizontalAlignment="Left">
+                            <TextBlock Text="{x:Bind ViewModel.GameLibraryText, Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       FontWeight="SemiBold" Foreground="White"/>
+                        </Border>
+                        <TextBlock Text="{x:Bind ViewModel.GameLibrarySyncText, Mode=OneWay}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   FontSize="10"
+                                   Opacity="0.55"
+                                   Visibility="{x:Bind ViewModel.HasGameLibrarySyncText, Mode=OneWay,
+                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- Auto HDR → Display -->
+                <Border Grid.Row="1" Grid.Column="2"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="12,10"
+                        Tapped="AutoHdrTile_Tapped">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE7F4;" FontSize="13" Opacity="0.6"/>
+                            <TextBlock Text="Auto HDR"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       Opacity="0.65" VerticalAlignment="Center"/>
+                        </StackPanel>
+                        <Border CornerRadius="4" Padding="8,3"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}" HorizontalAlignment="Left">
+                            <TextBlock Text="{x:Bind ViewModel.AutoHdrText, Mode=OneWay}"
+                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                       FontWeight="SemiBold" Foreground="White"/>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+            </Grid>
+
+            <!-- ── Stream host row ────────────────────────────────────────────── -->
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="16,10"
+                    Visibility="{x:Bind ViewModel.HasStreamHost, Mode=OneWay,
+                                 Converter={StaticResource BoolToVisibilityConverter}}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Stream Host"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Opacity="0.5"
+                               VerticalAlignment="Center"/>
+                    <!-- Real EXE icon (shown when available) -->
+                    <Image Source="{x:Bind ViewModel.StreamHostIcon, Mode=OneWay}"
+                           Width="16" Height="16"
+                           VerticalAlignment="Center"
+                           Visibility="{x:Bind ViewModel.HasStreamHostIcon, Mode=OneWay,
+                                        Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    <!-- Fallback glyph (shown when no icon) -->
+                    <FontIcon Glyph="&#xE774;" FontSize="14" Opacity="0.8"
+                              VerticalAlignment="Center"
+                              Visibility="{x:Bind ViewModel.HasStreamHostIcon, Mode=OneWay,
+                                           Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                    <TextBlock Text="{x:Bind ViewModel.StreamHostName, Mode=OneWay}"
+                               Style="{StaticResource BodyTextBlockStyle}"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <!-- ── Footer separator ───────────────────────────────────────────── -->
+            <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                    BorderThickness="0,1,0,0" Margin="0,2,0,0"/>
+
+            <!-- ── Footer: license, GitHub, donate ───────────────────────────── -->
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Spacing="8" Margin="0,2,0,0">
+
+                <HyperlinkButton Content="License  GPL v3"
+                                 Click="LicenseButton_Click"
+                                 Padding="10,5" FontSize="11"/>
+
+                <HyperlinkButton Content="View on GitHub"
+                                 Click="GitHubButton_Click"
+                                 Padding="10,5" FontSize="11"/>
+
+                <HyperlinkButton Content="Donate via PayPal"
+                                 Click="PayPalButton_Click"
+                                 Padding="10,5" FontSize="11"/>
+
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+
+</Page>

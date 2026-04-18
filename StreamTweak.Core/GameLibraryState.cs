@@ -39,6 +39,13 @@ namespace StreamTweak
         /// </summary>
         public string? ExePath { get; set; }
 
+        /// <summary>
+        /// Root installation directory. Populated only for Battle.net games and used by
+        /// SessionProcessMonitor for directory-based process matching (since all Battle.net
+        /// games share the same client launcher and cannot be identified by exe name alone).
+        /// </summary>
+        public string? InstallDir { get; set; }
+
         // ── UI helpers (not persisted) ────────────────────────────────────────
 
         private static readonly string CoverCacheDir = Path.Combine(

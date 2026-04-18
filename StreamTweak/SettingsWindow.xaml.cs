@@ -47,6 +47,8 @@ namespace StreamTweak
         private string _audioOutputDevice = "Steam Streaming Speakers";
         private SpatialAudioFormat _audioSpatialFormat = SpatialAudioFormat.DolbyAtmos;
         private bool _audioDeviceComboPopulating = false;
+        private bool _autoFormatComboPopulating = false;
+        private bool _spatialToggleSyncing = false;
 
         private static readonly SolidColorBrush StreamingStartBrush    = new(Color.FromRgb(168, 213, 162));
         private static readonly SolidColorBrush StreamingStopBrush     = new(Color.FromRgb(244, 168, 168));
@@ -57,7 +59,7 @@ namespace StreamTweak
         private bool _hdrToggleBusy = false;
         private bool _autoHdrBusy = false;
 
-        private List<ManagedApp> _managedApps = new();
+        private List<ManagedAppEntry> _managedApps = new();
         private string _managedAppsFilePath = string.Empty;
 
         public SettingsWindow()
@@ -286,7 +288,7 @@ namespace StreamTweak
             LogsTabButton.Style      = (Style)this.Resources["TabButton"];
             GlossaryTabButton.Style  = (Style)this.Resources["TabButton"];
             if (!string.IsNullOrEmpty(_audioOutputDevice))
-                RefreshAudioCapabilitiesAsync(_audioOutputDevice);
+                RefreshAudioPanelAsync(_audioOutputDevice);
         }
 
         private void LogsTabButton_Click(object sender, RoutedEventArgs e)
@@ -1085,14 +1087,66 @@ private void RefreshStreamingAppInfo()
             RefreshHomePanelUI();
         }
 
-        private void AudioFormatRadio_Changed(object sender, RoutedEventArgs e)
+        private async void DolbyFormatToggle_Changed(object sender, RoutedEventArgs e)
         {
-            _audioSpatialFormat = DolbyFormatRadio.IsChecked == true
-                ? SpatialAudioFormat.DolbyAtmos
-                : SpatialAudioFormat.WindowsSonic;
-            SaveAudioFormatToConfig();
-            AudioFormatChanged?.Invoke(this, EventArgs.Empty);
-            RefreshHomePanelUI();
+            if (_spatialToggleSyncing) return;
+            if (string.IsNullOrEmpty(_audioOutputDevice)) return;
+
+            bool turningOn = DolbyFormatToggle.IsChecked == true;
+            if (turningOn)
+            {
+                string err = await DolbyAudioMonitor.ActivateFormatAsync(_audioOutputDevice, SpatialAudioFormat.DolbyAtmos);
+                _spatialToggleSyncing = true;
+                if (string.IsNullOrEmpty(err))
+                    SonicFormatToggle.IsChecked = false;
+                else
+                    DolbyFormatToggle.IsChecked = false; // revert on failure
+                _spatialToggleSyncing = false;
+            }
+            else
+            {
+                await DolbyAudioMonitor.DeactivateSpatialAudioAsync(_audioOutputDevice);
+                await Task.Delay(300);
+                await RefreshSpatialToggleStatesImplAsync();
+            }
+        }
+
+        private async void SonicFormatToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_spatialToggleSyncing) return;
+            if (string.IsNullOrEmpty(_audioOutputDevice)) return;
+
+            bool turningOn = SonicFormatToggle.IsChecked == true;
+            if (turningOn)
+            {
+                string err = await DolbyAudioMonitor.ActivateFormatAsync(_audioOutputDevice, SpatialAudioFormat.WindowsSonic);
+                _spatialToggleSyncing = true;
+                if (string.IsNullOrEmpty(err))
+                    DolbyFormatToggle.IsChecked = false;
+                else
+                    SonicFormatToggle.IsChecked = false; // revert on failure
+                _spatialToggleSyncing = false;
+            }
+            else
+            {
+                await DolbyAudioMonitor.DeactivateSpatialAudioAsync(_audioOutputDevice);
+                await Task.Delay(300);
+                await RefreshSpatialToggleStatesImplAsync();
+            }
+        }
+
+        private void AutoSpatialFormatCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_autoFormatComboPopulating) return;
+            if (AutoSpatialFormatCombo.SelectedItem is ComboBoxItem item)
+            {
+                _audioSpatialFormat = item.Tag?.ToString() == "WindowsSonic"
+                    ? SpatialAudioFormat.WindowsSonic
+                    : SpatialAudioFormat.DolbyAtmos;
+                SaveAudioFormatToConfig();
+                AudioFormatChanged?.Invoke(this, EventArgs.Empty);
+                RefreshHomePanelUI();
+            }
         }
 
         private void AudioDeviceComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1103,7 +1157,7 @@ private void RefreshStreamingAppInfo()
                 _audioOutputDevice = selected;
                 SaveAudioDeviceToConfig();
                 AudioDeviceChanged?.Invoke(this, EventArgs.Empty);
-                RefreshAudioCapabilitiesAsync(_audioOutputDevice);
+                RefreshAudioPanelAsync(_audioOutputDevice); // updates availability dots + toggle states
             }
         }
 
@@ -1224,45 +1278,67 @@ private void RefreshStreamingAppInfo()
                 _audioDeviceComboPopulating = false;
             }
 
-            // Apply saved format to radio buttons
-            DolbyFormatRadio.IsChecked = _audioSpatialFormat == SpatialAudioFormat.DolbyAtmos;
-            SonicFormatRadio.IsChecked = _audioSpatialFormat == SpatialAudioFormat.WindowsSonic;
+            // Apply saved format to the auto-format dropdown
+            _autoFormatComboPopulating = true;
+            AutoSpatialFormatCombo.SelectedIndex = _audioSpatialFormat == SpatialAudioFormat.DolbyAtmos ? 0 : 1;
+            _autoFormatComboPopulating = false;
 
-            // Check capabilities for the selected device
+            // Load availability + real toggle states for the selected device
             if (!string.IsNullOrEmpty(_audioOutputDevice))
-                RefreshAudioCapabilitiesAsync(_audioOutputDevice);
+                RefreshAudioPanelAsync(_audioOutputDevice);
         }
 
-        private async void RefreshAudioCapabilitiesAsync(string deviceName)
+        /// <summary>
+        /// Refreshes both availability dots and real-time toggle states for the given device.
+        /// Called when the audio tab opens or the selected device changes.
+        /// </summary>
+        private async void RefreshAudioPanelAsync(string deviceName)
         {
+            // Reset to neutral while querying
             DolbyAccessIcon.Foreground = System.Windows.Media.Brushes.Gray;
-            DolbyAccessText.Text = "Checking Dolby Atmos for Headphones\u2026";
             SonicAccessIcon.Foreground = System.Windows.Media.Brushes.Gray;
-            SonicAccessText.Text = "Checking Windows Sonic for Headphones\u2026";
+            _spatialToggleSyncing = true;
+            DolbyFormatToggle.IsChecked = false;
+            DolbyFormatToggle.IsEnabled = false;
+            SonicFormatToggle.IsChecked = false;
+            SonicFormatToggle.IsEnabled = false;
+            _spatialToggleSyncing = false;
 
             var (dolby, sonic) = await DolbyAudioMonitor.GetSpatialAudioCapabilitiesAsync(deviceName);
+            bool isDolbyActive = await DolbyAudioMonitor.IsFormatActiveAsync(deviceName, SpatialAudioFormat.DolbyAtmos);
+            bool isSonicActive = await DolbyAudioMonitor.IsFormatActiveAsync(deviceName, SpatialAudioFormat.WindowsSonic);
 
-            if (dolby)
-            {
-                DolbyAccessIcon.Foreground = new SolidColorBrush(Color.FromRgb(76, 175, 80));
-                DolbyAccessText.Text = "Dolby Atmos for Headphones: available";
-            }
-            else
-            {
-                DolbyAccessIcon.Foreground = new SolidColorBrush(Color.FromRgb(220, 70, 50));
-                DolbyAccessText.Text = "Dolby Atmos for Headphones: unavailable";
-            }
+            DolbyAccessIcon.Foreground = dolby
+                ? new SolidColorBrush(Color.FromRgb(76, 175, 80))
+                : new SolidColorBrush(Color.FromRgb(220, 70, 50));
+            SonicAccessIcon.Foreground = sonic
+                ? new SolidColorBrush(Color.FromRgb(76, 175, 80))
+                : new SolidColorBrush(Color.FromRgb(220, 70, 50));
 
-            if (sonic)
-            {
-                SonicAccessIcon.Foreground = new SolidColorBrush(Color.FromRgb(76, 175, 80));
-                SonicAccessText.Text = "Windows Sonic for Headphones: available";
-            }
-            else
-            {
-                SonicAccessIcon.Foreground = new SolidColorBrush(Color.FromRgb(220, 70, 50));
-                SonicAccessText.Text = "Windows Sonic for Headphones: not available";
-            }
+            _spatialToggleSyncing = true;
+            DolbyFormatToggle.IsEnabled = dolby;
+            DolbyFormatToggle.IsChecked = isDolbyActive;
+            SonicFormatToggle.IsEnabled = sonic;
+            SonicFormatToggle.IsChecked = isSonicActive;
+            _spatialToggleSyncing = false;
+        }
+
+        /// <summary>
+        /// Re-reads the real Windows spatial audio state and syncs the two format toggles.
+        /// Called from App.xaml.cs (via Dispatcher) when auto-activation fires.
+        /// </summary>
+        public async void RefreshSpatialToggleStatesAsync()
+            => await RefreshSpatialToggleStatesImplAsync();
+
+        private async Task RefreshSpatialToggleStatesImplAsync()
+        {
+            if (string.IsNullOrEmpty(_audioOutputDevice)) return;
+            bool isDolbyActive = await DolbyAudioMonitor.IsFormatActiveAsync(_audioOutputDevice, SpatialAudioFormat.DolbyAtmos);
+            bool isSonicActive = await DolbyAudioMonitor.IsFormatActiveAsync(_audioOutputDevice, SpatialAudioFormat.WindowsSonic);
+            _spatialToggleSyncing = true;
+            DolbyFormatToggle.IsChecked = isDolbyActive;
+            SonicFormatToggle.IsChecked = isSonicActive;
+            _spatialToggleSyncing = false;
         }
         public void RefreshDisplayPanelIfVisible()
         {
@@ -1604,14 +1680,14 @@ private void RefreshStreamingAppInfo()
             if (_managedApps.Any(a => string.Equals(a.Path, path, StringComparison.OrdinalIgnoreCase)))
                 return;
 
-            _managedApps.Add(new ManagedApp { Name = name, Path = path });
+            _managedApps.Add(new ManagedAppEntry { Name = name, Path = path });
             SaveManagedApps();
             RefreshManagedAppsList();
         }
 
         private void RemoveAppButton_Click(object sender, RoutedEventArgs e)
         {
-            if (ManagedAppsList.SelectedItem is not ManagedApp selected) return;
+            if (ManagedAppsList.SelectedItem is not ManagedAppEntry selected) return;
             _managedApps.Remove(selected);
             SaveManagedApps();
             RefreshManagedAppsList();
@@ -1619,7 +1695,7 @@ private void RefreshStreamingAppInfo()
 
         private void KillAppButton_Click(object sender, RoutedEventArgs e)
         {
-            if (ManagedAppsList.SelectedItem is not ManagedApp selected) return;
+            if (ManagedAppsList.SelectedItem is not ManagedAppEntry selected) return;
             string exeName = System.IO.Path.GetFileName(selected.Path);
             try
             {
@@ -1643,7 +1719,7 @@ private void RefreshStreamingAppInfo()
 
         private async void RestartAppButton_Click(object sender, RoutedEventArgs e)
         {
-            if (ManagedAppsList.SelectedItem is not ManagedApp selected) return;
+            if (ManagedAppsList.SelectedItem is not ManagedAppEntry selected) return;
             string exeName = System.IO.Path.GetFileName(selected.Path);
             try
             {
@@ -1695,11 +1771,11 @@ private void RefreshStreamingAppInfo()
             {
                 if (!File.Exists(_managedAppsFilePath)) return;
                 string json = File.ReadAllText(_managedAppsFilePath);
-                _managedApps = JsonSerializer.Deserialize<List<ManagedApp>>(json) ?? new List<ManagedApp>();
+                _managedApps = JsonSerializer.Deserialize<List<ManagedAppEntry>>(json) ?? new List<ManagedAppEntry>();
             }
             catch
             {
-                _managedApps = new List<ManagedApp>();
+                _managedApps = new List<ManagedAppEntry>();
             }
             RefreshManagedAppsList();
         }
@@ -1899,12 +1975,12 @@ private void RefreshStreamingAppInfo()
         }
     }
 
-    public class ManagedApp
+    /// <summary>
+    /// WPF-only UI extension of <see cref="ManagedApp"/> that adds the exe icon
+    /// for display in the App Manager list. Not serialized.
+    /// </summary>
+    internal sealed class ManagedAppEntry : ManagedApp
     {
-        public string Name { get; set; } = string.Empty;
-        public string Path { get; set; } = string.Empty;
-        public bool AutoManage { get; set; } = true;
-
         [JsonIgnore]
         public ImageSource? Icon { get; set; }
     }
