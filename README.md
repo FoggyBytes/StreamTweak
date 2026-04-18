@@ -51,10 +51,17 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 6.0.1
+## ✨ What's New in 6.0.2 — "The Layout Update"
 
-- **Last session auto-refresh** — the Home page Last session card now updates automatically when a streaming session ends, without requiring a tab switch
+- **Stream Host inline** — the Stream Host label and icon now appear directly in the Streaming Session card; the separate card below the tile grid has been removed
+- **Uniform tile height** — the top row tiles (NIC Speed, Auto Streaming, HDR) now match the height of the bottom row
+
+<details>
+<summary>6.0.1 — "The Snapshot Update"</summary>
+
+- **Last session auto-refresh** — the Home page Last session card updates automatically when a streaming session ends, without requiring a tab switch
 - **Game covers survive uninstall** — covers in the Last session card remain visible even after a game is removed from the library or uninstalled; cover paths are snapshotted at session-end time
+</details>
 
 <details>
 <summary>6.0.0 — "The WinUI3 Update"</summary>
@@ -79,7 +86,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_6.0.1_Installer.exe` and run it.
+2. Download the latest `StreamTweak_6.0.2_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

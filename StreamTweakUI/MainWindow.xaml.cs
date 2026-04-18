@@ -16,6 +16,8 @@ namespace StreamTweak
         public MainWindow()
         {
             this.InitializeComponent();
+            AppWindow.SetIcon(System.IO.Path.Combine(
+                System.AppContext.BaseDirectory, "Resources", "streamtweak.ico"));
             ConfigureTitleBar();    // sets up AppWindow.TitleBar colours + SetTitleBar()
             ConfigureWindowSize();
 

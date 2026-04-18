@@ -4,6 +4,13 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 6.0.2 - "The Layout Update" (18/04/2026)
+------------------------------------------
+
+🎨 UI:
+• Stream Host label and icon moved inline into the Streaming Session card — the dedicated card below the tile grid has been removed
+• Status tiles top row (NIC Speed, Auto Streaming, HDR) now match the height of the bottom row (Spatial Audio, Game Library, Auto HDR)
+
 Version 6.0.1 - "The Snapshot Update" (18/04/2026)
 ------------------------------------------
 
