@@ -148,13 +148,13 @@
                                             <StackPanel Orientation="Horizontal" Spacing="5"
                                                         Visibility="{x:Bind ShowBadge,
                                                                      Converter={StaticResource BoolToVisibilityConverter}}">
-                                                <Image Width="13" Height="13" VerticalAlignment="Center">
+                                                <Image Width="15" Height="15" VerticalAlignment="Center">
                                                     <Image.Source>
                                                         <SvgImageSource UriSource="{x:Bind BadgeUri}"/>
                                                     </Image.Source>
                                                 </Image>
                                                 <TextBlock Text="{x:Bind BadgeLabel}"
-                                                           FontSize="10"
+                                                           FontSize="11"
                                                            Opacity="0.6"
                                                            VerticalAlignment="Center"/>
                                             </StackPanel>
@@ -162,7 +162,7 @@
                                             <!-- Game name -->
                                             <TextBlock Text="{x:Bind Name}"
                                                        Style="{StaticResource BodyStrongTextBlockStyle}"
-                                                       FontSize="13"
+                                                       FontSize="15"
                                                        TextTrimming="CharacterEllipsis"
                                                        ToolTipService.ToolTip="{x:Bind Name}"/>
 
@@ -173,7 +173,7 @@
                                                                  Converter={StaticResource BoolToVisibilityConverter}}"
                                                     VerticalAlignment="Center"
                                                     HorizontalAlignment="Left">
-                                                <TextBlock Text="Manual" FontSize="9"
+                                                <TextBlock Text="Manual" FontSize="10"
                                                            FontWeight="SemiBold" Foreground="White"/>
                                             </Border>
 
@@ -187,7 +187,7 @@
                                                     Visibility="{x:Bind HasPcgwMeta, Mode=OneWay,
                                                                  Converter={StaticResource BoolToVisibilityConverter}}">
                                             <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
-                                                       FontSize="10"
+                                                       FontSize="12"
                                                        TextWrapping="NoWrap"
                                                        TextTrimming="CharacterEllipsis">
                                                 <Run Text="Developers: "
@@ -196,7 +196,7 @@
                                                      FontWeight="SemiBold"/>
                                             </TextBlock>
                                             <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
-                                                       FontSize="10"
+                                                       FontSize="12"
                                                        TextWrapping="NoWrap"
                                                        TextTrimming="CharacterEllipsis">
                                                 <Run Text="Release Date: "

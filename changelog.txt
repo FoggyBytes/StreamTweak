@@ -9,8 +9,6 @@ Version 6.0.3 - "The Game Info Update" (19/04/2026)
 
 🎮 GAME LIBRARY:
 • Developer and release date now displayed for every game — Steam games are fetched via the official Steam Store API; non-Steam games via PCGamingWiki
-• Labels styled inline: "Developers: [bold name]" and "Release Date: [date]" for quick scanning
-• Developer column widened (170 → 240 px); long studio names no longer wrap to a second line
 
 Version 6.0.2 - "The Layout Update" (18/04/2026)
 ------------------------------------------
