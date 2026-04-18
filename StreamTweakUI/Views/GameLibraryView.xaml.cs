@@ -35,6 +35,12 @@ namespace StreamTweak.Views
                 ViewModel.LaunchGame(entry);
         }
 
+        private void OpenFolder_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is ObservableGameEntry entry)
+                ViewModel.OpenGameFolder(entry);
+        }
+
         private async void RemoveGame_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.DataContext is ObservableGameEntry entry)

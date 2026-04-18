@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
@@ -14,10 +15,43 @@ namespace StreamTweak.ViewModels
     {
         public GameLibraryEntry Entry { get; }
 
-        public string Name       => Entry.Name;
-        public string Store      => Entry.Store;
-        public bool   IsManual   => Entry.IsManual;
-        public string PathDisplay => Entry.ExePath is { Length: > 0 } p ? p : "—";
+        public string Name    => Entry.Name;
+        public string Store   => Entry.Store;
+        public bool   IsManual => Entry.IsManual;
+
+        public string? InstallFolder
+        {
+            get
+            {
+                var e = Entry;
+                if (e.Store == "Battle.net" && !string.IsNullOrEmpty(e.InstallDir))
+                    return e.InstallDir;
+                // Steam e Xbox: ExePath è già la directory di installazione (non un exe)
+                if ((e.Store == "Steam" || e.Store == "Xbox") && !string.IsNullOrEmpty(e.ExePath))
+                    return e.ExePath;
+                if (!string.IsNullOrEmpty(e.ExePath))
+                    return Path.GetDirectoryName(e.ExePath);
+                return null;
+            }
+        }
+
+        public bool ShowFolderButton => InstallFolder != null;
+
+        // ── PCGamingWiki metadata ─────────────────────────────────────────────
+
+        private PcgwMetadataService.PcgwGameData? GetPcgw()
+            => PcgwMetadataService.GetCached(Entry);
+
+        public string? PcgwDeveloper   => GetPcgw()?.Developer;
+        public string? PcgwReleaseDate => GetPcgw()?.ReleaseDate;
+        public bool    HasPcgwMeta     => GetPcgw() is { } d && (d.Developer != null || d.ReleaseDate != null);
+
+        public void RefreshMetadata()
+        {
+            OnPropertyChanged(nameof(PcgwDeveloper));
+            OnPropertyChanged(nameof(PcgwReleaseDate));
+            OnPropertyChanged(nameof(HasPcgwMeta));
+        }
 
         private bool _enabled;
         public bool Enabled
@@ -74,6 +108,23 @@ namespace StreamTweak.ViewModels
 
     public sealed class GameLibraryViewModel : ViewModelBase
     {
+        private readonly DispatcherQueue _dispatcher;
+
+        public GameLibraryViewModel()
+        {
+            _dispatcher = DispatcherQueue.GetForCurrentThread();
+            PcgwMetadataService.CacheRefreshed += OnPcgwCacheRefreshed;
+        }
+
+        private void OnPcgwCacheRefreshed()
+        {
+            _dispatcher.TryEnqueue(() =>
+            {
+                foreach (var g in Games)
+                    g.RefreshMetadata();
+            });
+        }
+
         // ── Game collection ───────────────────────────────────────────────────
 
         public ObservableCollection<ObservableGameEntry> Games { get; } = new();
@@ -225,6 +276,27 @@ namespace StreamTweak.ViewModels
                 ShowStatus($"Could not add game: {ex.Message}", isError: true);
             }
             finally { IsBusy = false; }
+        }
+
+        public void OpenGameFolder(ObservableGameEntry observableEntry)
+        {
+            string? folder = observableEntry.InstallFolder;
+            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
+            {
+                ShowStatus("Install folder not found.", isError: true);
+                return;
+            }
+            try
+            {
+                Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"")
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                ShowStatus($"Could not open folder: {ex.Message}", isError: true);
+            }
         }
 
         public void LaunchGame(ObservableGameEntry observableEntry)

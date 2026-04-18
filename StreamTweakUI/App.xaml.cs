@@ -200,6 +200,10 @@ namespace StreamTweak
                 return result;
             };
 
+            // Load previous run's PCGW metadata cache immediately so the
+            // Game Library page shows data before the background refresh completes.
+            PcgwMetadataService.LoadFromDisk();
+
             // Auto-sync game library if enabled.
             // After completion, raise SettingsChanged so HomeViewModel refreshes
             // the "last sync" tile with the timestamp just written by the sync.
@@ -209,6 +213,9 @@ namespace StreamTweak
                     await GameLibraryService.PerformSyncAsync();
                     _dispatcher.TryEnqueue(AppStateService.Instance.RaiseSettingsChanged);
                 });
+
+            // Refresh PCGW metadata in background on every startup (Metacritic scores change).
+            _ = Task.Run(() => PcgwMetadataService.RefreshAsync(GameLibraryState.Current.Games));
 
             // Windows session-end cleanup
             Microsoft.Win32.SystemEvents.SessionEnding += OnSystemSessionEnding;
