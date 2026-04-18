@@ -7,8 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StreamTweak.Core", "StreamT
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StreamTweakUI", "StreamTweakUI\StreamTweakUI.csproj", "{B1C2D3E4-F5A6-7890-BCDE-F12345678901}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StreamTweak", "StreamTweak\StreamTweak.csproj", "{C1D2E3F4-A5B6-7890-CDEF-012345678902}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StreamTweakService", "StreamTweakService\StreamTweakService.csproj", "{B4E12EC8-3ED3-4712-92A7-51127BE1C5D8}"
 EndProject
 Global
@@ -25,10 +23,6 @@ Global
 		{B1C2D3E4-F5A6-7890-BCDE-F12345678901}.Debug|x64.Build.0 = Debug|x64
 		{B1C2D3E4-F5A6-7890-BCDE-F12345678901}.Release|x64.ActiveCfg = Release|x64
 		{B1C2D3E4-F5A6-7890-BCDE-F12345678901}.Release|x64.Build.0 = Release|x64
-		{C1D2E3F4-A5B6-7890-CDEF-012345678902}.Debug|x64.ActiveCfg = Debug|x64
-		{C1D2E3F4-A5B6-7890-CDEF-012345678902}.Debug|x64.Build.0 = Debug|x64
-		{C1D2E3F4-A5B6-7890-CDEF-012345678902}.Release|x64.ActiveCfg = Release|x64
-		{C1D2E3F4-A5B6-7890-CDEF-012345678902}.Release|x64.Build.0 = Release|x64
 		{B4E12EC8-3ED3-4712-92A7-51127BE1C5D8}.Debug|x64.ActiveCfg = Debug|x64
 		{B4E12EC8-3ED3-4712-92A7-51127BE1C5D8}.Debug|x64.Build.0 = Debug|x64
 		{B4E12EC8-3ED3-4712-92A7-51127BE1C5D8}.Release|x64.ActiveCfg = Release|x64

@@ -48,6 +48,16 @@ namespace StreamTweak
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<string>? GamesDetected { get; set; }
 
+        /// <summary>
+        /// Absolute cover PNG paths snapshotted at session-end time, keyed by game display name.
+        /// Captured while GameLibraryState is still intact, so covers remain visible in the
+        /// session card even after a game is later uninstalled or removed from the library.
+        /// Cover files are never deleted from the cache directory.
+        /// Null → not populated (session pre-dates this feature, or no games were detected).
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public Dictionary<string, string>? GamesDetectedCoverPaths { get; set; }
+
         /// <summary>True when the process monitor ran and detected at least one game.</summary>
         [JsonIgnore] public bool HasGamesDetected    => GamesDetected is { Count: > 0 };
 
@@ -251,7 +261,26 @@ namespace StreamTweak
                     entry.EndReason = endReason;
                     // Store even when empty: null means monitor never ran; [] means monitor ran but found nothing.
                     if (gamesDetected != null)
+                    {
                         entry.GamesDetected = gamesDetected;
+
+                        // Snapshot cover paths while GameLibraryState is still intact.
+                        // This ensures covers remain visible in the session card even after
+                        // a game is later uninstalled or removed from the library.
+                        if (gamesDetected.Count > 0)
+                        {
+                            var gameMap = GameLibraryState.Current.Games
+                                .ToDictionary(g => g.Name, g => g, StringComparer.OrdinalIgnoreCase);
+                            var coverPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                            foreach (var name in gamesDetected)
+                            {
+                                if (gameMap.TryGetValue(name, out var g) && g.CoverImagePath != null)
+                                    coverPaths[name] = g.CoverImagePath;
+                            }
+                            if (coverPaths.Count > 0)
+                                entry.GamesDetectedCoverPaths = coverPaths;
+                        }
+                    }
                     Save(sessions);
                 }
             }

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Reflection;
@@ -352,7 +353,15 @@ namespace StreamTweak.ViewModels
 
         private void OnSessionStateChanged(object? sender, bool active)
         {
-            _dispatcher.TryEnqueue(() => IsSessionActive = active);
+            _dispatcher.TryEnqueue(() =>
+            {
+                IsSessionActive = active;
+                // When a session ends, reload the Last Session card immediately
+                // so the new entry is visible without requiring a tab switch.
+                // LoadStatusAsync must start on the UI thread (it updates ObservableCollection).
+                if (!active)
+                    _ = LoadStatusAsync();
+            });
         }
 
         private void OnSpatialAudioStatusChanged(string status)
@@ -452,15 +461,30 @@ namespace StreamTweak.ViewModels
                         {
                             if (last.GamesDetected.Count > 0)
                             {
+                                // Fallback map from live GameLibraryState (for old sessions
+                                // that pre-date the GamesDetectedCoverPaths snapshot field).
                                 var gameMap = GameLibraryState.Current.Games
                                     .ToDictionary(g => g.Name, g => g, StringComparer.OrdinalIgnoreCase);
 
                                 detectedGameCovers = last.GamesDetected
                                     .Select(name =>
                                     {
-                                        string? path = gameMap.TryGetValue(name, out var gEntry)
-                                            ? gEntry.CoverImagePath
-                                            : null;
+                                        string? path = null;
+
+                                        // 1) Prefer the path snapshotted at session-end time —
+                                        //    works even if the game was later removed from the library.
+                                        if (last.GamesDetectedCoverPaths != null &&
+                                            last.GamesDetectedCoverPaths.TryGetValue(name, out string? snap) &&
+                                            File.Exists(snap))
+                                        {
+                                            path = snap;
+                                        }
+                                        // 2) Fall back to live GameLibraryState (old sessions).
+                                        else if (gameMap.TryGetValue(name, out var gEntry))
+                                        {
+                                            path = gEntry.CoverImagePath;
+                                        }
+
                                         return (name, path);
                                     })
                                     .ToList();

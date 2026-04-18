@@ -51,12 +51,19 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 6.0.0 — "The WinUI3 Update"
+## ✨ What's New in 6.0.1
+
+- **Last session auto-refresh** — the Home page Last session card now updates automatically when a streaming session ends, without requiring a tab switch
+- **Game covers survive uninstall** — covers in the Last session card remain visible even after a game is removed from the library or uninstalled; cover paths are snapshotted at session-end time
+
+<details>
+<summary>6.0.0 — "The WinUI3 Update"</summary>
 
 - **WinUI3 rewrite** — the entire UI has been rebuilt in WinUI3 (Windows App SDK 1.8), bringing native Windows 11 visuals and a Mica backdrop that reflects your desktop wallpaper
 - **Sidebar navigation** — NavigationView replaces the old horizontal tab bar; all sections (Home, Network, Display, Audio, Apps, Game Library, Logs, Glossary, Settings) are accessible from the left pane
 - **Minimize to tray** — the minimize button hides the window to the tray; no taskbar clutter
 - **DPI-aware window** — window size is remembered and scales correctly on any display
+</details>
 
 For full version history see [changelog.txt](changelog.txt).
 
@@ -72,7 +79,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_6.0.0_Installer.exe` and run it.
+2. Download the latest `StreamTweak_6.0.1_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)
