@@ -19,6 +19,8 @@ Version 6.1.0 - "The Live Session Update" (25/04/2026)
 • Sessions started automatically when StreamLight connects (Bridge mode) did not run the game process monitor — the session record always showed no detected games and "No games detected" was never displayed; game tracking now runs for all session types
 • Sessions interrupted without a clean client-side stop (StreamLight crash, network drop) showed no telemetry data in the log — telemetry is now written to a periodic checkpoint every 30 seconds and recovered at next startup
 
+⚠️ REQUIRES: StreamLight 2.3.1 or later on the client PC for the live session charts to display correctly.
+
 Version 6.0.3 - "The Game Info Update" (19/04/2026)
 ------------------------------------------
 
