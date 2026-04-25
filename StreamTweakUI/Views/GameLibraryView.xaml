@@ -3,17 +3,17 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:StreamTweak.ViewModels"
-    Background="Transparent">
+    Background="{StaticResource STBackground}">
 
-    <Grid RowSpacing="12">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- status bar -->
             <RowDefinition Height="*"/>     <!-- main card -->
         </Grid.RowDefinitions>
 
-        <!-- ── Status InfoBar ────────────────────────────────────────────── -->
+        <!-- Dynamic status InfoBar (keep as InfoBar — closable) -->
         <InfoBar Grid.Row="0"
-                 Margin="20,16,20,0"
+                 Margin="28,24,28,0"
                  IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
                  Severity="{x:Bind ViewModel.StatusIsError, Mode=OneWay,
                             Converter={StaticResource BoolToInfoBarSeverityConverter}}"
@@ -23,113 +23,118 @@
 
         <!-- ── Main card ─────────────────────────────────────────────────── -->
         <Border Grid.Row="1"
-                Background="{ThemeResource LayerFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1" CornerRadius="8"
-                Margin="20,0,20,24">
-            <Grid Margin="16,14">
+                Style="{StaticResource ST_CardNoPad}"
+                Margin="28,12,28,28">
+            <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>  <!-- header -->
+                    <RowDefinition Height="Auto"/>  <!-- separator -->
                     <RowDefinition Height="Auto"/>  <!-- toolbar -->
                     <RowDefinition Height="*"/>     <!-- game list -->
                 </Grid.RowDefinitions>
 
                 <!-- Header -->
-                <Grid Grid.Row="0" Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" Spacing="2">
-                        <TextBlock Text="Game Library"
-                                   Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                <Grid Grid.Row="0" Margin="20,16,20,12">
+                    <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,120,0">
+                        <TextBlock Text="GAME LIBRARY" Style="{StaticResource ST_SectionLabel}"/>
                         <TextBlock Text="{x:Bind ViewModel.LastSyncText, Mode=OneWay}"
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   Opacity="0.6"/>
+                                   Style="{StaticResource ST_RowDescription}"/>
                     </StackPanel>
 
                     <!-- Sync enable toggle -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                VerticalAlignment="Center" Spacing="8">
+                    <StackPanel Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Right"
+                                Spacing="10">
                         <TextBlock Text="{x:Bind ViewModel.SyncLabel, Mode=OneWay}"
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   VerticalAlignment="Center" Opacity="0.8"/>
-                        <ToggleSwitch IsOn="{x:Bind ViewModel.SyncEnabled, Mode=TwoWay}"
-                                      OffContent="{x:Null}" OnContent="{x:Null}"
-                                      MinWidth="0"
+                                   Style="{StaticResource ST_RowDescription}"
+                                   VerticalAlignment="Center"/>
+                        <ToggleSwitch Style="{StaticResource ST_Toggle}"
+                                      IsOn="{x:Bind ViewModel.SyncEnabled, Mode=TwoWay}"
+                                      VerticalAlignment="Center"
                                       IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"/>
                     </StackPanel>
                 </Grid>
 
+                <Border Grid.Row="1" Style="{StaticResource ST_Separator}"/>
+
                 <!-- Toolbar -->
-                <StackPanel Grid.Row="1" Orientation="Horizontal"
-                            Spacing="8" Margin="0,0,0,12">
+                <StackPanel Grid.Row="2" Orientation="Horizontal"
+                            Spacing="8" Margin="20,12,20,0">
 
                     <Button Content="Sync now"
-                            Style="{StaticResource AccentButtonStyle}"
+                            Style="{StaticResource ST_ButtonGreen}"
                             IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
                             Click="SyncNow_Click"/>
 
                     <Button Content="Add game"
+                            Style="{StaticResource ST_ButtonSecondary}"
                             IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
                             Click="AddGame_Click"
                             ToolTipService.ToolTip="Add an executable manually"/>
 
                     <Button Content="Clear sync"
+                            Style="{StaticResource ST_ButtonDanger}"
                             IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
                             Click="ClearSync_Click"
                             ToolTipService.ToolTip="Remove all managed entries from Sunshine and reset game list"/>
 
                     <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                                   Width="20" Height="20"
+                                  VerticalAlignment="Center"
                                   Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay,
                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                 </StackPanel>
 
                 <!-- Game list -->
-                <ScrollViewer Grid.Row="2"
+                <ScrollViewer Grid.Row="3"
                               VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled">
+                              HorizontalScrollBarVisibility="Disabled"
+                              Padding="20,12,20,16">
 
                     <ItemsControl ItemsSource="{x:Bind ViewModel.Games}">
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="vm:ObservableGameEntry">
 
                                 <Border Margin="0,0,0,6"
-                                        Padding="10,8,16,8"
-                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        BorderThickness="1" CornerRadius="6">
+                                        Background="{StaticResource STInput}"
+                                        BorderBrush="{StaticResource STBorder}"
+                                        BorderThickness="1" CornerRadius="8"
+                                        Padding="12,10,16,10">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/> <!-- cover   -->
                                             <ColumnDefinition Width="*"/>    <!-- info    -->
-                                            <ColumnDefinition Width="240"/>  <!-- pcgw    -->
-                                            <ColumnDefinition Width="52"/>   <!-- toggle  -->
+                                            <ColumnDefinition Width="400"/>  <!-- meta    -->
+                                            <ColumnDefinition Width="Auto"/> <!-- toggle  -->
                                             <ColumnDefinition Width="Auto"/> <!-- play    -->
                                             <ColumnDefinition Width="Auto"/> <!-- folder  -->
                                             <ColumnDefinition Width="Auto"/> <!-- remove  -->
                                         </Grid.ColumnDefinitions>
 
-                                        <!-- Cover thumbnail (67 × 100 px, 2:3) -->
+                                        <!-- Cover thumbnail (67×100, 2:3) -->
                                         <Border Grid.Column="0"
                                                 Width="67" Height="100"
-                                                CornerRadius="4"
+                                                CornerRadius="5"
                                                 Margin="0,0,14,0"
-                                                Background="{ThemeResource SubtleFillColorTertiaryBrush}">
+                                                Background="{StaticResource STBackground}">
                                             <Grid>
                                                 <Image Source="{x:Bind CoverImage, Mode=OneWay}"
                                                        Stretch="UniformToFill"
                                                        HorizontalAlignment="Center"
                                                        VerticalAlignment="Center"/>
-                                                <!-- Fallback: initials when cover not loaded -->
                                                 <TextBlock Text="{x:Bind Name}"
                                                            TextWrapping="Wrap"
                                                            TextAlignment="Center"
                                                            FontSize="8"
-                                                           Opacity="0.45"
+                                                           Foreground="{StaticResource STTextMuted}"
                                                            Margin="3"
                                                            VerticalAlignment="Center"
                                                            HorizontalAlignment="Center"
@@ -141,81 +146,81 @@
                                         <!-- Game info -->
                                         <StackPanel Grid.Column="1"
                                                     VerticalAlignment="Center"
-                                                    Spacing="2"
+                                                    Spacing="4"
                                                     Margin="0,0,12,0">
 
-                                            <!-- Store badge: icon + name -->
+                                            <!-- Store badge -->
                                             <StackPanel Orientation="Horizontal" Spacing="5"
                                                         Visibility="{x:Bind ShowBadge,
                                                                      Converter={StaticResource BoolToVisibilityConverter}}">
-                                                <Image Width="15" Height="15" VerticalAlignment="Center">
+                                                <Image Width="14" Height="14" VerticalAlignment="Center">
                                                     <Image.Source>
                                                         <SvgImageSource UriSource="{x:Bind BadgeUri}"/>
                                                     </Image.Source>
                                                 </Image>
                                                 <TextBlock Text="{x:Bind BadgeLabel}"
+                                                           Style="{StaticResource ST_RowDescription}"
                                                            FontSize="11"
-                                                           Opacity="0.6"
+                                                           Foreground="{StaticResource STTextPrimary}"
                                                            VerticalAlignment="Center"/>
                                             </StackPanel>
 
                                             <!-- Game name -->
                                             <TextBlock Text="{x:Bind Name}"
-                                                       Style="{StaticResource BodyStrongTextBlockStyle}"
-                                                       FontSize="15"
+                                                       Style="{StaticResource ST_RowLabel}"
+                                                       FontSize="14"
                                                        TextTrimming="CharacterEllipsis"
                                                        ToolTipService.ToolTip="{x:Bind Name}"/>
 
                                             <!-- Manual badge -->
-                                            <Border CornerRadius="4" Padding="5,1"
-                                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                            <Border CornerRadius="4" Padding="6,2"
+                                                    Background="{StaticResource STBadgeGreenBg}"
+                                                    BorderBrush="{StaticResource STBadgeGreenBdr}"
+                                                    BorderThickness="1"
                                                     Visibility="{x:Bind IsManual,
                                                                  Converter={StaticResource BoolToVisibilityConverter}}"
                                                     VerticalAlignment="Center"
                                                     HorizontalAlignment="Left">
-                                                <TextBlock Text="Manual" FontSize="10"
-                                                           FontWeight="SemiBold" Foreground="White"/>
+                                                <TextBlock Text="Manual"
+                                                           Style="{StaticResource ST_BadgeText}"
+                                                           FontSize="10"
+                                                           Foreground="{StaticResource STSuccess}"/>
                                             </Border>
 
                                         </StackPanel>
 
-                                        <!-- Developer & Release date (Steam API / PCGamingWiki) -->
+                                        <!-- Developer & Release date -->
                                         <StackPanel Grid.Column="2"
                                                     VerticalAlignment="Center"
                                                     Spacing="4"
                                                     Margin="8,0"
                                                     Visibility="{x:Bind HasPcgwMeta, Mode=OneWay,
                                                                  Converter={StaticResource BoolToVisibilityConverter}}">
-                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
-                                                       FontSize="12"
-                                                       TextWrapping="NoWrap"
-                                                       TextTrimming="CharacterEllipsis">
+                                            <TextBlock Style="{StaticResource ST_RowDescription}"
+                                                       TextWrapping="NoWrap">
                                                 <Run Text="Developers: "
-                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                                <Run Text="{x:Bind PcgwDeveloper, Mode=OneWay}"
-                                                     FontWeight="SemiBold"/>
+                                                     Foreground="{StaticResource STTextMuted}"/>
+                                                <Run Text="{x:Bind PcgwDeveloper, Mode=OneWay}"/>
                                             </TextBlock>
-                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
-                                                       FontSize="12"
-                                                       TextWrapping="NoWrap"
-                                                       TextTrimming="CharacterEllipsis">
+                                            <TextBlock Style="{StaticResource ST_RowDescription}"
+                                                       TextWrapping="NoWrap">
                                                 <Run Text="Release Date: "
-                                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                                     Foreground="{StaticResource STTextMuted}"/>
                                                 <Run Text="{x:Bind PcgwReleaseDate, Mode=OneWay}"/>
                                             </TextBlock>
                                         </StackPanel>
 
                                         <!-- Enable toggle -->
                                         <ToggleSwitch Grid.Column="3"
+                                                      Style="{StaticResource ST_Toggle}"
                                                       IsOn="{x:Bind Enabled, Mode=TwoWay}"
-                                                      OffContent="{x:Null}" OnContent="{x:Null}"
-                                                      MinWidth="0"
                                                       VerticalAlignment="Center"
-                                                      HorizontalAlignment="Left"
+                                                      HorizontalAlignment="Right"
                                                       ToolTipService.ToolTip="Include in Sunshine sync"/>
 
                                         <!-- Play button -->
                                         <Button Grid.Column="4"
+                                                Style="{StaticResource ST_ButtonGhost}"
                                                 Content="&#xE768;"
                                                 FontFamily="{StaticResource SymbolThemeFontFamily}"
                                                 FontSize="12"
@@ -229,6 +234,7 @@
 
                                         <!-- Open folder button -->
                                         <Button Grid.Column="5"
+                                                Style="{StaticResource ST_ButtonGhost}"
                                                 Content="&#xED43;"
                                                 FontFamily="{StaticResource SymbolThemeFontFamily}"
                                                 FontSize="12"
@@ -244,6 +250,7 @@
 
                                         <!-- Remove button -->
                                         <Button Grid.Column="6"
+                                                Style="{StaticResource ST_ButtonGhost}"
                                                 Content="&#xE711;"
                                                 FontFamily="{StaticResource SymbolThemeFontFamily}"
                                                 FontSize="12"

@@ -4,6 +4,21 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 6.1.0 - "The Live Session Update" (25/04/2026)
+------------------------------------------
+
+✨ NEW FEATURES:
+• Live session panel: while a stream is active, the Home card replaces the Last Session summary with a real-time view — duration timer, RTT and Bitrate sparkline charts (30-second scrolling window), and drop percentage updated every second
+• Debug Mode: a toggle in Settings › Maintenance simulates an active streaming session for testing the UI without touching the NIC, spatial audio, or managed apps
+
+🎨 UI / UX:
+• General UI redesign developed with Claude Design — covers the full interface: transparency, color consistency, spacing, component styling
+• DM Sans font applied consistently to NavigationView item labels
+
+🐛 BUG FIXES:
+• Sessions started automatically when StreamLight connects (Bridge mode) did not run the game process monitor — the session record always showed no detected games and "No games detected" was never displayed; game tracking now runs for all session types
+• Sessions interrupted without a clean client-side stop (StreamLight crash, network drop) showed no telemetry data in the log — telemetry is now written to a periodic checkpoint every 30 seconds and recovered at next startup
+
 Version 6.0.3 - "The Game Info Update" (19/04/2026)
 ------------------------------------------
 

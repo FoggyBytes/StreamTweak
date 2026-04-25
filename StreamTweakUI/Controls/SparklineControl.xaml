@@ -34,7 +34,8 @@
                 <TextBlock x:Name="MidLabel"
                            FontSize="9" Opacity="0.55"
                            HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                <TextBlock Text="0"
+                <TextBlock x:Name="ZeroLabel"
+                           Text="0"
                            FontSize="9" Opacity="0.55"
                            HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
             </Grid>

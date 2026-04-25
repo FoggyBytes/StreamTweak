@@ -61,9 +61,15 @@ namespace StreamTweak
         private StreamingLogMonitor? _logMonitor = null;
         private SessionProcessMonitor? _sessionProcessMonitor;
 
+        // ── Debug mode ───────────────────────────────────────────────────────
+        private bool _isDebugModeActive = false;
+
         // ── Inactivity timer (30 s grace period between disconnects) ─────────
         private DispatcherQueueTimer? _inactivityTimer;
         private const int INACTIVITY_TIMEOUT_MS = 30_000;
+
+        // ── Checkpoint timer (telemetria periodica su disco) ──────────────────
+        private System.Threading.Timer? _checkpointTimer;
 
         // ────────────────────────────────────────────────────────────────────
 
@@ -148,6 +154,8 @@ namespace StreamTweak
             AppStateService.Instance.StartStreamingModeAction  = StartManualStreamingMode;
             AppStateService.Instance.StopStreamingModeAction   = () => { HandleAutoStreamStop("User"); return Task.CompletedTask; };
             AppStateService.Instance.RequestStopStreamAction   = () => _stopStreamRequested = true;
+            AppStateService.Instance.StartDebugModeAction      = StartDebugSession;
+            AppStateService.Instance.StopDebugModeAction       = () => { StopDebugSession(); return Task.CompletedTask; };
             AppStateService.Instance.ApplyAdapterSpeedAction  = (adapter, speedKey) =>
             {
                 _adapterName = adapter;
@@ -351,6 +359,69 @@ namespace StreamTweak
             catch { }
         }
 
+        // ── Checkpoint periodico telemetria ──────────────────────────────────
+
+        /// <summary>
+        /// Avvia un timer che scrive il checkpoint ogni 30 s.
+        /// Chiamare subito dopo <see cref="SessionLogger.StartSession"/>.
+        /// </summary>
+        private void StartCheckpointTimer()
+        {
+            string? sessionId = SessionLogger.ActiveSessionId;
+            if (sessionId == null) return;
+            _checkpointTimer?.Dispose();
+            _checkpointTimer = new System.Threading.Timer(
+                _ => WriteCheckpoint(sessionId),
+                state: null,
+                dueTime:  TimeSpan.FromSeconds(30),
+                period:   TimeSpan.FromSeconds(30));
+        }
+
+        /// <summary>
+        /// Serializza lo snapshot corrente dell'accumulatore su disco in modo atomico.
+        /// Chiamato dal thread pool del timer — non tocca lo UI thread.
+        /// </summary>
+        private void WriteCheckpoint(string sessionId)
+        {
+            try
+            {
+                var (stats, rtt, drops, bitrate, decode) = _telemetryAccumulator.Finalize();
+                if (stats.SampleCount < 2) return;
+
+                var grade = QualityGradeCalculator.Evaluate(stats, _telemetryAccumulator.TargetFps);
+                var cp = new TelemetryCheckpoint
+                {
+                    SessionId    = sessionId,
+                    Timestamp    = DateTime.Now,
+                    Stats        = stats,
+                    Grade        = (int)grade,
+                    RttSeries    = rtt,
+                    DropsSeries  = drops,
+                    BitrateSeries = bitrate,
+                    DecodeSeries  = decode,
+                };
+
+                // Scrittura atomica: .tmp → File.Move overwrite per evitare file corrotti.
+                string tmp = SessionLogger.CheckpointPath + ".tmp";
+                System.IO.File.WriteAllText(tmp,
+                    System.Text.Json.JsonSerializer.Serialize(cp));
+                System.IO.File.Move(tmp, SessionLogger.CheckpointPath, overwrite: true);
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// Ferma il timer e cancella il file checkpoint.
+        /// Chiamare dopo <see cref="FinalizeSessionTelemetry"/> + <see cref="SessionLogger.EndSession"/>
+        /// per evitare che un checkpoint stale venga letto al prossimo avvio.
+        /// </summary>
+        private void StopCheckpointTimer()
+        {
+            _checkpointTimer?.Dispose();
+            _checkpointTimer = null;
+            try { System.IO.File.Delete(SessionLogger.CheckpointPath); } catch { }
+        }
+
         // ── Auto streaming monitor (log watcher) ─────────────────────────────
 
         private void StartAutoStreamingMonitor()
@@ -530,6 +601,7 @@ namespace StreamTweak
                 AppStateService.Instance.IsSessionActive = true;
                 UpdateTrayStreamingState(true);  // updates tray text + icon
                 SessionLogger.StartSession(skipNicThrottle ? "Retrospective" : "Auto", capturedOriginalSpeed);
+                StartCheckpointTimer();
 
                 // Start process monitor to detect which games run during this session
                 _sessionProcessMonitor?.Dispose();
@@ -545,6 +617,7 @@ namespace StreamTweak
         {
             try
             {
+                if (_isDebugModeActive) return;
                 if (!_isAutoStreamingActive && !_isAutoSessionActive) return;
                 StopInactivityTimer();
 
@@ -578,6 +651,7 @@ namespace StreamTweak
                     }
 
                     FinalizeSessionTelemetry();
+                    StopCheckpointTimer();
                     // Pass detectedGames even when empty: null = monitor never ran (pre-feature / manual mode)
                     //                                   []   = monitor ran but no games found (desktop session etc.)
                     //                                   [...] = games were detected
@@ -597,6 +671,110 @@ namespace StreamTweak
                 }
             }
             catch { }
+        }
+
+        // ── Debug mode ───────────────────────────────────────────────────────
+
+        public async Task StartDebugSession()
+        {
+            if (_isDebugModeActive || _isAutoSessionActive || _sessionStartInProgress) return;
+            _isDebugModeActive = true;
+            _sessionStartInProgress = true;
+            try
+            {
+                if (_isAudioMonitorEnabled)
+                    _dolbyMonitor.OnStreamingStarted(isRetrospective: false);
+
+                SessionLogger.StartSession("Debug", string.Empty);
+                SessionLogger.MarkActiveSessionAsDebug();
+
+                string? sid = SessionLogger.ActiveSessionId;
+                if (sid == null) { _isDebugModeActive = false; return; }
+
+                var fakeStats = new SessionQualityStats
+                {
+                    SampleCount     = 1800,
+                    FpsAvg          = 60f,
+                    FpsMin          = 58,
+                    TotalDrops      = 3,
+                    DropRatePct     = 0.003f,
+                    RttAvgMs        = 8f,
+                    RttMaxMs        = 18f,
+                    JitterAvgMs     = 1.2f,
+                    JitterMaxMs     = 4f,
+                    DecodeAvgMs     = 2.1f,
+                    BitrateAvgMbps  = 70f,
+                    HostGpuAvg      = 42,
+                    HostGpuPeak     = 61,
+                    HostGpuEncAvg   = 35,
+                    HostGpuEncPeak  = 48,
+                    HostGpuTempAvg  = 61,
+                    HostGpuTempMax  = 64,
+                    HostCpuAvg      = 18,
+                    HostCpuPeak     = 29,
+                    HostNetTxAvg    = 72,
+                };
+
+                var rttSeries     = Enumerable.Range(0, 30).Select(i => 8f  + i % 3).ToList();
+                var dropsSeries   = Enumerable.Range(0, 30).Select(i => i % 15 == 0 ? 1f : 0f).ToList();
+                var bitrateSeries = Enumerable.Range(0, 30).Select(i => 68f + i % 5).ToList();
+                var decodeSeries  = Enumerable.Range(0, 30).Select(i => 2f  + (i % 4) * 0.1f).ToList();
+
+                var fakeGames = GameLibraryState.Current.Games
+                    .OrderBy(_ => Random.Shared.Next())
+                    .Take(3)
+                    .Select(g => g.Name)
+                    .ToList();
+
+                var gameMap    = GameLibraryState.Current.Games
+                    .ToDictionary(g => g.Name, g => g, StringComparer.OrdinalIgnoreCase);
+                var coverPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var name in fakeGames)
+                {
+                    if (gameMap.TryGetValue(name, out var g) && g.CoverImagePath != null)
+                        coverPaths[name] = g.CoverImagePath;
+                }
+
+                await Task.Run(() =>
+                {
+                    SessionLogger.UpdateSessionTelemetry(sid, fakeStats, QualityGrade.High,
+                        rttSeries, dropsSeries, bitrateSeries, decodeSeries);
+
+                    var sessions = SessionLogger.Load();
+                    var entry    = sessions.FirstOrDefault(s => s.Id == sid);
+                    if (entry != null)
+                    {
+                        entry.StartTime              = DateTime.Now.AddMinutes(-30);
+                        entry.GamesDetected          = fakeGames;
+                        if (coverPaths.Count > 0)
+                            entry.GamesDetectedCoverPaths = coverPaths;
+                        SessionLogger.SavePublic(sessions);
+                    }
+                });
+
+                _isAutoSessionActive = true;
+                AppStateService.Instance.IsSessionActive = true;
+                UpdateTrayStreamingState(true);
+            }
+            catch { _isDebugModeActive = false; }
+            finally { _sessionStartInProgress = false; }
+        }
+
+        public void StopDebugSession()
+        {
+            if (!_isDebugModeActive) return;
+            try
+            {
+                if (_isAudioMonitorEnabled)
+                    _dolbyMonitor.OnStreamingStopped();
+
+                SessionLogger.EndSession("Debug Stop");
+                _isDebugModeActive   = false;
+                _isAutoSessionActive = false;
+                AppStateService.Instance.IsSessionActive = false;
+                UpdateTrayStreamingState(false);
+            }
+            catch { _isDebugModeActive = false; }
         }
 
         // ── Inactivity timer ─────────────────────────────────────────────────
@@ -662,10 +840,16 @@ namespace StreamTweak
                 ConfigService.Set("OriginalSpeed", _originalSpeedForAutoStreaming ?? string.Empty);
                 _appsToRelaunch = ManagedAppController.KillRunning();
                 SessionLogger.StartSession("Bridge", _originalSpeedForAutoStreaming ?? string.Empty);
+                StartCheckpointTimer();
                 StartInactivityTimer();
                 AppStateService.Instance.IsStreamingModeActive = true;
                 AppStateService.Instance.IsSessionActive = true;
                 UpdateTrayStreamingState(true);
+
+                // Start process monitor so Bridge-initiated sessions also detect games.
+                _sessionProcessMonitor?.Dispose();
+                _sessionProcessMonitor = new SessionProcessMonitor(GameLibraryState.Current.Games);
+                _sessionProcessMonitor.Start();
 
                 await Task.Run(() => ApplySpeed(oneGbpsKey));
                 _ = PollForNicReconnectAsync();
@@ -710,6 +894,11 @@ namespace StreamTweak
 
                 var hostSample = _metricsCollector.GetLatestSample();
                 _telemetryAccumulator.AddBatch(batch, hostSample);
+
+                // Forward every sample to the live home-card charts (preserves
+                // chronological order even on the final flush batch).
+                foreach (var s in batch.Samples)
+                    AppStateService.Instance.RaiseLiveSample(s.RttAvg, s.BitrateAvgMbps, s.Drops, s.FpsAvg);
             }
             catch { }
         }
@@ -737,6 +926,7 @@ namespace StreamTweak
             if (_isAutoSessionActive)
             {
                 FinalizeSessionTelemetry();
+                StopCheckpointTimer();
                 SessionLogger.EndSession("App Closed");
             }
             try
@@ -765,6 +955,7 @@ namespace StreamTweak
             if (_isAutoSessionActive)
             {
                 FinalizeSessionTelemetry();
+                StopCheckpointTimer();
                 SessionLogger.EndSession("Host Shutdown");
             }
         }

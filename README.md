@@ -51,9 +51,21 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 6.0.3 — "The Game Info Update"
+## ✨ What's New in 6.1.0 — "The Live Session Update"
+
+- **Live session panel** — while a stream is active, the Home card replaces the Last Session summary with a real-time view: duration timer, RTT and Bitrate sparkline charts (30-second scrolling window), and drop percentage updated every second
+- **Debug Mode** — a toggle in Settings › Maintenance simulates an active streaming session for testing the UI without touching the NIC, spatial audio, or managed apps
+- **General UI redesign** — developed with Claude Design; covers the full interface from transparency and color consistency to spacing, component styling, and DM Sans font integration in the sidebar
+- **Bug fix: Bridge game detection** — sessions initiated by StreamLight (Bridge mode) now correctly run the game process monitor and show detected games in the session log
+- **Bug fix: interrupted sessions** — sessions ended without a clean client-side stop now correctly display telemetry data in the log
+
+> Requires [StreamLight 2.3.1](https://github.com/FoggyBytes/StreamLight/releases) or later for 1-second chart updates. Earlier versions update every 10 seconds.
+
+<details>
+<summary>6.0.3 — "The Game Info Update"</summary>
 
 - **Developer & release date** — each game in the library now shows its developer and release date; Steam games are fetched via the official Steam Store API, non-Steam games via PCGamingWiki
+</details>
 
 <details>
 <summary>6.0.2 — "The Layout Update"</summary>
@@ -92,7 +104,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_6.0.3_Installer.exe` and run it.
+2. Download the latest `StreamTweak_6.1.0_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

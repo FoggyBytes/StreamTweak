@@ -4,13 +4,10 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:ctl="using:StreamTweak.Controls"
     xmlns:vm="using:StreamTweak.ViewModels"
-    Background="Transparent">
+    Background="{StaticResource STBackground}">
 
     <!--
         Three solid layers stacked in the root Grid.
-        Each higher layer has a solid (non-transparent) background so it
-        completely replaces what is underneath — no transparency stacking.
-
         Layer 1 — Session list (always rendered)
         Layer 2 — Session detail (covers layer 1 when visible)
         Layer 3 — Fullscreen chart (covers layers 1+2 when visible)
@@ -26,28 +23,27 @@
                 <RowDefinition Height="*"/>      <!-- card -->
             </Grid.RowDefinitions>
 
-            <!-- Page header: title + clear button -->
-            <Grid Grid.Row="0" Margin="20,16,20,12">
+            <!-- Page header -->
+            <Grid Grid.Row="0" Margin="28,24,28,12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0"
-                           Text="Streaming Session History"
-                           Style="{StaticResource SubtitleTextBlockStyle}"
+                           Text="Session History"
+                           Style="{StaticResource ST_PageTitle}"
                            VerticalAlignment="Center"/>
                 <Button Grid.Column="1"
                         Content="Clear history"
+                        Style="{StaticResource ST_ButtonDanger}"
                         VerticalAlignment="Center"
                         Click="ClearHistory_Click"/>
             </Grid>
 
             <!-- Main card -->
             <Border Grid.Row="1"
-                    Margin="20,0,20,24"
-                    Background="{ThemeResource LayerFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1" CornerRadius="8">
+                    Margin="28,0,28,28"
+                    Style="{StaticResource ST_CardNoPad}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>   <!-- column headers -->
@@ -58,7 +54,7 @@
                     <Grid Grid.Row="0"
                           Padding="20,0"
                           MinHeight="36"
-                          Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                          Background="{StaticResource STInput}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="4"/>    <!-- accent bar -->
                             <ColumnDefinition Width="16"/>   <!-- gap -->
@@ -71,30 +67,29 @@
                             <ColumnDefinition Width="68"/>   <!-- actions -->
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="2" Text="Date / Time"
-                                   FontSize="11" FontWeight="SemiBold"
-                                   Opacity="0.5" VerticalAlignment="Center"/>
+                                   Style="{StaticResource ST_SectionLabel}"
+                                   VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="3" Text="Duration"
-                                   FontSize="11" FontWeight="SemiBold"
-                                   Opacity="0.5" VerticalAlignment="Center"/>
+                                   Style="{StaticResource ST_SectionLabel}"
+                                   VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="4" Text="RTT avg"
-                                   FontSize="11" FontWeight="SemiBold"
-                                   Opacity="0.5" VerticalAlignment="Center"/>
+                                   Style="{StaticResource ST_SectionLabel}"
+                                   VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="5" Text="Drops %"
-                                   FontSize="11" FontWeight="SemiBold"
-                                   Opacity="0.5" VerticalAlignment="Center"/>
+                                   Style="{StaticResource ST_SectionLabel}"
+                                   VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="6" Text="Quality"
-                                   FontSize="11" FontWeight="SemiBold"
-                                   Opacity="0.5" VerticalAlignment="Center"/>
+                                   Style="{StaticResource ST_SectionLabel}"
+                                   VerticalAlignment="Center"/>
                         <TextBlock Grid.Column="7" Text="Games"
-                                   FontSize="11" FontWeight="SemiBold"
-                                   Opacity="0.5" VerticalAlignment="Center"/>
+                                   Style="{StaticResource ST_SectionLabel}"
+                                   VerticalAlignment="Center"/>
                     </Grid>
 
                     <!-- Separator under column headers -->
-                    <Rectangle Grid.Row="0" Height="1"
-                               VerticalAlignment="Bottom"
-                               Fill="{ThemeResource DividerStrokeColorDefaultBrush}"
-                               Opacity="0.35"/>
+                    <Border Grid.Row="0"
+                            Style="{StaticResource ST_Separator}"
+                            VerticalAlignment="Bottom"/>
 
                     <!-- Session list -->
                     <ListView Grid.Row="1"
@@ -114,7 +109,6 @@
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="StreamTweak:SessionEntry"
                                           xmlns:StreamTweak="using:StreamTweak">
-                                <!-- Row wrapper: content + bottom separator -->
                                 <Grid>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="*"/>
@@ -122,22 +116,21 @@
                                     </Grid.RowDefinitions>
 
                                     <!-- Bottom separator -->
-                                    <Rectangle Grid.Row="1"
-                                               Fill="{ThemeResource DividerStrokeColorDefaultBrush}"
-                                               Opacity="0.2"/>
+                                    <Border Grid.Row="1"
+                                            Style="{StaticResource ST_Separator}"/>
 
                                     <!-- Row content -->
-                                    <Grid Grid.Row="0" Padding="20,0" MinHeight="54">
+                                    <Grid Grid.Row="0" Padding="20,0" MinHeight="56">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="4"/>    <!-- accent bar -->
-                                            <ColumnDefinition Width="16"/>   <!-- gap -->
-                                            <ColumnDefinition Width="2.5*"/> <!-- date/time -->
-                                            <ColumnDefinition Width="1*"/>   <!-- duration -->
-                                            <ColumnDefinition Width="1*"/>   <!-- rtt avg -->
-                                            <ColumnDefinition Width="1*"/>   <!-- drops % -->
-                                            <ColumnDefinition Width="1.5*"/> <!-- quality -->
-                                            <ColumnDefinition Width="2*"/>   <!-- games covers -->
-                                            <ColumnDefinition Width="68"/>   <!-- actions -->
+                                            <ColumnDefinition Width="4"/>
+                                            <ColumnDefinition Width="16"/>
+                                            <ColumnDefinition Width="2.5*"/>
+                                            <ColumnDefinition Width="1*"/>
+                                            <ColumnDefinition Width="1*"/>
+                                            <ColumnDefinition Width="1*"/>
+                                            <ColumnDefinition Width="1.5*"/>
+                                            <ColumnDefinition Width="2*"/>
+                                            <ColumnDefinition Width="68"/>
                                         </Grid.ColumnDefinitions>
 
                                         <!-- Left accent bar (grade color) -->
@@ -153,31 +146,28 @@
                                         <!-- Date / Time -->
                                         <TextBlock Grid.Column="2"
                                                    Text="{x:Bind StartTimeDisplay}"
-                                                   FontSize="13"
+                                                   Style="{StaticResource ST_Body}"
                                                    VerticalAlignment="Center"/>
 
                                         <!-- Duration -->
                                         <TextBlock Grid.Column="3"
                                                    Text="{x:Bind DurationDisplay}"
-                                                   FontSize="13"
-                                                   VerticalAlignment="Center"
-                                                   Opacity="0.6"/>
+                                                   Style="{StaticResource ST_MonoValueSmall}"
+                                                   VerticalAlignment="Center"/>
 
                                         <!-- RTT avg -->
                                         <TextBlock Grid.Column="4"
                                                    Text="{x:Bind RttAvgDisplay}"
-                                                   FontSize="13"
-                                                   VerticalAlignment="Center"
-                                                   Opacity="0.85"/>
+                                                   Style="{StaticResource ST_MonoValueSmall}"
+                                                   VerticalAlignment="Center"/>
 
                                         <!-- Drops % -->
                                         <TextBlock Grid.Column="5"
                                                    Text="{x:Bind DropRateDisplay}"
-                                                   FontSize="13"
-                                                   VerticalAlignment="Center"
-                                                   Opacity="0.85"/>
+                                                   Style="{StaticResource ST_MonoValueSmall}"
+                                                   VerticalAlignment="Center"/>
 
-                                        <!-- Quality pill (only when graded) -->
+                                        <!-- Quality pill -->
                                         <Border Grid.Column="6"
                                                 CornerRadius="10"
                                                 BorderThickness="1"
@@ -194,12 +184,13 @@
                                                          Fill="{x:Bind GradeColorHex,
                                                                 Converter={StaticResource HexToSolidColorBrushConverter}}"/>
                                                 <TextBlock Text="{x:Bind GradeShortLabel}"
+                                                           Style="{StaticResource ST_BadgeText}"
                                                            FontSize="12"
                                                            VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Border>
 
-                                        <!-- Games covers: small cover strip in detection order -->
+                                        <!-- Games covers strip -->
                                         <ItemsControl Grid.Column="7"
                                                       ItemsSource="{x:Bind GamesDetected}"
                                                       VerticalAlignment="Center"
@@ -211,11 +202,10 @@
                                                 </ItemsPanelTemplate>
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
-                                                <!-- DataType omitted: each item is a string (game name) -->
                                                 <DataTemplate>
                                                     <Border Width="33" Height="50"
-                                                            CornerRadius="3"
-                                                            Background="{ThemeResource SubtleFillColorTertiaryBrush}"
+                                                            CornerRadius="4"
+                                                            Background="{StaticResource STBackground}"
                                                             ToolTipService.ToolTip="{Binding}">
                                                         <Image Source="{Binding Converter={StaticResource GameNameToCoverConverter}}"
                                                                Stretch="UniformToFill"/>
@@ -224,25 +214,24 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
 
-                                        <!-- "No games" fallback when monitor ran but found nothing -->
+                                        <!-- No games fallback -->
                                         <TextBlock Grid.Column="7"
                                                    Text="No games detected"
-                                                   FontSize="11"
+                                                   Style="{StaticResource ST_RowDescription}"
                                                    FontStyle="Italic"
-                                                   Opacity="0.35"
                                                    VerticalAlignment="Center"
                                                    Visibility="{x:Bind HasNoGamesDetected,
                                                                 Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-                                        <!-- Actions: detail + delete -->
+                                        <!-- Actions -->
                                         <StackPanel Grid.Column="8"
                                                     Orientation="Horizontal"
                                                     HorizontalAlignment="Center"
                                                     VerticalAlignment="Center"
                                                     Spacing="4">
 
-                                            <!-- Detail button (same icon as Logs nav item) -->
-                                            <Button Width="30" Height="30" Padding="0"
+                                            <Button Style="{StaticResource ST_ButtonGhost}"
+                                                    Width="30" Height="30" Padding="0"
                                                     FontSize="14"
                                                     Content="&#xE9F9;"
                                                     FontFamily="{StaticResource SymbolThemeFontFamily}"
@@ -251,8 +240,8 @@
                                                                  Converter={StaticResource BoolToVisibilityConverter}}"
                                                     ToolTipService.ToolTip="View session detail"/>
 
-                                            <!-- Delete button -->
-                                            <Button Width="30" Height="30" Padding="0"
+                                            <Button Style="{StaticResource ST_ButtonGhost}"
+                                                    Width="30" Height="30" Padding="0"
                                                     FontSize="13"
                                                     Content="&#xE74D;"
                                                     FontFamily="{StaticResource SymbolThemeFontFamily}"
@@ -274,11 +263,11 @@
                                              Converter={StaticResource InverseBoolToVisibilityConverter}}">
                         <FontIcon Glyph="&#xE9F9;"
                                   FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                  FontSize="36" Opacity="0.2"/>
+                                  FontSize="36"
+                                  Foreground="{StaticResource STTextDim}"/>
                         <TextBlock Text="No sessions recorded yet"
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   HorizontalAlignment="Center"
-                                   Opacity="0.4"/>
+                                   Style="{StaticResource ST_RowDescription}"
+                                   HorizontalAlignment="Center"/>
                     </StackPanel>
 
                 </Grid>
@@ -287,18 +276,16 @@
 
 
         <!-- ══════════════════════════════════════════════════════════════════ -->
-        <!-- LAYER 2 — Session detail (solid, fully covers layer 1)            -->
+        <!-- LAYER 2 — Session detail                                          -->
         <!-- ══════════════════════════════════════════════════════════════════ -->
         <Grid Visibility="{x:Bind ViewModel.IsDetailVisible, Mode=OneWay,
                             Converter={StaticResource BoolToVisibilityConverter}}"
-              Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+              Background="#E6111010">
 
-            <Border Margin="20,16,20,24"
-                    Background="{ThemeResource LayerFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1" CornerRadius="8">
+            <Border Margin="28,16,28,28"
+                    Style="{StaticResource ST_CardNoPad}">
 
-                <Grid Margin="18,16">
+                <Grid Margin="20,18">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>   <!-- header -->
                         <RowDefinition Height="Auto"/>   <!-- separator -->
@@ -311,18 +298,19 @@
                     </Grid.RowDefinitions>
 
                     <!-- ── Row 0: Header ──────────────────────────────────── -->
-                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                    <Grid Grid.Row="0" Margin="0,0,0,14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
                             <TextBlock Text="Session Detail"
-                                       FontSize="17" FontWeight="SemiBold"/>
+                                       Style="{StaticResource ST_PageTitle}"/>
                             <TextBlock Text="{x:Bind ViewModel.DetailHeaderSubtitle, Mode=OneWay}"
-                                       FontSize="12" Opacity="0.55"/>
+                                       Style="{StaticResource ST_PageSubtitle}"/>
                         </StackPanel>
                         <Button Grid.Column="1"
+                                Style="{StaticResource ST_ButtonGhost}"
                                 Content="&#xE711;"
                                 FontFamily="{StaticResource SymbolThemeFontFamily}"
                                 FontSize="14" Width="32" Height="32" Padding="0"
@@ -332,14 +320,12 @@
                     </Grid>
 
                     <!-- ── Separator ─────────────────────────────────────── -->
-                    <Rectangle Grid.Row="1"
-                               Height="1"
-                               Fill="{ThemeResource DividerStrokeColorDefaultBrush}"
-                               Opacity="0.4"
-                               Margin="0,0,0,12"/>
+                    <Border Grid.Row="1"
+                            Style="{StaticResource ST_Separator}"
+                            Margin="0,0,0,14"/>
 
                     <!-- ── Row 2: Stats panels (CLIENT | HOST) ────────────── -->
-                    <Grid Grid.Row="2" ColumnSpacing="12" Margin="0,0,0,12">
+                    <Grid Grid.Row="2" ColumnSpacing="12" Margin="0,0,0,14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
@@ -347,19 +333,19 @@
 
                         <!-- CLIENT box -->
                         <Border Grid.Column="0"
-                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="1" CornerRadius="6"
-                                Padding="14,12">
+                                Background="{StaticResource STInput}"
+                                BorderBrush="{StaticResource STBorder}"
+                                BorderThickness="1" CornerRadius="8"
+                                Padding="16,14">
                             <StackPanel Spacing="10">
-                                <TextBlock FontSize="11" FontWeight="SemiBold" Opacity="0.5"
-                                           CharacterSpacing="50" Text="CLIENT  (StreamLight)"/>
+                                <TextBlock Text="CLIENT  (StreamLight)"
+                                           Style="{StaticResource ST_SectionLabel}"/>
 
                                 <Grid ColumnSpacing="10" RowSpacing="8">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="62"/>   <!-- label -->
-                                        <ColumnDefinition Width="*"/>    <!-- primary value -->
-                                        <ColumnDefinition Width="Auto"/> <!-- secondary value -->
+                                        <ColumnDefinition Width="62"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
                                         <RowDefinition/> <!-- Jitter -->
@@ -371,26 +357,30 @@
 
                                     <!-- Jitter -->
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="Jitter"
-                                               FontSize="12" Opacity="0.55" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
-                                        <TextBlock Text="avg" FontSize="11" Opacity="0.55"/>
+                                               Style="{StaticResource ST_RowDescription}"
+                                               VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Text="avg" Style="{StaticResource ST_RowDescription}"/>
                                         <TextBlock Text="{x:Bind ViewModel.DetailJitterAvg, Mode=OneWay}"
-                                                   FontSize="12" FontWeight="SemiBold"/>
+                                                   Style="{StaticResource ST_MonoValueSmall}"/>
                                     </StackPanel>
-                                    <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
-                                        <TextBlock Text="max" FontSize="11" Opacity="0.55"/>
+                                    <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Text="max" Style="{StaticResource ST_RowDescription}"/>
                                         <TextBlock Text="{x:Bind ViewModel.DetailJitterMax, Mode=OneWay}"
-                                                   FontSize="12" Opacity="0.75"/>
+                                                   Style="{StaticResource ST_MonoValueSmall}"/>
                                     </StackPanel>
 
                                     <!-- Drops -->
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Drops"
-                                               FontSize="12" Opacity="0.55" VerticalAlignment="Center"/>
+                                               Style="{StaticResource ST_RowDescription}"
+                                               VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="1" Grid.Column="1"
                                                Text="{x:Bind ViewModel.DetailDropRate, Mode=OneWay}"
-                                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                               Style="{StaticResource ST_MonoValueSmall}"
+                                               VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="1" Grid.Column="2"
-                                               FontSize="11" Opacity="0.55" VerticalAlignment="Center">
+                                               Style="{StaticResource ST_RowDescription}"
+                                               VerticalAlignment="Center">
                                         <Run Text="("/>
                                         <Run Text="{x:Bind ViewModel.DetailDrops, Mode=OneWay}"/>
                                         <Run Text=" frames)"/>
@@ -398,118 +388,129 @@
 
                                     <!-- RTT -->
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="RTT"
-                                               FontSize="12" Opacity="0.55" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
-                                        <TextBlock Text="avg" FontSize="11" Opacity="0.55"/>
+                                               Style="{StaticResource ST_RowDescription}"
+                                               VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Text="avg" Style="{StaticResource ST_RowDescription}"/>
                                         <TextBlock Text="{x:Bind ViewModel.DetailRttAvg, Mode=OneWay}"
-                                                   FontSize="12" FontWeight="SemiBold"/>
+                                                   Style="{StaticResource ST_MonoValueSmall}"/>
                                     </StackPanel>
-                                    <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
-                                        <TextBlock Text="max" FontSize="11" Opacity="0.55"/>
+                                    <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Text="max" Style="{StaticResource ST_RowDescription}"/>
                                         <TextBlock Text="{x:Bind ViewModel.DetailRttMax, Mode=OneWay}"
-                                                   FontSize="12" Opacity="0.75"/>
+                                                   Style="{StaticResource ST_MonoValueSmall}"/>
                                     </StackPanel>
 
                                     <!-- Decode -->
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="Decode"
-                                               FontSize="12" Opacity="0.55" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
-                                        <TextBlock Text="avg" FontSize="11" Opacity="0.55"/>
+                                               Style="{StaticResource ST_RowDescription}"
+                                               VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Text="avg" Style="{StaticResource ST_RowDescription}"/>
                                         <TextBlock Text="{x:Bind ViewModel.DetailDecodeAvg, Mode=OneWay}"
-                                                   FontSize="12" FontWeight="SemiBold"/>
+                                                   Style="{StaticResource ST_MonoValueSmall}"/>
                                     </StackPanel>
 
                                     <!-- Bitrate -->
                                     <TextBlock Grid.Row="4" Grid.Column="0" Text="Bitrate"
-                                               FontSize="12" Opacity="0.55" VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
-                                        <TextBlock Text="avg" FontSize="11" Opacity="0.55"/>
+                                               Style="{StaticResource ST_RowDescription}"
+                                               VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                        <TextBlock Text="avg" Style="{StaticResource ST_RowDescription}"/>
                                         <TextBlock Text="{x:Bind ViewModel.DetailBitrateAvg, Mode=OneWay}"
-                                                   FontSize="12" FontWeight="SemiBold"/>
+                                                   Style="{StaticResource ST_MonoValueSmall}"/>
                                     </StackPanel>
                                 </Grid>
                             </StackPanel>
                         </Border>
 
-                        <!-- HOST box (hidden when no host data) -->
+                        <!-- HOST box -->
                         <Border Grid.Column="1"
-                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="1" CornerRadius="6"
-                                Padding="14,12"
+                                Background="{StaticResource STInput}"
+                                BorderBrush="{StaticResource STBorder}"
+                                BorderThickness="1" CornerRadius="8"
+                                Padding="16,14"
                                 Visibility="{x:Bind ViewModel.HasHostStats, Mode=OneWay,
                                              Converter={StaticResource BoolToVisibilityConverter}}">
                             <StackPanel Spacing="10">
-                                <TextBlock FontSize="11" FontWeight="SemiBold" Opacity="0.5"
-                                           CharacterSpacing="50" Text="HOST  (StreamTweak)"/>
+                                <TextBlock Text="HOST  (StreamTweak)"
+                                           Style="{StaticResource ST_SectionLabel}"/>
 
                                 <Grid ColumnSpacing="10" RowSpacing="8">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="72"/>  <!-- label -->
-                                        <ColumnDefinition Width="*"/>   <!-- value -->
+                                        <ColumnDefinition Width="72"/>
+                                        <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
-                                        <RowDefinition/> <!-- GPU -->
-                                        <RowDefinition/> <!-- Encoder -->
-                                        <RowDefinition/> <!-- GPU Temp -->
-                                        <RowDefinition/> <!-- CPU -->
-                                        <RowDefinition/> <!-- Net TX -->
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
+                                        <RowDefinition/>
                                     </Grid.RowDefinitions>
 
                                     <TextBlock Grid.Row="0" Grid.Column="0" Text="GPU"
-                                               FontSize="12" Opacity="0.55" VerticalAlignment="Center"/>
+                                               Style="{StaticResource ST_RowDescription}"
+                                               VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="0" Grid.Column="1"
                                                Text="{x:Bind ViewModel.DetailHostGpu, Mode=OneWay}"
-                                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                               Style="{StaticResource ST_MonoValueSmall}"
+                                               VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="1" Grid.Column="0" Text="Encoder"
-                                               FontSize="12" Opacity="0.55" VerticalAlignment="Center"/>
+                                               Style="{StaticResource ST_RowDescription}"
+                                               VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="1" Grid.Column="1"
                                                Text="{x:Bind ViewModel.DetailHostEncoder, Mode=OneWay}"
-                                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                               Style="{StaticResource ST_MonoValueSmall}"
+                                               VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="GPU Temp"
-                                               FontSize="12" Opacity="0.55" VerticalAlignment="Center"/>
+                                               Style="{StaticResource ST_RowDescription}"
+                                               VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="2" Grid.Column="1"
                                                Text="{x:Bind ViewModel.DetailHostTemp, Mode=OneWay}"
-                                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                               Style="{StaticResource ST_MonoValueSmall}"
+                                               VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="3" Grid.Column="0" Text="CPU"
-                                               FontSize="12" Opacity="0.55" VerticalAlignment="Center"/>
+                                               Style="{StaticResource ST_RowDescription}"
+                                               VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="3" Grid.Column="1"
                                                Text="{x:Bind ViewModel.DetailHostCpu, Mode=OneWay}"
-                                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                               Style="{StaticResource ST_MonoValueSmall}"
+                                               VerticalAlignment="Center"/>
 
                                     <TextBlock Grid.Row="4" Grid.Column="0" Text="Net TX avg"
-                                               FontSize="12" Opacity="0.55" VerticalAlignment="Center"/>
+                                               Style="{StaticResource ST_RowDescription}"
+                                               VerticalAlignment="Center"/>
                                     <TextBlock Grid.Row="4" Grid.Column="1"
                                                Text="{x:Bind ViewModel.DetailHostNetTx, Mode=OneWay}"
-                                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                               Style="{StaticResource ST_MonoValueSmall}"
+                                               VerticalAlignment="Center"/>
                                 </Grid>
                             </StackPanel>
                         </Border>
                     </Grid>
 
                     <!-- ── Separator ─────────────────────────────────────── -->
-                    <Rectangle Grid.Row="3"
-                               Height="1"
-                               Fill="{ThemeResource DividerStrokeColorDefaultBrush}"
-                               Opacity="0.4"
-                               Margin="0,0,0,8"/>
+                    <Border Grid.Row="3"
+                            Style="{StaticResource ST_Separator}"
+                            Margin="0,0,0,10"/>
 
                     <!-- ── Row 4: Charts section header ──────────────────── -->
-                    <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="8"
-                                Margin="0,0,0,8"
+                    <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="10"
+                                Margin="0,0,0,10"
                                 Visibility="{x:Bind ViewModel.HasChartData, Mode=OneWay,
                                              Converter={StaticResource BoolToVisibilityConverter}}">
-                        <TextBlock Text="Client Charts"
-                                   FontSize="13" FontWeight="SemiBold"/>
+                        <TextBlock Text="CLIENT CHARTS"
+                                   Style="{StaticResource ST_SectionLabel}"/>
                         <TextBlock Text="(click to expand)"
-                                   FontSize="11" Opacity="0.45"
+                                   Style="{StaticResource ST_RowDescription}"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- ── Row 5: Charts 2×2 grid ─────────────────────────── -->
+                    <!-- ── Row 5: Charts 2×2 ─────────────────────────────── -->
                     <Grid Grid.Row="5"
                           ColumnSpacing="12" RowSpacing="12"
                           Visibility="{x:Bind ViewModel.HasChartData, Mode=OneWay,
@@ -523,7 +524,6 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <!-- RTT (ms) — amber/orange -->
                         <Grid Grid.Row="0" Grid.Column="0"
                               Tapped="RttChart_Tapped"
                               ToolTipService.ToolTip="Click to expand">
@@ -534,7 +534,6 @@
                                 DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
                         </Grid>
 
-                        <!-- Frame Drops — red -->
                         <Grid Grid.Row="0" Grid.Column="1"
                               Tapped="DropsChart_Tapped"
                               ToolTipService.ToolTip="Click to expand">
@@ -545,7 +544,6 @@
                                 DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
                         </Grid>
 
-                        <!-- Bitrate (Mbps) — cyan -->
                         <Grid Grid.Row="1" Grid.Column="0"
                               Tapped="BitrateChart_Tapped"
                               ToolTipService.ToolTip="Click to expand">
@@ -556,7 +554,6 @@
                                 DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
                         </Grid>
 
-                        <!-- Decode (ms) — purple -->
                         <Grid Grid.Row="1" Grid.Column="1"
                               Tapped="DecodeChart_Tapped"
                               ToolTipService.ToolTip="Click to expand">
@@ -570,16 +567,13 @@
 
                     <!-- ── Row 6: Games section ──────────────────────────── -->
                     <StackPanel Grid.Row="6"
-                                Margin="0,8,0,0"
-                                Spacing="8"
+                                Margin="0,10,0,0"
+                                Spacing="10"
                                 Visibility="{x:Bind ViewModel.HasDetailGamesSection, Mode=OneWay,
                                              Converter={StaticResource BoolToVisibilityConverter}}">
 
-                        <!-- Label — same style as "Client Charts" -->
-                        <TextBlock Text="Games"
-                                   FontSize="13" FontWeight="SemiBold"/>
+                        <TextBlock Text="GAMES" Style="{StaticResource ST_SectionLabel}"/>
 
-                        <!-- Covers strip — left-aligned, scrollable when many games -->
                         <ScrollViewer HorizontalScrollMode="Auto"
                                       HorizontalScrollBarVisibility="Hidden"
                                       VerticalScrollMode="Disabled"
@@ -596,17 +590,16 @@
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SessionGameCover">
                                         <Border Width="67" Height="100"
-                                                CornerRadius="5"
-                                                Background="{ThemeResource SubtleFillColorTertiaryBrush}"
+                                                CornerRadius="6"
+                                                Background="{StaticResource STBackground}"
                                                 ToolTipService.ToolTip="{x:Bind GameName}">
                                             <Grid>
-                                                <!-- Cover image (once loaded) -->
                                                 <Image Source="{x:Bind CoverImage, Mode=OneWay}"
                                                        Stretch="UniformToFill"
                                                        Visibility="{x:Bind HasNoCover, Mode=OneWay,
                                                                     Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                                                <!-- Name fallback while image loads -->
                                                 <TextBlock Text="{x:Bind GameName}"
+                                                           Style="{StaticResource ST_RowDescription}"
                                                            FontSize="10"
                                                            TextWrapping="Wrap"
                                                            TextAlignment="Center"
@@ -622,11 +615,9 @@
                             </ItemsControl>
                         </ScrollViewer>
 
-                        <!-- No games detected fallback -->
                         <TextBlock Text="No games detected during this session"
-                                   FontSize="12"
+                                   Style="{StaticResource ST_RowDescription}"
                                    FontStyle="Italic"
-                                   Opacity="0.4"
                                    HorizontalAlignment="Center"
                                    Visibility="{x:Bind ViewModel.HasNoDetailGames, Mode=OneWay,
                                                 Converter={StaticResource BoolToVisibilityConverter}}"/>
@@ -634,19 +625,19 @@
 
                     <!-- ── Row 7: Grade bar ───────────────────────────────── -->
                     <Border Grid.Row="7"
-                            Margin="0,12,0,0"
-                            BorderThickness="1" CornerRadius="6"
-                            Padding="14,9"
+                            Margin="0,14,0,0"
+                            BorderThickness="1" CornerRadius="8"
+                            Padding="16,10"
                             BorderBrush="{x:Bind ViewModel.GradeColorHex, Mode=OneWay,
                                          Converter={StaticResource HexToSolidColorBrushConverter}}">
                         <StackPanel Orientation="Horizontal"
                                     HorizontalAlignment="Center"
-                                    Spacing="8">
+                                    Spacing="10">
                             <Ellipse Width="10" Height="10"
                                      VerticalAlignment="Center"
                                      Fill="{x:Bind ViewModel.GradeColorHex, Mode=OneWay,
                                             Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                            <TextBlock FontSize="13" FontWeight="SemiBold"
+                            <TextBlock Style="{StaticResource ST_RowLabel}"
                                        VerticalAlignment="Center">
                                 <Run Text="Streaming quality — "/>
                                 <Run Text="{x:Bind ViewModel.GradeLabel, Mode=OneWay}"/>
@@ -660,37 +651,35 @@
 
 
         <!-- ══════════════════════════════════════════════════════════════════ -->
-        <!-- LAYER 3 — Fullscreen chart (solid, fully covers layers 1+2)       -->
+        <!-- LAYER 3 — Fullscreen chart                                        -->
         <!-- ══════════════════════════════════════════════════════════════════ -->
         <Grid Visibility="{x:Bind ViewModel.IsChartFullscreen, Mode=OneWay,
                             Converter={StaticResource BoolToVisibilityConverter}}"
-              Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+              Background="#E6111010">
 
-            <Border Margin="20,16,20,24"
-                    Background="{ThemeResource LayerFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1" CornerRadius="8">
+            <Border Margin="28,16,28,28"
+                    Style="{StaticResource ST_CardNoPad}">
 
-                <Grid Margin="18,16">
+                <Grid Margin="20,18">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>  <!-- header -->
-                        <RowDefinition Height="Auto"/>  <!-- separator -->
-                        <RowDefinition Height="*"/>     <!-- chart (fills all remaining space) -->
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Header: title + date/duration + close -->
-                    <Grid Grid.Row="0" Margin="0,0,0,10">
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
                             <TextBlock Text="{x:Bind ViewModel.FullscreenChartTitle, Mode=OneWay}"
-                                       FontSize="17" FontWeight="SemiBold"/>
+                                       Style="{StaticResource ST_PageTitle}"/>
                             <TextBlock Text="{x:Bind ViewModel.DetailHeaderSubtitle, Mode=OneWay}"
-                                       FontSize="12" Opacity="0.55"/>
+                                       Style="{StaticResource ST_PageSubtitle}"/>
                         </StackPanel>
                         <Button Grid.Column="1"
+                                Style="{StaticResource ST_ButtonGhost}"
                                 Content="&#xE711;"
                                 FontFamily="{StaticResource SymbolThemeFontFamily}"
                                 FontSize="14" Width="32" Height="32" Padding="0"
@@ -699,13 +688,10 @@
                                 ToolTipService.ToolTip="Close (Esc)"/>
                     </Grid>
 
-                    <Rectangle Grid.Row="1"
-                               Height="1"
-                               Fill="{ThemeResource DividerStrokeColorDefaultBrush}"
-                               Opacity="0.4"
-                               Margin="0,0,0,12"/>
+                    <Border Grid.Row="1"
+                            Style="{StaticResource ST_Separator}"
+                            Margin="0,0,0,14"/>
 
-                    <!-- Full-size chart — fills all remaining vertical space -->
                     <ctl:SparklineControl
                         Grid.Row="2"
                         Title=""

@@ -39,6 +39,13 @@ namespace StreamTweak.Views
         private void ClearSessions_Click(object sender, RoutedEventArgs e)
             => ViewModel.ClearSessions();
 
+        private async void DebugModeToggle_Toggled(object sender, RoutedEventArgs e)
+        {
+            bool isOn = DebugModeToggle.IsOn;
+            if (ViewModel.IsDebugModeActive == isOn) return;
+            await ViewModel.ToggleDebugMode(isOn);
+        }
+
         private void StatusInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
             => ViewModel.HasStatus = false;
     }

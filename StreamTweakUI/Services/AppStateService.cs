@@ -57,6 +57,12 @@ namespace StreamTweak.Services
         /// <summary>Apply a specific speed key on a specific adapter immediately.</summary>
         public Func<string, string, Task>? ApplyAdapterSpeedAction { get; set; }
 
+        /// <summary>Start a synthetic debug session (no NIC throttle, no real stream).</summary>
+        public Func<Task>? StartDebugModeAction { get; set; }
+
+        /// <summary>Stop the active debug session.</summary>
+        public Func<Task>? StopDebugModeAction { get; set; }
+
         // ── Audio monitor live update (wired by App.xaml.cs) ──────────────────
 
         /// <summary>Enable or disable the spatial audio monitor at runtime.</summary>
@@ -99,6 +105,18 @@ namespace StreamTweak.Services
             _currentSpatialAudioStatus = status;
             SpatialAudioStatusChanged?.Invoke(status);
         }
+
+        // ── Live session telemetry (1 sample/sec from StreamLight) ───────────
+
+        /// <summary>
+        /// Fired every second while a session is active and StreamLight is sending data.
+        /// Subscribers must marshal to the UI thread if needed.
+        /// Parameters: rttMs, bitrateMbps, drops (count in this second), fpsAvg.
+        /// </summary>
+        public event Action<float, float, int, float>? LiveTelemetrySample;
+
+        public void RaiseLiveSample(float rttMs, float bitrateMbps, int drops, float fpsAvg)
+            => LiveTelemetrySample?.Invoke(rttMs, bitrateMbps, drops, fpsAvg);
 
         // ── Settings changed notification ─────────────────────────────────────
 

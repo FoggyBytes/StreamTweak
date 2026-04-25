@@ -2,21 +2,24 @@
     x:Class="StreamTweak.Views.NetworkView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Background="Transparent">
+    Background="{StaticResource STBackground}">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="12" Padding="20,16,20,24">
+        <StackPanel Spacing="16" Padding="28,24,28,28">
 
-            <!-- ── Network Adapter card ───────────────────────────────────── -->
-            <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="16,14">
-                <StackPanel Spacing="10">
+            <!-- Page title -->
+            <StackPanel Spacing="3" Margin="0,0,0,4">
+                <TextBlock Text="Network" Style="{StaticResource ST_PageTitle}"/>
+                <TextBlock Text="NIC speed control and Tailscale integration."
+                           Style="{StaticResource ST_PageSubtitle}"/>
+            </StackPanel>
 
-                    <TextBlock Text="Network Adapter"
-                               Style="{StaticResource BodyStrongTextBlockStyle}"/>
+            <!-- ── Network Adapter ───────────────────────────────────────────── -->
+            <Border Style="{StaticResource ST_Card}">
+                <StackPanel Spacing="12">
 
-                    <!-- Loading ring while CIM query runs -->
+                    <TextBlock Text="NETWORK ADAPTER" Style="{StaticResource ST_SectionLabel}"/>
+
                     <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
                                   Width="24" Height="24"
                                   HorizontalAlignment="Left"
@@ -28,43 +31,44 @@
                               HorizontalAlignment="Stretch"
                               IsEnabled="{x:Bind ViewModel.HasAdapters, Mode=OneWay}"/>
 
-                    <!-- Current link speed display (live refresh) -->
                     <StackPanel Orientation="Horizontal" Spacing="6">
                         <TextBlock Text="Current speed:"
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   Opacity="0.7"
+                                   Style="{StaticResource ST_RowDescription}"
                                    VerticalAlignment="Center"/>
                         <TextBlock Text="{x:Bind ViewModel.CurrentSpeedText, Mode=OneWay}"
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   FontWeight="SemiBold"
-                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                   Style="{StaticResource ST_MonoValue}"
+                                   Foreground="{StaticResource STSuccess}"
                                    VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- Warning if no adapters found -->
-                    <InfoBar IsOpen="True"
-                             Severity="Warning"
-                             Title="No physical adapters detected"
-                             Message="Connect a physical Ethernet or Wi-Fi adapter and restart StreamTweak."
-                             IsClosable="False"
-                             Visibility="{x:Bind ViewModel.HasAdapters, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                    <!-- Warning: no adapters found -->
+                    <Border Style="{StaticResource ST_InfoBox}"
+                            Visibility="{x:Bind ViewModel.HasAdapters, Mode=OneWay,
+                                         Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon Glyph="&#xE7BA;" FontSize="13"
+                                      Foreground="{StaticResource STWarning}"
+                                      VerticalAlignment="Top" Margin="0,1,0,0"/>
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="No physical adapters detected"
+                                           Style="{StaticResource ST_RowLabel}"/>
+                                <TextBlock Text="Connect a physical Ethernet or Wi-Fi adapter and restart StreamTweak."
+                                           Style="{StaticResource ST_RowDescription}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
 
                 </StackPanel>
             </Border>
 
-            <!-- ── Target Link Speed card ─────────────────────────────────── -->
-            <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="16,14">
-                <StackPanel Spacing="10">
+            <!-- ── Target Link Speed ─────────────────────────────────────────── -->
+            <Border Style="{StaticResource ST_Card}">
+                <StackPanel Spacing="12">
 
-                    <TextBlock Text="Target Link Speed"
-                               Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock Text="TARGET LINK SPEED" Style="{StaticResource ST_SectionLabel}"/>
 
                     <TextBlock Text="StreamTweak throttles to 1 Gbps at stream start. The list below shows all speeds supported by your adapter."
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Opacity="0.7"
-                               TextWrapping="Wrap"/>
+                               Style="{StaticResource ST_RowDescription}"/>
 
                     <ComboBox ItemsSource="{x:Bind ViewModel.Speeds}"
                               SelectedItem="{x:Bind ViewModel.SelectedSpeed, Mode=TwoWay}"
@@ -72,114 +76,72 @@
                               IsEnabled="{x:Bind ViewModel.HasAdapters, Mode=OneWay}"/>
 
                     <Button Content="Apply Settings"
+                            Style="{StaticResource ST_ButtonPrimary}"
                             Click="ApplySettingsButton_Click"
                             HorizontalAlignment="Left"/>
 
                 </StackPanel>
             </Border>
 
-            <!-- ── Auto Streaming Mode card ───────────────────────────────── -->
-            <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="16,14">
-                <StackPanel Spacing="12">
+            <!-- ── Auto Streaming Mode ───────────────────────────────────────── -->
+            <Border Style="{StaticResource ST_Card}">
+                <StackPanel Spacing="14">
 
-                    <!-- Toggle row -->
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="52"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2"
-                                    Margin="0,0,8,0">
-                            <TextBlock Text="Auto Streaming Mode"
-                                       Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3" Margin="0,0,16,0">
+                            <TextBlock Text="AUTO STREAMING MODE" Style="{StaticResource ST_SectionLabel}"/>
                             <TextBlock Text="Monitors the streaming server log to detect session start/end."
-                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                       Opacity="0.7"
-                                       TextWrapping="Wrap"/>
+                                       Style="{StaticResource ST_RowDescription}"/>
                         </StackPanel>
-                        <!-- Column is fixed to track width only; content presenter
-                             overflow is invisible (null) and clipped by card CornerRadius -->
                         <ToggleSwitch Grid.Column="1"
+                                      Style="{StaticResource ST_Toggle}"
                                       IsOn="{x:Bind ViewModel.AutoStreamingEnabled, Mode=TwoWay}"
-                                      OffContent="{x:Null}" OnContent="{x:Null}"
-                                      MinWidth="0"
-                                      VerticalAlignment="Center"
-                                      HorizontalAlignment="Left"/>
+                                      VerticalAlignment="Center"/>
                     </Grid>
 
-                    <!-- Description -->
-                    <InfoBar IsOpen="True"
-                             Severity="Informational"
-                             Title="How it works"
-                             Message="When a Moonlight stream starts, StreamTweak sets your NIC to 1 Gbps. A brief reconnect will occur. Reconnect within 30 seconds or the original speed is restored automatically."
-                             IsClosable="False"/>
+                    <Border Style="{StaticResource ST_InfoBox}">
+                        <TextBlock Text="When a Moonlight stream starts, StreamTweak sets your NIC to 1 Gbps. A brief reconnect will occur. Reconnect within 30 seconds or the original speed is restored automatically."
+                                   Style="{StaticResource ST_RowDescription}"/>
+                    </Border>
 
-                    <!-- Start / Stop Streaming Mode buttons (mutually exclusive visibility) -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
 
-                        <!-- Green — shown when NOT active -->
-                        <Button Click="ToggleStreamingButton_Click"
-                                Content="Start Streaming Mode"
+                        <Button Content="Start Streaming Mode"
+                                Style="{StaticResource ST_ButtonGreen}"
+                                Click="ToggleStreamingButton_Click"
                                 Visibility="{x:Bind ViewModel.IsStreamingModeActive, Mode=OneWay,
-                                             Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                            <Button.Resources>
-                                <SolidColorBrush x:Key="ButtonBackground"             Color="#2E7D32"/>
-                                <SolidColorBrush x:Key="ButtonBackgroundPointerOver"  Color="#388E3C"/>
-                                <SolidColorBrush x:Key="ButtonBackgroundPressed"      Color="#1B5E20"/>
-                                <SolidColorBrush x:Key="ButtonForeground"             Color="White"/>
-                                <SolidColorBrush x:Key="ButtonForegroundPointerOver"  Color="White"/>
-                                <SolidColorBrush x:Key="ButtonForegroundPressed"      Color="White"/>
-                                <SolidColorBrush x:Key="ButtonBorderBrush"            Color="Transparent"/>
-                                <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="Transparent"/>
-                                <SolidColorBrush x:Key="ButtonBorderBrushPressed"     Color="Transparent"/>
-                            </Button.Resources>
-                        </Button>
+                                             Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
 
-                        <!-- Red — shown when ACTIVE -->
-                        <Button Click="ToggleStreamingButton_Click"
-                                Content="Stop Streaming Mode"
+                        <Button Content="Stop Streaming Mode"
+                                Style="{StaticResource ST_ButtonDanger}"
+                                Click="ToggleStreamingButton_Click"
                                 Visibility="{x:Bind ViewModel.IsStreamingModeActive, Mode=OneWay,
-                                             Converter={StaticResource BoolToVisibilityConverter}}">
-                            <Button.Resources>
-                                <SolidColorBrush x:Key="ButtonBackground"             Color="#B71C1C"/>
-                                <SolidColorBrush x:Key="ButtonBackgroundPointerOver"  Color="#C62828"/>
-                                <SolidColorBrush x:Key="ButtonBackgroundPressed"      Color="#7F0000"/>
-                                <SolidColorBrush x:Key="ButtonForeground"             Color="White"/>
-                                <SolidColorBrush x:Key="ButtonForegroundPointerOver"  Color="White"/>
-                                <SolidColorBrush x:Key="ButtonForegroundPressed"      Color="White"/>
-                                <SolidColorBrush x:Key="ButtonBorderBrush"            Color="Transparent"/>
-                                <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="Transparent"/>
-                                <SolidColorBrush x:Key="ButtonBorderBrushPressed"     Color="Transparent"/>
-                            </Button.Resources>
-                        </Button>
+                                             Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                     </StackPanel>
 
                 </StackPanel>
             </Border>
 
-            <!-- ── Tailscale card ──────────────────────────────────────────── -->
-            <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="16,14">
-                <StackPanel Spacing="10">
+            <!-- ── Tailscale ─────────────────────────────────────────────────── -->
+            <Border Style="{StaticResource ST_Card}">
+                <StackPanel Spacing="12">
 
-                    <TextBlock Text="Tailscale"
-                               Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                    <TextBlock Text="TAILSCALE" Style="{StaticResource ST_SectionLabel}"/>
 
-                    <!-- Status row: icon + IP + copy button + "Copied!" feedback -->
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>  <!-- Tailscale dot icon -->
-                            <ColumnDefinition Width="Auto"/>  <!-- IP text -->
-                            <ColumnDefinition Width="Auto"/>  <!-- copy button -->
-                            <ColumnDefinition Width="Auto"/>  <!-- "Copied!" -->
-                            <ColumnDefinition Width="*"/>     <!-- spacer -->
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Tailscale icon: real EXE icon when available, dot-grid fallback otherwise -->
                         <Image Grid.Column="0"
                                Source="{x:Bind ViewModel.TailscaleIcon, Mode=OneWay}"
                                Width="16" Height="16"
@@ -199,26 +161,23 @@
                             </Canvas>
                         </Viewbox>
 
-                        <!-- IP in accent color (when detected) -->
                         <TextBlock Grid.Column="1"
                                    Text="{x:Bind ViewModel.TailscaleIp, Mode=OneWay}"
-                                   FontSize="13" FontWeight="SemiBold"
+                                   Style="{StaticResource ST_MonoValue}"
+                                   Foreground="{StaticResource STSuccess}"
                                    VerticalAlignment="Center"
-                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                    Visibility="{x:Bind ViewModel.TailscaleDetected, Mode=OneWay,
                                                 Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-                        <!-- "Not detected" dim text (when not installed) -->
                         <TextBlock Grid.Column="1"
                                    Text="Not detected"
-                                   FontSize="13"
+                                   Style="{StaticResource ST_RowDescription}"
                                    VerticalAlignment="Center"
-                                   Opacity="0.45"
                                    Visibility="{x:Bind ViewModel.TailscaleDetected, Mode=OneWay,
                                                 Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
 
-                        <!-- Copy button — only when detected -->
                         <Button Grid.Column="2"
+                                Style="{StaticResource ST_ButtonGhost}"
                                 Width="28" Height="28"
                                 Padding="0"
                                 Margin="8,0,0,0"
@@ -231,21 +190,18 @@
                                       FontSize="13" Glyph="&#xE8C8;"/>
                         </Button>
 
-                        <!-- "Copied!" transient feedback -->
                         <TextBlock Grid.Column="3"
                                    Text="Copied!"
-                                   FontSize="12"
-                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                   Style="{StaticResource ST_RowDescription}"
+                                   Foreground="{StaticResource STSuccess}"
                                    VerticalAlignment="Center"
                                    Margin="8,0,0,0"
                                    Visibility="{x:Bind ViewModel.TailscaleCopiedVisible, Mode=OneWay,
                                                 Converter={StaticResource BoolToVisibilityConverter}}"/>
                     </Grid>
 
-                    <!-- Sub-text only when not detected -->
                     <TextBlock Text="Install Tailscale to see your VPN address here."
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Opacity="0.45" TextWrapping="Wrap"
+                               Style="{StaticResource ST_RowDescription}"
                                Visibility="{x:Bind ViewModel.TailscaleDetected, Mode=OneWay,
                                             Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
 

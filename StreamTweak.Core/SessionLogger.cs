@@ -58,6 +58,13 @@ namespace StreamTweak
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public Dictionary<string, string>? GamesDetectedCoverPaths { get; set; }
 
+        /// <summary>
+        /// True for sessions created by Debug Mode (Settings → Maintenance).
+        /// No real stream occurred; all telemetry data is synthetic.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool IsDebugSession { get; set; } = false;
+
         /// <summary>True when the process monitor ran and detected at least one game.</summary>
         [JsonIgnore] public bool HasGamesDetected    => GamesDetected is { Count: > 0 };
 
@@ -134,25 +141,27 @@ namespace StreamTweak
         // ── UI helpers for WinUI 3 (no WPF converters available in Core) ─────
 
         [JsonIgnore]
-        public bool HasGrade => Grade != null;
+        public bool HasGrade => IsDebugSession || Grade != null;
 
         [JsonIgnore]
-        public string GradeShortLabel => Grade switch
-        {
-            QualityGrade.High   => "Excellent",
-            QualityGrade.Medium => "Good",
-            QualityGrade.Low    => "Poor",
-            _                   => "—"
-        };
+        public string GradeShortLabel => IsDebugSession ? "DEBUG"
+            : Grade switch
+            {
+                QualityGrade.High   => "Excellent",
+                QualityGrade.Medium => "Good",
+                QualityGrade.Low    => "Poor",
+                _                   => "—"
+            };
 
         [JsonIgnore]
-        public string GradeColorHex => Grade switch
-        {
-            QualityGrade.High   => "#FF4CAF50",
-            QualityGrade.Medium => "#FFFFC107",
-            QualityGrade.Low    => "#FFDC4632",
-            _                   => "#FF808080"
-        };
+        public string GradeColorHex => IsDebugSession ? "#FF9E9E9E"
+            : Grade switch
+            {
+                QualityGrade.High   => "#FF4CAF50",
+                QualityGrade.Medium => "#FFFFC107",
+                QualityGrade.Low    => "#FFDC4632",
+                _                   => "#FF808080"
+            };
     }
 
     public static class SessionLogger
@@ -162,10 +171,20 @@ namespace StreamTweak
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "StreamTweak", "sessions.json");
 
+        /// <summary>
+        /// Percorso del checkpoint telemetria scritto ogni 30 s durante una sessione attiva.
+        /// Accessibile da App.xaml.cs per la scrittura periodica e la pulizia.
+        /// </summary>
+        public static readonly string CheckpointPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "StreamTweak", "telemetry_checkpoint.json");
+
         private static readonly object _fileLock = new();
         private static string? _activeSessionId = null;
+        private static DateTime _activeSessionStartTime;
 
-        public static string? ActiveSessionId => _activeSessionId;
+        public static string?  ActiveSessionId        => _activeSessionId;
+        public static DateTime ActiveSessionStartTime => _activeSessionStartTime;
 
         public static void StartSession(string triggerMode, string originalSpeed)
         {
@@ -179,13 +198,27 @@ namespace StreamTweak
                     OriginalSpeed = originalSpeed
                 };
 
-                _activeSessionId = entry.Id;
+                _activeSessionId        = entry.Id;
+                _activeSessionStartTime = entry.StartTime;
                 sessions.Insert(0, entry);
 
                 if (sessions.Count > MaxSessions)
                     sessions = sessions.Take(MaxSessions).ToList();
 
                 Save(sessions);
+            }
+            catch { }
+        }
+
+        public static void MarkActiveSessionAsDebug()
+        {
+            string? sid = _activeSessionId;
+            if (sid == null) return;
+            try
+            {
+                var sessions = Load();
+                var entry = sessions.FirstOrDefault(s => s.Id == sid);
+                if (entry != null) { entry.IsDebugSession = true; Save(sessions); }
             }
             catch { }
         }
@@ -208,14 +241,60 @@ namespace StreamTweak
             {
                 var sessions = Load();
                 bool changed = false;
+                bool usedCheckpoint = false;
+
                 foreach (var s in sessions.Where(s => s.EndTime == null && s.EndReason == null))
                 {
                     s.EndReason = "Interrupted";
+
+                    // Tenta di recuperare la telemetria dal checkpoint periodico.
+                    // Il checkpoint contiene gli stats aggregati fino all'ultimo flush
+                    // (ogni 30 s), scritti atomicamente durante la sessione attiva.
+                    var cp = LoadCheckpoint(s.Id);
+                    s.EndTime = cp?.Timestamp ?? DateTime.Now;
+
+                    if (cp != null && cp.Stats.SampleCount >= 2)
+                    {
+                        s.QualityStats      = cp.Stats;
+                        s.Grade             = (QualityGrade)cp.Grade;
+                        s.RttTimeSeries     = cp.RttSeries.Count     > 0 ? cp.RttSeries     : null;
+                        s.DropsTimeSeries   = cp.DropsSeries.Count   > 0 ? cp.DropsSeries   : null;
+                        s.BitrateTimeSeries = cp.BitrateSeries.Count > 0 ? cp.BitrateSeries : null;
+                        s.DecodeTimeSeries  = cp.DecodeSeries.Count  > 0 ? cp.DecodeSeries  : null;
+                        usedCheckpoint = true;
+                    }
+
                     changed = true;
                 }
-                if (changed) Save(sessions);
+
+                if (changed)
+                {
+                    Save(sessions);
+                    // Rimuove il checkpoint sia che sia stato usato sia che non
+                    // corrisponda alla sessione interrotta (ID diverso → file stale).
+                    if (usedCheckpoint || File.Exists(CheckpointPath))
+                        DeleteCheckpoint();
+                }
             }
             catch { }
+        }
+
+        private static TelemetryCheckpoint? LoadCheckpoint(string sessionId)
+        {
+            try
+            {
+                if (!File.Exists(CheckpointPath)) return null;
+                string json = File.ReadAllText(CheckpointPath);
+                var cp = JsonSerializer.Deserialize<TelemetryCheckpoint>(json);
+                // Verifica corrispondenza ID: checkpoint di sessioni precedenti ignorati.
+                return cp?.SessionId == sessionId ? cp : null;
+            }
+            catch { return null; }
+        }
+
+        private static void DeleteCheckpoint()
+        {
+            try { File.Delete(CheckpointPath); } catch { }
         }
 
         public static void UpdateSessionTelemetry(

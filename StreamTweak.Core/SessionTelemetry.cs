@@ -243,6 +243,26 @@ namespace StreamTweak
         }
     }
 
+    // ── Checkpoint telemetria su disco (recupero dopo shutdown brusco) ───────
+
+    /// <summary>
+    /// Scritto ogni 30 s durante una sessione attiva in
+    /// %LOCALAPPDATA%\StreamTweak\telemetry_checkpoint.json.
+    /// Al riavvio, <see cref="SessionLogger.Initialize"/> lo carica per
+    /// ricostruire i quality stats della sessione "Interrupted".
+    /// </summary>
+    public sealed class TelemetryCheckpoint
+    {
+        public string   SessionId     { get; set; } = "";
+        public DateTime Timestamp     { get; set; }
+        public SessionQualityStats Stats { get; set; } = new();
+        public int      Grade         { get; set; }   // cast di QualityGrade
+        public List<float> RttSeries     { get; set; } = [];
+        public List<float> DropsSeries   { get; set; } = [];
+        public List<float> BitrateSeries { get; set; } = [];
+        public List<float> DecodeSeries  { get; set; } = [];
+    }
+
     // ── Calcolo del grade ─────────────────────────────────────────────────────
 
     public static class QualityGradeCalculator

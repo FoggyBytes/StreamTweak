@@ -14,9 +14,9 @@ namespace StreamTweak.Views
         public HomeViewModel ViewModel { get; } = new HomeViewModel();
 
         private static readonly SolidColorBrush ActiveBrush =
-            new(Color.FromArgb(0xFF, 76, 175, 80));   // #4CAF50 green
+            new(Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E));  // #22c55e — design token STSuccess
         private static readonly SolidColorBrush InactiveBrush =
-            new(Color.FromArgb(0xFF, 0x80, 0x80, 0x80));
+            new(Color.FromArgb(0xFF, 0x44, 0x44, 0x44));  // #444 — design token dim
 
         public HomeView()
         {

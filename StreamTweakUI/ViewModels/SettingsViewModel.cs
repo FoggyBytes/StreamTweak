@@ -14,6 +14,13 @@ namespace StreamTweak.ViewModels
                 ? $"{v.Major}.{v.Minor}.{v.Build}"
                 : "6.0.0";
 
+        private string _streamLightVersion = "Checking…";
+        public string StreamLightVersion
+        {
+            get => _streamLightVersion;
+            private set => SetProperty(ref _streamLightVersion, value);
+        }
+
         // ── Paths ─────────────────────────────────────────────────────────────
 
         public string DataFolderPath { get; } = Path.Combine(
@@ -97,6 +104,35 @@ namespace StreamTweak.ViewModels
             }
         }
 
+        // ── Debug mode ────────────────────────────────────────────────────────
+
+        private bool _isDebugModeActive;
+        public bool IsDebugModeActive
+        {
+            get => _isDebugModeActive;
+            set => SetProperty(ref _isDebugModeActive, value);
+        }
+
+        public async Task ToggleDebugMode(bool activate)
+        {
+            if (activate)
+            {
+                var action = AppStateService.Instance.StartDebugModeAction;
+                if (action != null)
+                {
+                    await action();
+                    IsDebugModeActive = true;
+                    ShowStatus("Debug session started. Check Home and Logs tabs.", isError: false);
+                }
+            }
+            else
+            {
+                AppStateService.Instance.StopDebugModeAction?.Invoke();
+                IsDebugModeActive = false;
+                ShowStatus("Debug session stopped.", isError: false);
+            }
+        }
+
         // ── Status ────────────────────────────────────────────────────────────
 
         private string _statusText = string.Empty;
@@ -138,6 +174,30 @@ namespace StreamTweak.ViewModels
             }
 
             OnPropertyChanged(nameof(StartWithWindows));
+
+            // Fetch StreamLight latest release from GitHub (fire-and-forget)
+            _ = LoadStreamLightVersionAsync();
+        }
+
+        private static readonly HttpClient _httpClient = new();
+
+        private async Task LoadStreamLightVersionAsync()
+        {
+            try
+            {
+                _httpClient.DefaultRequestHeaders.TryAddWithoutValidation(
+                    "User-Agent", "StreamTweak");
+                var json = await _httpClient.GetStringAsync(
+                    "https://api.github.com/repos/FoggyBytes/StreamLight/releases/latest");
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                StreamLightVersion = doc.RootElement.TryGetProperty("tag_name", out var tag)
+                    ? tag.GetString() ?? "N/A"
+                    : "N/A";
+            }
+            catch
+            {
+                StreamLightVersion = "Unavailable";
+            }
         }
 
         public void OpenDataFolder()

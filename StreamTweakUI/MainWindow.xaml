@@ -5,121 +5,126 @@
     xmlns:local="using:StreamTweak"
     Title="StreamTweak">
 
-    <!-- Mica Material: blends the desktop wallpaper into the window background. -->
+    <!-- Mica: blends desktop wallpaper into the dark surfaces semi-trasparenti. -->
     <Window.SystemBackdrop>
         <MicaBackdrop Kind="Base"/>
     </Window.SystemBackdrop>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="32"/>  <!-- title bar strip -->
-            <RowDefinition Height="*"/>   <!-- navigation + content -->
+            <RowDefinition Height="32"/>  <!-- custom title bar strip -->
+            <RowDefinition Height="*"/>   <!-- sidebar + content -->
         </Grid.RowDefinitions>
 
-        <!-- Row 1: NavigationView starts at y=32 so the toggle button (≡) falls
-             naturally below the title bar, with no overlap.
-             IsTitleBarAutoPaddingEnabled="False": no extra padding needed since
-             the NavigationView already starts 32px below the window top. -->
+        <!-- ── ROW 1: NavigationView ─────────────────────────────────────── -->
         <NavigationView x:Name="NavView"
             Grid.Row="1"
             PaneDisplayMode="Left"
             OpenPaneLength="200"
+            CompactPaneLength="52"
             IsPaneToggleButtonVisible="True"
             IsSettingsVisible="False"
             IsBackButtonVisible="Collapsed"
             AlwaysShowHeader="False"
-            SelectionChanged="NavView_SelectionChanged"
-            IsTitleBarAutoPaddingEnabled="False">
+            IsTitleBarAutoPaddingEnabled="False"
+            FontFamily="{StaticResource DMSans}"
+            SelectionChanged="NavView_SelectionChanged">
 
+            <!-- ── MAIN NAV ITEMS ─────────────────────────────────────────── -->
             <NavigationView.MenuItems>
 
                 <NavigationViewItem x:Name="NavHome" Tag="Home" Content="Home">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE80F;"/>
+                        <FontIcon Glyph="&#xE80F;" FontFamily="Segoe MDL2 Assets"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Tag="Network" Content="Network">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE701;" FontFamily="Segoe MDL2 Assets"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Tag="Display" Content="Display">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe MDL2 Assets"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Tag="Audio" Content="Audio">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE767;" FontFamily="Segoe MDL2 Assets"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
                 <NavigationViewItemSeparator/>
 
-                <NavigationViewItem x:Name="NavNetwork" Tag="Network" Content="Network">
+                <NavigationViewItem Tag="Apps" Content="Apps">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE701;"/>
+                        <FontIcon Glyph="&#xE71D;" FontFamily="Segoe MDL2 Assets"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem x:Name="NavDisplay" Tag="Display" Content="Display">
+                <NavigationViewItem Tag="GameLibrary" Content="Game Library">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7F4;"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
-                <NavigationViewItem x:Name="NavAudio" Tag="Audio" Content="Audio">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE767;"/>
+                        <FontIcon Glyph="&#xE7FC;" FontFamily="Segoe MDL2 Assets"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
                 <NavigationViewItemSeparator/>
 
-                <NavigationViewItem x:Name="NavApps" Tag="Apps" Content="Apps">
+                <NavigationViewItem Tag="Logs" Content="Logs">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE71D;"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
-                <NavigationViewItem x:Name="NavGameLibrary" Tag="GameLibrary" Content="Game Library">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7FC;"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
-                <NavigationViewItemSeparator/>
-
-                <NavigationViewItem x:Name="NavLogs" Tag="Logs" Content="Logs">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE9F9;"/>
+                        <FontIcon Glyph="&#xE9F9;" FontFamily="Segoe MDL2 Assets"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
             </NavigationView.MenuItems>
 
-            <!-- Footer: Glossary + Settings -->
+            <!-- ── FOOTER NAV ITEMS (Glossary + Settings) ────────────────── -->
             <NavigationView.FooterMenuItems>
-                <NavigationViewItem x:Name="NavGlossary" Tag="Glossary" Content="Glossary">
+                <NavigationViewItem Tag="Glossary" Content="Glossary">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE82D;"/>
+                        <FontIcon Glyph="&#xE82D;" FontFamily="Segoe MDL2 Assets"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="NavSettings" Tag="Settings" Content="Settings">
+                <NavigationViewItem Tag="Settings" Content="Settings">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE713;"/>
+                        <FontIcon Glyph="&#xE713;" FontFamily="Segoe MDL2 Assets"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
-            <!-- Content area: pages navigate here -->
-            <Frame x:Name="ContentFrame"/>
+            <!-- ── PANE FOOTER: version badge (hidden in compact mode at 52px) -->
+            <NavigationView.PaneFooter>
+                <Border Padding="14,4,14,12">
+                    <TextBlock x:Name="SidebarVersionText"
+                               Style="{StaticResource ST_FooterText}"
+                               Text="v6.1.0 · FoggyBytes"/>
+                </Border>
+            </NavigationView.PaneFooter>
+
+            <!-- Content frame — Transparent so Mica bleeds through the page bg -->
+            <Frame x:Name="ContentFrame" Background="Transparent"/>
 
         </NavigationView>
 
-        <!-- Row 0: full-width 32px title bar. z=last (drawn on top).
-             Icon + name on the left; the right portion is transparent/draggable.
-             Caption buttons (−, □, ×) are placed by AppWindow at the top-right.
-             SetTitleBar() registers this element as the drag region. -->
+        <!-- ── ROW 0: custom title bar ───────────────────────────────────── -->
         <Grid x:Name="AppTitleBar"
               Grid.Row="0"
-              Background="Transparent">
+              Background="{StaticResource STTitlebar}">
             <StackPanel Orientation="Horizontal"
                         VerticalAlignment="Center"
                         Spacing="8" Margin="16,0,0,0"
                         IsHitTestVisible="False">
                 <Image Source="ms-appx:///Resources/streamtweak.ico"
-                       Width="16" Height="16"
+                       Width="14" Height="14"
                        VerticalAlignment="Center"/>
                 <TextBlock Text="StreamTweak"
-                           VerticalAlignment="Center"
+                           FontFamily="{StaticResource DMSans}"
                            FontSize="12"
-                           Opacity="0.9"/>
+                           Foreground="{StaticResource STTextPrimary}"
+                           VerticalAlignment="Center"/>
             </StackPanel>
         </Grid>
 

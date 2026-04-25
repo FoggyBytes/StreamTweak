@@ -18,6 +18,29 @@ namespace StreamTweak
             this.InitializeComponent();
             AppWindow.SetIcon(System.IO.Path.Combine(
                 System.AppContext.BaseDirectory, "Resources", "streamtweak.ico"));
+
+            // Set NavigationView pane background via resource dictionary override.
+            // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
+            // the internal resource keys must be injected at runtime via code-behind.
+            var sidebarBrush = new SolidColorBrush(Colors.Transparent);
+            NavView.Resources["NavigationViewDefaultPaneBackground"]  = sidebarBrush;
+            NavView.Resources["NavigationViewExpandedPaneBackground"] = sidebarBrush;
+            NavView.Resources["NavigationViewTopPaneBackground"]      = sidebarBrush;
+
+            // Selection indicator (left accent bar on active item) — use system accent.
+            // WinUI3 NavigationViewItem template binds the indicator Rectangle.Fill to
+            // NavigationViewSelectionIndicatorForeground; default is AccentFillColorDefaultBrush
+            // which may not match the exact SystemAccentColor used by button styles.
+            var accentBrush = new SolidColorBrush(
+                (Color)Application.Current.Resources["SystemAccentColor"]);
+            NavView.Resources["NavigationViewSelectionIndicatorForeground"] = accentBrush;
+
+            // Override the internal WinUI3 font used by NavigationViewItem labels.
+            // FontFamily inheritance is ignored by the item template; the template
+            // binds to ContentControlThemeFontFamily as a local resource key.
+            NavView.Resources["ContentControlThemeFontFamily"] =
+                new FontFamily("ms-appx:///Resources/DMSans-Regular.ttf#DM Sans");
+
             ConfigureTitleBar();    // sets up AppWindow.TitleBar colours + SetTitleBar()
             ConfigureWindowSize();
 
@@ -31,15 +54,44 @@ namespace StreamTweak
                 _quitDialogOpen = true;
                 try
                 {
+                    var dmSans = new FontFamily("ms-appx:///Resources/DMSans-Regular.ttf#DM Sans");
+
                     var dialog = new ContentDialog
                     {
-                        Title             = "Quit StreamTweak",
-                        Content           = "StreamTweak will stop monitoring streaming sessions.",
+                        Title   = "Quit StreamTweak",
+                        Content = new TextBlock
+                        {
+                            Text         = "StreamTweak will stop monitoring streaming sessions.",
+                            FontFamily   = dmSans,
+                            FontSize     = 13,
+                            Foreground   = new SolidColorBrush(Color.FromArgb(0xFF, 0xC0, 0xBC, 0xB8)),
+                            TextWrapping = TextWrapping.Wrap,
+                        },
                         PrimaryButtonText = "Quit",
                         CloseButtonText   = "Cancel",
                         DefaultButton     = ContentDialogButton.Primary,
                         XamlRoot          = this.Content.XamlRoot,
                     };
+
+                    // Background, border, font.
+                    dialog.Resources["ContentDialogBackground"]       = new SolidColorBrush(Color.FromArgb(0xE6, 0x1d, 0x1b, 0x1a));
+                    dialog.Resources["ContentDialogBorderBrush"]      = new SolidColorBrush(Color.FromArgb(0xFF, 0x2A, 0x27, 0x24));
+                    dialog.Resources["ContentControlThemeFontFamily"] = dmSans;
+
+                    // Primary button (Quit) — override AccentButtonStyle resources,
+                    // which is what WinUI3 ContentDialog actually applies to the primary button.
+                    var dangerFg  = new SolidColorBrush(Color.FromArgb(0xFF, 0xEF, 0x44, 0x44));
+                    var dangerBg  = new SolidColorBrush(Color.FromArgb(0x1A, 0xEF, 0x44, 0x44));
+                    var dangerBdr = new SolidColorBrush(Color.FromArgb(0x40, 0xEF, 0x44, 0x44));
+                    dialog.Resources["AccentButtonBackground"]             = dangerBg;
+                    dialog.Resources["AccentButtonForeground"]             = dangerFg;
+                    dialog.Resources["AccentButtonBorderBrush"]            = dangerBdr;
+                    dialog.Resources["AccentButtonBackgroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0x33, 0xEF, 0x44, 0x44));
+                    dialog.Resources["AccentButtonForegroundPointerOver"]  = dangerFg;
+                    dialog.Resources["AccentButtonBorderBrushPointerOver"] = dangerBdr;
+                    dialog.Resources["AccentButtonBackgroundPressed"]      = new SolidColorBrush(Color.FromArgb(0x55, 0xEF, 0x44, 0x44));
+                    dialog.Resources["AccentButtonForegroundPressed"]      = dangerFg;
+                    dialog.Resources["AccentButtonBorderBrushPressed"]     = dangerBdr;
                     var result = await dialog.ShowAsync();
                     if (result == ContentDialogResult.Primary)
                         ((App)Application.Current).ExitApp();

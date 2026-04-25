@@ -2,17 +2,17 @@
     x:Class="StreamTweak.Views.SettingsView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Background="Transparent">
+    Background="{StaticResource STBackground}">
 
-    <Grid RowSpacing="12">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>  <!-- status bar -->
             <RowDefinition Height="*"/>     <!-- cards -->
         </Grid.RowDefinitions>
 
-        <!-- ── Status InfoBar ────────────────────────────────────────────── -->
+        <!-- Dynamic status InfoBar (keep — closable) -->
         <InfoBar Grid.Row="0"
-                 Margin="20,16,20,0"
+                 Margin="28,24,28,0"
                  IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
                  Severity="{x:Bind ViewModel.StatusIsError, Mode=OneWay,
                             Converter={StaticResource BoolToInfoBarSeverityConverter}}"
@@ -20,17 +20,13 @@
                  IsClosable="True"
                  Closed="StatusInfoBar_Closed"/>
 
-        <!-- ── Cards ─────────────────────────────────────────────────────── -->
         <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
-                      Margin="20,0,20,24">
-            <StackPanel Spacing="12">
+                      Margin="28,12,28,28">
+            <StackPanel Spacing="16">
 
-                <!-- ── About ── -->
-                <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1" CornerRadius="8"
-                        Padding="20,16">
+                <!-- ── About ─────────────────────────────────────────────── -->
+                <Border Style="{StaticResource ST_Card}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -39,52 +35,75 @@
 
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="StreamTweak"
-                                       Style="{StaticResource SubtitleTextBlockStyle}"/>
+                                       Style="{StaticResource ST_PageTitle}"/>
                             <TextBlock Text="{x:Bind ViewModel.AppVersion}"
-                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                       Opacity="0.6"/>
+                                       Style="{StaticResource ST_MonoValueSmall}"/>
                             <TextBlock Text="by FoggyBytes"
-                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                       Opacity="0.4"/>
+                                       Style="{StaticResource ST_RowDescription}"/>
                         </StackPanel>
 
                         <HyperlinkButton Grid.Column="1"
                                          Content="GitHub releases"
                                          NavigateUri="https://github.com/foggybytes/streamtweak/releases"
-                                         VerticalAlignment="Center"/>
+                                         VerticalAlignment="Center"
+                                         Foreground="{StaticResource STTextSecondary}"/>
                     </Grid>
                 </Border>
 
-                <!-- ── Data folder ── -->
-                <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1" CornerRadius="8"
-                        Padding="20,16">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Data"
-                                   Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                <!-- ── StreamLight ────────────────────────────────────────── -->
+                <Border Style="{StaticResource ST_Card}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
 
-                        <!-- Data folder row -->
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="StreamLight"
+                                       Style="{StaticResource ST_PageTitle}"/>
+                            <TextBlock Text="{x:Bind ViewModel.StreamLightVersion, Mode=OneWay}"
+                                       Style="{StaticResource ST_MonoValueSmall}"/>
+                            <TextBlock Text="by FoggyBytes"
+                                       Style="{StaticResource ST_RowDescription}"/>
+                        </StackPanel>
+
+                        <HyperlinkButton Grid.Column="1"
+                                         Content="GitHub releases"
+                                         NavigateUri="https://github.com/FoggyBytes/StreamLight/releases"
+                                         VerticalAlignment="Center"
+                                         Foreground="{StaticResource STTextSecondary}"/>
+                    </Grid>
+                </Border>
+
+                <!-- ── Data ──────────────────────────────────────────────── -->
+                <Border Style="{StaticResource ST_Card}">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="DATA" Style="{StaticResource ST_SectionLabel}"/>
+
+                        <Border Style="{StaticResource ST_Separator}"/>
+
+                        <!-- App data folder row -->
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Spacing="2">
+                            <StackPanel Grid.Column="0" Spacing="3">
                                 <TextBlock Text="App data folder"
-                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                           Opacity="0.6"/>
+                                           Style="{StaticResource ST_RowDescription}"/>
                                 <TextBlock Text="{x:Bind ViewModel.DataFolderPath}"
-                                           FontSize="12"
-                                           TextTrimming="CharacterEllipsis"
-                                           Opacity="0.85"/>
+                                           Style="{StaticResource ST_MonoValueSmall}"
+                                           TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
                             <Button Grid.Column="1"
                                     Content="Open"
+                                    Style="{StaticResource ST_ButtonSecondary}"
                                     VerticalAlignment="Center"
-                                    Margin="12,0,0,0"
+                                    Margin="14,0,0,0"
                                     Click="OpenDataFolder_Click"/>
                         </Grid>
+
+                        <Border Style="{StaticResource ST_Separator}"/>
 
                         <!-- Log folder row -->
                         <Grid>
@@ -92,50 +111,45 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Spacing="2">
+                            <StackPanel Grid.Column="0" Spacing="3">
                                 <TextBlock Text="Streaming server log folder"
-                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                           Opacity="0.6"/>
+                                           Style="{StaticResource ST_RowDescription}"/>
                                 <TextBlock Text="{x:Bind ViewModel.LogFolderPath, Mode=OneWay}"
-                                           FontSize="12"
-                                           TextTrimming="CharacterEllipsis"
-                                           Opacity="0.85"/>
+                                           Style="{StaticResource ST_MonoValueSmall}"
+                                           TextTrimming="CharacterEllipsis"/>
                             </StackPanel>
                             <Button Grid.Column="1"
                                     Content="Open"
+                                    Style="{StaticResource ST_ButtonSecondary}"
                                     VerticalAlignment="Center"
-                                    Margin="12,0,0,0"
+                                    Margin="14,0,0,0"
                                     Click="OpenLogFolder_Click"/>
                         </Grid>
                     </StackPanel>
                 </Border>
 
-                <!-- ── Streaming server ── -->
-                <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1" CornerRadius="8"
-                        Padding="20,16">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Streaming server"
-                                   Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                <!-- ── Streaming server ──────────────────────────────────── -->
+                <Border Style="{StaticResource ST_Card}">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="STREAMING SERVER" Style="{StaticResource ST_SectionLabel}"/>
 
-                        <!-- Detected server name + GitHub link -->
+                        <Border Style="{StaticResource ST_Separator}"/>
+
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                            <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
                                 <TextBlock Text="Detected server"
-                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                           Opacity="0.6"/>
+                                           Style="{StaticResource ST_RowDescription}"/>
                                 <TextBlock Text="{x:Bind ViewModel.ServerName, Mode=OneWay}"
-                                           FontSize="13"
-                                           Opacity="0.9"/>
+                                           Style="{StaticResource ST_RowLabel}"/>
                             </StackPanel>
                             <HyperlinkButton Grid.Column="1"
                                              Content="GitHub"
                                              Click="OpenServerRepo_Click"
+                                             Foreground="{StaticResource STTextSecondary}"
                                              Visibility="{x:Bind ViewModel.HasServerRepo, Mode=OneWay,
                                                           Converter={StaticResource BoolToVisibilityConverter}}"
                                              VerticalAlignment="Center"/>
@@ -143,60 +157,73 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ── Behavior ── -->
-                <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1" CornerRadius="8"
-                        Padding="20,16">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Behavior"
-                                   Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                <!-- ── Behavior ──────────────────────────────────────────── -->
+                <Border Style="{StaticResource ST_Card}">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="BEHAVIOR" Style="{StaticResource ST_SectionLabel}"/>
 
-                        <!-- Start with Windows toggle -->
+                        <Border Style="{StaticResource ST_Separator}"/>
+
+                        <!-- Start with Windows -->
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="52"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" VerticalAlignment="Center"
-                                        Spacing="2" Margin="0,0,8,0">
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3" Margin="0,0,16,0">
                                 <TextBlock Text="Start with Windows"
-                                           Style="{StaticResource BodyTextBlockStyle}"/>
+                                           Style="{StaticResource ST_RowLabel}"/>
                                 <TextBlock Text="Launch StreamTweak automatically when you log in."
-                                           Style="{StaticResource CaptionTextBlockStyle}"
-                                           Opacity="0.6"
-                                           TextWrapping="Wrap"/>
+                                           Style="{StaticResource ST_RowDescription}"/>
                             </StackPanel>
                             <ToggleSwitch Grid.Column="1"
+                                          Style="{StaticResource ST_Toggle}"
                                           IsOn="{x:Bind ViewModel.StartWithWindows, Mode=TwoWay}"
-                                          OffContent="{x:Null}" OnContent="{x:Null}"
-                                          MinWidth="0"
-                                          VerticalAlignment="Center"
-                                          HorizontalAlignment="Left"/>
+                                          VerticalAlignment="Center"/>
                         </Grid>
                     </StackPanel>
                 </Border>
 
-                <!-- ── Maintenance ── -->
-                <Border Background="{ThemeResource LayerFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1" CornerRadius="8"
-                        Padding="20,16">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="Maintenance"
-                                   Style="{StaticResource BodyStrongTextBlockStyle}"/>
+                <!-- ── Maintenance ───────────────────────────────────────── -->
+                <Border Style="{StaticResource ST_Card}">
+                    <StackPanel Spacing="14">
+                        <TextBlock Text="MAINTENANCE" Style="{StaticResource ST_SectionLabel}"/>
+
+                        <Border Style="{StaticResource ST_Separator}"/>
+
+                        <!-- Debug Mode -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3" Margin="0,0,16,0">
+                                <TextBlock Text="Debug Mode"
+                                           Style="{StaticResource ST_RowLabel}"/>
+                                <TextBlock Text="Simulates an active streaming session for UI testing. No NIC changes are made."
+                                           Style="{StaticResource ST_RowDescription}"/>
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1"
+                                          x:Name="DebugModeToggle"
+                                          Style="{StaticResource ST_Toggle}"
+                                          IsOn="{x:Bind ViewModel.IsDebugModeActive, Mode=OneWay}"
+                                          Toggled="DebugModeToggle_Toggled"
+                                          VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource ST_Separator}"/>
 
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button Content="Open debug log"
+                                    Style="{StaticResource ST_ButtonSecondary}"
                                     Click="OpenDebugLog_Click"/>
                             <Button Content="Clear session history"
+                                    Style="{StaticResource ST_ButtonDanger}"
                                     Click="ClearSessions_Click"/>
                         </StackPanel>
 
                         <TextBlock Text="Session history is stored in sessions.json in the app data folder. Clearing it is permanent."
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   Opacity="0.55"
-                                   TextWrapping="Wrap"/>
+                                   Style="{StaticResource ST_RowDescription}"/>
                     </StackPanel>
                 </Border>
 

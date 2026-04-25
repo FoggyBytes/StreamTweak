@@ -1,0 +1,329 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:StreamTweak.Converters">
+
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         STREAMTWEAK DESIGN SYSTEM — v6.0 Redesign
+         Tutti i valori in pixel logici (device-independent).
+         CharacterSpacing: unità 1/1000 em  (0.08em = 80, -0.02em = -20)
+    ════════════════════════════════════════════════════════════════════════ -->
+
+    <!-- ── FONTS ─────────────────────────────────────────────────────── -->
+    <FontFamily x:Key="DMSans">ms-appx:///Resources/DMSans-Regular.ttf#DM Sans</FontFamily>
+    <FontFamily x:Key="DMSansMedium">ms-appx:///Resources/DMSans-Medium.ttf#DM Sans</FontFamily>
+    <FontFamily x:Key="DMSansSemiBold">ms-appx:///Resources/DMSans-SemiBold.ttf#DM Sans</FontFamily>
+    <FontFamily x:Key="JetBrainsMono">ms-appx:///Resources/JetBrainsMono-Regular.ttf#JetBrains Mono</FontFamily>
+    <FontFamily x:Key="JetBrainsMonoMedium">ms-appx:///Resources/JetBrainsMono-Medium.ttf#JetBrains Mono</FontFamily>
+
+    <!-- ── COLOR TOKENS ──────────────────────────────────────────────────────── -->
+    <!-- Superfici — semi-trasparenti per lasciare filtrare Mica.
+         Alpha ridotto (50–88%) per lasciare emergere l'effetto Mica Base. -->
+    <SolidColorBrush x:Key="STBackground"     Color="#80111010"/>
+    <SolidColorBrush x:Key="STSidebar"        Color="Transparent"/>
+    <SolidColorBrush x:Key="STCard"           Color="#99111010"/>
+    <SolidColorBrush x:Key="STInput"          Color="#CC242220"/>
+    <SolidColorBrush x:Key="STTitlebar"       Color="Transparent"/>
+
+    <!-- Bordi -->
+    <SolidColorBrush x:Key="STBorder"         Color="#2a2724"/>
+    <SolidColorBrush x:Key="STBorderSubtle"   Color="#1a1815"/>
+    <SolidColorBrush x:Key="STBorderActive"   Color="#59379957"/>
+
+    <!-- Testo -->
+    <SolidColorBrush x:Key="STTextPrimary"    Color="#f0eeec"/>
+    <SolidColorBrush x:Key="STTextSecondary"  Color="#c0bcb8"/>
+    <SolidColorBrush x:Key="STTextMuted"      Color="#888480"/>
+    <SolidColorBrush x:Key="STTextDim"        Color="#6e6b68"/>
+    <SolidColorBrush x:Key="STTextGhost"      Color="#3a3835"/>
+
+    <!-- Semantici -->
+    <SolidColorBrush x:Key="STSuccess"        Color="#22c55e"/>
+    <SolidColorBrush x:Key="STWarning"        Color="#f59e0b"/>
+    <SolidColorBrush x:Key="STDanger"         Color="#ef4444"/>
+
+    <!-- Accent puro (SystemAccentColor, non la variante Light2 usata da WinUI3 di default) -->
+    <SolidColorBrush x:Key="STAccent"         Color="{ThemeResource SystemAccentColor}"/>
+
+    <!-- Badge backgrounds (a bassa opacità) -->
+    <SolidColorBrush x:Key="STBadgeGreenBg"   Color="#2622c55e"/>
+    <SolidColorBrush x:Key="STBadgeGreenBdr"  Color="#4D22c55e"/>
+    <SolidColorBrush x:Key="STBadgeGrayBg"    Color="#0FFFFFFF"/>
+    <SolidColorBrush x:Key="STBadgeGrayBdr"   Color="#1AFFFFFF"/>
+    <SolidColorBrush x:Key="STBadgeRedBg"     Color="#26ef4444"/>
+    <SolidColorBrush x:Key="STBadgeRedBdr"    Color="#4Def4444"/>
+
+    <!-- Banner sessione attiva -->
+    <SolidColorBrush x:Key="STActiveSessionBg"  Color="#1022c55e"/>
+    <SolidColorBrush x:Key="STNicNoticeBg"       Color="#0F22c55e"/>
+
+    <!-- ── TYPOGRAPHY ──────────────────────────────────────────────────────── -->
+
+    <!-- Page title: DM Sans SemiBold 20px -->
+    <Style x:Key="ST_PageTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily"        Value="{StaticResource DMSansSemiBold}"/>
+        <Setter Property="FontSize"          Value="20"/>
+        <Setter Property="Foreground"        Value="{StaticResource STTextPrimary}"/>
+        <Setter Property="CharacterSpacing"  Value="-20"/>
+    </Style>
+
+    <!-- Page subtitle: DM Sans 13px muted -->
+    <Style x:Key="ST_PageSubtitle" TargetType="TextBlock">
+        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
+        <Setter Property="FontSize"    Value="13"/>
+        <Setter Property="Foreground"  Value="{StaticResource STTextDim}"/>
+    </Style>
+
+    <!-- Card / section header label: DM Sans SemiBold 11px uppercase -->
+    <Style x:Key="ST_SectionLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily"        Value="{StaticResource DMSansSemiBold}"/>
+        <Setter Property="FontSize"          Value="11"/>
+        <Setter Property="Foreground"        Value="{StaticResource STTextPrimary}"/>
+        <Setter Property="CharacterSpacing"  Value="80"/>
+    </Style>
+
+    <!-- Row label: DM Sans Medium 14px -->
+    <Style x:Key="ST_RowLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily"  Value="{StaticResource DMSansMedium}"/>
+        <Setter Property="FontSize"    Value="14"/>
+        <Setter Property="Foreground"  Value="#e8e4e0"/>
+    </Style>
+
+    <!-- Row description: DM Sans 12px muted -->
+    <Style x:Key="ST_RowDescription" TargetType="TextBlock">
+        <Setter Property="FontFamily"    Value="{StaticResource DMSans}"/>
+        <Setter Property="FontSize"      Value="12"/>
+        <Setter Property="Foreground"    Value="{StaticResource STTextDim}"/>
+        <Setter Property="TextWrapping"  Value="Wrap"/>
+    </Style>
+
+    <!-- Body text: DM Sans 13px secondary -->
+    <Style x:Key="ST_Body" TargetType="TextBlock">
+        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
+        <Setter Property="FontSize"    Value="13"/>
+        <Setter Property="Foreground"  Value="{StaticResource STTextSecondary}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+
+    <!-- Small body text: DM Sans 12px muted -->
+    <Style x:Key="ST_BodySmall" TargetType="TextBlock">
+        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
+        <Setter Property="FontSize"    Value="12"/>
+        <Setter Property="Foreground"  Value="{StaticResource STTextMuted}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+
+    <!-- Mono value: JetBrains Mono 13px -->
+    <Style x:Key="ST_MonoValue" TargetType="TextBlock">
+        <Setter Property="FontFamily"  Value="{StaticResource JetBrainsMono}"/>
+        <Setter Property="FontSize"    Value="13"/>
+        <Setter Property="Foreground"  Value="{StaticResource STTextSecondary}"/>
+    </Style>
+
+    <!-- Mono value small: JetBrains Mono 12px -->
+    <Style x:Key="ST_MonoValueSmall" TargetType="TextBlock">
+        <Setter Property="FontFamily"  Value="{StaticResource JetBrainsMono}"/>
+        <Setter Property="FontSize"    Value="12"/>
+        <Setter Property="Foreground"  Value="{StaticResource STTextSecondary}"/>
+    </Style>
+
+    <!-- Mono hero: JetBrains Mono Medium 22px — live metrics grandi -->
+    <Style x:Key="ST_MonoHero" TargetType="TextBlock">
+        <Setter Property="FontFamily"        Value="{StaticResource JetBrainsMonoMedium}"/>
+        <Setter Property="FontSize"          Value="22"/>
+        <Setter Property="Foreground"        Value="{StaticResource STTextPrimary}"/>
+        <Setter Property="CharacterSpacing"  Value="-20"/>
+    </Style>
+
+    <!-- Mono medium: JetBrains Mono 18px — last session header -->
+    <Style x:Key="ST_MonoMedium" TargetType="TextBlock">
+        <Setter Property="FontFamily"        Value="{StaticResource JetBrainsMonoMedium}"/>
+        <Setter Property="FontSize"          Value="18"/>
+        <Setter Property="Foreground"        Value="{StaticResource STTextPrimary}"/>
+        <Setter Property="CharacterSpacing"  Value="-20"/>
+    </Style>
+
+    <!-- Badge text: JetBrains Mono 12px Medium -->
+    <Style x:Key="ST_BadgeText" TargetType="TextBlock">
+        <Setter Property="FontFamily"  Value="{StaticResource JetBrainsMonoMedium}"/>
+        <Setter Property="FontSize"    Value="12"/>
+    </Style>
+
+    <!-- Footer ghost text: DM Sans 12px ghost -->
+    <Style x:Key="ST_FooterText" TargetType="TextBlock">
+        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
+        <Setter Property="FontSize"    Value="12"/>
+        <Setter Property="Foreground"  Value="{StaticResource STTextDim}"/>
+    </Style>
+
+    <!-- ── CARD CONTAINERS ──────────────────────────────────────────────────── -->
+
+    <!-- Card standard: 10px radius, 20px padding, semi-trasparente -->
+    <Style x:Key="ST_Card" TargetType="Border">
+        <Setter Property="Background"       Value="{StaticResource STCard}"/>
+        <Setter Property="BorderBrush"      Value="{StaticResource STBorder}"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+        <Setter Property="CornerRadius"     Value="10"/>
+        <Setter Property="Padding"          Value="20"/>
+    </Style>
+
+    <!-- Card no-padding (per liste con item border-bottom) -->
+    <Style x:Key="ST_CardNoPad" TargetType="Border">
+        <Setter Property="Background"       Value="{StaticResource STCard}"/>
+        <Setter Property="BorderBrush"      Value="{StaticResource STBorder}"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+        <Setter Property="CornerRadius"     Value="10"/>
+    </Style>
+
+    <!-- Card sessione attiva: border verde -->
+    <Style x:Key="ST_CardActive" TargetType="Border">
+        <Setter Property="Background"       Value="{StaticResource STCard}"/>
+        <Setter Property="BorderBrush"      Value="{StaticResource STBorderActive}"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+        <Setter Property="CornerRadius"     Value="10"/>
+        <Setter Property="Padding"          Value="20"/>
+    </Style>
+
+    <!-- Input container: sfondo #242220 -->
+    <Style x:Key="ST_InputBorder" TargetType="Border">
+        <Setter Property="Background"       Value="{StaticResource STInput}"/>
+        <Setter Property="BorderBrush"      Value="{StaticResource STBorder}"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+        <Setter Property="CornerRadius"     Value="8"/>
+        <Setter Property="Padding"          Value="14,12"/>
+    </Style>
+
+    <!-- ── BUTTON STYLES ────────────────────────────────────────────────────── -->
+    <!-- Nota: imposta le proprietà visive base; gli stati hover/pressed
+         usano le variazioni di opacità native di WinUI3 che sono accettabili. -->
+
+    <!-- Primary: accent color di sistema, testo bianco -->
+    <Style x:Key="ST_ButtonPrimary" TargetType="Button">
+        <Setter Property="FontFamily"       Value="{StaticResource DMSansMedium}"/>
+        <Setter Property="FontSize"         Value="13"/>
+        <Setter Property="Padding"          Value="14,6"/>
+        <Setter Property="CornerRadius"     Value="6"/>
+        <Setter Property="Background"       Value="{ThemeResource SystemAccentColor}"/>
+        <Setter Property="Foreground"       Value="White"/>
+        <Setter Property="BorderThickness"  Value="0"/>
+    </Style>
+
+    <!-- Secondary: sfondo bianco 7%, testo secondary -->
+    <Style x:Key="ST_ButtonSecondary" TargetType="Button">
+        <Setter Property="FontFamily"       Value="{StaticResource DMSansMedium}"/>
+        <Setter Property="FontSize"         Value="13"/>
+        <Setter Property="Padding"          Value="14,6"/>
+        <Setter Property="CornerRadius"     Value="6"/>
+        <Setter Property="Background"       Value="#12FFFFFF"/>
+        <Setter Property="Foreground"       Value="{StaticResource STTextSecondary}"/>
+        <Setter Property="BorderBrush"      Value="#1AFFFFFF"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+    </Style>
+
+    <!-- Ghost: trasparente, testo dim -->
+    <Style x:Key="ST_ButtonGhost" TargetType="Button">
+        <Setter Property="FontFamily"       Value="{StaticResource DMSansMedium}"/>
+        <Setter Property="FontSize"         Value="13"/>
+        <Setter Property="Padding"          Value="14,6"/>
+        <Setter Property="CornerRadius"     Value="6"/>
+        <Setter Property="Background"       Value="Transparent"/>
+        <Setter Property="Foreground"       Value="{StaticResource STTextMuted}"/>
+        <Setter Property="BorderBrush"      Value="#14FFFFFF"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+    </Style>
+
+    <!-- Green: start streaming -->
+    <Style x:Key="ST_ButtonGreen" TargetType="Button">
+        <Setter Property="FontFamily"       Value="{StaticResource DMSansMedium}"/>
+        <Setter Property="FontSize"         Value="13"/>
+        <Setter Property="Padding"          Value="14,6"/>
+        <Setter Property="CornerRadius"     Value="6"/>
+        <Setter Property="Background"       Value="#1F22c55e"/>
+        <Setter Property="Foreground"       Value="#22c55e"/>
+        <Setter Property="BorderBrush"      Value="#4D22c55e"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+    </Style>
+
+    <!-- Danger: stop / clear -->
+    <Style x:Key="ST_ButtonDanger" TargetType="Button">
+        <Setter Property="FontFamily"       Value="{StaticResource DMSansMedium}"/>
+        <Setter Property="FontSize"         Value="13"/>
+        <Setter Property="Padding"          Value="14,6"/>
+        <Setter Property="CornerRadius"     Value="6"/>
+        <Setter Property="Background"       Value="#1Aef4444"/>
+        <Setter Property="Foreground"       Value="#ef4444"/>
+        <Setter Property="BorderBrush"      Value="#40ef4444"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+    </Style>
+
+    <!-- ── TOGGLE SWITCH ─────────────────────────────────────────────────────
+         Override dei resource WinUI3 usati internamente da ToggleSwitch.
+         OnContent/OffContent vanno impostati a "" nel XAML.
+         Fill/Stroke On → SystemAccentColor (WinUI3 usa Light2 di default).
+         ToggleSwitchThemeMinWidth: WinUI3 riserva 154px (spazio On/Off label).
+         Impostarlo a 0 fa sì che il controllo occupi solo la track (~40px),
+         eliminando il "blue box" vuoto alla destra dell'interruttore.
+    ────────────────────────────────────────────────────────────────────────── -->
+    <x:Double x:Key="ToggleSwitchThemeMinWidth">0</x:Double>
+
+    <SolidColorBrush x:Key="ToggleSwitchFillOn"               Color="{ThemeResource SystemAccentColor}"/>
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver"    Color="{ThemeResource SystemAccentColorLight1}"/>
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPressed"        Color="{ThemeResource SystemAccentColorDark1}"/>
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOn"             Color="{ThemeResource SystemAccentColor}"/>
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver"  Color="{ThemeResource SystemAccentColorLight1}"/>
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed"      Color="{ThemeResource SystemAccentColorDark1}"/>
+
+    <Style x:Key="ST_Toggle" TargetType="ToggleSwitch">
+        <Setter Property="OnContent"        Value=""/>
+        <Setter Property="OffContent"       Value=""/>
+        <Setter Property="FontFamily"       Value="{StaticResource DMSans}"/>
+        <Setter Property="MinWidth"         Value="0"/>
+        <Setter Property="Margin"           Value="0"/>
+        <Setter Property="Padding"          Value="0"/>
+    </Style>
+
+    <!-- ── INFO BOX (callout accent-tinted) ─────────────────────────────────── -->
+    <Style x:Key="ST_InfoBox" TargetType="Border">
+        <Setter Property="Background"       Value="#14C8562A"/>
+        <Setter Property="BorderBrush"      Value="#33C8562A"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+        <Setter Property="CornerRadius"     Value="8"/>
+        <Setter Property="Padding"          Value="14,10"/>
+    </Style>
+
+    <!-- ── SECTION SEPARATOR ─────────────────────────────────────────────────── -->
+    <Style x:Key="ST_Separator" TargetType="Border">
+        <Setter Property="Background"      Value="{StaticResource STBorderSubtle}"/>
+        <Setter Property="Height"          Value="1"/>
+        <Setter Property="HorizontalAlignment" Value="Stretch"/>
+    </Style>
+
+    <!-- ── BANNER SESSIONE ATTIVA (Network, Home NIC notice) ─────────────────── -->
+    <Style x:Key="ST_ActiveBanner" TargetType="Border">
+        <Setter Property="Background"       Value="#1022c55e"/>
+        <Setter Property="BorderBrush"      Value="#4022c55e"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+        <Setter Property="CornerRadius"     Value="9"/>
+        <Setter Property="Padding"          Value="16,10"/>
+    </Style>
+
+    <!-- ── QUICK STAT TILE (Home page 3-col grid) ───────────────────────────── -->
+    <Style x:Key="ST_StatTile" TargetType="Button">
+        <Setter Property="FontFamily"       Value="{StaticResource DMSans}"/>
+        <Setter Property="Background"       Value="{StaticResource STCard}"/>
+        <Setter Property="BorderBrush"      Value="{StaticResource STBorder}"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+        <Setter Property="CornerRadius"     Value="9"/>
+        <Setter Property="Padding"          Value="16,14"/>
+        <Setter Property="HorizontalAlignment"      Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Left"/>
+    </Style>
+
+    <!-- ── GLOBAL CONVERTERS ─────────────────────────────────────────── -->
+    <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+    <converters:HexToSolidColorBrushConverter x:Key="HexToSolidColorBrushConverter"/>
+    <converters:BoolToInfoBarSeverityConverter x:Key="BoolToInfoBarSeverityConverter"/>
+    <converters:GameNameToCoverConverter x:Key="GameNameToCoverConverter"/>
+
+</ResourceDictionary>

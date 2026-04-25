@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using StreamTweak.Services;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
+using Windows.UI;
 
 
 namespace StreamTweak.ViewModels
@@ -118,7 +119,11 @@ namespace StreamTweak.ViewModels
         public bool IsSessionActive
         {
             get => _isSessionActive;
-            private set => SetProperty(ref _isSessionActive, value);
+            private set
+            {
+                if (SetProperty(ref _isSessionActive, value))
+                    OnPropertyChanged(nameof(ShowLastSession));
+            }
         }
 
         // ── Last session ──────────────────────────────────────────────────────
@@ -127,8 +132,15 @@ namespace StreamTweak.ViewModels
         public bool HasLastSession
         {
             get => _hasLastSession;
-            private set => SetProperty(ref _hasLastSession, value);
+            private set
+            {
+                if (SetProperty(ref _hasLastSession, value))
+                    OnPropertyChanged(nameof(ShowLastSession));
+            }
         }
+
+        /// <summary>True when there is a completed session AND no session is currently active.</summary>
+        public bool ShowLastSession => _hasLastSession && !_isSessionActive;
 
         private string _lastSessionDate = string.Empty;
         public string LastSessionDate
@@ -200,6 +212,83 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _hasNoGamesDetected, value);
         }
 
+        // ── Live session ──────────────────────────────────────────────────────
+
+        private const int LiveWindowSize = 30;
+
+        // Rolling buffers — replaced by new List on each sample to trigger x:Bind redraw.
+        private readonly List<float> _rttBuffer      = new();
+        private readonly List<float> _bitrateBuffer  = new();
+        private readonly List<int>   _dropsBuffer    = new();
+        private readonly List<float> _fpsBuffer      = new();
+
+        private DispatcherQueueTimer? _durationTimer;
+
+        private string _liveDuration = "0m 0s";
+        public string LiveDuration
+        {
+            get => _liveDuration;
+            private set => SetProperty(ref _liveDuration, value);
+        }
+
+        private string _liveStartedAt = string.Empty;
+        public string LiveStartedAt
+        {
+            get => _liveStartedAt;
+            private set => SetProperty(ref _liveStartedAt, value);
+        }
+
+        private string _liveDropPct = "0.00%";
+        public string LiveDropPct
+        {
+            get => _liveDropPct;
+            private set => SetProperty(ref _liveDropPct, value);
+        }
+
+        private IReadOnlyList<float> _liveRttSeries = Array.Empty<float>();
+        public IReadOnlyList<float> LiveRttSeries
+        {
+            get => _liveRttSeries;
+            private set => SetProperty(ref _liveRttSeries, value);
+        }
+
+        private IReadOnlyList<float> _liveBitrateSeries = Array.Empty<float>();
+        public IReadOnlyList<float> LiveBitrateSeries
+        {
+            get => _liveBitrateSeries;
+            private set => SetProperty(ref _liveBitrateSeries, value);
+        }
+
+        // RTT current value + adaptive color (thresholds: ≤30ms green / ≤80ms amber / >80ms red)
+        private string _liveRttValue = "—";
+        public string LiveRttValue
+        {
+            get => _liveRttValue;
+            private set => SetProperty(ref _liveRttValue, value);
+        }
+
+        private string _liveRttColorHex = "#808080";
+        public string LiveRttColorHex
+        {
+            get => _liveRttColorHex;
+            private set => SetProperty(ref _liveRttColorHex, value);
+        }
+
+        private Color _liveRttLineColor = Color.FromArgb(0xFF, 0x80, 0x80, 0x80);
+        public Color LiveRttLineColor
+        {
+            get => _liveRttLineColor;
+            private set => SetProperty(ref _liveRttLineColor, value);
+        }
+
+        // Bitrate current value (always cyan — color is fixed in XAML)
+        private string _liveBitrateValue = "—";
+        public string LiveBitrateValue
+        {
+            get => _liveBitrateValue;
+            private set => SetProperty(ref _liveBitrateValue, value);
+        }
+
         // ── Status tiles ──────────────────────────────────────────────────────
 
         private string _nicSpeedText = "—";
@@ -213,21 +302,38 @@ namespace StreamTweak.ViewModels
         public string AutoStreamingText
         {
             get => _autoStreamingText;
-            private set => SetProperty(ref _autoStreamingText, value);
+            private set
+            {
+                if (SetProperty(ref _autoStreamingText, value))
+                    OnPropertyChanged(nameof(AutoStreamingColorHex));
+            }
         }
+
+        public string AutoStreamingColorHex =>
+            _autoStreamingText == "On" ? "#22c55e" : "#ef4444";
 
         private string _hdrText = "—";
         public string HdrText
         {
             get => _hdrText;
-            private set => SetProperty(ref _hdrText, value);
+            private set
+            {
+                if (SetProperty(ref _hdrText, value))
+                    OnPropertyChanged(nameof(HdrColorHex));
+            }
         }
+
+        public string HdrColorHex =>
+            _hdrText == "On" ? "#22c55e" : "#ef4444";
 
         private string _spatialAudioText = "Off";
         public string SpatialAudioText
         {
             get => _spatialAudioText;
-            private set => SetProperty(ref _spatialAudioText, value);
+            private set
+            {
+                SetProperty(ref _spatialAudioText, value);
+            }
         }
 
         private string _gameLibraryText = "—";
@@ -254,8 +360,15 @@ namespace StreamTweak.ViewModels
         public string AutoHdrText
         {
             get => _autoHdrText;
-            private set => SetProperty(ref _autoHdrText, value);
+            private set
+            {
+                if (SetProperty(ref _autoHdrText, value))
+                    OnPropertyChanged(nameof(AutoHdrColorHex));
+            }
         }
+
+        public string AutoHdrColorHex =>
+            _autoHdrText == "On" ? "#22c55e" : "#ef4444";
 
         // ── Spatial audio live activation status ──────────────────────────────
 
@@ -315,6 +428,10 @@ namespace StreamTweak.ViewModels
             IsSessionActive = AppStateService.Instance.IsSessionActive;
             AppStateService.Instance.SessionStateChanged       += OnSessionStateChanged;
             AppStateService.Instance.SpatialAudioStatusChanged += OnSpatialAudioStatusChanged;
+            AppStateService.Instance.LiveTelemetrySample       += OnLiveSample;
+
+            if (IsSessionActive)
+                StartLiveSession();
 
             // Populate initial status if Dolby is already running
             string initial = AppStateService.Instance.CurrentSpatialAudioStatus;
@@ -330,8 +447,10 @@ namespace StreamTweak.ViewModels
         {
             _nicSpeedTimer?.Dispose();
             _nicSpeedTimer = null;
+            StopLiveSession();
             AppStateService.Instance.SessionStateChanged       -= OnSessionStateChanged;
             AppStateService.Instance.SpatialAudioStatusChanged -= OnSpatialAudioStatusChanged;
+            AppStateService.Instance.LiveTelemetrySample       -= OnLiveSample;
         }
 
         private void RefreshNicSpeed()
@@ -356,11 +475,13 @@ namespace StreamTweak.ViewModels
             _dispatcher.TryEnqueue(() =>
             {
                 IsSessionActive = active;
-                // When a session ends, reload the Last Session card immediately
-                // so the new entry is visible without requiring a tab switch.
-                // LoadStatusAsync must start on the UI thread (it updates ObservableCollection).
-                if (!active)
+                if (active)
+                    StartLiveSession();
+                else
+                {
+                    StopLiveSession();
                     _ = LoadStatusAsync();
+                }
             });
         }
 
@@ -634,6 +755,112 @@ namespace StreamTweak.ViewModels
         public void OpenLicense()
             => _ = Windows.System.Launcher.LaunchUriAsync(
                 new Uri("https://github.com/FoggyBytes/StreamTweak/blob/main/LICENSE"));
+
+        // ── Live session helpers ──────────────────────────────────────────────
+
+        private void StartLiveSession()
+        {
+            // Must run on UI thread (DispatcherQueueTimer requires it).
+            _rttBuffer.Clear();
+            _bitrateBuffer.Clear();
+            _dropsBuffer.Clear();
+            _fpsBuffer.Clear();
+            LiveRttSeries      = Array.Empty<float>();
+            LiveBitrateSeries  = Array.Empty<float>();
+            LiveDropPct        = "0.00%";
+            LiveRttValue       = "—";
+            LiveBitrateValue   = "—";
+            LiveRttColorHex    = "#808080";
+            LiveRttLineColor   = Color.FromArgb(0xFF, 0x80, 0x80, 0x80);
+
+            var startTime     = SessionLogger.ActiveSessionStartTime;
+            LiveStartedAt     = $"Started {startTime:dd/MM/yyyy  HH:mm}";
+            LiveDuration      = FormatDuration(startTime);
+
+            if (_durationTimer == null)
+            {
+                _durationTimer = _dispatcher.CreateTimer();
+                _durationTimer.Interval    = TimeSpan.FromSeconds(1);
+                _durationTimer.IsRepeating = true;
+                _durationTimer.Tick += (_, _) =>
+                {
+                    var t = SessionLogger.ActiveSessionStartTime;
+                    if (t != default) LiveDuration = FormatDuration(t);
+                };
+            }
+            _durationTimer.Start();
+        }
+
+        private void StopLiveSession()
+        {
+            _durationTimer?.Stop();
+            _rttBuffer.Clear();
+            _bitrateBuffer.Clear();
+            _dropsBuffer.Clear();
+            _fpsBuffer.Clear();
+        }
+
+        private void OnLiveSample(float rttMs, float bitrateMbps, int drops, float fpsAvg)
+        {
+            // Fired on a background thread — marshal to UI thread for property updates.
+            _dispatcher.TryEnqueue(() =>
+            {
+                Push(_rttBuffer,     rttMs);
+                Push(_bitrateBuffer, bitrateMbps);
+                Push(_dropsBuffer,   drops);
+                Push(_fpsBuffer,     fpsAvg);
+
+                // Replace list references so x:Bind on SparklineControl.Data fires Redraw.
+                LiveRttSeries     = _rttBuffer.ToList();
+                LiveBitrateSeries = _bitrateBuffer.ToList();
+
+                // Drop % over the rolling window.
+                int   totalDrops    = _dropsBuffer.Sum();
+                float totalRendered = _fpsBuffer.Sum();
+                float totalFrames   = totalDrops + totalRendered;
+                LiveDropPct = totalFrames > 0
+                    ? $"{totalDrops / totalFrames * 100f:0.00}%"
+                    : "0.00%";
+
+                // RTT value + adaptive color (≤30 ms green, ≤80 ms amber, >80 ms red)
+                LiveRttValue = rttMs < 10f ? $"{rttMs:0.0} ms" : $"{(int)rttMs} ms";
+                if (rttMs <= 30f)
+                {
+                    LiveRttColorHex  = "#22c55e";
+                    LiveRttLineColor = Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E);
+                }
+                else if (rttMs <= 80f)
+                {
+                    LiveRttColorHex  = "#f59e0b";
+                    LiveRttLineColor = Color.FromArgb(0xFF, 0xF5, 0x9E, 0x0B);
+                }
+                else
+                {
+                    LiveRttColorHex  = "#ef4444";
+                    LiveRttLineColor = Color.FromArgb(0xFF, 0xEF, 0x44, 0x44);
+                }
+
+                // Bitrate value
+                LiveBitrateValue = bitrateMbps >= 100f
+                    ? $"{bitrateMbps:0} Mbps"
+                    : $"{bitrateMbps:0.0} Mbps";
+            });
+        }
+
+        private static void Push<T>(List<T> buffer, T value)
+        {
+            buffer.Add(value);
+            if (buffer.Count > LiveWindowSize)
+                buffer.RemoveAt(0);
+        }
+
+        private static string FormatDuration(DateTime startTime)
+        {
+            var d = DateTime.Now - startTime;
+            return d.TotalMinutes >= 1
+                ? $"{(int)d.TotalMinutes}m {d.Seconds}s"
+                : $"{d.Seconds}s";
+        }
 
         // ── Private ───────────────────────────────────────────────────────────
 

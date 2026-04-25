@@ -28,6 +28,25 @@ namespace StreamTweak.Controls
                 new PropertyMetadata(Color.FromArgb(0xFF, 0x00, 0xB4, 0xD8),
                     (d, _) => ((SparklineControl)d).Redraw()));
 
+        /// <summary>
+        /// When > 0, the chart uses a fixed time scale with this many slots.
+        /// Data fills from the right — new points appear at the right edge and
+        /// older points scroll left, even while the buffer is not yet full.
+        /// When 0 (default), data is stretched to fill the full canvas width.
+        /// </summary>
+        public static readonly DependencyProperty WindowSizeProperty =
+            DependencyProperty.Register(nameof(WindowSize), typeof(int), typeof(SparklineControl),
+                new PropertyMetadata(0, (d, _) => ((SparklineControl)d).Redraw()));
+
+        /// <summary>
+        /// When false, the "0" baseline label on the Y-axis is hidden.
+        /// Default is true (visible). Set to false for live charts where
+        /// the minimum value is always well above zero.
+        /// </summary>
+        public static readonly DependencyProperty ShowZeroLabelProperty =
+            DependencyProperty.Register(nameof(ShowZeroLabel), typeof(bool), typeof(SparklineControl),
+                new PropertyMetadata(true, (d, _) => ((SparklineControl)d).OnShowZeroLabelChanged()));
+
         public string Title
         {
             get => (string)GetValue(TitleProperty);
@@ -52,6 +71,18 @@ namespace StreamTweak.Controls
             set => SetValue(LineColorProperty, value);
         }
 
+        public int WindowSize
+        {
+            get => (int)GetValue(WindowSizeProperty);
+            set => SetValue(WindowSizeProperty, value);
+        }
+
+        public bool ShowZeroLabel
+        {
+            get => (bool)GetValue(ShowZeroLabelProperty);
+            set => SetValue(ShowZeroLabelProperty, value);
+        }
+
         // ── Constructor ───────────────────────────────────────────────────────
 
         public SparklineControl()
@@ -63,7 +94,19 @@ namespace StreamTweak.Controls
 
         private void OnTitleChanged()
         {
-            if (TitleText != null) TitleText.Text = Title;
+            if (TitleText == null) return;
+            TitleText.Text       = Title;
+            TitleText.Visibility = string.IsNullOrEmpty(Title)
+                ? Microsoft.UI.Xaml.Visibility.Collapsed
+                : Microsoft.UI.Xaml.Visibility.Visible;
+        }
+
+        private void OnShowZeroLabelChanged()
+        {
+            if (ZeroLabel == null) return;
+            ZeroLabel.Visibility = ShowZeroLabel
+                ? Microsoft.UI.Xaml.Visibility.Visible
+                : Microsoft.UI.Xaml.Visibility.Collapsed;
         }
 
         private void ChartCanvas_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -91,7 +134,10 @@ namespace StreamTweak.Controls
                 return;
             }
 
-            var pts = BucketAverage(data, (int)w);
+            int windowSize = WindowSize;
+
+            // In fixed-window mode skip bucket averaging — points map 1:1 to time slots
+            var pts = windowSize > 0 ? data.ToList() : BucketAverage(data, (int)w);
 
             float max = pts.Max();
             if (max <= 0f) max = 1f;
@@ -109,11 +155,30 @@ namespace StreamTweak.Controls
 
             DataLine.Points.Clear();
             int n = pts.Count;
-            for (int i = 0; i < n; i++)
+
+            if (windowSize > 0)
             {
-                double x = i * (w - 1) / (n - 1);
-                double y = margin + chartH - (pts[i] / max) * chartH;
-                DataLine.Points.Add(new Point(x, y));
+                // Fixed-time-scale: each of the windowSize slots occupies an equal
+                // pixel interval. Data fills from the right — newer points on the
+                // right, older ones scroll left as new samples arrive.
+                double step   = (w - 1) / Math.Max(windowSize - 1, 1);
+                int    offset = windowSize - n; // empty slots on the left
+                for (int i = 0; i < n; i++)
+                {
+                    double x = (offset + i) * step;
+                    double y = margin + chartH - (pts[i] / max) * chartH;
+                    DataLine.Points.Add(new Point(x, y));
+                }
+            }
+            else
+            {
+                // Stretch-to-fit (default)
+                for (int i = 0; i < n; i++)
+                {
+                    double x = i * (w - 1) / (n - 1);
+                    double y = margin + chartH - (pts[i] / max) * chartH;
+                    DataLine.Points.Add(new Point(x, y));
+                }
             }
         }
 
