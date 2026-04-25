@@ -3,6 +3,8 @@
 
 **StreamTweak** is a host-side companion for Moonlight game streaming. It automates the technical setup that makes streaming reliable — NIC throttling, spatial audio, HDR, game library sync — so you can focus on playing.
 
+<img width="949" height="504" alt="Immagine 2026-04-25 141323" src="https://github.com/user-attachments/assets/9ead88ec-1b20-412d-8773-5006518f9f6f" />
+
 ## ✅ Compatibility
 Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later.
 
@@ -16,6 +18,10 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - **Host metrics in overlay** *(StreamLight 1.2.0+)* — live GPU %, encoder %, GPU temp, VRAM, CPU %, and network TX in the performance overlay
 - **Store badges on game covers** *(StreamLight 2.0.0+)* — per-game store badge (Steam, Epic, GOG, Ubisoft Connect, Xbox, Battle.net, EA App) pulled from StreamTweak via the APPSTORES command
 - **Session quality report** *(StreamLight 2.0.0+)* — client-side metrics (FPS, drops, RTT, decode latency, bitrate) streamed to StreamTweak for grading and sparkline display
+
+<img width="960" height="522" alt="Immagine 2026-04-25 140746" src="https://github.com/user-attachments/assets/1e942ec3-a188-47f7-92d5-32e8ee03a13d" />
+
+<br>
 
 > StreamLight is Windows-only and requires StreamTweak on the host. Store badges and host metrics require StreamLight 2.0.0 or later.
 
