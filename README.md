@@ -23,7 +23,7 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 
 <br>
 
-> StreamLight is Windows-only and requires StreamTweak on the host. Store badges and host metrics require StreamLight 2.0.0 or later.
+> ⚠️ StreamLight is Windows-only and requires StreamTweak on the host. Store badges and host metrics require StreamLight 2.0.0 or later.
 
 ## 🔥 Features
 
