@@ -65,7 +65,7 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - **Bug fix: Bridge game detection** — sessions initiated by StreamLight (Bridge mode) now correctly run the game process monitor and show detected games in the session log
 - **Bug fix: interrupted sessions** — sessions ended without a clean client-side stop now correctly display telemetry data in the log
 
-> Requires [StreamLight 2.3.1](https://github.com/FoggyBytes/StreamLight/releases) or later for 1-second chart updates. Earlier versions update every 10 seconds.
+> ⚠️ Requires [StreamLight 2.3.1](https://github.com/FoggyBytes/StreamLight/releases) or later for 1-second chart updates. Earlier versions update every 10 seconds.
 
 <details>
 <summary>6.0.3 — "The Game Info Update"</summary>
