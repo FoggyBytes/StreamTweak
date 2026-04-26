@@ -194,19 +194,21 @@
                                                     VerticalAlignment="Center"
                                                     Spacing="4"
                                                     Margin="8,0"
-                                                    Visibility="{x:Bind HasPcgwMeta, Mode=OneWay,
+                                                    Visibility="{x:Bind HasMeta, Mode=OneWay,
                                                                  Converter={StaticResource BoolToVisibilityConverter}}">
                                             <TextBlock Style="{StaticResource ST_RowDescription}"
                                                        TextWrapping="NoWrap">
                                                 <Run Text="Developers: "
                                                      Foreground="{StaticResource STTextMuted}"/>
-                                                <Run Text="{x:Bind PcgwDeveloper, Mode=OneWay}"/>
+                                                <Run Text="{x:Bind MetaDeveloper, Mode=OneWay}"
+                                                     Foreground="{StaticResource STTextPrimary}"/>
                                             </TextBlock>
                                             <TextBlock Style="{StaticResource ST_RowDescription}"
                                                        TextWrapping="NoWrap">
                                                 <Run Text="Release Date: "
                                                      Foreground="{StaticResource STTextMuted}"/>
-                                                <Run Text="{x:Bind PcgwReleaseDate, Mode=OneWay}"/>
+                                                <Run Text="{x:Bind MetaReleaseDate, Mode=OneWay}"
+                                                     Foreground="{StaticResource STTextPrimary}"/>
                                             </TextBlock>
                                         </StackPanel>
 

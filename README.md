@@ -52,12 +52,26 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Safe sync — manually created Sunshine entries are never touched; uninstalled games removed on next sync
 - Manual game management — Add any exe not auto-detected; remove individual entries with the Remove button
 
+**🛒 Store**
+- Instant Gaming integrated — browse and buy games directly inside StreamTweak via an embedded browser. Purchases through the embedded Store contribute a small affiliate commission to FoggyBytes at no extra cost to you, helping fund StreamTweak's development
+- Open in browser — hand off the current page to your default browser with one click; affiliate parameter preserved across the handoff
+
 **📋 Session History & Telemetry**
 - Full session log — every session recorded with duration, RTT avg, frame drops %, games
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 6.1.0 — "The Live Session Update"
+## ✨ What's New in 6.2.0 — "The Store Update"
+
+- **Store tab** — a new Store entry in the sidebar opens Instant Gaming directly inside StreamTweak via an embedded browser, with a minimal toolbar (back, forward, home, open-in-system-browser) and the FoggyBytes affiliate link preserved on every navigation
+- **Open in browser** — hand off the current Instant Gaming page to the system default browser with one click; the affiliate parameter is preserved across the handoff
+- **External links** — non-instant-gaming URLs clicked inside the Store open in the system browser, keeping the embedded view focused on shopping
+- **Info banner** — a one-time dismissible banner explains that Facebook / Google / Apple sign-in does not work in embedded browsers (a server-side restriction enforced by those providers since 2021) and directs users to the open-in-browser button; the FB / Google / Apple buttons are also hidden from the IG login modal to remove dead options
+- **Cover art improvement** — Steam Store Search added as a final fallback for GOG titles whose covers cannot be resolved via the GOG Galaxy database, the GOG Catalog API, or any of the other GOG-specific sources
+- **Bug fix: games on abrupt host shutdown** — sessions interrupted by power loss or OS kill no longer lose the list of detected games; the games list is now persisted in the 30-second telemetry checkpoint and recovered at next startup
+
+<details>
+<summary>6.1.0 — "The Live Session Update"</summary>
 
 - **Live session panel** — while a stream is active, the Home card replaces the Last Session summary with a real-time view: duration timer, RTT and Bitrate sparkline charts (30-second scrolling window), and drop percentage updated every second
 - **Debug Mode** — a toggle in Settings › Maintenance simulates an active streaming session for testing the UI without touching the NIC, spatial audio, or managed apps
@@ -66,6 +80,7 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - **Bug fix: interrupted sessions** — sessions ended without a clean client-side stop now correctly display telemetry data in the log
 
 > ⚠️ Requires [StreamLight 2.3.1](https://github.com/FoggyBytes/StreamLight/releases) or later for 1-second chart updates. Earlier versions update every 10 seconds.
+</details>
 
 <details>
 <summary>6.0.3 — "The Game Info Update"</summary>
@@ -110,7 +125,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_6.1.0_Installer.exe` and run it.
+2. Download the latest `StreamTweak_6.2.0_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

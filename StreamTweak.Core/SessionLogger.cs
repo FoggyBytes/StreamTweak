@@ -264,6 +264,28 @@ namespace StreamTweak
                         usedCheckpoint = true;
                     }
 
+                    // Recover games detected list from checkpoint (written every 30 s).
+                    // This is the only source of game data when the session was interrupted
+                    // before SessionLogger.EndSession() had a chance to run.
+                    if (cp?.GamesDetected is { Count: > 0 } games)
+                    {
+                        s.GamesDetected = games;
+
+                        // Snapshot cover paths from the current library state.
+                        // Files are never deleted from the covers cache, so paths
+                        // resolved now are still valid even after a game is removed.
+                        var gameMap = GameLibraryState.Current.Games
+                            .ToDictionary(g => g.Name, g => g, StringComparer.OrdinalIgnoreCase);
+                        var coverPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var name in games)
+                        {
+                            if (gameMap.TryGetValue(name, out var g) && g.CoverImagePath != null)
+                                coverPaths[name] = g.CoverImagePath;
+                        }
+                        if (coverPaths.Count > 0)
+                            s.GamesDetectedCoverPaths = coverPaths;
+                    }
+
                     changed = true;
                 }
 

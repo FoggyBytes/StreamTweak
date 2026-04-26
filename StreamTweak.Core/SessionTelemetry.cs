@@ -261,6 +261,16 @@ namespace StreamTweak
         public List<float> DropsSeries   { get; set; } = [];
         public List<float> BitrateSeries { get; set; } = [];
         public List<float> DecodeSeries  { get; set; } = [];
+
+        /// <summary>
+        /// Games detected by SessionProcessMonitor up to the last checkpoint write.
+        /// Persisted here so they can be recovered if the session ends abruptly
+        /// (host shutdown, crash) and SessionLogger.EndSession is never called.
+        /// Null means the monitor had not detected any game yet at checkpoint time.
+        /// </summary>
+        [System.Text.Json.Serialization.JsonIgnore(
+            Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        public List<string>? GamesDetected { get; set; }
     }
 
     // ── Calcolo del grade ─────────────────────────────────────────────────────

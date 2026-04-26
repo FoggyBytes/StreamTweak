@@ -208,22 +208,27 @@ namespace StreamTweak
                 return result;
             };
 
-            // Load previous run's PCGW metadata cache immediately so the
+            // Pass RAWG API key to the Core library (key is stored in config.json).
+            GameMetadataService.RawgApiKey = ConfigService.Get("RawgApiKey");
+
+            // Load previous run's metadata cache immediately so the
             // Game Library page shows data before the background refresh completes.
-            PcgwMetadataService.LoadFromDisk();
+            GameMetadataService.LoadFromDisk();
 
             // Auto-sync game library if enabled.
             // After completion, raise SettingsChanged so HomeViewModel refreshes
             // the "last sync" tile with the timestamp just written by the sync.
-            if (GameLibraryState.Current.SyncEnabled)
-                _ = Task.Run(async () =>
+            // Auto-sync then refresh metadata sequentially so RefreshAsync always
+            // receives a fully-populated game list, never an empty one from a race.
+            _ = Task.Run(async () =>
+            {
+                if (GameLibraryState.Current.SyncEnabled)
                 {
                     await GameLibraryService.PerformSyncAsync();
                     _dispatcher.TryEnqueue(AppStateService.Instance.RaiseSettingsChanged);
-                });
-
-            // Refresh PCGW metadata in background on every startup (Metacritic scores change).
-            _ = Task.Run(() => PcgwMetadataService.RefreshAsync(GameLibraryState.Current.Games));
+                }
+                await GameMetadataService.RefreshAsync(GameLibraryState.Current.Games);
+            });
 
             // Windows session-end cleanup
             Microsoft.Win32.SystemEvents.SessionEnding += OnSystemSessionEnding;
@@ -389,6 +394,11 @@ namespace StreamTweak
                 if (stats.SampleCount < 2) return;
 
                 var grade = QualityGradeCalculator.Evaluate(stats, _telemetryAccumulator.TargetFps);
+                // Snapshot the games detected so far — if the session ends abruptly
+                // (host shutdown, crash) before EndSession() is called, Initialize()
+                // can recover this list from the checkpoint on the next startup.
+                var detectedGames = _sessionProcessMonitor?.GetDetectedGames();
+
                 var cp = new TelemetryCheckpoint
                 {
                     SessionId    = sessionId,
@@ -399,6 +409,7 @@ namespace StreamTweak
                     DropsSeries  = drops,
                     BitrateSeries = bitrate,
                     DecodeSeries  = decode,
+                    GamesDetected = detectedGames is { Count: > 0 } ? detectedGames : null,
                 };
 
                 // Scrittura atomica: .tmp → File.Move overwrite per evitare file corrotti.

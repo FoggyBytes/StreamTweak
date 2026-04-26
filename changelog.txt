@@ -4,6 +4,24 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 6.2.0 - "The Store Update" (26/04/2026)
+------------------------------------------
+
+✨ NEW FEATURES:
+• Store tab: a new Store entry in the sidebar opens Instant Gaming directly inside StreamTweak via an embedded browser, with a minimal toolbar (back, forward, home, open-in-system-browser) and the FoggyBytes affiliate link preserved on every navigation
+• Open in browser: a dedicated toolbar button hands off the current Instant Gaming page to the system default browser, automatically injecting the affiliate parameter so the referral is preserved across the handoff
+• External link handling: any non-instant-gaming URL clicked inside the Store (publisher pages, news links, etc.) is opened in the system browser instead of the embedded view, keeping the Store focused on shopping
+
+🔧 IMPROVEMENTS:
+• Game cover art: Steam Store Search added as a final fallback for GOG titles whose covers cannot be resolved via the local Galaxy database, the GOG Catalog API, or any of the other GOG-specific sources — significantly improves cover coverage for cross-platform GOG games
+
+🐛 BUG FIXES:
+• Sessions interrupted by an abrupt host shutdown (power loss, OS kill) lost the list of detected games — the games list is now persisted in the 30-second telemetry checkpoint and recovered at next startup, alongside the existing telemetry recovery path
+
+🎨 UI / UX:
+• Store tab — info banner: a one-time dismissible banner explains that Facebook / Google / Apple sign-in does not work inside embedded browsers (a server-side restriction enforced by those providers since 2021) and directs users to the open-in-browser button to sign in via the system browser; once dismissed, the banner never reappears
+• Store tab — clean login modal: the Facebook, Google, and Apple sign-in buttons are hidden from the Instant Gaming login modal, removing dead options that would only lead to a provider-side error message
+
 Version 6.1.0 - "The Live Session Update" (25/04/2026)
 ------------------------------------------
 

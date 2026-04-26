@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v6.1.0 - GitHub Release Installer
+; StreamTweak v6.2.0 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 1.8) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "6.1.0"
+#define MyAppVersion "6.2.0"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -50,8 +50,17 @@ WelcomeLabel2=
 [Files]
 ; ── Main WinUI 3 application ─────────────────────────────────────────────────
 ; dotnet build output. StreamTweak.Core.dll is included automatically (ProjectReference).
-; .pdb (debug symbols) and ref\ (compiler-only assemblies) are excluded.
-Source: "StreamTweakUI\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb,ref\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Excludes:
+;   *.pdb              — debug symbols, not needed at runtime
+;   ref\*              — compiler-only reference assemblies
+;   StreamTweakUI.exe.WebView2\*  — WebView2 user data folder (cookies, cache,
+;                                   IndexedDB, etc.) created at runtime when the
+;                                   user opens the Store tab during dev testing.
+;                                   It must NEVER ship: it can exceed Windows'
+;                                   260-char path limit, contains user-private
+;                                   data, and gets recreated automatically on
+;                                   first launch on the end-user machine.
+Source: "StreamTweakUI\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb,ref\*,StreamTweakUI.exe.WebView2\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; ── Background service (LocalSystem account, manages NIC speed via CIM) ─────
 Source: "StreamTweakService\bin\x64\Release\net8.0-windows\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb,ref\*"; Flags: ignoreversion recursesubdirs createallsubdirs

@@ -895,7 +895,7 @@ namespace StreamTweak.ViewModels
             var version = Assembly.GetExecutingAssembly().GetName().Version;
             VersionText = version != null
                 ? $"Version {version.Major}.{version.Minor}.{version.Build}"
-                : "Version 6.0.0";
+                : "Version 6.2.0";
 
             string location = Assembly.GetExecutingAssembly().Location;
             BuildDateText = File.Exists(location)

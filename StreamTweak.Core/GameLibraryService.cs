@@ -86,10 +86,9 @@ namespace StreamTweak
                 }
 
                 // 4. Download missing cover art
-                // Step 4a: Steam CDN (fast, no API key required)
+                // Step 4a: Steam games — Steam CDN (no API key required)
                 await CoverArtFetcher.FetchAllAsync(games, CoverDir);
-                // Step 4b: Native store sources — Epic catcache.bin, GOG Galaxy local DB,
-                //          Ubisoft config CDN, Xbox local files, EA Steam search
+                // Step 4b: All other stores — RAWG.io (requires RawgApiKey in config.json)
                 await StoreCoverFetcher.FetchAllAsync(games, CoverDir);
 
                 // 5. Merge with persisted state so Enabled flags survive re-syncs.

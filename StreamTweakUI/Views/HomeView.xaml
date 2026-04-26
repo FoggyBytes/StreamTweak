@@ -172,7 +172,7 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:SessionGameCover">
-                                            <Border Width="52" Height="72" CornerRadius="5"
+                                            <Border Width="67" Height="100" CornerRadius="5"
                                                     Background="{StaticResource STInput}"
                                                     BorderBrush="{StaticResource STBorder}"
                                                     BorderThickness="1"
@@ -513,6 +513,11 @@
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Center"
                         Spacing="16" Margin="0,4,0,0">
+
+                <StackPanel.Resources>
+                    <SolidColorBrush x:Key="HyperlinkButtonForegroundPointerOver"
+                                     Color="{ThemeResource SystemAccentColor}"/>
+                </StackPanel.Resources>
 
                 <HyperlinkButton Content="GPL v3"
                                  Click="LicenseButton_Click"

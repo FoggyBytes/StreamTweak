@@ -204,6 +204,7 @@ namespace StreamTweak
                 "Display"     => typeof(Views.DisplayView),
                 "Apps"        => typeof(Views.AppsView),
                 "GameLibrary" => typeof(Views.GameLibraryView),
+                "Store"       => typeof(Views.StoreView),
                 "Logs"        => typeof(Views.LogsView),
                 "Glossary"    => typeof(Views.GlossaryView),
                 "Settings"    => typeof(Views.SettingsView),

@@ -71,6 +71,12 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
+                <NavigationViewItem Tag="Store" Content="Store">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7BF;" FontFamily="Segoe MDL2 Assets"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
                 <NavigationViewItemSeparator/>
 
                 <NavigationViewItem Tag="Logs" Content="Logs">
@@ -100,7 +106,7 @@
                 <Border Padding="14,4,14,12">
                     <TextBlock x:Name="SidebarVersionText"
                                Style="{StaticResource ST_FooterText}"
-                               Text="v6.1.0 · FoggyBytes"/>
+                               Text="v6.2.0 · FoggyBytes"/>
                 </Border>
             </NavigationView.PaneFooter>
 

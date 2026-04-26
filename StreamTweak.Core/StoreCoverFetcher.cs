@@ -23,7 +23,7 @@ namespace StreamTweak
     ///
     /// Sources by store:
     ///   Epic Games   → catcache.bin (local cache of CDN image URLs, no API call needed)
-    ///   GOG          → local GOG Galaxy SQLite DB + webcache (no API needed)
+    ///   GOG          → local GOG Galaxy SQLite DB + webcache → GOG catalog/product API → Steam search fallback
     ///   Ubisoft      → local YAML config + ubistatic3-a.akamaihd.net CDN
     ///   Xbox         → local image files from MicrosoftGame.config (Square480x480Logo etc.)
     ///   Battle.net   → aggregate.json logo_art_uri (local file, no API call needed)
@@ -346,6 +346,9 @@ namespace StreamTweak
                 }
             }
             catch { }
+
+            // Tier 6: Steam Store Search — last resort for GOG games also on Steam
+            await FetchCoverViaSteamSearchAsync(game, cachePath);
         }
 
         // ── Ubisoft: local YAML config ────────────────────────────────────────

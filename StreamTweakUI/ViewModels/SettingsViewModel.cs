@@ -12,7 +12,7 @@ namespace StreamTweak.ViewModels
         public string AppVersion { get; } =
             Assembly.GetExecutingAssembly().GetName().Version is { } v
                 ? $"{v.Major}.{v.Minor}.{v.Build}"
-                : "6.0.0";
+                : "6.2.0";
 
         private string _streamLightVersion = "Checking…";
         public string StreamLightVersion

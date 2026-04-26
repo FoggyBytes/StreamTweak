@@ -37,20 +37,20 @@ namespace StreamTweak.ViewModels
 
         public bool ShowFolderButton => InstallFolder != null;
 
-        // ── PCGamingWiki metadata ─────────────────────────────────────────────
+        // ── Game metadata ─────────────────────────────────────────────────────
 
-        private PcgwMetadataService.PcgwGameData? GetPcgw()
-            => PcgwMetadataService.GetCached(Entry);
+        private GameMetadataService.GameMetadata? GetMeta()
+            => GameMetadataService.GetCached(Entry);
 
-        public string? PcgwDeveloper   => GetPcgw()?.Developer;
-        public string? PcgwReleaseDate => GetPcgw()?.ReleaseDate;
-        public bool    HasPcgwMeta     => GetPcgw() is { } d && (d.Developer != null || d.ReleaseDate != null);
+        public string? MetaDeveloper   => GetMeta()?.Developer;
+        public string? MetaReleaseDate => GetMeta()?.ReleaseDate;
+        public bool    HasMeta         => GetMeta() is { } d && (d.Developer != null || d.ReleaseDate != null);
 
         public void RefreshMetadata()
         {
-            OnPropertyChanged(nameof(PcgwDeveloper));
-            OnPropertyChanged(nameof(PcgwReleaseDate));
-            OnPropertyChanged(nameof(HasPcgwMeta));
+            OnPropertyChanged(nameof(MetaDeveloper));
+            OnPropertyChanged(nameof(MetaReleaseDate));
+            OnPropertyChanged(nameof(HasMeta));
         }
 
         private bool _enabled;
@@ -113,10 +113,10 @@ namespace StreamTweak.ViewModels
         public GameLibraryViewModel()
         {
             _dispatcher = DispatcherQueue.GetForCurrentThread();
-            PcgwMetadataService.CacheRefreshed += OnPcgwCacheRefreshed;
+            GameMetadataService.CacheRefreshed += OnMetaCacheRefreshed;
         }
 
-        private void OnPcgwCacheRefreshed()
+        private void OnMetaCacheRefreshed()
         {
             _dispatcher.TryEnqueue(() =>
             {
@@ -225,6 +225,10 @@ namespace StreamTweak.ViewModels
                 var state = GameLibraryState.Current;
                 RefreshLastSyncText(state);
                 RefreshGameList(state);
+
+                // Refresh metadata (developer / release date) for the updated game list.
+                // Runs on a background thread; OnMetaCacheRefreshed updates the UI when done.
+                _ = Task.Run(() => GameMetadataService.RefreshAsync(GameLibraryState.Current.Games));
             }
             catch (Exception ex)
             {

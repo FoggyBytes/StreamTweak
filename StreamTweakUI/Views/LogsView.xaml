@@ -333,7 +333,7 @@
 
                         <!-- CLIENT box -->
                         <Border Grid.Column="0"
-                                Background="{StaticResource STInput}"
+                                Background="#FA111010"
                                 BorderBrush="{StaticResource STBorder}"
                                 BorderThickness="1" CornerRadius="8"
                                 Padding="16,14">
@@ -426,7 +426,7 @@
 
                         <!-- HOST box -->
                         <Border Grid.Column="1"
-                                Background="{StaticResource STInput}"
+                                Background="#FA111010"
                                 BorderBrush="{StaticResource STBorder}"
                                 BorderThickness="1" CornerRadius="8"
                                 Padding="16,14"
@@ -511,59 +511,63 @@
                     </StackPanel>
 
                     <!-- ── Row 5: Charts 2×2 ─────────────────────────────── -->
-                    <Grid Grid.Row="5"
-                          ColumnSpacing="12" RowSpacing="12"
-                          Visibility="{x:Bind ViewModel.HasChartData, Mode=OneWay,
-                                       Converter={StaticResource BoolToVisibilityConverter}}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
+                    <Border Grid.Row="5"
+                            Background="#FA111010"
+                            CornerRadius="8"
+                            Padding="12"
+                            Visibility="{x:Bind ViewModel.HasChartData, Mode=OneWay,
+                                         Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid ColumnSpacing="12" RowSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
 
-                        <Grid Grid.Row="0" Grid.Column="0"
-                              Tapped="RttChart_Tapped"
-                              ToolTipService.ToolTip="Click to expand">
-                            <ctl:SparklineControl
-                                Title="RTT ms"
-                                LineColor="#FFFFA726"
-                                Data="{x:Bind ViewModel.RttSeries, Mode=OneWay}"
-                                DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
-                        </Grid>
+                            <Grid Grid.Row="0" Grid.Column="0"
+                                  Tapped="RttChart_Tapped"
+                                  ToolTipService.ToolTip="Click to expand">
+                                <ctl:SparklineControl
+                                    Title="RTT ms"
+                                    LineColor="#FFFFA726"
+                                    Data="{x:Bind ViewModel.RttSeries, Mode=OneWay}"
+                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                            </Grid>
 
-                        <Grid Grid.Row="0" Grid.Column="1"
-                              Tapped="DropsChart_Tapped"
-                              ToolTipService.ToolTip="Click to expand">
-                            <ctl:SparklineControl
-                                Title="Frame Drops"
-                                LineColor="#FFEF5350"
-                                Data="{x:Bind ViewModel.DropsSeries, Mode=OneWay}"
-                                DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
-                        </Grid>
+                            <Grid Grid.Row="0" Grid.Column="1"
+                                  Tapped="DropsChart_Tapped"
+                                  ToolTipService.ToolTip="Click to expand">
+                                <ctl:SparklineControl
+                                    Title="Frame Drops"
+                                    LineColor="#FFEF5350"
+                                    Data="{x:Bind ViewModel.DropsSeries, Mode=OneWay}"
+                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                            </Grid>
 
-                        <Grid Grid.Row="1" Grid.Column="0"
-                              Tapped="BitrateChart_Tapped"
-                              ToolTipService.ToolTip="Click to expand">
-                            <ctl:SparklineControl
-                                Title="Bitrate Mbps"
-                                LineColor="#FF26C6DA"
-                                Data="{x:Bind ViewModel.BitrateSeries, Mode=OneWay}"
-                                DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
-                        </Grid>
+                            <Grid Grid.Row="1" Grid.Column="0"
+                                  Tapped="BitrateChart_Tapped"
+                                  ToolTipService.ToolTip="Click to expand">
+                                <ctl:SparklineControl
+                                    Title="Bitrate Mbps"
+                                    LineColor="#FF26C6DA"
+                                    Data="{x:Bind ViewModel.BitrateSeries, Mode=OneWay}"
+                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                            </Grid>
 
-                        <Grid Grid.Row="1" Grid.Column="1"
-                              Tapped="DecodeChart_Tapped"
-                              ToolTipService.ToolTip="Click to expand">
-                            <ctl:SparklineControl
-                                Title="Decode ms"
-                                LineColor="#FFAB47BC"
-                                Data="{x:Bind ViewModel.DecodeSeries, Mode=OneWay}"
-                                DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                            <Grid Grid.Row="1" Grid.Column="1"
+                                  Tapped="DecodeChart_Tapped"
+                                  ToolTipService.ToolTip="Click to expand">
+                                <ctl:SparklineControl
+                                    Title="Decode ms"
+                                    LineColor="#FFAB47BC"
+                                    Data="{x:Bind ViewModel.DecodeSeries, Mode=OneWay}"
+                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                            </Grid>
                         </Grid>
-                    </Grid>
+                    </Border>
 
                     <!-- ── Row 6: Games section ──────────────────────────── -->
                     <StackPanel Grid.Row="6"
