@@ -18,6 +18,9 @@ Version 6.2.0 - "The Store Update" (26/04/2026)
 🐛 BUG FIXES:
 • Sessions interrupted by an abrupt host shutdown (power loss, OS kill) lost the list of detected games — the games list is now persisted in the 30-second telemetry checkpoint and recovered at next startup, alongside the existing telemetry recovery path
 
+🔒 SECURITY:
+• StreamTweakService — System.Text.Json upgraded from 8.0.0 (transitive) to 8.0.6 (explicit reference) to address two Microsoft .NET DoS advisories: CVE-2024-30105 (GHSA-hh2w-p6rv-4g7w) and CVE-2024-43485 (GHSA-8g4q-xg66-9fp4). Real-world impact on StreamTweak is minimal (the service does not deserialize untrusted JSON over the named pipe), but the fix closes the open Dependabot alerts and aligns the service with the latest LTS patch level
+
 🎨 UI / UX:
 • Store tab — info banner: a one-time dismissible banner explains that Facebook / Google / Apple sign-in does not work inside embedded browsers (a server-side restriction enforced by those providers since 2021) and directs users to the open-in-browser button to sign in via the system browser; once dismissed, the banner never reappears
 • Store tab — clean login modal: the Facebook, Google, and Apple sign-in buttons are hidden from the Instant Gaming login modal, removing dead options that would only lead to a provider-side error message
