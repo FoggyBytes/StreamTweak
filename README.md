@@ -61,7 +61,7 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 6.2.1
+## ✨ What's New in 6.2.1 — "The Polish Update"
 
 - **Bug fix: Debug Mode toggle** — the Debug Mode toggle in Settings now correctly shows its active state when navigating away from the Settings page and returning; previously the toggle always reset to Off on re-navigation, requiring a second toggle cycle to actually stop the session
 

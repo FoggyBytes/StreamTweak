@@ -4,7 +4,7 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
-Version 6.2.1 (29/04/2026)
+Version 6.2.1 - "The Polish Update" (29/04/2026)
 ------------------------------------------
 
 🐛 BUG FIXES:
