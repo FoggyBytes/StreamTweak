@@ -167,27 +167,25 @@
                                                    Style="{StaticResource ST_MonoValueSmall}"
                                                    VerticalAlignment="Center"/>
 
-                                        <!-- Quality pill -->
+                                        <!-- Quality pill — stesso stile tile della Home -->
                                         <Border Grid.Column="6"
-                                                CornerRadius="10"
+                                                CornerRadius="4"
                                                 BorderThickness="1"
-                                                Padding="10,4"
+                                                Padding="8,2"
                                                 HorizontalAlignment="Left"
                                                 VerticalAlignment="Center"
-                                                BorderBrush="{x:Bind GradeColorHex,
+                                                Background="{x:Bind GradeBgHex,
+                                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                BorderBrush="{x:Bind GradeBorderHex,
                                                               Converter={StaticResource HexToSolidColorBrushConverter}}"
                                                 Visibility="{x:Bind HasGrade,
                                                              Converter={StaticResource BoolToVisibilityConverter}}">
-                                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <Ellipse Width="7" Height="7"
-                                                         VerticalAlignment="Center"
-                                                         Fill="{x:Bind GradeColorHex,
-                                                                Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                                                <TextBlock Text="{x:Bind GradeShortLabel}"
-                                                           Style="{StaticResource ST_BadgeText}"
-                                                           FontSize="12"
-                                                           VerticalAlignment="Center"/>
-                                            </StackPanel>
+                                            <TextBlock Text="{x:Bind GradeShortLabel}"
+                                                       Style="{StaticResource ST_BadgeText}"
+                                                       FontSize="12"
+                                                       Foreground="{x:Bind GradeColorHex,
+                                                                    Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                       VerticalAlignment="Center"/>
                                         </Border>
 
                                         <!-- Games covers strip -->

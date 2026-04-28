@@ -99,9 +99,9 @@
 
     <!-- Body text: DM Sans 13px secondary -->
     <Style x:Key="ST_Body" TargetType="TextBlock">
-        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
-        <Setter Property="FontSize"    Value="13"/>
-        <Setter Property="Foreground"  Value="{StaticResource STTextSecondary}"/>
+        <Setter Property="FontFamily"   Value="{StaticResource DMSans}"/>
+        <Setter Property="FontSize"     Value="13"/>
+        <Setter Property="Foreground"   Value="{StaticResource STTextSecondary}"/>
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
 
@@ -125,14 +125,6 @@
         <Setter Property="FontFamily"  Value="{StaticResource JetBrainsMono}"/>
         <Setter Property="FontSize"    Value="12"/>
         <Setter Property="Foreground"  Value="{StaticResource STTextSecondary}"/>
-    </Style>
-
-    <!-- Mono hero: JetBrains Mono Medium 22px — live metrics grandi -->
-    <Style x:Key="ST_MonoHero" TargetType="TextBlock">
-        <Setter Property="FontFamily"        Value="{StaticResource JetBrainsMonoMedium}"/>
-        <Setter Property="FontSize"          Value="22"/>
-        <Setter Property="Foreground"        Value="{StaticResource STTextPrimary}"/>
-        <Setter Property="CharacterSpacing"  Value="-20"/>
     </Style>
 
     <!-- Mono medium: JetBrains Mono 18px — last session header -->
@@ -173,15 +165,6 @@
         <Setter Property="BorderBrush"      Value="{StaticResource STBorder}"/>
         <Setter Property="BorderThickness"  Value="1"/>
         <Setter Property="CornerRadius"     Value="10"/>
-    </Style>
-
-    <!-- Card sessione attiva: border verde -->
-    <Style x:Key="ST_CardActive" TargetType="Border">
-        <Setter Property="Background"       Value="{StaticResource STCard}"/>
-        <Setter Property="BorderBrush"      Value="{StaticResource STBorderActive}"/>
-        <Setter Property="BorderThickness"  Value="1"/>
-        <Setter Property="CornerRadius"     Value="10"/>
-        <Setter Property="Padding"          Value="20"/>
     </Style>
 
     <!-- Input container: sfondo #242220 -->
@@ -282,7 +265,7 @@
         <Setter Property="Padding"          Value="0"/>
     </Style>
 
-    <!-- ── INFO BOX (callout accent-tinted) ─────────────────────────────────── -->
+    <!-- ── INFO BOX (callout accent-tinted) -->
     <Style x:Key="ST_InfoBox" TargetType="Border">
         <Setter Property="Background"       Value="#14C8562A"/>
         <Setter Property="BorderBrush"      Value="#33C8562A"/>
@@ -296,27 +279,6 @@
         <Setter Property="Background"      Value="{StaticResource STBorderSubtle}"/>
         <Setter Property="Height"          Value="1"/>
         <Setter Property="HorizontalAlignment" Value="Stretch"/>
-    </Style>
-
-    <!-- ── BANNER SESSIONE ATTIVA (Network, Home NIC notice) ─────────────────── -->
-    <Style x:Key="ST_ActiveBanner" TargetType="Border">
-        <Setter Property="Background"       Value="#1022c55e"/>
-        <Setter Property="BorderBrush"      Value="#4022c55e"/>
-        <Setter Property="BorderThickness"  Value="1"/>
-        <Setter Property="CornerRadius"     Value="9"/>
-        <Setter Property="Padding"          Value="16,10"/>
-    </Style>
-
-    <!-- ── QUICK STAT TILE (Home page 3-col grid) ───────────────────────────── -->
-    <Style x:Key="ST_StatTile" TargetType="Button">
-        <Setter Property="FontFamily"       Value="{StaticResource DMSans}"/>
-        <Setter Property="Background"       Value="{StaticResource STCard}"/>
-        <Setter Property="BorderBrush"      Value="{StaticResource STBorder}"/>
-        <Setter Property="BorderThickness"  Value="1"/>
-        <Setter Property="CornerRadius"     Value="9"/>
-        <Setter Property="Padding"          Value="16,14"/>
-        <Setter Property="HorizontalAlignment"      Value="Stretch"/>
-        <Setter Property="HorizontalContentAlignment" Value="Left"/>
     </Style>
 
     <!-- ── GLOBAL CONVERTERS ─────────────────────────────────────────── -->

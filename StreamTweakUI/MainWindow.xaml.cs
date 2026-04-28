@@ -3,6 +3,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using StreamTweak.Services;
 using Windows.Graphics;
 using Windows.UI;
 using WinRT.Interop;
@@ -118,6 +119,38 @@ namespace StreamTweak
             // Navigate to Home on startup
             NavView.SelectedItem = NavHome;
             ContentFrame.Navigate(typeof(Views.HomeView));
+
+            // Sidebar update indicator: subscribe to AppStateService and refresh
+            // immediately in case the boot-time check has already completed.
+            AppStateService.Instance.UpdateAvailabilityChanged += OnUpdateAvailabilityChanged;
+            RefreshUpdateIndicator();
+        }
+
+        private void OnUpdateAvailabilityChanged(object? sender, EventArgs e)
+        {
+            // The event can fire from the HTTP continuation on a thread-pool thread —
+            // marshal to the UI thread before touching XAML.
+            DispatcherQueue.TryEnqueue(RefreshUpdateIndicator);
+        }
+
+        private void RefreshUpdateIndicator()
+        {
+            var state = AppStateService.Instance;
+            if (state.UpdateAvailable && !string.IsNullOrEmpty(state.LatestVersion))
+            {
+                SidebarUpdateLink.Content    = $"↑ Update to v{state.LatestVersion}";
+                SidebarUpdateLink.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                SidebarUpdateLink.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void SidebarUpdateLink_Click(object sender, RoutedEventArgs e)
+        {
+            _ = Windows.System.Launcher.LaunchUriAsync(
+                new Uri("https://github.com/FoggyBytes/StreamTweak/releases/latest"));
         }
 
         // ── Title bar ───────────────────────────────────────────────────────────

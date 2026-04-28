@@ -61,7 +61,12 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 6.2.0 — "The Store Update"
+## ✨ What's New in 6.2.1
+
+- **Bug fix: Debug Mode toggle** — the Debug Mode toggle in Settings now correctly shows its active state when navigating away from the Settings page and returning; previously the toggle always reset to Off on re-navigation, requiring a second toggle cycle to actually stop the session
+
+<details>
+<summary>6.2.0 — "The Store Update"</summary>
 
 - **Store tab** — a new Store entry in the sidebar opens Instant Gaming directly inside StreamTweak via an embedded browser, with a minimal toolbar (back, forward, home, open-in-system-browser) and the FoggyBytes affiliate link preserved on every navigation
 - **Open in browser** — hand off the current Instant Gaming page to the system default browser with one click; the affiliate parameter is preserved across the handoff
@@ -69,6 +74,7 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - **Info banner** — a one-time dismissible banner explains that Facebook / Google / Apple sign-in does not work in embedded browsers (a server-side restriction enforced by those providers since 2021) and directs users to the open-in-browser button; the FB / Google / Apple buttons are also hidden from the IG login modal to remove dead options
 - **Cover art improvement** — Steam Store Search added as a final fallback for GOG titles whose covers cannot be resolved via the GOG Galaxy database, the GOG Catalog API, or any of the other GOG-specific sources
 - **Bug fix: games on abrupt host shutdown** — sessions interrupted by power loss or OS kill no longer lose the list of detected games; the games list is now persisted in the 30-second telemetry checkpoint and recovered at next startup
+</details>
 
 <details>
 <summary>6.1.0 — "The Live Session Update"</summary>
@@ -125,7 +131,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_6.2.0_Installer.exe` and run it.
+2. Download the latest `StreamTweak_6.2.1_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

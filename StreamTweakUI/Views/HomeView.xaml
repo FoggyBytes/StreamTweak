@@ -124,10 +124,9 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
-                        <!-- Col 0: date + duration + stats -->
+                        <!-- Col 0: date + duration + stats + grade badge -->
                         <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
                             <TextBlock Text="Last Session"
                                        FontFamily="{StaticResource DMSansSemiBold}"
@@ -146,18 +145,43 @@
                                        Margin="0,4,0,0"
                                        Visibility="{x:Bind ViewModel.HasLastSessionStats, Mode=OneWay,
                                                     Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <!-- Grade badge sotto le stats -->
+                            <Border CornerRadius="4" BorderThickness="1" Padding="8,2"
+                                    Margin="0,2,0,0"
+                                    HorizontalAlignment="Left"
+                                    Background="{x:Bind ViewModel.LastSessionGradeBgHex, Mode=OneWay,
+                                                 Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                    BorderBrush="{x:Bind ViewModel.LastSessionGradeBorderHex, Mode=OneWay,
+                                                  Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                    Visibility="{x:Bind ViewModel.LastSessionHasGrade, Mode=OneWay,
+                                                 Converter={StaticResource BoolToVisibilityConverter}}">
+                                <TextBlock Text="{x:Bind ViewModel.LastSessionGrade, Mode=OneWay}"
+                                           Style="{StaticResource ST_BadgeText}"
+                                           Foreground="{x:Bind ViewModel.LastSessionGradeColorHex, Mode=OneWay,
+                                                        Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                            </Border>
                         </StackPanel>
 
-                        <!-- Col 1: cover art centrato -->
+                        <!-- Col 1: label + cover art centrati -->
                         <StackPanel Grid.Column="1"
                                     HorizontalAlignment="Center"
-                                    VerticalAlignment="Center">
+                                    VerticalAlignment="Center"
+                                    Spacing="8">
 
                             <TextBlock Text="No games detected"
                                        Style="{StaticResource ST_BodySmall}"
                                        FontStyle="Italic"
                                        HorizontalAlignment="Center"
                                        Visibility="{x:Bind ViewModel.HasNoGamesDetected, Mode=OneWay,
+                                                    Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                            <TextBlock Text="Games played"
+                                       FontFamily="{StaticResource DMSansSemiBold}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource STTextDim}"
+                                       CharacterSpacing="60"
+                                       HorizontalAlignment="Center"
+                                       Visibility="{x:Bind ViewModel.HasLastSessionCovers, Mode=OneWay,
                                                     Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                             <ScrollViewer HorizontalScrollBarVisibility="Auto"
@@ -199,20 +223,6 @@
                                 </ItemsControl>
                             </ScrollViewer>
                         </StackPanel>
-
-                        <!-- Col 2: quality badge -->
-                        <Border Grid.Column="2"
-                                VerticalAlignment="Center"
-                                Margin="16,0,0,0"
-                                CornerRadius="5" Padding="10,4"
-                                Background="{x:Bind ViewModel.LastSessionGradeColorHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                Visibility="{x:Bind ViewModel.LastSessionHasGrade, Mode=OneWay,
-                                             Converter={StaticResource BoolToVisibilityConverter}}">
-                            <TextBlock Text="{x:Bind ViewModel.LastSessionGrade, Mode=OneWay}"
-                                       Style="{StaticResource ST_BadgeText}"
-                                       Foreground="White"/>
-                        </Border>
                     </Grid>
 
                     <!-- ── ACTIVE: live session panel ─────────────────────────── -->
@@ -377,8 +387,8 @@
                         <TextBlock Text="NIC SPEED"
                                    Style="{StaticResource ST_SectionLabel}"/>
                         <Border CornerRadius="4" Padding="8,2"
-                                Background="#1AFFFFFF"
-                                BorderBrush="#1AFFFFFF"
+                                Background="#1Af59e0b"
+                                BorderBrush="#40f59e0b"
                                 BorderThickness="1"
                                 HorizontalAlignment="Left">
                             <TextBlock Text="{x:Bind ViewModel.NicSpeedText, Mode=OneWay}"
@@ -398,8 +408,10 @@
                         <TextBlock Text="AUTO STREAMING"
                                    Style="{StaticResource ST_SectionLabel}"/>
                         <Border CornerRadius="4" Padding="8,2"
-                                Background="#1AFFFFFF"
-                                BorderBrush="#1AFFFFFF"
+                                Background="{x:Bind ViewModel.AutoStreamingBgHex, Mode=OneWay,
+                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                BorderBrush="{x:Bind ViewModel.AutoStreamingBorderHex, Mode=OneWay,
+                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
                                 BorderThickness="1"
                                 HorizontalAlignment="Left">
                             <TextBlock Text="{x:Bind ViewModel.AutoStreamingText, Mode=OneWay}"
@@ -420,8 +432,10 @@
                         <TextBlock Text="HDR"
                                    Style="{StaticResource ST_SectionLabel}"/>
                         <Border CornerRadius="4" Padding="8,2"
-                                Background="#1AFFFFFF"
-                                BorderBrush="#1AFFFFFF"
+                                Background="{x:Bind ViewModel.HdrBgHex, Mode=OneWay,
+                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                BorderBrush="{x:Bind ViewModel.HdrBorderHex, Mode=OneWay,
+                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
                                 BorderThickness="1"
                                 HorizontalAlignment="Left">
                             <TextBlock Text="{x:Bind ViewModel.HdrText, Mode=OneWay}"
@@ -442,8 +456,8 @@
                         <TextBlock Text="SPATIAL AUDIO"
                                    Style="{StaticResource ST_SectionLabel}"/>
                         <Border CornerRadius="4" Padding="8,2"
-                                Background="#1AFFFFFF"
-                                BorderBrush="#1AFFFFFF"
+                                Background="#1Af59e0b"
+                                BorderBrush="#40f59e0b"
                                 BorderThickness="1"
                                 HorizontalAlignment="Left">
                             <TextBlock Text="{x:Bind ViewModel.SpatialAudioText, Mode=OneWay}"
@@ -468,8 +482,8 @@
                         <TextBlock Text="GAME LIBRARY"
                                    Style="{StaticResource ST_SectionLabel}"/>
                         <Border CornerRadius="4" Padding="8,2"
-                                Background="#1AFFFFFF"
-                                BorderBrush="#1AFFFFFF"
+                                Background="#1Af59e0b"
+                                BorderBrush="#40f59e0b"
                                 BorderThickness="1"
                                 HorizontalAlignment="Left">
                             <TextBlock Text="{x:Bind ViewModel.GameLibraryText, Mode=OneWay}"
@@ -493,8 +507,10 @@
                         <TextBlock Text="AUTO HDR"
                                    Style="{StaticResource ST_SectionLabel}"/>
                         <Border CornerRadius="4" Padding="8,2"
-                                Background="#1AFFFFFF"
-                                BorderBrush="#1AFFFFFF"
+                                Background="{x:Bind ViewModel.AutoHdrBgHex, Mode=OneWay,
+                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                BorderBrush="{x:Bind ViewModel.AutoHdrBorderHex, Mode=OneWay,
+                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
                                 BorderThickness="1"
                                 HorizontalAlignment="Left">
                             <TextBlock Text="{x:Bind ViewModel.AutoHdrText, Mode=OneWay}"

@@ -101,12 +101,26 @@
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
-            <!-- ── PANE FOOTER: version badge (hidden in compact mode at 52px) -->
+            <!-- ── PANE FOOTER: version badge + update indicator ───────────────
+                 The update indicator (HyperlinkButton) is collapsed by default;
+                 MainWindow.xaml.cs subscribes to AppStateService.UpdateAvailabilityChanged
+                 and toggles its visibility / text when GitHub reports a newer release.
+                 Click → opens the Releases page in the default browser. -->
             <NavigationView.PaneFooter>
                 <Border Padding="14,4,14,12">
-                    <TextBlock x:Name="SidebarVersionText"
-                               Style="{StaticResource ST_FooterText}"
-                               Text="v6.2.0 · FoggyBytes"/>
+                    <StackPanel Spacing="2">
+                        <TextBlock x:Name="SidebarVersionText"
+                                   Style="{StaticResource ST_FooterText}"
+                                   Text="v6.2.0 · FoggyBytes"/>
+                        <HyperlinkButton x:Name="SidebarUpdateLink"
+                                         Visibility="Collapsed"
+                                         Padding="0"
+                                         FontFamily="{StaticResource DMSans}"
+                                         FontSize="11"
+                                         Foreground="{StaticResource STWarning}"
+                                         Click="SidebarUpdateLink_Click"
+                                         ToolTipService.ToolTip="Open the GitHub releases page"/>
+                    </StackPanel>
                 </Border>
             </NavigationView.PaneFooter>
 

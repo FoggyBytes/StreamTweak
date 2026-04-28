@@ -123,9 +123,14 @@ namespace StreamTweak.Views
         {
             try
             {
-                await StoreWebView.EnsureCoreWebView2Async();
+                var userDataPath = System.IO.Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "StreamTweak", "WebView2");
+                var env = await CoreWebView2Environment.CreateWithOptionsAsync(null, userDataPath, new CoreWebView2EnvironmentOptions());
+                await StoreWebView.EnsureCoreWebView2Async(env);
 
                 var wv = StoreWebView.CoreWebView2;
+                if (wv == null) return;
 
                 // 1. Override User-Agent so providers don't see "WebView2".
                 wv.Settings.UserAgent = ChromeUserAgent;
@@ -147,7 +152,14 @@ namespace StreamTweak.Views
 
                 wv.Navigate(StoreViewModel.HomeUrl);
             }
-            catch { /* WebView2 runtime unavailable — page stays blank */ }
+            catch (Exception ex)
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    WebView2ErrorBar.Message = ex.Message;
+                    WebView2ErrorBar.IsOpen  = true;
+                });
+            }
         }
 
         // ── New-window handling ───────────────────────────────────────────────

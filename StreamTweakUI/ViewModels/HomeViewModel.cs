@@ -1,9 +1,7 @@
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Reflection;
-using System.Text.Json;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
 using StreamTweak.Services;
@@ -40,7 +38,6 @@ namespace StreamTweak.ViewModels
 
     public sealed class HomeViewModel : ViewModelBase
     {
-        private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(10) };
         private readonly DispatcherQueue _dispatcher;
         private System.Threading.Timer?  _nicSpeedTimer;
 
@@ -60,58 +57,10 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _buildDateText, value);
         }
 
-        // ── Update check ──────────────────────────────────────────────────────
-
-        private string _updateStatus = string.Empty;
-        public string UpdateStatus
-        {
-            get => _updateStatus;
-            private set
-            {
-                if (SetProperty(ref _updateStatus, value))
-                    RefreshUpdateStatusColor();
-            }
-        }
-
-        private bool _updateAvailable;
-        public bool UpdateAvailable
-        {
-            get => _updateAvailable;
-            private set
-            {
-                if (SetProperty(ref _updateAvailable, value))
-                    RefreshUpdateStatusColor();
-            }
-        }
-
-        private bool _isCheckingUpdate;
-        public bool IsCheckingUpdate
-        {
-            get => _isCheckingUpdate;
-            private set
-            {
-                if (SetProperty(ref _isCheckingUpdate, value))
-                {
-                    OnPropertyChanged(nameof(IsCheckingUpdateInverse));
-                    OnPropertyChanged(nameof(ShowUpdateLink));
-                }
-            }
-        }
-
-        private string _updateStatusColorHex = "#99FFFFFF";
-        public string UpdateStatusColorHex
-        {
-            get => _updateStatusColorHex;
-            private set => SetProperty(ref _updateStatusColorHex, value);
-        }
-
-        public bool IsCheckingUpdateInverse => !_isCheckingUpdate;
-
-        /// <summary>True only when the update check completed and the app is up to date.</summary>
-        public bool IsUpdateGood  => _updateStatus.StartsWith("✓") && !_updateAvailable;
-
-        /// <summary>True while checking or when an error/update result is shown (drives HyperlinkButton visibility).</summary>
-        public bool ShowUpdateLink => !_isCheckingUpdate && !IsUpdateGood;
+        // Update-check infrastructure has moved to AppStateService (centralized,
+        // fired once at app startup) and is surfaced by the sidebar and Settings.
+        // The Home panel intentionally shows nothing about updates — this was
+        // removed in 6.1.0 and the centralization in 6.2.0 keeps Home clean.
 
         // ── Session state ─────────────────────────────────────────────────────
 
@@ -183,11 +132,25 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _lastSessionGrade, value);
         }
 
-        private string _lastSessionGradeColorHex = "#FF808080";
+        private string _lastSessionGradeColorHex = "#808080";
         public string LastSessionGradeColorHex
         {
             get => _lastSessionGradeColorHex;
             private set => SetProperty(ref _lastSessionGradeColorHex, value);
+        }
+
+        private string _lastSessionGradeBgHex = "#1A808080";
+        public string LastSessionGradeBgHex
+        {
+            get => _lastSessionGradeBgHex;
+            private set => SetProperty(ref _lastSessionGradeBgHex, value);
+        }
+
+        private string _lastSessionGradeBorderHex = "#40808080";
+        public string LastSessionGradeBorderHex
+        {
+            get => _lastSessionGradeBorderHex;
+            private set => SetProperty(ref _lastSessionGradeBorderHex, value);
         }
 
         // ── Last session game covers ──────────────────────────────────────────
@@ -305,12 +268,17 @@ namespace StreamTweak.ViewModels
             private set
             {
                 if (SetProperty(ref _autoStreamingText, value))
+                {
                     OnPropertyChanged(nameof(AutoStreamingColorHex));
+                    OnPropertyChanged(nameof(AutoStreamingBgHex));
+                    OnPropertyChanged(nameof(AutoStreamingBorderHex));
+                }
             }
         }
 
-        public string AutoStreamingColorHex =>
-            _autoStreamingText == "On" ? "#22c55e" : "#ef4444";
+        public string AutoStreamingColorHex  => _autoStreamingText == "On" ? "#22c55e"   : "#ef4444";
+        public string AutoStreamingBgHex     => _autoStreamingText == "On" ? "#1F22c55e" : "#1Aef4444";
+        public string AutoStreamingBorderHex => _autoStreamingText == "On" ? "#4D22c55e" : "#40ef4444";
 
         private string _hdrText = "—";
         public string HdrText
@@ -319,12 +287,17 @@ namespace StreamTweak.ViewModels
             private set
             {
                 if (SetProperty(ref _hdrText, value))
+                {
                     OnPropertyChanged(nameof(HdrColorHex));
+                    OnPropertyChanged(nameof(HdrBgHex));
+                    OnPropertyChanged(nameof(HdrBorderHex));
+                }
             }
         }
 
-        public string HdrColorHex =>
-            _hdrText == "On" ? "#22c55e" : "#ef4444";
+        public string HdrColorHex  => _hdrText == "On" ? "#22c55e"   : "#ef4444";
+        public string HdrBgHex     => _hdrText == "On" ? "#1F22c55e" : "#1Aef4444";
+        public string HdrBorderHex => _hdrText == "On" ? "#4D22c55e" : "#40ef4444";
 
         private string _spatialAudioText = "Off";
         public string SpatialAudioText
@@ -363,12 +336,17 @@ namespace StreamTweak.ViewModels
             private set
             {
                 if (SetProperty(ref _autoHdrText, value))
+                {
                     OnPropertyChanged(nameof(AutoHdrColorHex));
+                    OnPropertyChanged(nameof(AutoHdrBgHex));
+                    OnPropertyChanged(nameof(AutoHdrBorderHex));
+                }
             }
         }
 
-        public string AutoHdrColorHex =>
-            _autoHdrText == "On" ? "#22c55e" : "#ef4444";
+        public string AutoHdrColorHex  => _autoHdrText == "On" ? "#22c55e"   : "#ef4444";
+        public string AutoHdrBgHex     => _autoHdrText == "On" ? "#1F22c55e" : "#1Aef4444";
+        public string AutoHdrBorderHex => _autoHdrText == "On" ? "#4D22c55e" : "#40ef4444";
 
         // ── Spatial audio live activation status ──────────────────────────────
 
@@ -507,53 +485,6 @@ namespace StreamTweak.ViewModels
 
         // ── Public API ────────────────────────────────────────────────────────
 
-        public async Task CheckForUpdatesAsync()
-        {
-            if (IsCheckingUpdate) return;
-            IsCheckingUpdate = true;
-            UpdateStatus = "Checking for updates…";
-            UpdateAvailable = false;
-
-            try
-            {
-                _http.DefaultRequestHeaders.UserAgent.TryParseAdd("StreamTweak-UpdateCheck");
-                string json = await _http.GetStringAsync(
-                    "https://api.github.com/repos/FoggyBytes/StreamTweak/releases/latest");
-
-                using var doc = JsonDocument.Parse(json);
-                string? tag = doc.RootElement.GetProperty("tag_name").GetString();
-                if (string.IsNullOrEmpty(tag)) { UpdateStatus = "Could not check for updates."; return; }
-
-                string latestStr = tag.TrimStart('v');
-                var current = Assembly.GetExecutingAssembly().GetName().Version;
-
-                if (current != null && Version.TryParse(latestStr, out var latest))
-                {
-                    if (latest > new Version(current.Major, current.Minor, current.Build))
-                    {
-                        UpdateStatus = $"Update available: v{latestStr}";
-                        UpdateAvailable = true;
-                    }
-                    else
-                    {
-                        UpdateStatus = "✓ You have the latest version";
-                    }
-                }
-                else
-                {
-                    UpdateStatus = "Could not check for updates.";
-                }
-            }
-            catch
-            {
-                UpdateStatus = "Could not check for updates.";
-            }
-            finally
-            {
-                IsCheckingUpdate = false;
-            }
-        }
-
         public async Task LoadStatusAsync()
         {
             string? streamHostExePath = null;
@@ -625,7 +556,9 @@ namespace StreamTweak.ViewModels
                             LastSessionStats      = stats;
                             LastSessionHasGrade   = last.HasGrade;
                             LastSessionGrade      = last.GradeShortLabel;
-                            LastSessionGradeColorHex = last.GradeColorHex;
+                            LastSessionGradeColorHex  = last.GradeColorHex;
+                            LastSessionGradeBgHex     = last.GradeBgHex;
+                            LastSessionGradeBorderHex = last.GradeBorderHex;
                         });
                     }
                 }
@@ -736,13 +669,6 @@ namespace StreamTweak.ViewModels
 
         public void RequestStopStream()
             => AppStateService.Instance.RequestStopStreamAction?.Invoke();
-
-        public void OpenReleasesPage()
-        {
-            if (UpdateAvailable)
-                _ = Windows.System.Launcher.LaunchUriAsync(
-                    new Uri("https://github.com/FoggyBytes/StreamTweak/releases/latest"));
-        }
 
         public void OpenGitHub()
             => _ = Windows.System.Launcher.LaunchUriAsync(
@@ -879,23 +805,12 @@ namespace StreamTweak.ViewModels
             catch { return null; }
         }
 
-        private void RefreshUpdateStatusColor()
-        {
-            UpdateStatusColorHex = _updateAvailable
-                ? "#FFFFC107"
-                : _updateStatus.StartsWith("✓")
-                    ? "#FF4CAF50"
-                    : "#99FFFFFF";
-            OnPropertyChanged(nameof(IsUpdateGood));
-            OnPropertyChanged(nameof(ShowUpdateLink));
-        }
-
         private void LoadVersionInfo()
         {
             var version = Assembly.GetExecutingAssembly().GetName().Version;
             VersionText = version != null
                 ? $"Version {version.Major}.{version.Minor}.{version.Build}"
-                : "Version 6.2.0";
+                : "Version 6.2.1";
 
             string location = Assembly.GetExecutingAssembly().Location;
             BuildDateText = File.Exists(location)

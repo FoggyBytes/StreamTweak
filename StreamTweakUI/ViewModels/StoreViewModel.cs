@@ -1,4 +1,3 @@
-using System.Globalization;
 using StreamTweak.Services;
 
 namespace StreamTweak.ViewModels
@@ -71,8 +70,5 @@ namespace StreamTweak.ViewModels
             string separator = url.Contains('?') ? "&" : "?";
             return url + separator + AffiliateParam + fragment;
         }
-
-        public static string BuildSearchUrl(string query)
-            => $"https://www.instant-gaming.com/search/?q={Uri.EscapeDataString(query)}&platform[]=1&{AffiliateParam}";
     }
 }

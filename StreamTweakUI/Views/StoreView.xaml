@@ -23,6 +23,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
@@ -93,13 +94,26 @@
             </Grid>
         </Border>
 
+        <!-- ── ERROR BANNER ─────────────────────────────────────────────────
+             Shown when WebView2 fails to initialize (runtime missing, conflict,
+             permission error). Hidden by default; made visible in code-behind
+             on exception so the user can see the real error message. -->
+        <InfoBar Grid.Row="1"
+                 x:Name="WebView2ErrorBar"
+                 Title="Store unavailable"
+                 Severity="Error"
+                 IsClosable="True"
+                 IsOpen="False"
+                 BorderThickness="0,0,0,1"
+                 CornerRadius="0"/>
+
         <!-- ── INFO BANNER ──────────────────────────────────────────────────
              One-time notice explaining that Facebook / Google / Apple sign-in
              options are hidden because those providers block embedded browsers.
              User dismissal is persisted in config.json (StoreOAuthNoticeDismissed)
              via StoreViewModel.DismissOAuthNotice(), so the banner never reappears
              once closed. -->
-        <InfoBar Grid.Row="1"
+        <InfoBar Grid.Row="2"
                  Title="Facebook / Google / Apple sign-in not available"
                  Message="These providers block sign-in from embedded browsers for security reasons. If your Instant Gaming account uses one of them, click the open-in-browser icon (top right) to open the site in your system browser and sign in there."
                  Severity="Informational"
@@ -111,7 +125,7 @@
                  CornerRadius="0"/>
 
         <!-- ── WEBVIEW2 ──────────────────────────────────────────────────── -->
-        <WebView2 Grid.Row="2" x:Name="StoreWebView"/>
+        <WebView2 Grid.Row="3" x:Name="StoreWebView"/>
 
     </Grid>
 </Page>

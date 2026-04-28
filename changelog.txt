@@ -4,6 +4,18 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 6.2.1 (29/04/2026)
+------------------------------------------
+
+🐛 BUG FIXES:
+• Debug Mode toggle in Settings now correctly shows its active state when navigating away from the Settings page and returning — the toggle was always reset to Off on re-navigation, requiring a second toggle cycle to actually stop the debug session
+
+🧹 CODE CLEANUP:
+• Removed PlaceholderPage (migration scaffold from WPF → WinUI3, no longer referenced)
+• Removed StoreViewModel.BuildSearchUrl() (unused method, no callers)
+• Removed 4 unused XAML styles from the design system: ST_ActiveBanner, ST_StatTile, ST_MonoHero, ST_CardActive
+• Removed unused System.Globalization import from StoreViewModel
+
 Version 6.2.0 - "The Store Update" (26/04/2026)
 ------------------------------------------
 
@@ -20,6 +32,9 @@ Version 6.2.0 - "The Store Update" (26/04/2026)
 
 🔒 SECURITY:
 • StreamTweakService — System.Text.Json upgraded from 8.0.0 (transitive) to 8.0.6 (explicit reference) to address two Microsoft .NET DoS advisories: CVE-2024-30105 (GHSA-hh2w-p6rv-4g7w) and CVE-2024-43485 (GHSA-8g4q-xg66-9fp4). Real-world impact on StreamTweak is minimal (the service does not deserialize untrusted JSON over the named pipe), but the fix closes the open Dependabot alerts and aligns the service with the latest LTS patch level
+
+🔔 UPDATE NOTIFICATIONS:
+• Update availability is now polled once at app startup against the GitHub Releases API and surfaced wherever the app version is shown: a small amber link appears in the sidebar footer beneath the version badge ("↑ Update to vX.Y.Z"), and an Informational InfoBar is displayed at the top of the Settings page. Both link to the latest release page in the system browser. The Home panel remains intentionally clean — it shows no update status, consistent with the 6.1.0 redesign. The check is silent on network failure (no error UI), and the previous duplicate update logic in the Home ViewModel has been removed in favour of a single centralised source
 
 🎨 UI / UX:
 • Store tab — info banner: a one-time dismissible banner explains that Facebook / Google / Apple sign-in does not work inside embedded browsers (a server-side restriction enforced by those providers since 2021) and directs users to the open-in-browser button to sign in via the system browser; once dismissed, the banner never reappears

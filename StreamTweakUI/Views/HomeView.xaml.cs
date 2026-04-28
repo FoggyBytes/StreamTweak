@@ -35,7 +35,6 @@ namespace StreamTweak.Views
             // Reload status tiles whenever a tray toggle changes while this tab is active.
             AppStateService.Instance.SettingsChanged += OnSettingsChanged;
             UpdateSessionDot(ViewModel.IsSessionActive);
-            _ = ViewModel.CheckForUpdatesAsync();
             _ = ViewModel.LoadStatusAsync();
         }
 
@@ -91,9 +90,6 @@ namespace StreamTweak.Views
 
         private void StopStreamButton_Click(object sender, RoutedEventArgs e)
             => ViewModel.RequestStopStream();
-
-        private void UpdateStatusLink_Click(object sender, RoutedEventArgs e)
-            => ViewModel.OpenReleasesPage();
 
         private void LicenseButton_Click(object sender, RoutedEventArgs e)
             => ViewModel.OpenLicense();

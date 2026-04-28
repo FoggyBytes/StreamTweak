@@ -25,6 +25,23 @@
                       Margin="28,12,28,28">
             <StackPanel Spacing="16">
 
+                <!-- ── Update notice ─────────────────────────────────────────
+                     Visible only when AppStateService reports a newer GitHub release
+                     than the current AssemblyVersion. The check runs once at app
+                     startup; bound OneWay because dismissal is not persisted —
+                     the next session naturally re-shows the bar if the update is
+                     still pending. -->
+                <InfoBar Title="Update available"
+                         Severity="Informational"
+                         IsClosable="False"
+                         IsOpen="{x:Bind ViewModel.IsUpdateAvailable, Mode=OneWay}"
+                         Message="{x:Bind ViewModel.UpdateMessage, Mode=OneWay}">
+                    <InfoBar.ActionButton>
+                        <HyperlinkButton Content="Open releases page"
+                                         NavigateUri="https://github.com/FoggyBytes/StreamTweak/releases/latest"/>
+                    </InfoBar.ActionButton>
+                </InfoBar>
+
                 <!-- ── About ─────────────────────────────────────────────── -->
                 <Border Style="{StaticResource ST_Card}">
                     <Grid>

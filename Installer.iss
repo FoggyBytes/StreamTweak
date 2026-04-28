@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v6.2.0 - GitHub Release Installer
+; StreamTweak v6.2.1 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 1.8) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "6.2.0"
+#define MyAppVersion "6.2.1"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -174,5 +174,7 @@ begin
   Dependency_AddDotNet80;
   // Windows App SDK 1.8 runtime — provides the WinUI 3 XAML framework (DDLM package)
   Dependency_AddWindowsAppRuntime18;
+  // WebView2 runtime — required for Store tab WebView2 control
+  Dependency_AddWebView2;
   Result := True;
 end;

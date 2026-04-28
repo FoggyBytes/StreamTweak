@@ -154,13 +154,33 @@ namespace StreamTweak
             };
 
         [JsonIgnore]
-        public string GradeColorHex => IsDebugSession ? "#FF9E9E9E"
+        public string GradeColorHex => IsDebugSession ? "#9E9E9E"
             : Grade switch
             {
-                QualityGrade.High   => "#FF4CAF50",
-                QualityGrade.Medium => "#FFFFC107",
-                QualityGrade.Low    => "#FFDC4632",
-                _                   => "#FF808080"
+                QualityGrade.High   => "#22c55e",
+                QualityGrade.Medium => "#f59e0b",
+                QualityGrade.Low    => "#ef4444",
+                _                   => "#808080"
+            };
+
+        [JsonIgnore]
+        public string GradeBgHex => IsDebugSession ? "#1A9E9E9E"
+            : Grade switch
+            {
+                QualityGrade.High   => "#1F22c55e",
+                QualityGrade.Medium => "#1Af59e0b",
+                QualityGrade.Low    => "#1Aef4444",
+                _                   => "#1A808080"
+            };
+
+        [JsonIgnore]
+        public string GradeBorderHex => IsDebugSession ? "#409E9E9E"
+            : Grade switch
+            {
+                QualityGrade.High   => "#4D22c55e",
+                QualityGrade.Medium => "#40f59e0b",
+                QualityGrade.Low    => "#40ef4444",
+                _                   => "#40808080"
             };
     }
 

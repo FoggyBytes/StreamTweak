@@ -7,12 +7,35 @@ namespace StreamTweak.ViewModels
 {
     public sealed class SettingsViewModel : ViewModelBase
     {
+        public SettingsViewModel()
+        {
+            // Re-fire INotifyPropertyChanged on the InfoBar-bound properties whenever
+            // AppStateService publishes a new GitHub-release poll result.
+            AppStateService.Instance.UpdateAvailabilityChanged += (_, _) =>
+            {
+                OnPropertyChanged(nameof(IsUpdateAvailable));
+                OnPropertyChanged(nameof(UpdateMessage));
+            };
+        }
+
         // ── About ─────────────────────────────────────────────────────────────
 
         public string AppVersion { get; } =
             Assembly.GetExecutingAssembly().GetName().Version is { } v
                 ? $"{v.Major}.{v.Minor}.{v.Build}"
-                : "6.2.0";
+                : "6.2.1";
+
+        // ── Update notice (mirrors AppStateService) ───────────────────────────
+        // Rebroadcasts the centralized GitHub-release poll into properties the
+        // SettingsView InfoBar can bind to. Constructor subscribes to the
+        // singleton event; no unsubscribe needed because SettingsViewModel and
+        // AppStateService both live for the entire app lifetime.
+
+        public bool   IsUpdateAvailable => AppStateService.Instance.UpdateAvailable;
+        public string UpdateMessage     =>
+            AppStateService.Instance.UpdateAvailable
+                ? $"Version {AppStateService.Instance.LatestVersion} is available on GitHub."
+                : string.Empty;
 
         private string _streamLightVersion = "Checking…";
         public string StreamLightVersion
@@ -160,6 +183,9 @@ namespace StreamTweak.ViewModels
 
         public void Load()
         {
+            // Restore debug-mode toggle state (survives tab navigation)
+            IsDebugModeActive = AppStateService.Instance.IsDebugModeActive;
+
             // Streaming server info via LogParser
             try
             {

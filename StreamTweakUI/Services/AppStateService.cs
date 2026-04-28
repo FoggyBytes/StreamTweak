@@ -1,4 +1,7 @@
 using StreamTweak;
+using System.Net.Http;
+using System.Reflection;
+using System.Text.Json;
 
 namespace StreamTweak.Services
 {
@@ -62,6 +65,12 @@ namespace StreamTweak.Services
 
         /// <summary>Stop the active debug session.</summary>
         public Func<Task>? StopDebugModeAction { get; set; }
+
+        /// <summary>
+        /// True while a debug session is active. Written by App.xaml.cs, read by
+        /// SettingsViewModel.Load() so the toggle restores its state on re-navigation.
+        /// </summary>
+        public bool IsDebugModeActive { get; set; }
 
         // ── Audio monitor live update (wired by App.xaml.cs) ──────────────────
 
@@ -128,5 +137,78 @@ namespace StreamTweak.Services
         public event EventHandler? SettingsChanged;
 
         public void RaiseSettingsChanged() => SettingsChanged?.Invoke(this, EventArgs.Empty);
+
+        // ── Update availability (GitHub releases poll) ────────────────────────
+        //
+        // The update check used to live in HomeViewModel and only ran when the
+        // Home tab was opened. Now centralized here so the result can be surfaced
+        // in places that have nothing to do with Home (sidebar, Settings).
+        // The check fires once at app startup (App.xaml.cs); on failure it stays
+        // silent — UpdateAvailable remains false and no UI is shown.
+
+        private static readonly HttpClient _updateHttp = new();
+
+        private bool _updateAvailable;
+        public bool UpdateAvailable
+        {
+            get => _updateAvailable;
+            private set
+            {
+                if (_updateAvailable == value) return;
+                _updateAvailable = value;
+                UpdateAvailabilityChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        private string _latestVersion = string.Empty;
+        public string LatestVersion
+        {
+            get => _latestVersion;
+            private set
+            {
+                if (_latestVersion == value) return;
+                _latestVersion = value;
+                UpdateAvailabilityChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>
+        /// Raised when UpdateAvailable or LatestVersion changes.
+        /// Subscribers (sidebar, Settings) marshal to UI thread themselves.
+        /// </summary>
+        public event EventHandler? UpdateAvailabilityChanged;
+
+        /// <summary>
+        /// Polls the GitHub releases API once and updates UpdateAvailable / LatestVersion.
+        /// Silent on failure (network down, GitHub rate-limit) — no UI ever shows an error.
+        /// Safe to fire-and-forget from the UI thread.
+        /// </summary>
+        public async Task CheckForUpdatesAsync()
+        {
+            try
+            {
+                _updateHttp.DefaultRequestHeaders.UserAgent.TryParseAdd("StreamTweak-UpdateCheck");
+                string json = await _updateHttp.GetStringAsync(
+                    "https://api.github.com/repos/FoggyBytes/StreamTweak/releases/latest");
+
+                using var doc = JsonDocument.Parse(json);
+                if (!doc.RootElement.TryGetProperty("tag_name", out var tagEl)) return;
+                string? tag = tagEl.GetString();
+                if (string.IsNullOrEmpty(tag)) return;
+
+                string latestStr = tag.TrimStart('v', 'V');
+                var current = Assembly.GetExecutingAssembly().GetName().Version;
+                if (current == null || !Version.TryParse(latestStr, out var latest)) return;
+
+                // Compare on Major.Minor.Build only — ignore Revision (always 0 on our builds).
+                bool isNewer = latest > new Version(current.Major, current.Minor, current.Build);
+                LatestVersion = latestStr;
+                UpdateAvailable = isNewer;
+            }
+            catch
+            {
+                // Silent failure — the update notice simply never appears.
+            }
+        }
     }
 }

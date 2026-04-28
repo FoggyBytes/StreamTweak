@@ -125,6 +125,11 @@ namespace StreamTweak
                 MainWindow.Activate();
             SetupTrayIcon();
 
+            // GitHub releases poll — populates AppStateService.UpdateAvailable
+            // so the sidebar and Settings can surface "update available" indicators.
+            // Fire-and-forget: silent on network failure, no UI blocking.
+            _ = AppStateService.Instance.CheckForUpdatesAsync();
+
             // Spatial audio
             _dolbyMonitor.StatusChanged += OnDolbyStatusChanged;
             StartDolbyMonitor();
@@ -690,6 +695,7 @@ namespace StreamTweak
         {
             if (_isDebugModeActive || _isAutoSessionActive || _sessionStartInProgress) return;
             _isDebugModeActive = true;
+            AppStateService.Instance.IsDebugModeActive = true;
             _sessionStartInProgress = true;
             try
             {
@@ -700,7 +706,7 @@ namespace StreamTweak
                 SessionLogger.MarkActiveSessionAsDebug();
 
                 string? sid = SessionLogger.ActiveSessionId;
-                if (sid == null) { _isDebugModeActive = false; return; }
+                if (sid == null) { _isDebugModeActive = false; AppStateService.Instance.IsDebugModeActive = false; return; }
 
                 var fakeStats = new SessionQualityStats
                 {
@@ -767,7 +773,7 @@ namespace StreamTweak
                 AppStateService.Instance.IsSessionActive = true;
                 UpdateTrayStreamingState(true);
             }
-            catch { _isDebugModeActive = false; }
+            catch { _isDebugModeActive = false; AppStateService.Instance.IsDebugModeActive = false; }
             finally { _sessionStartInProgress = false; }
         }
 
@@ -781,11 +787,12 @@ namespace StreamTweak
 
                 SessionLogger.EndSession("Debug Stop");
                 _isDebugModeActive   = false;
+                AppStateService.Instance.IsDebugModeActive = false;
                 _isAutoSessionActive = false;
                 AppStateService.Instance.IsSessionActive = false;
                 UpdateTrayStreamingState(false);
             }
-            catch { _isDebugModeActive = false; }
+            catch { _isDebugModeActive = false; AppStateService.Instance.IsDebugModeActive = false; }
         }
 
         // ── Inactivity timer ─────────────────────────────────────────────────
