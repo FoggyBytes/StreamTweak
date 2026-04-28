@@ -63,7 +63,11 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 
 ## ✨ What's New in 6.2.1 — "The Polish Update"
 
-- **Bug fix: Debug Mode toggle** — the Debug Mode toggle in Settings now correctly shows its active state when navigating away from the Settings page and returning; previously the toggle always reset to Off on re-navigation, requiring a second toggle cycle to actually stop the session
+- **Bug fix: Store tab (WebView2)** — the embedded browser failed to load when launched from the installer-built exe; the WebView2 runtime was attempting to write its user data folder inside Program Files (read-only). Fixed by supplying a custom environment pointing to `%LocalAppData%\StreamTweak\WebView2`; a dismissible error bar is shown if initialization still fails
+- **Bug fix: Debug Mode toggle** — the toggle in Settings now correctly shows its active state after navigating away and back; previously it always reset to Off on re-navigation, requiring a double toggle to stop the session
+- **Home tile badges** — Auto Streaming, HDR, and Auto HDR badges now use a tinted background + colored border matching the green/red button style; NIC Speed, Spatial Audio, and Game Library use the same treatment in amber
+- **Home last session card** — quality grade badge moved to the left column (below RTT avg and frame drops) and restyled to match the tile badge format (tinted bg, colored border, no dot); a "Games played" label now appears above the cover thumbnails
+- **Session log** — quality grade pill unified with the tile badge style (tinted bg, colored border, colored text, no dot); grade colors aligned to the app palette
 
 <details>
 <summary>6.2.0 — "The Store Update"</summary>

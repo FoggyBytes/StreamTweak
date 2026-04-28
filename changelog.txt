@@ -8,7 +8,14 @@ Version 6.2.1 - "The Polish Update" (29/04/2026)
 ------------------------------------------
 
 🐛 BUG FIXES:
+• Store tab (WebView2): the embedded browser failed to load when launched from the installer-built exe — the WebView2 runtime was trying to write its user data folder inside Program Files (read-only). Fixed by providing a custom environment via CreateWithOptionsAsync pointing to %LocalAppData%\StreamTweak\WebView2; a dismissible error bar is shown if initialization still fails for any reason
 • Debug Mode toggle in Settings now correctly shows its active state when navigating away from the Settings page and returning — the toggle was always reset to Off on re-navigation, requiring a second toggle cycle to actually stop the debug session
+
+🎨 UI / UX:
+• Home status tiles — badge style: Auto Streaming, HDR, and Auto HDR badges now use a tinted background and colored border matching the green (On) / red (Off) button style used elsewhere in the app; NIC Speed, Spatial Audio, and Game Library badges use the same treatment in amber
+• Home last session card — quality grade badge: the Excellent / Good / Poor badge has been moved from the right column to the left column (below the RTT avg and frame drops stats) and restyled to match the new tile badge format (tinted background, colored border, no dot)
+• Home last session card — games label: a "Games played" label now appears above the game cover thumbnails, centered, visible only when covers are present
+• Session log — quality grade badge: the grade pill in the session list has been unified with the tile badge style (tinted background, colored border, colored text, no dot); grade colors aligned to the app palette (#22c55e Excellent, #f59e0b Good, #ef4444 Poor)
 
 🧹 CODE CLEANUP:
 • Removed PlaceholderPage (migration scaffold from WPF → WinUI3, no longer referenced)
