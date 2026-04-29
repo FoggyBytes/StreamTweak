@@ -18,7 +18,7 @@ namespace StreamTweak
         private const int MaxRetryAttempts = 36; // 36 × 5 s = 3 min of retrying after the initial 30 s wait
 
         private CancellationTokenSource? _cts;
-        private bool _activatedThisSession;
+        private volatile bool _activatedThisSession;
 
         // ─── Configuration ────────────────────────────────────────────────────
 

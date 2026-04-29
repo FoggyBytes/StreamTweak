@@ -116,6 +116,11 @@ namespace StreamTweak.ViewModels
             GameMetadataService.CacheRefreshed += OnMetaCacheRefreshed;
         }
 
+        public void Unsubscribe()
+        {
+            GameMetadataService.CacheRefreshed -= OnMetaCacheRefreshed;
+        }
+
         private void OnMetaCacheRefreshed()
         {
             _dispatcher.TryEnqueue(() =>

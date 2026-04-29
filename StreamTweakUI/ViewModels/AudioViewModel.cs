@@ -265,6 +265,12 @@ namespace StreamTweak.ViewModels
                 // Set without triggering the setter's RefreshCapabilities yet
                 _selectedDevice = toSelect;
                 OnPropertyChanged(nameof(SelectedDevice));
+
+                // Persist the resolved device name so that consumers that read
+                // "AudioOutputDevice" from config (e.g. HomeViewModel tile subtitle)
+                // always see the correct name even before the user changes the selection.
+                if (toSelect != null && string.IsNullOrEmpty(ConfigService.Get("AudioOutputDevice")))
+                    ConfigService.Set("AudioOutputDevice", toSelect);
             }
             finally
             {

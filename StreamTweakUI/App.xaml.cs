@@ -191,6 +191,7 @@ namespace StreamTweak
             {
                 _audioOutputDevice             = device;
                 _dolbyMonitor.TargetDeviceName = device;
+                AppStateService.Instance.CurrentAudioDeviceName = device;
             };
             AppStateService.Instance.SetAudioFormatAction = fmt =>
             {
@@ -268,6 +269,7 @@ namespace StreamTweak
 
             _dolbyMonitor.TargetDeviceName = _audioOutputDevice;
             _dolbyMonitor.SpatialFormat    = _audioSpatialFormat;
+            AppStateService.Instance.CurrentAudioDeviceName = _audioOutputDevice;
         }
 
         // ── Public API (called by ViewModels / tray menu handlers) ───────────
@@ -484,7 +486,7 @@ namespace StreamTweak
                         // Allow session tracking to start even when NIC is already throttled
                         // by manual streaming mode — just skip the NIC change in that case.
                         if (!_isAutoSessionActive && !_sessionStartInProgress)
-                            HandleAutoStreamStart(skipNicThrottle: e.IsRetrospective || _isAutoStreamingActive);
+                            _ = HandleAutoStreamStart(skipNicThrottle: e.IsRetrospective || _isAutoStreamingActive);
                         else
                             StopInactivityTimer(); // reconnected within grace period
                     }
@@ -545,7 +547,7 @@ namespace StreamTweak
             finally { _sessionStartInProgress = false; }
         }
 
-        private async void HandleAutoStreamStart(bool skipNicThrottle = false)
+        private async Task HandleAutoStreamStart(bool skipNicThrottle = false)
         {
             if (_sessionStartInProgress) return;
             _sessionStartInProgress = true;
@@ -904,7 +906,7 @@ namespace StreamTweak
                         {
                             _bridgeRetrospectiveArmed = false; // one-shot, safe on UI thread
                             _dolbyMonitor.OnStreamingStarted(isRetrospective: true);
-                            HandleAutoStreamStart(skipNicThrottle: true);
+                            _ = HandleAutoStreamStart(skipNicThrottle: true);
                         }
                     });
                     return;

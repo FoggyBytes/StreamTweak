@@ -20,6 +20,12 @@ namespace StreamTweak.Views
             ViewModel.Load();
         }
 
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            base.OnNavigatedFrom(e);
+            ViewModel.Unsubscribe();
+        }
+
         private async void SyncNow_Click(object sender, RoutedEventArgs e)
             => await ViewModel.SyncNowAsync();
 

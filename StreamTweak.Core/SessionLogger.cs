@@ -210,22 +210,25 @@ namespace StreamTweak
         {
             try
             {
-                var sessions = Load();
-                var entry = new SessionEntry
+                lock (_fileLock)
                 {
-                    StartTime = DateTime.Now,
-                    TriggerMode = triggerMode,
-                    OriginalSpeed = originalSpeed
-                };
+                    var sessions = Load();
+                    var entry = new SessionEntry
+                    {
+                        StartTime = DateTime.Now,
+                        TriggerMode = triggerMode,
+                        OriginalSpeed = originalSpeed
+                    };
 
-                _activeSessionId        = entry.Id;
-                _activeSessionStartTime = entry.StartTime;
-                sessions.Insert(0, entry);
+                    _activeSessionId        = entry.Id;
+                    _activeSessionStartTime = entry.StartTime;
+                    sessions.Insert(0, entry);
 
-                if (sessions.Count > MaxSessions)
-                    sessions = sessions.Take(MaxSessions).ToList();
+                    if (sessions.Count > MaxSessions)
+                        sessions = sessions.Take(MaxSessions).ToList();
 
-                Save(sessions);
+                    Save(sessions);
+                }
             }
             catch { }
         }
@@ -236,9 +239,12 @@ namespace StreamTweak
             if (sid == null) return;
             try
             {
-                var sessions = Load();
-                var entry = sessions.FirstOrDefault(s => s.Id == sid);
-                if (entry != null) { entry.IsDebugSession = true; Save(sessions); }
+                lock (_fileLock)
+                {
+                    var sessions = Load();
+                    var entry = sessions.FirstOrDefault(s => s.Id == sid);
+                    if (entry != null) { entry.IsDebugSession = true; Save(sessions); }
+                }
             }
             catch { }
         }
@@ -247,10 +253,13 @@ namespace StreamTweak
         {
             try
             {
-                var sessions = Load();
-                // Preserve the currently active session so EndSession() can still close it properly
-                var toKeep = sessions.Where(s => s.Id == _activeSessionId).ToList();
-                Save(toKeep);
+                lock (_fileLock)
+                {
+                    var sessions = Load();
+                    // Preserve the currently active session so EndSession() can still close it properly
+                    var toKeep = sessions.Where(s => s.Id == _activeSessionId).ToList();
+                    Save(toKeep);
+                }
             }
             catch { }
         }
@@ -350,17 +359,20 @@ namespace StreamTweak
         {
             try
             {
-                var sessions = Load();
-                var entry = sessions.FirstOrDefault(s => s.Id == sessionId);
-                if (entry == null) return;
+                lock (_fileLock)
+                {
+                    var sessions = Load();
+                    var entry = sessions.FirstOrDefault(s => s.Id == sessionId);
+                    if (entry == null) return;
 
-                entry.QualityStats      = stats;
-                entry.Grade             = grade;
-                entry.RttTimeSeries     = rttSeries.Count     > 0 ? rttSeries     : null;
-                entry.DropsTimeSeries   = dropsSeries.Count   > 0 ? dropsSeries   : null;
-                entry.BitrateTimeSeries = bitrateSeries.Count > 0 ? bitrateSeries : null;
-                entry.DecodeTimeSeries  = decodeSeries.Count  > 0 ? decodeSeries  : null;
-                Save(sessions);
+                    entry.QualityStats      = stats;
+                    entry.Grade             = grade;
+                    entry.RttTimeSeries     = rttSeries.Count     > 0 ? rttSeries     : null;
+                    entry.DropsTimeSeries   = dropsSeries.Count   > 0 ? dropsSeries   : null;
+                    entry.BitrateTimeSeries = bitrateSeries.Count > 0 ? bitrateSeries : null;
+                    entry.DecodeTimeSeries  = decodeSeries.Count  > 0 ? decodeSeries  : null;
+                    Save(sessions);
+                }
             }
             catch { }
         }
@@ -374,35 +386,38 @@ namespace StreamTweak
             if (sessionId == null) return;
             try
             {
-                var sessions = Load();
-                var entry = sessions.FirstOrDefault(s => s.Id == sessionId);
-                if (entry?.EndTime == null)
+                lock (_fileLock)
                 {
-                    entry!.EndTime = DateTime.Now;
-                    entry.EndReason = endReason;
-                    // Store even when empty: null means monitor never ran; [] means monitor ran but found nothing.
-                    if (gamesDetected != null)
+                    var sessions = Load();
+                    var entry = sessions.FirstOrDefault(s => s.Id == sessionId);
+                    if (entry?.EndTime == null)
                     {
-                        entry.GamesDetected = gamesDetected;
-
-                        // Snapshot cover paths while GameLibraryState is still intact.
-                        // This ensures covers remain visible in the session card even after
-                        // a game is later uninstalled or removed from the library.
-                        if (gamesDetected.Count > 0)
+                        entry!.EndTime = DateTime.Now;
+                        entry.EndReason = endReason;
+                        // Store even when empty: null means monitor never ran; [] means monitor ran but found nothing.
+                        if (gamesDetected != null)
                         {
-                            var gameMap = GameLibraryState.Current.Games
-                                .ToDictionary(g => g.Name, g => g, StringComparer.OrdinalIgnoreCase);
-                            var coverPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                            foreach (var name in gamesDetected)
+                            entry.GamesDetected = gamesDetected;
+
+                            // Snapshot cover paths while GameLibraryState is still intact.
+                            // This ensures covers remain visible in the session card even after
+                            // a game is later uninstalled or removed from the library.
+                            if (gamesDetected.Count > 0)
                             {
-                                if (gameMap.TryGetValue(name, out var g) && g.CoverImagePath != null)
-                                    coverPaths[name] = g.CoverImagePath;
+                                var gameMap = GameLibraryState.Current.Games
+                                    .ToDictionary(g => g.Name, g => g, StringComparer.OrdinalIgnoreCase);
+                                var coverPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                                foreach (var name in gamesDetected)
+                                {
+                                    if (gameMap.TryGetValue(name, out var g) && g.CoverImagePath != null)
+                                        coverPaths[name] = g.CoverImagePath;
+                                }
+                                if (coverPaths.Count > 0)
+                                    entry.GamesDetectedCoverPaths = coverPaths;
                             }
-                            if (coverPaths.Count > 0)
-                                entry.GamesDetectedCoverPaths = coverPaths;
                         }
+                        Save(sessions);
                     }
-                    Save(sessions);
                 }
             }
             catch { }

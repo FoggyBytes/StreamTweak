@@ -71,7 +71,10 @@ namespace StreamTweak.ViewModels
             private set
             {
                 if (SetProperty(ref _isSessionActive, value))
+                {
                     OnPropertyChanged(nameof(ShowLastSession));
+                    OnPropertyChanged(nameof(ShowEmptyState));
+                }
             }
         }
 
@@ -84,12 +87,18 @@ namespace StreamTweak.ViewModels
             private set
             {
                 if (SetProperty(ref _hasLastSession, value))
+                {
                     OnPropertyChanged(nameof(ShowLastSession));
+                    OnPropertyChanged(nameof(ShowEmptyState));
+                }
             }
         }
 
         /// <summary>True when there is a completed session AND no session is currently active.</summary>
-        public bool ShowLastSession => _hasLastSession && !_isSessionActive;
+        public bool ShowLastSession  => _hasLastSession && !_isSessionActive;
+
+        /// <summary>True when no session has ever been recorded and no session is active.</summary>
+        public bool ShowEmptyState   => !_hasLastSession && !_isSessionActive;
 
         private string _lastSessionDate = string.Empty;
         public string LastSessionDate
@@ -299,15 +308,29 @@ namespace StreamTweak.ViewModels
         public string HdrBgHex     => _hdrText == "On" ? "#1F22c55e" : "#1Aef4444";
         public string HdrBorderHex => _hdrText == "On" ? "#4D22c55e" : "#40ef4444";
 
+        private bool _isSpatialAudioActivated;
         private string _spatialAudioText = "Off";
         public string SpatialAudioText
         {
             get => _spatialAudioText;
             private set
             {
-                SetProperty(ref _spatialAudioText, value);
+                if (SetProperty(ref _spatialAudioText, value))
+                {
+                    if (value == "Off") _isSpatialAudioActivated = false;
+                    OnPropertyChanged(nameof(SpatialAudioColorHex));
+                    OnPropertyChanged(nameof(SpatialAudioBgHex));
+                    OnPropertyChanged(nameof(SpatialAudioBorderHex));
+                }
             }
         }
+
+        public string SpatialAudioColorHex  => _spatialAudioText == "Off" ? "#ef4444"
+                                               : _isSpatialAudioActivated ? "#22c55e" : "#f59e0b";
+        public string SpatialAudioBgHex     => _spatialAudioText == "Off" ? "#1Aef4444"
+                                               : _isSpatialAudioActivated ? "#1F22c55e" : "#1Af59e0b";
+        public string SpatialAudioBorderHex => _spatialAudioText == "Off" ? "#40ef4444"
+                                               : _isSpatialAudioActivated ? "#4D22c55e" : "#40f59e0b";
 
         private string _gameLibraryText = "—";
         public string GameLibraryText
@@ -347,6 +370,29 @@ namespace StreamTweak.ViewModels
         public string AutoHdrColorHex  => _autoHdrText == "On" ? "#22c55e"   : "#ef4444";
         public string AutoHdrBgHex     => _autoHdrText == "On" ? "#1F22c55e" : "#1Aef4444";
         public string AutoHdrBorderHex => _autoHdrText == "On" ? "#4D22c55e" : "#40ef4444";
+
+        // ── Tile subtitle text ────────────────────────────────────────────────
+
+        private string _nicAdapterName = string.Empty;
+        public string NicAdapterName
+        {
+            get => _nicAdapterName;
+            private set => SetProperty(ref _nicAdapterName, value);
+        }
+
+        private string _hdrDisplayName = string.Empty;
+        public string HdrDisplayName
+        {
+            get => _hdrDisplayName;
+            private set => SetProperty(ref _hdrDisplayName, value);
+        }
+
+        private string _spatialAudioDeviceName = string.Empty;
+        public string SpatialAudioDeviceName
+        {
+            get => _spatialAudioDeviceName;
+            private set => SetProperty(ref _spatialAudioDeviceName, value);
+        }
 
         // ── Spatial audio live activation status ──────────────────────────────
 
@@ -465,22 +511,22 @@ namespace StreamTweak.ViewModels
 
         private void OnSpatialAudioStatusChanged(string status)
         {
-            // Show activation progress in the Spatial Audio tile.
-            // Clear the text on neutral/ready states to avoid visual clutter.
-            string display = status switch
+            // Drive badge color: green when the format has been activated this session,
+            // amber when configured but not yet active, red when Off (handled in setter).
+            bool activated = status.StartsWith("✓");
+            bool deactivated = status.Contains("waiting", StringComparison.OrdinalIgnoreCase)
+                            || status.Contains("Ready",   StringComparison.OrdinalIgnoreCase)
+                            || status == "Disabled.";
+
+            if (!activated && !deactivated) return; // e.g. "Activating…" — keep current state
+
+            _dispatcher.TryEnqueue(() =>
             {
-                _ when status.StartsWith("✓")           => status,
-                _ when status.Contains("waiting")       => string.Empty,
-                _ when status.Contains("detected")      => "Activating…",
-                _ when status.Contains("activating", StringComparison.OrdinalIgnoreCase)
-                                                        => "Activating…",
-                _ when status.Contains("retrying", StringComparison.OrdinalIgnoreCase)
-                                                        => "Activating…",
-                _ when status == "Disabled."            => string.Empty,
-                _ when status.Contains("Ready")         => string.Empty,
-                _                                       => string.Empty
-            };
-            _dispatcher.TryEnqueue(() => SpatialAudioActivationText = display);
+                _isSpatialAudioActivated = activated;
+                OnPropertyChanged(nameof(SpatialAudioColorHex));
+                OnPropertyChanged(nameof(SpatialAudioBgHex));
+                OnPropertyChanged(nameof(SpatialAudioBorderHex));
+            });
         }
 
         // ── Public API ────────────────────────────────────────────────────────
@@ -624,7 +670,9 @@ namespace StreamTweak.ViewModels
             }
 
             // Config reads are fast — do on UI thread
-            AutoStreamingText = ConfigService.GetBool("AutoStreamingEnabled", true) ? "On" : "Off";
+            AutoStreamingText = ConfigService.GetBool("AutoStreamingEnabled", false) ? "On" : "Off";
+
+            NicAdapterName = ConfigService.Get("NetworkAdapterName", "Ethernet");
 
             bool audioEnabled = ConfigService.GetBool("AudioMonitorEnabled", false);
             SpatialAudioText = audioEnabled
@@ -632,6 +680,8 @@ namespace StreamTweak.ViewModels
                     ? "Windows Sonic"
                     : "Dolby Atmos")
                 : "Off";
+
+            SpatialAudioDeviceName = AppStateService.Instance.CurrentAudioDeviceName;
 
             try
             {
@@ -657,8 +707,11 @@ namespace StreamTweak.ViewModels
             {
                 var monitors = await HdrService.GetMonitorsAsync();
                 HdrText = monitors.Any(m => m.HdrEnabled && m.HdrSupported) ? "On" : "Off";
+                HdrDisplayName = monitors.FirstOrDefault(m => m.HdrSupported)?.FriendlyName
+                                 ?? monitors.FirstOrDefault()?.FriendlyName
+                                 ?? "Primary display";
             }
-            catch { HdrText = "—"; }
+            catch { HdrText = "—"; HdrDisplayName = "Primary display"; }
 
             try
             {
@@ -810,7 +863,7 @@ namespace StreamTweak.ViewModels
             var version = Assembly.GetExecutingAssembly().GetName().Version;
             VersionText = version != null
                 ? $"Version {version.Major}.{version.Minor}.{version.Build}"
-                : "Version 6.2.1";
+                : "Version 6.2.2";
 
             string location = Assembly.GetExecutingAssembly().Location;
             BuildDateText = File.Exists(location)

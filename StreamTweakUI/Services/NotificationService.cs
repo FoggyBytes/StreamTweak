@@ -48,11 +48,6 @@ namespace StreamTweak.Services
                     ? "Connection lost. Network speed restored."
                     : "Network speed restored to original.");
 
-        public static void ShowBridgeReady()
-            => ToastHelper.Show(
-                "StreamTweak Ready",
-                "Network set to 1 Gbps. Connect within 30 seconds or speed will be restored.");
-
         public static void ShowDolbyEnabled(string deviceName)
             => ToastHelper.Show(
                 "Spatial Audio Active",

@@ -3,6 +3,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using System.Reflection;
 using StreamTweak.Services;
 using Windows.Graphics;
 using Windows.UI;
@@ -19,6 +20,11 @@ namespace StreamTweak
             this.InitializeComponent();
             AppWindow.SetIcon(System.IO.Path.Combine(
                 System.AppContext.BaseDirectory, "Resources", "streamtweak.ico"));
+
+            var v = Assembly.GetExecutingAssembly().GetName().Version;
+            SidebarVersionText.Text = v != null
+                ? $"v{v.Major}.{v.Minor}.{v.Build} · FoggyBytes"
+                : "v6.2.2 · FoggyBytes";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -100,11 +106,22 @@ namespace StreamTweak
                 finally { _quitDialogOpen = false; }
             };
 
-            // Persist window size whenever it changes so it survives process restarts.
+            // Persist window size and enforce minimum dimensions on every resize.
             AppWindow.Changed += (_, args) =>
             {
-                if (args.DidSizeChange)
-                    SaveWindowSize();
+                if (!args.DidSizeChange) return;
+                var hwnd2  = WindowNative.GetWindowHandle(this);
+                uint dpi2  = GetDpiForWindow(hwnd2);
+                double sc2 = dpi2 / 96.0;
+                int minW   = (int)(MinLogicalWidth  * sc2);
+                int minH   = (int)(MinLogicalHeight * sc2);
+                var sz     = AppWindow.Size;
+                if (sz.Width < minW || sz.Height < minH)
+                {
+                    AppWindow.Resize(new SizeInt32(Math.Max(sz.Width, minW), Math.Max(sz.Height, minH)));
+                    return; // SaveWindowSize will be called again when the resize event re-fires
+                }
+                SaveWindowSize();
             };
 
             // Minimize button → hide window so it disappears from the taskbar.
@@ -180,19 +197,22 @@ namespace StreamTweak
             this.SetTitleBar(AppTitleBar);
         }
 
+        private const int MinLogicalWidth  = 1280;
+        private const int MinLogicalHeight = 720;
+
         private void ConfigureWindowSize()
         {
             var hwnd = WindowNative.GetWindowHandle(this);
             uint dpi = GetDpiForWindow(hwnd);
             double scale = dpi / 96.0;
 
-            // Restore last saved size, or fall back to the default 800×640.
-            int logicalWidth  = Services.ConfigService.GetInt("WindowWidth",  800);
-            int logicalHeight = Services.ConfigService.GetInt("WindowHeight", 640);
+            // Restore last saved size, or fall back to the minimum.
+            int logicalWidth  = Services.ConfigService.GetInt("WindowWidth",  MinLogicalWidth);
+            int logicalHeight = Services.ConfigService.GetInt("WindowHeight", MinLogicalHeight);
 
-            // Clamp to a sensible minimum so the UI never becomes unusable.
-            logicalWidth  = Math.Max(logicalWidth,  620);
-            logicalHeight = Math.Max(logicalHeight, 480);
+            // Enforce minimum so the UI never becomes unusable.
+            logicalWidth  = Math.Max(logicalWidth,  MinLogicalWidth);
+            logicalHeight = Math.Max(logicalHeight, MinLogicalHeight);
 
             int physicalWidth  = (int)(logicalWidth  * scale);
             int physicalHeight = (int)(logicalHeight * scale);

@@ -261,10 +261,10 @@ namespace StreamTweak.ViewModels
         {
             ConfigService.Set("NetworkAdapterName", adapterName);
             UpdateCurrentSpeed(adapterName);
-            _ = Task.Run(() => LoadAdapterSpeedsAsync(adapterName));
+            _ = Task.Run(() => LoadAdapterSpeeds(adapterName));
         }
 
-        private void LoadAdapterSpeedsAsync(string adapterName)
+        private void LoadAdapterSpeeds(string adapterName)
         {
             var speeds = NetworkManager.GetSupportedSpeeds(adapterName);
 

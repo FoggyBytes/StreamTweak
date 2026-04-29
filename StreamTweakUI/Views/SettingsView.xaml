@@ -59,11 +59,11 @@
                                        Style="{StaticResource ST_RowDescription}"/>
                         </StackPanel>
 
-                        <HyperlinkButton Grid.Column="1"
-                                         Content="GitHub releases"
-                                         NavigateUri="https://github.com/foggybytes/streamtweak/releases"
-                                         VerticalAlignment="Center"
-                                         Foreground="{StaticResource STTextSecondary}"/>
+                        <Button Grid.Column="1"
+                                Content="GitHub releases"
+                                Style="{StaticResource ST_ButtonSecondary}"
+                                VerticalAlignment="Center"
+                                Click="OpenStreamTweakReleases_Click"/>
                     </Grid>
                 </Border>
 
@@ -84,11 +84,11 @@
                                        Style="{StaticResource ST_RowDescription}"/>
                         </StackPanel>
 
-                        <HyperlinkButton Grid.Column="1"
-                                         Content="GitHub releases"
-                                         NavigateUri="https://github.com/FoggyBytes/StreamLight/releases"
-                                         VerticalAlignment="Center"
-                                         Foreground="{StaticResource STTextSecondary}"/>
+                        <Button Grid.Column="1"
+                                Content="GitHub releases"
+                                Style="{StaticResource ST_ButtonSecondary}"
+                                VerticalAlignment="Center"
+                                Click="OpenStreamLightReleases_Click"/>
                     </Grid>
                 </Border>
 
@@ -163,13 +163,13 @@
                                 <TextBlock Text="{x:Bind ViewModel.ServerName, Mode=OneWay}"
                                            Style="{StaticResource ST_RowLabel}"/>
                             </StackPanel>
-                            <HyperlinkButton Grid.Column="1"
-                                             Content="GitHub"
-                                             Click="OpenServerRepo_Click"
-                                             Foreground="{StaticResource STTextSecondary}"
-                                             Visibility="{x:Bind ViewModel.HasServerRepo, Mode=OneWay,
-                                                          Converter={StaticResource BoolToVisibilityConverter}}"
-                                             VerticalAlignment="Center"/>
+                            <Button Grid.Column="1"
+                                    Content="GitHub"
+                                    Style="{StaticResource ST_ButtonSecondary}"
+                                    Click="OpenServerRepo_Click"
+                                    Visibility="{x:Bind ViewModel.HasServerRepo, Mode=OneWay,
+                                                 Converter={StaticResource BoolToVisibilityConverter}}"
+                                    VerticalAlignment="Center"/>
                         </Grid>
                     </StackPanel>
                 </Border>

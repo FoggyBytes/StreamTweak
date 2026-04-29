@@ -4,6 +4,23 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 6.2.2 - "The Polish Update" (29/04/2026)
+------------------------------------------
+
+🎨 UI / UX:
+• Home tiles — contextual subtitles: each tile now shows a secondary line below its main value — the active network adapter name under NIC Speed, the display FriendlyName under HDR, and the current audio output device under Auto Spatial Audio
+• Home tiles — icons: each tile title now displays the corresponding sidebar icon to its left, making the tile layout consistent with the NavigationView sidebar
+• Home tiles — improved hover on buttons: Primary, Green, and Danger buttons now maintain their own color on hover (accent, green, red) instead of turning grey; the ControlTemplate has been replaced with explicit visual states per button style
+• Footer links (GPL v3, GitHub, Donate): text changed to white at rest
+• Settings page — "GitHub releases" buttons restyled to match the page's button conventions
+
+🔧 IMPROVEMENTS:
+• Minimum window size enforced at 1280×720: the app window can no longer be resized below this threshold; DPI-aware enforcement via AppWindow.Changed
+
+🐛 BUG FIXES:
+• Auto Spatial Audio tile showed "Default device" instead of the configured audio device at startup — fixed by exposing the device name through AppStateService at boot time (before the Audio page ViewModel is ever loaded)
+
+------------------------------------------
 Version 6.2.1 - "The Polish Update" (29/04/2026)
 ------------------------------------------
 

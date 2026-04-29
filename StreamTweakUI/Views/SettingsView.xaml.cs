@@ -26,6 +26,14 @@ namespace StreamTweak.Views
         private void OpenLogFolder_Click(object sender, RoutedEventArgs e)
             => ViewModel.OpenLogFolder();
 
+        private async void OpenStreamTweakReleases_Click(object sender, RoutedEventArgs e)
+            => await Windows.System.Launcher.LaunchUriAsync(
+                new Uri("https://github.com/FoggyBytes/StreamTweak/releases"));
+
+        private async void OpenStreamLightReleases_Click(object sender, RoutedEventArgs e)
+            => await Windows.System.Launcher.LaunchUriAsync(
+                new Uri("https://github.com/FoggyBytes/StreamLight/releases"));
+
         private async void OpenServerRepo_Click(object sender, RoutedEventArgs e)
         {
             string url = ViewModel.ServerRepoUrl;

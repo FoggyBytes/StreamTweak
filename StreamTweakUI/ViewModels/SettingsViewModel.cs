@@ -23,7 +23,7 @@ namespace StreamTweak.ViewModels
         public string AppVersion { get; } =
             Assembly.GetExecutingAssembly().GetName().Version is { } v
                 ? $"{v.Major}.{v.Minor}.{v.Build}"
-                : "6.2.1";
+                : "6.2.2";
 
         // ── Update notice (mirrors AppStateService) ───────────────────────────
         // Rebroadcasts the centralized GitHub-release poll into properties the
@@ -205,14 +205,15 @@ namespace StreamTweak.ViewModels
             _ = LoadStreamLightVersionAsync();
         }
 
-        private static readonly HttpClient _httpClient = new();
+        private static readonly HttpClient _httpClient = new()
+        {
+            DefaultRequestHeaders = { { "User-Agent", "StreamTweak" } }
+        };
 
         private async Task LoadStreamLightVersionAsync()
         {
             try
             {
-                _httpClient.DefaultRequestHeaders.TryAddWithoutValidation(
-                    "User-Agent", "StreamTweak");
                 var json = await _httpClient.GetStringAsync(
                     "https://api.github.com/repos/FoggyBytes/StreamLight/releases/latest");
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
@@ -289,11 +290,9 @@ namespace StreamTweak.ViewModels
 
         public void ClearSessions()
         {
-            string sessionsPath = Path.Combine(DataFolderPath, "sessions.json");
             try
             {
-                if (File.Exists(sessionsPath))
-                    File.Delete(sessionsPath);
+                SessionLogger.ClearAll();
                 ShowStatus("Session history cleared.", isError: false);
             }
             catch (Exception ex)

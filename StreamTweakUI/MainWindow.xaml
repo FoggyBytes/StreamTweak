@@ -110,8 +110,7 @@
                 <Border Padding="14,4,14,12">
                     <StackPanel Spacing="2">
                         <TextBlock x:Name="SidebarVersionText"
-                                   Style="{StaticResource ST_FooterText}"
-                                   Text="v6.2.0 · FoggyBytes"/>
+                                   Style="{StaticResource ST_FooterText}"/>
                         <HyperlinkButton x:Name="SidebarUpdateLink"
                                          Visibility="Collapsed"
                                          Padding="0"

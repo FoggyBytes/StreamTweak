@@ -77,6 +77,13 @@ namespace StreamTweak.Services
         /// <summary>Enable or disable the spatial audio monitor at runtime.</summary>
         public Action<bool>? SetAudioMonitorEnabledAction { get; set; }
 
+        /// <summary>
+        /// The audio output device name currently tracked by DolbyAudioMonitor.
+        /// Set by App.xaml.cs at startup and whenever the user changes the device.
+        /// Always reflects the actual device (never empty — falls back to "Steam Streaming Speakers").
+        /// </summary>
+        public string CurrentAudioDeviceName { get; set; } = "Steam Streaming Speakers";
+
         /// <summary>Change the target audio output device on the running monitor.</summary>
         public Action<string>? SetAudioDeviceAction { get; set; }
 

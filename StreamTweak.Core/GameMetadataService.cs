@@ -36,7 +36,9 @@ namespace StreamTweak
 
         static GameMetadataService()
         {
-            _http.DefaultRequestHeaders.Add("User-Agent", "StreamTweak/6.1.0 (FoggyBytes)");
+            var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            string ver = v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "6.2.2";
+            _http.DefaultRequestHeaders.Add("User-Agent", $"StreamTweak/{ver} (FoggyBytes)");
         }
 
         private static Dictionary<string, GameMetadata> _cache = new(StringComparer.OrdinalIgnoreCase);

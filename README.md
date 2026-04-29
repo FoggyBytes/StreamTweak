@@ -61,13 +61,23 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 6.2.1 — "The Polish Update"
+## ✨ What's New in 6.2.2 — "The Polish Update"
+
+- **Home tiles — contextual subtitles** — each tile now shows a secondary line below its main value: the active network adapter name (NIC Speed), the display FriendlyName (HDR), and the audio output device (Auto Spatial Audio)
+- **Home tiles — icons** — each tile title now displays the corresponding sidebar icon to its left, making the tile layout visually consistent with the NavigationView
+- **Button hover** — Primary, Green, and Danger buttons now maintain their own accent color on hover instead of turning grey; hover and pressed states are explicitly styled per button type
+- **Minimum window size** — the app window can no longer be resized below 1280×720; enforcement is DPI-aware
+- **Bug fix: Auto Spatial Audio tile** — showed "Default device" at startup instead of the configured output device; fixed by surfacing the device name through AppStateService at boot time, before the Audio page ViewModel is instantiated
+
+<details>
+<summary>6.2.1 — "The Polish Update"</summary>
 
 - **Bug fix: Store tab (WebView2)** — the embedded browser failed to load when launched from the installer-built exe; the WebView2 runtime was attempting to write its user data folder inside Program Files (read-only). Fixed by supplying a custom environment pointing to `%LocalAppData%\StreamTweak\WebView2`; a dismissible error bar is shown if initialization still fails
 - **Bug fix: Debug Mode toggle** — the toggle in Settings now correctly shows its active state after navigating away and back; previously it always reset to Off on re-navigation, requiring a double toggle to stop the session
 - **Home tile badges** — Auto Streaming, HDR, and Auto HDR badges now use a tinted background + colored border matching the green/red button style; NIC Speed, Spatial Audio, and Game Library use the same treatment in amber
 - **Home last session card** — quality grade badge moved to the left column (below RTT avg and frame drops) and restyled to match the tile badge format (tinted bg, colored border, no dot); a "Games played" label now appears above the cover thumbnails
 - **Session log** — quality grade pill unified with the tile badge style (tinted bg, colored border, colored text, no dot); grade colors aligned to the app palette
+</details>
 
 <details>
 <summary>6.2.0 — "The Store Update"</summary>
