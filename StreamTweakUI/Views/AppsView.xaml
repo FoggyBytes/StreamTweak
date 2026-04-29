@@ -108,7 +108,7 @@
                             Margin="20,0,20,16">
 
                     <Button Content="Add"
-                            Style="{StaticResource ST_ButtonPrimary}"
+                            Style="{StaticResource ST_ButtonSecondary}"
                             Click="AddButton_Click"/>
 
                     <Button Content="Remove"

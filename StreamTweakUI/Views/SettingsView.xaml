@@ -59,11 +59,30 @@
                                        Style="{StaticResource ST_RowDescription}"/>
                         </StackPanel>
 
-                        <Button Grid.Column="1"
-                                Content="GitHub releases"
-                                Style="{StaticResource ST_ButtonSecondary}"
-                                VerticalAlignment="Center"
-                                Click="OpenStreamTweakReleases_Click"/>
+                        <StackPanel Grid.Column="1"
+                                    Orientation="Horizontal"
+                                    Spacing="8"
+                                    VerticalAlignment="Center">
+                            <Button Content="GPL v3"
+                                    Style="{StaticResource ST_ButtonSecondary}"
+                                    Click="OpenLicense_Click"/>
+                            <Button Style="{StaticResource ST_ButtonSecondary}"
+                                    Click="OpenDonate_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                    <Image Width="12" Height="12" VerticalAlignment="Center">
+                                        <Image.Source>
+                                            <SvgImageSource UriSource="ms-appx:///Resources/paypal.svg"/>
+                                        </Image.Source>
+                                    </Image>
+                                    <TextBlock Text="Donate" VerticalAlignment="Center"
+                                               FontFamily="{StaticResource DMSansMedium}"
+                                               FontSize="13"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Content="GitHub releases"
+                                    Style="{StaticResource ST_ButtonSecondary}"
+                                    Click="OpenStreamTweakReleases_Click"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
 

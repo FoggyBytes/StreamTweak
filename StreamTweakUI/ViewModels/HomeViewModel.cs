@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Net.NetworkInformation;
 using System.Reflection;
+using System.Text.Json;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
 using StreamTweak.Services;
@@ -394,6 +395,38 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _spatialAudioDeviceName, value);
         }
 
+        // ── APPS tile ─────────────────────────────────────────────────────────
+
+        private string _managedAppsText = "—";
+        public string ManagedAppsText
+        {
+            get => _managedAppsText;
+            private set => SetProperty(ref _managedAppsText, value);
+        }
+
+        // ── LOGS tile ─────────────────────────────────────────────────────────
+
+        private string _logsSessionCount = "0";
+        public string LogsSessionCount
+        {
+            get => _logsSessionCount;
+            private set => SetProperty(ref _logsSessionCount, value);
+        }
+
+        private string _logsSessionCountColorHex = "#808080";
+        public string LogsSessionCountColorHex
+        {
+            get => _logsSessionCountColorHex;
+            private set => SetProperty(ref _logsSessionCountColorHex, value);
+        }
+
+        private string _logsTotalDuration = "—";
+        public string LogsTotalDuration
+        {
+            get => _logsTotalDuration;
+            private set => SetProperty(ref _logsTotalDuration, value);
+        }
+
         // ── Spatial audio live activation status ──────────────────────────────
 
         private string _spatialAudioActivationText = string.Empty;
@@ -544,6 +577,28 @@ namespace StreamTweak.ViewModels
                 try
                 {
                     var sessions = SessionLogger.Load();
+
+                    // LOGS tile aggregates
+                    var completed = sessions.Where(s => s.EndTime != null).ToList();
+                    int logsTotal = completed.Count;
+                    var totalDur  = TimeSpan.FromSeconds(
+                        completed.Sum(s => (s.EndTime!.Value - s.StartTime).TotalSeconds));
+                    var graded = completed
+                        .Where(s => s.Grade is QualityGrade.High or QualityGrade.Medium or QualityGrade.Low)
+                        .ToList();
+                    string logsColor = "#808080";
+                    if (graded.Count > 0)
+                    {
+                        double avg = graded.Average(s => (int)s.Grade!.Value); // High=1, Med=2, Low=3
+                        logsColor = avg < 1.5 ? "#22c55e" : avg < 2.5 ? "#f59e0b" : "#ef4444";
+                    }
+                    _dispatcher.TryEnqueue(() =>
+                    {
+                        LogsSessionCount         = logsTotal.ToString();
+                        LogsSessionCountColorHex = logsColor;
+                        LogsTotalDuration        = FormatTotalDuration(totalDur);
+                    });
+
                     // Sessions are stored newest-first (Insert(0) in StartSession).
                     var last = sessions.FirstOrDefault(s => s.EndTime != null);
                     if (last != null)
@@ -609,6 +664,24 @@ namespace StreamTweak.ViewModels
                     }
                 }
                 catch { }
+
+                // APPS tile — count managed apps from managedapps.json
+                try
+                {
+                    string appsPath = Path.Combine(
+                        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                        "StreamTweak", "managedapps.json");
+                    int count = 0;
+                    if (File.Exists(appsPath))
+                    {
+                        string json = File.ReadAllText(appsPath);
+                        var apps = JsonSerializer.Deserialize<List<ManagedApp>>(json);
+                        count = apps?.Count ?? 0;
+                    }
+                    _dispatcher.TryEnqueue(() =>
+                        ManagedAppsText = count > 0 ? count.ToString() : "—");
+                }
+                catch { _dispatcher.TryEnqueue(() => ManagedAppsText = "—"); }
 
                 // Streaming server
                 try
@@ -687,7 +760,7 @@ namespace StreamTweak.ViewModels
             {
                 var state = GameLibraryState.Current;
                 int count = state.Games?.Count ?? 0;
-                GameLibraryText = count == 1 ? "1 game" : $"{count} games";
+                GameLibraryText = count > 0 ? count.ToString() : "—";
 
                 if (state.LastSyncUtc != null)
                 {
@@ -734,6 +807,13 @@ namespace StreamTweak.ViewModels
         public void OpenLicense()
             => _ = Windows.System.Launcher.LaunchUriAsync(
                 new Uri("https://github.com/FoggyBytes/StreamTweak/blob/main/LICENSE"));
+
+        private static string FormatTotalDuration(TimeSpan t)
+        {
+            if (t.TotalSeconds < 60)  return $"{(int)t.TotalSeconds}s";
+            if (t.TotalHours   < 1)   return $"{(int)t.TotalMinutes}m {t.Seconds:00}s";
+            return $"{(int)t.TotalHours}h {t.Minutes:00}m";
+        }
 
         // ── Live session helpers ──────────────────────────────────────────────
 

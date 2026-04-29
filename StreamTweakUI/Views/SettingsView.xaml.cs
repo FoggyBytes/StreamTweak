@@ -26,6 +26,14 @@ namespace StreamTweak.Views
         private void OpenLogFolder_Click(object sender, RoutedEventArgs e)
             => ViewModel.OpenLogFolder();
 
+        private async void OpenLicense_Click(object sender, RoutedEventArgs e)
+            => await Windows.System.Launcher.LaunchUriAsync(
+                new Uri("https://www.gnu.org/licenses/gpl-3.0.html"));
+
+        private async void OpenDonate_Click(object sender, RoutedEventArgs e)
+            => await Windows.System.Launcher.LaunchUriAsync(
+                new Uri("https://www.paypal.com/paypalme/foggypunk"));
+
         private async void OpenStreamTweakReleases_Click(object sender, RoutedEventArgs e)
             => await Windows.System.Launcher.LaunchUriAsync(
                 new Uri("https://github.com/FoggyBytes/StreamTweak/releases"));

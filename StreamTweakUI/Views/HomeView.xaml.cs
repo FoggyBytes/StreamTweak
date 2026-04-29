@@ -70,34 +70,35 @@ namespace StreamTweak.Views
         private static void NavigateTo(string tag)
             => App.MainWindow?.NavigateTo(tag);
 
-        private void NicSpeedTile_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        private void NicSpeedTile_Click(object sender, RoutedEventArgs e)
             => NavigateTo("Network");
 
-        private void AutoStreamingTile_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        private void AutoStreamingTile_Click(object sender, RoutedEventArgs e)
             => NavigateTo("Network");
 
-        private void HdrTile_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        private void HdrTile_Click(object sender, RoutedEventArgs e)
             => NavigateTo("Display");
 
-        private void SpatialAudioTile_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        private void SpatialAudioTile_Click(object sender, RoutedEventArgs e)
             => NavigateTo("Audio");
 
-        private void GameLibraryTile_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        private void GameLibraryTile_Click(object sender, RoutedEventArgs e)
             => NavigateTo("GameLibrary");
 
-        private void AutoHdrTile_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        private void AutoHdrTile_Click(object sender, RoutedEventArgs e)
             => NavigateTo("Display");
+
+        private void AppsTile_Click(object sender, RoutedEventArgs e)
+            => NavigateTo("Apps");
+
+        private void StoreTile_Click(object sender, RoutedEventArgs e)
+            => NavigateTo("Store");
+
+        private void LogsTile_Click(object sender, RoutedEventArgs e)
+            => NavigateTo("Logs");
 
         private void StopStreamButton_Click(object sender, RoutedEventArgs e)
             => ViewModel.RequestStopStream();
 
-        private void LicenseButton_Click(object sender, RoutedEventArgs e)
-            => ViewModel.OpenLicense();
-
-        private void GitHubButton_Click(object sender, RoutedEventArgs e)
-            => ViewModel.OpenGitHub();
-
-        private void PayPalButton_Click(object sender, RoutedEventArgs e)
-            => ViewModel.OpenPayPal();
     }
 }

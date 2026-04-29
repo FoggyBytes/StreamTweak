@@ -4,6 +4,21 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 6.2.3 - "The Glow Update" (29/04/2026)
+------------------------------------------
+
+🎨 UI / UX:
+• Home tiles — interactive: all 9 tiles are now Buttons; hovering reveals a subtle background glow and a navigation arrow (↗) that fade in at the top-right corner; hover and pressed states are handled natively via a shared ST_TileButton ControlTemplate
+• Home tiles — three new: APPS shows the count of managed apps in amber monospace; STORE shows "powered by" and the Instant Gaming logo; LOGS shows total session count (green / amber / red based on average quality grade) and cumulative streaming time — the grid is now 3×3
+• Home tiles — green accent: toggle switches, Apply Settings button, and Add button no longer use the system accent color; all interactive states now use the app-wide green (#22c55e, hover #4ade80, pressed #16a34a)
+• Sidebar selection indicator changed from system accent color to green (#22c55e) to match the rest of the app
+• Settings page — GPL v3 and Donate links moved from the Home footer (removed) to the About card as ST_ButtonSecondary buttons, alongside the GitHub Releases button
+• Settings page — Donate button now shows the PayPal SVG icon to the left of the label
+
+🔧 IMPROVEMENTS:
+• Minimum window size enforcement upgraded from reactive AppWindow.Changed snap-back to WM_GETMINMAXINFO Win32 subclassing — the OS now prevents the window from being dragged below 1280×720 entirely, with full DPI-awareness via GetDpiForWindow
+
+------------------------------------------
 Version 6.2.2 - "The Tile Update" (29/04/2026)
 ------------------------------------------
 

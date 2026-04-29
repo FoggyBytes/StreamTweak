@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using StreamTweak.Services;
 using Windows.Graphics;
 using Windows.UI;
@@ -23,8 +24,8 @@ namespace StreamTweak
 
             var v = Assembly.GetExecutingAssembly().GetName().Version;
             SidebarVersionText.Text = v != null
-                ? $"v{v.Major}.{v.Minor}.{v.Build} · FoggyBytes"
-                : "v6.2.2 · FoggyBytes";
+                ? $"v{v.Major}.{v.Minor}.{v.Build}"
+                : "v6.2.2";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -38,9 +39,8 @@ namespace StreamTweak
             // WinUI3 NavigationViewItem template binds the indicator Rectangle.Fill to
             // NavigationViewSelectionIndicatorForeground; default is AccentFillColorDefaultBrush
             // which may not match the exact SystemAccentColor used by button styles.
-            var accentBrush = new SolidColorBrush(
-                (Color)Application.Current.Resources["SystemAccentColor"]);
-            NavView.Resources["NavigationViewSelectionIndicatorForeground"] = accentBrush;
+            NavView.Resources["NavigationViewSelectionIndicatorForeground"] =
+                new SolidColorBrush(Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E));
 
             // Override the internal WinUI3 font used by NavigationViewItem labels.
             // FontFamily inheritance is ignored by the item template; the template
@@ -50,6 +50,7 @@ namespace StreamTweak
 
             ConfigureTitleBar();    // sets up AppWindow.TitleBar colours + SetTitleBar()
             ConfigureWindowSize();
+            SubclassForMinSize(WindowNative.GetWindowHandle(this));
 
             // Clicking X shows a confirmation dialog instead of silently hiding.
             // If the user confirms, ExitApp() terminates the process.
@@ -106,22 +107,10 @@ namespace StreamTweak
                 finally { _quitDialogOpen = false; }
             };
 
-            // Persist window size and enforce minimum dimensions on every resize.
+            // Persist window size on every resize.
             AppWindow.Changed += (_, args) =>
             {
-                if (!args.DidSizeChange) return;
-                var hwnd2  = WindowNative.GetWindowHandle(this);
-                uint dpi2  = GetDpiForWindow(hwnd2);
-                double sc2 = dpi2 / 96.0;
-                int minW   = (int)(MinLogicalWidth  * sc2);
-                int minH   = (int)(MinLogicalHeight * sc2);
-                var sz     = AppWindow.Size;
-                if (sz.Width < minW || sz.Height < minH)
-                {
-                    AppWindow.Resize(new SizeInt32(Math.Max(sz.Width, minW), Math.Max(sz.Height, minH)));
-                    return; // SaveWindowSize will be called again when the resize event re-fires
-                }
-                SaveWindowSize();
+                if (args.DidSizeChange) SaveWindowSize();
             };
 
             // Minimize button → hide window so it disappears from the taskbar.
@@ -291,13 +280,68 @@ namespace StreamTweak
         private const int SW_HIDE    = 0;
         private const int SW_RESTORE = 9;
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         private static extern bool SetForegroundWindow(IntPtr hWnd);
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        [DllImport("user32.dll")]
         private static extern uint GetDpiForWindow(IntPtr hWnd);
+
+        // ── Minimum window size (WM_GETMINMAXINFO) ─────────────────────────────
+
+        private const uint WM_GETMINMAXINFO = 0x0024;
+        private const int  GWLP_WNDPROC     = -4;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct POINT { public int X; public int Y; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MINMAXINFO
+        {
+            public POINT ptReserved;
+            public POINT ptMaxSize;
+            public POINT ptMaxPosition;
+            public POINT ptMinTrackSize;
+            public POINT ptMaxTrackSize;
+        }
+
+        private delegate IntPtr WndProcDelegate(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+        private WndProcDelegate? _wndProcDelegate;
+        private IntPtr           _oldWndProc = IntPtr.Zero;
+
+        private void SubclassForMinSize(IntPtr hwnd)
+        {
+            _wndProcDelegate = WndProcHook;
+            _oldWndProc      = GetWindowLongPtr(hwnd, GWLP_WNDPROC);
+            SetWindowLongPtr(hwnd, GWLP_WNDPROC, Marshal.GetFunctionPointerForDelegate(_wndProcDelegate));
+        }
+
+        private IntPtr WndProcHook(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam)
+        {
+            if (msg == WM_GETMINMAXINFO && lParam != IntPtr.Zero)
+            {
+                uint   dpi   = GetDpiForWindow(hwnd);
+                double scale = dpi / 96.0;
+                var    mmi   = Marshal.PtrToStructure<MINMAXINFO>(lParam);
+                mmi.ptMinTrackSize.X = (int)(MinLogicalWidth  * scale);
+                mmi.ptMinTrackSize.Y = (int)(MinLogicalHeight * scale);
+                Marshal.StructureToPtr(mmi, lParam, false);
+                return IntPtr.Zero;
+            }
+            return _oldWndProc != IntPtr.Zero
+                ? CallWindowProc(_oldWndProc, hwnd, msg, wParam, lParam)
+                : IntPtr.Zero;
+        }
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+        private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr newProc);
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+        private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr CallWindowProc(IntPtr lpPrevWndFunc, IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
     }
 }

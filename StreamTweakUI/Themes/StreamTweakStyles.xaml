@@ -275,6 +275,86 @@
         <Setter Property="BorderThickness"  Value="1"/>
     </Style>
 
+    <!-- Tile: card cliccabile con hover glow + nav arrow fade -->
+    <Style x:Key="ST_TileButton" TargetType="Button">
+        <Setter Property="Background"                 Value="{StaticResource STCard}"/>
+        <Setter Property="BorderBrush"                Value="{StaticResource STBorder}"/>
+        <Setter Property="BorderThickness"            Value="1"/>
+        <Setter Property="CornerRadius"               Value="9"/>
+        <Setter Property="Padding"                    Value="16,14"/>
+        <Setter Property="HorizontalAlignment"        Value="Stretch"/>
+        <Setter Property="VerticalAlignment"          Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment"   Value="Stretch"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="RootGrid">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="HoverGlow"  Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"/>
+                                        <DoubleAnimation Storyboard.TargetName="NavArrow"   Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"/>
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="PointerOver">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="HoverGlow"  Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15"/>
+                                        <DoubleAnimation Storyboard.TargetName="NavArrow"   Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15"/>
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="HoverGlow"  Storyboard.TargetProperty="Opacity" To="0.4" Duration="0:0:0"/>
+                                        <DoubleAnimation Storyboard.TargetName="NavArrow"   Storyboard.TargetProperty="Opacity" To="0.4" Duration="0:0:0"/>
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="RootGrid.Opacity" Value="0.4"/>
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+
+                        <Border x:Name="TileBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <ContentPresenter x:Name="ContentPresenter"
+                                                  Content="{TemplateBinding Content}"
+                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                  ContentTransitions="{TemplateBinding ContentTransitions}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                  AutomationProperties.AccessibilityView="Raw"/>
+                                <FontIcon x:Name="NavArrow"
+                                          Glyph="&#xE8A7;"
+                                          FontFamily="Segoe MDL2 Assets"
+                                          FontSize="11"
+                                          Foreground="{StaticResource STTextMuted}"
+                                          HorizontalAlignment="Right"
+                                          VerticalAlignment="Top"
+                                          Opacity="0"/>
+                            </Grid>
+                        </Border>
+
+                        <!-- White glow overlay — sits on top of TileBorder, same corner radius -->
+                        <Border x:Name="HoverGlow"
+                                Background="#0EFFFFFF"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                IsHitTestVisible="False"
+                                Opacity="0"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Ghost: trasparente, testo dim -->
     <Style x:Key="ST_ButtonGhost" TargetType="Button">
         <Setter Property="FontFamily"       Value="{StaticResource DMSansMedium}"/>
@@ -431,12 +511,12 @@
     ────────────────────────────────────────────────────────────────────────── -->
     <x:Double x:Key="ToggleSwitchThemeMinWidth">0</x:Double>
 
-    <SolidColorBrush x:Key="ToggleSwitchFillOn"               Color="{ThemeResource SystemAccentColor}"/>
-    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver"    Color="{ThemeResource SystemAccentColorLight1}"/>
-    <SolidColorBrush x:Key="ToggleSwitchFillOnPressed"        Color="{ThemeResource SystemAccentColorDark1}"/>
-    <SolidColorBrush x:Key="ToggleSwitchStrokeOn"             Color="{ThemeResource SystemAccentColor}"/>
-    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver"  Color="{ThemeResource SystemAccentColorLight1}"/>
-    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed"      Color="{ThemeResource SystemAccentColorDark1}"/>
+    <SolidColorBrush x:Key="ToggleSwitchFillOn"               Color="#22c55e"/>
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver"    Color="#4ade80"/>
+    <SolidColorBrush x:Key="ToggleSwitchFillOnPressed"        Color="#16a34a"/>
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOn"             Color="#22c55e"/>
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver"  Color="#4ade80"/>
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed"      Color="#16a34a"/>
 
     <Style x:Key="ST_Toggle" TargetType="ToggleSwitch">
         <Setter Property="OnContent"        Value=""/>

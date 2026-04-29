@@ -76,7 +76,7 @@
                               IsEnabled="{x:Bind ViewModel.HasAdapters, Mode=OneWay}"/>
 
                     <Button Content="Apply Settings"
-                            Style="{StaticResource ST_ButtonPrimary}"
+                            Style="{StaticResource ST_ButtonSecondary}"
                             Click="ApplySettingsButton_Click"
                             HorizontalAlignment="Left"/>
 

@@ -59,15 +59,24 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 **📋 Session History & Telemetry**
 - Full session log — every session recorded with duration, RTT avg, frame drops %, games
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
-- Home dashboard — real-time status tiles for all six managed settings at a glance
+- Home dashboard — real-time status tiles for all nine managed settings at a glance (3×3 grid)
 
-## ✨ What's New in 6.2.2 — "The Tile Update"
+## ✨ What's New in 6.2.3 — "The Glow Update"
+
+- **Home tiles — hover effects** — all 9 tiles are now Buttons; hovering over any tile reveals a subtle background glow and a navigation arrow (↗) that fade in at the top-right corner via a shared `ST_TileButton` ControlTemplate
+- **Home tiles — three new** — APPS shows the count of managed apps in amber; STORE shows the Instant Gaming logo with "powered by"; LOGS shows the total session count (color-coded by average quality grade) and cumulative streaming time; the grid is now 3×3
+- **Green accent everywhere** — toggle switches, Apply Settings button, and Add button no longer use the system accent color; all interactive states now use the app-wide green (#22c55e); the sidebar selection indicator matches
+- **Settings — GPL v3 and Donate** — moved from the Home footer to the Settings About card as standard buttons; the Donate button now shows the PayPal icon; the Home footer is gone
+- **Minimum window size** — enforcement upgraded to Win32 `WM_GETMINMAXINFO` subclassing — the OS now prevents the window from being dragged below 1280×720 at all (previously it snapped back reactively)
+
+<details>
+<summary>6.2.2 — "The Tile Update"</summary>
 
 - **Home tiles — contextual subtitles** — each tile now shows a secondary line below its main value: the active network adapter name (NIC Speed), the display FriendlyName (HDR), and the audio output device (Auto Spatial Audio)
 - **Home tiles — icons** — each tile title now displays the corresponding sidebar icon to its left, making the tile layout visually consistent with the NavigationView
 - **Button hover** — Primary, Green, and Danger buttons now maintain their own accent color on hover instead of turning grey; hover and pressed states are explicitly styled per button type
-- **Minimum window size** — the app window can no longer be resized below 1280×720; enforcement is DPI-aware
 - **Bug fix: Auto Spatial Audio tile** — showed "Default device" at startup instead of the configured output device; fixed by surfacing the device name through AppStateService at boot time, before the Audio page ViewModel is instantiated
+</details>
 
 <details>
 <summary>6.2.1 — "The Polish Update"</summary>
@@ -145,7 +154,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_6.2.1_Installer.exe` and run it.
+2. Download the latest `StreamTweak_6.2.3_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

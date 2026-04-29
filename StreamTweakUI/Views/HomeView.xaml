@@ -383,7 +383,7 @@
             </Border>
 
             <!-- ═══════════════════════════════════════════════════════════════
-                 QUICK STATS — 3×2 grid di tile cliccabili
+                 QUICK STATS — 3×3 grid di tile cliccabili
             ════════════════════════════════════════════════════════════════ -->
             <Grid ColumnSpacing="10" RowSpacing="10">
                 <Grid.ColumnDefinitions>
@@ -394,14 +394,13 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <!-- NIC Speed → Network -->
-                <Border Grid.Row="0" Grid.Column="0"
-                        Background="{StaticResource STCard}"
-                        BorderBrush="{StaticResource STBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="16,14"
-                        Tapped="NicSpeedTile_Tapped">
+                <Button Grid.Row="0" Grid.Column="0"
+                        Style="{StaticResource ST_TileButton}"
+                        Click="NicSpeedTile_Click">
                     <StackPanel Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <FontIcon Glyph="&#xE701;" FontFamily="Segoe MDL2 Assets"
@@ -421,14 +420,12 @@
                         <TextBlock Text="{x:Bind ViewModel.NicAdapterName, Mode=OneWay}"
                                    Style="{StaticResource ST_BodySmall}"/>
                     </StackPanel>
-                </Border>
+                </Button>
 
                 <!-- Auto Streaming → Network -->
-                <Border Grid.Row="0" Grid.Column="1"
-                        Background="{StaticResource STCard}"
-                        BorderBrush="{StaticResource STBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="16,14"
-                        Tapped="AutoStreamingTile_Tapped">
+                <Button Grid.Row="0" Grid.Column="1"
+                        Style="{StaticResource ST_TileButton}"
+                        Click="AutoStreamingTile_Click">
                     <StackPanel Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <FontIcon Glyph="&#xE701;" FontFamily="Segoe MDL2 Assets"
@@ -450,14 +447,12 @@
                         </Border>
                         <TextBlock Opacity="0" Style="{StaticResource ST_BodySmall}" Text=" "/>
                     </StackPanel>
-                </Border>
+                </Button>
 
                 <!-- HDR → Display -->
-                <Border Grid.Row="0" Grid.Column="2"
-                        Background="{StaticResource STCard}"
-                        BorderBrush="{StaticResource STBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="16,14"
-                        Tapped="HdrTile_Tapped">
+                <Button Grid.Row="0" Grid.Column="2"
+                        Style="{StaticResource ST_TileButton}"
+                        Click="HdrTile_Click">
                     <StackPanel Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe MDL2 Assets"
@@ -480,14 +475,12 @@
                         <TextBlock Text="{x:Bind ViewModel.HdrDisplayName, Mode=OneWay}"
                                    Style="{StaticResource ST_BodySmall}"/>
                     </StackPanel>
-                </Border>
+                </Button>
 
                 <!-- Spatial Audio → Audio -->
-                <Border Grid.Row="1" Grid.Column="0"
-                        Background="{StaticResource STCard}"
-                        BorderBrush="{StaticResource STBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="16,14"
-                        Tapped="SpatialAudioTile_Tapped">
+                <Button Grid.Row="1" Grid.Column="0"
+                        Style="{StaticResource ST_TileButton}"
+                        Click="SpatialAudioTile_Click">
                     <StackPanel Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <FontIcon Glyph="&#xE767;" FontFamily="Segoe MDL2 Assets"
@@ -510,14 +503,12 @@
                         <TextBlock Text="{x:Bind ViewModel.SpatialAudioDeviceName, Mode=OneWay}"
                                    Style="{StaticResource ST_BodySmall}"/>
                     </StackPanel>
-                </Border>
+                </Button>
 
                 <!-- Game Library → GameLibrary -->
-                <Border Grid.Row="1" Grid.Column="1"
-                        Background="{StaticResource STCard}"
-                        BorderBrush="{StaticResource STBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="16,14"
-                        Tapped="GameLibraryTile_Tapped">
+                <Button Grid.Row="1" Grid.Column="1"
+                        Style="{StaticResource ST_TileButton}"
+                        Click="GameLibraryTile_Click">
                     <StackPanel Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <FontIcon Glyph="&#xE7FC;" FontFamily="Segoe MDL2 Assets"
@@ -525,28 +516,20 @@
                                       VerticalAlignment="Center"/>
                             <TextBlock Text="GAME LIBRARY" Style="{StaticResource ST_SectionLabel}"/>
                         </StackPanel>
-                        <Border CornerRadius="4" Padding="8,2"
-                                Background="#1Af59e0b"
-                                BorderBrush="#40f59e0b"
-                                BorderThickness="1"
-                                HorizontalAlignment="Left">
-                            <TextBlock Text="{x:Bind ViewModel.GameLibraryText, Mode=OneWay}"
-                                       Style="{StaticResource ST_BadgeText}"
-                                       Foreground="{StaticResource STWarning}"/>
-                        </Border>
+                        <TextBlock Text="{x:Bind ViewModel.GameLibraryText, Mode=OneWay}"
+                                   Style="{StaticResource ST_MonoMedium}"
+                                   Foreground="#f59e0b"/>
                         <TextBlock Text="{x:Bind ViewModel.GameLibrarySyncText, Mode=OneWay}"
                                    Style="{StaticResource ST_BodySmall}"
                                    Visibility="{x:Bind ViewModel.HasGameLibrarySyncText, Mode=OneWay,
                                                 Converter={StaticResource BoolToVisibilityConverter}}"/>
                     </StackPanel>
-                </Border>
+                </Button>
 
                 <!-- Auto HDR → Display -->
-                <Border Grid.Row="1" Grid.Column="2"
-                        Background="{StaticResource STCard}"
-                        BorderBrush="{StaticResource STBorder}"
-                        BorderThickness="1" CornerRadius="9" Padding="16,14"
-                        Tapped="AutoHdrTile_Tapped">
+                <Button Grid.Row="1" Grid.Column="2"
+                        Style="{StaticResource ST_TileButton}"
+                        Click="AutoHdrTile_Click">
                     <StackPanel Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="5">
                             <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe MDL2 Assets"
@@ -568,38 +551,77 @@
                         </Border>
                         <TextBlock Opacity="0" Style="{StaticResource ST_BodySmall}" Text=" "/>
                     </StackPanel>
-                </Border>
+                </Button>
+
+                <!-- APPS → Apps -->
+                <Button Grid.Row="2" Grid.Column="0"
+                        Style="{StaticResource ST_TileButton}"
+                        Click="AppsTile_Click">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <FontIcon Glyph="&#xE71D;" FontFamily="Segoe MDL2 Assets"
+                                      FontSize="11" Foreground="White"
+                                      VerticalAlignment="Center"/>
+                            <TextBlock Text="MANAGED APPS" Style="{StaticResource ST_SectionLabel}"/>
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.ManagedAppsText, Mode=OneWay}"
+                                   Style="{StaticResource ST_MonoMedium}"
+                                   Foreground="#f59e0b"/>
+                        <TextBlock Opacity="0" Style="{StaticResource ST_BodySmall}" Text=" "/>
+                    </StackPanel>
+                </Button>
+
+                <!-- STORE → Store -->
+                <Button Grid.Row="2" Grid.Column="1"
+                        Style="{StaticResource ST_TileButton}"
+                        Click="StoreTile_Click">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <FontIcon Glyph="&#xE7BF;" FontFamily="Segoe MDL2 Assets"
+                                      FontSize="11" Foreground="White"
+                                      VerticalAlignment="Center"/>
+                            <TextBlock Text="STORE" Style="{StaticResource ST_SectionLabel}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="powered by"
+                                       Style="{StaticResource ST_BodySmall}"
+                                       VerticalAlignment="Center"/>
+                            <Image Height="13" VerticalAlignment="Center">
+                                <Image.Source>
+                                    <SvgImageSource UriSource="ms-appx:///Resources/instant-gaming-logo.svg"/>
+                                </Image.Source>
+                            </Image>
+                        </StackPanel>
+                        <TextBlock Opacity="0" Style="{StaticResource ST_BodySmall}" Text=" "/>
+                    </StackPanel>
+                </Button>
+
+                <!-- LOGS → Logs -->
+                <Button Grid.Row="2" Grid.Column="2"
+                        Style="{StaticResource ST_TileButton}"
+                        Click="LogsTile_Click">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <FontIcon Glyph="&#xE9F9;" FontFamily="Segoe MDL2 Assets"
+                                      FontSize="11" Foreground="White"
+                                      VerticalAlignment="Center"/>
+                            <TextBlock Text="LOGS" Style="{StaticResource ST_SectionLabel}"/>
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind ViewModel.LogsSessionCount, Mode=OneWay}"
+                                   Style="{StaticResource ST_MonoMedium}"
+                                   Foreground="{x:Bind ViewModel.LogsSessionCountColorHex, Mode=OneWay,
+                                                Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                        <StackPanel Spacing="1">
+                            <TextBlock Text="All session duration"
+                                       Style="{StaticResource ST_BodySmall}"/>
+                            <TextBlock Text="{x:Bind ViewModel.LogsTotalDuration, Mode=OneWay}"
+                                       Style="{StaticResource ST_MonoValueSmall}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
 
             </Grid>
 
-            <!-- ═══════════════════════════════════════════════════════════════
-                 FOOTER — link ghost-style
-            ════════════════════════════════════════════════════════════════ -->
-            <StackPanel Orientation="Horizontal"
-                        HorizontalAlignment="Center"
-                        Spacing="16" Margin="0,4,0,0">
-
-                <StackPanel.Resources>
-                    <SolidColorBrush x:Key="HyperlinkButtonForegroundPointerOver"
-                                     Color="{ThemeResource SystemAccentColor}"/>
-                </StackPanel.Resources>
-
-                <HyperlinkButton Content="GPL v3"
-                                 Click="LicenseButton_Click"
-                                 Padding="0" FontSize="12"
-                                 Foreground="White"/>
-
-                <HyperlinkButton Content="GitHub"
-                                 Click="GitHubButton_Click"
-                                 Padding="0" FontSize="12"
-                                 Foreground="White"/>
-
-                <HyperlinkButton Content="Donate"
-                                 Click="PayPalButton_Click"
-                                 Padding="0" FontSize="12"
-                                 Foreground="White"/>
-
-            </StackPanel>
 
         </StackPanel>
     </ScrollViewer>
