@@ -61,7 +61,7 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all six managed settings at a glance
 
-## ✨ What's New in 6.2.2 — "The Polish Update"
+## ✨ What's New in 6.2.2 — "The Tile Update"
 
 - **Home tiles — contextual subtitles** — each tile now shows a secondary line below its main value: the active network adapter name (NIC Speed), the display FriendlyName (HDR), and the audio output device (Auto Spatial Audio)
 - **Home tiles — icons** — each tile title now displays the corresponding sidebar icon to its left, making the tile layout visually consistent with the NavigationView
