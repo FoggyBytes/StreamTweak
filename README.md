@@ -3,7 +3,7 @@
 
 **StreamTweak** is a host-side companion for Moonlight game streaming. It automates the technical setup that makes streaming reliable — NIC throttling, spatial audio, HDR, game library sync — so you can focus on playing.
 
-<img width="949" height="504" alt="Immagine 2026-04-25 141323" src="https://github.com/user-attachments/assets/9ead88ec-1b20-412d-8773-5006518f9f6f" />
+<img width="951" height="536" alt="Immagine 2026-04-29 164117" src="https://github.com/user-attachments/assets/55d85a1d-d552-4903-b195-953f012a3182" />
 
 ## ✅ Compatibility
 Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later.
