@@ -37,6 +37,10 @@ namespace StreamTweak.ViewModels
 
         public bool ShowFolderButton => InstallFolder != null;
 
+        // ── Sync tooltip (reads static server name set by GameLibraryViewModel.Load) ───
+        public string SyncTooltip
+            => $"Include in {GameLibraryViewModel.DetectedServerName} sync";
+
         // ── Game metadata ─────────────────────────────────────────────────────
 
         private GameMetadataService.GameMetadata? GetMeta()
@@ -134,6 +138,9 @@ namespace StreamTweak.ViewModels
 
         public ObservableCollection<ObservableGameEntry> Games { get; } = new();
 
+        // ── Detected server name (static — readable from ObservableGameEntry DataTemplate) ───
+        internal static string DetectedServerName { get; private set; } = "Sunshine";
+
         // ── Sync toggle ───────────────────────────────────────────────────────
 
         private string _syncLabel = "Sync to Sunshine";
@@ -209,7 +216,8 @@ namespace StreamTweak.ViewModels
         {
             // Detect the installed streaming server and set the sync toggle label accordingly.
             var hostInfo = LogParser.FindStreamingAppInfo();
-            SyncLabel = $"Sync to {hostInfo?.AppName ?? "Sunshine"}";
+            DetectedServerName = hostInfo?.AppName ?? "Sunshine";
+            SyncLabel = $"Sync to {DetectedServerName}";
 
             var state = GameLibraryState.Current;
             _syncEnabled = state.SyncEnabled;

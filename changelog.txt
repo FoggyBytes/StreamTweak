@@ -4,6 +4,15 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 6.2.4 - "The Detail Update" (30/04/2026)
+------------------------------------------
+
+🎨 UI / UX:
+• Home — last session card: "Duration" label added to the left of the duration value for clarity
+• Home tile Logs — "All session duration" label and cumulative time now displayed inline on the same row instead of stacked vertically
+• Game Library — sync toggle tooltip now reflects the actual detected streaming server (Apollo, Vibeshine, Vibepollo…) instead of the hardcoded "Sunshine"
+
+------------------------------------------
 Version 6.2.3 - "The Glow Update" (29/04/2026)
 ------------------------------------------
 

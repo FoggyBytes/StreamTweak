@@ -218,7 +218,7 @@
                                                       IsOn="{x:Bind Enabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center"
                                                       HorizontalAlignment="Right"
-                                                      ToolTipService.ToolTip="Include in Sunshine sync"/>
+                                                      ToolTipService.ToolTip="{x:Bind SyncTooltip}"/>
 
                                         <!-- Play button -->
                                         <Button Grid.Column="4"

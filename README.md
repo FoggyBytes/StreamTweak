@@ -61,13 +61,21 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all nine managed settings at a glance (3×3 grid)
 
-## ✨ What's New in 6.2.3 — "The Glow Update"
+## ✨ What's New in 6.2.4 — "The Detail Update"
+
+- **Home — last session card** — "Duration" label added to the left of the duration value for clarity
+- **Home tile Logs** — "All session duration" label and cumulative time now displayed inline on the same row instead of stacked vertically
+- **Game Library** — sync toggle tooltip now reflects the actual detected streaming server (Apollo, Vibeshine, Vibepollo…) instead of the hardcoded "Sunshine"
+
+<details>
+<summary>6.2.3 — "The Glow Update"</summary>
 
 - **Home tiles — hover effects** — all 9 tiles are now Buttons; hovering over any tile reveals a subtle background glow and a navigation arrow (↗) that fade in at the top-right corner via a shared `ST_TileButton` ControlTemplate
 - **Home tiles — three new** — APPS shows the count of managed apps in amber; STORE shows the Instant Gaming logo with "powered by"; LOGS shows the total session count (color-coded by average quality grade) and cumulative streaming time; the grid is now 3×3
 - **Green accent everywhere** — toggle switches, Apply Settings button, and Add button no longer use the system accent color; all interactive states now use the app-wide green (#22c55e); the sidebar selection indicator matches
 - **Settings — GPL v3 and Donate** — moved from the Home footer to the Settings About card as standard buttons; the Donate button now shows the PayPal icon; the Home footer is gone
 - **Minimum window size** — enforcement upgraded to Win32 `WM_GETMINMAXINFO` subclassing — the OS now prevents the window from being dragged below 1280×720 at all (previously it snapped back reactively)
+</details>
 
 <details>
 <summary>6.2.2 — "The Tile Update"</summary>

@@ -154,10 +154,13 @@
                                        CharacterSpacing="60"/>
                             <TextBlock Text="{x:Bind ViewModel.LastSessionDate, Mode=OneWay}"
                                        Style="{StaticResource ST_MonoMedium}"/>
-                            <StackPanel Orientation="Horizontal" Spacing="6">
+                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <TextBlock Text="Duration"
+                                           Style="{StaticResource ST_BodySmall}"
+                                           VerticalAlignment="Center"/>
                                 <TextBlock Text="{x:Bind ViewModel.LastSessionDuration, Mode=OneWay}"
                                            Style="{StaticResource ST_MonoValueSmall}"
-                                           Foreground="{StaticResource STTextDim}"/>
+                                           VerticalAlignment="Center"/>
                             </StackPanel>
                             <TextBlock Text="{x:Bind ViewModel.LastSessionStats, Mode=OneWay}"
                                        Style="{StaticResource ST_BodySmall}"
@@ -611,11 +614,13 @@
                                    Style="{StaticResource ST_MonoMedium}"
                                    Foreground="{x:Bind ViewModel.LogsSessionCountColorHex, Mode=OneWay,
                                                 Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                        <StackPanel Spacing="1">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
                             <TextBlock Text="All session duration"
-                                       Style="{StaticResource ST_BodySmall}"/>
+                                       Style="{StaticResource ST_BodySmall}"
+                                       VerticalAlignment="Center"/>
                             <TextBlock Text="{x:Bind ViewModel.LogsTotalDuration, Mode=OneWay}"
-                                       Style="{StaticResource ST_MonoValueSmall}"/>
+                                       Style="{StaticResource ST_MonoValueSmall}"
+                                       VerticalAlignment="Center"/>
                         </StackPanel>
                     </StackPanel>
                 </Button>
