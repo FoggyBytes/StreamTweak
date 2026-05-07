@@ -548,6 +548,6 @@
     <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
     <converters:HexToSolidColorBrushConverter x:Key="HexToSolidColorBrushConverter"/>
     <converters:BoolToInfoBarSeverityConverter x:Key="BoolToInfoBarSeverityConverter"/>
-    <converters:GameNameToCoverConverter x:Key="GameNameToCoverConverter"/>
+    <converters:CoverPathToBitmapConverter x:Key="CoverPathToBitmapConverter"/>
 
 </ResourceDictionary>

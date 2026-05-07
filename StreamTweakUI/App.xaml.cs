@@ -249,9 +249,15 @@ namespace StreamTweak
         /// </summary>
         private void WatchActivationRequests()
         {
-            while (_activationEvent != null)
+            while (true)
             {
-                _activationEvent.WaitOne();
+                // Capture reference atomically — prevents NullReferenceException if
+                // Cleanup() sets _activationEvent to null between the null check and WaitOne().
+                var ev = _activationEvent;
+                if (ev == null) return;
+                try { ev.WaitOne(); }
+                catch (ObjectDisposedException) { return; } // handle disposed during shutdown
+                if (_activationEvent == null) return;       // disposed while waiting — skip ShowMainWindow
                 _dispatcher?.TryEnqueue(ShowMainWindow);
             }
         }

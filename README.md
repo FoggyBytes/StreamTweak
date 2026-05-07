@@ -61,11 +61,18 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all nine managed settings at a glance (3×3 grid)
 
-## ✨ What's New in 6.2.4 — "The Detail Update"
+## ✨ What's New in 6.2.5 — "The Covers Update"
+
+- **Bug fix: Logs — game covers for uninstalled games** — cover art no longer disappears from the session table row or the session detail overlay when a game has been uninstalled or removed from the library. Logs now use the same snapshot-first lookup already used by Home — cover paths snapshotted at session-end time are checked first; the live game library is only a fallback for older sessions
+- **Bug fix: app exit crash** — fixed an `ObjectDisposedException` that could occur in the single-instance activation watcher thread when the app closed while the thread was blocked on `WaitOne()`
+
+<details>
+<summary>6.2.4 — "The Detail Update"</summary>
 
 - **Home — last session card** — "Duration" label added to the left of the duration value for clarity
 - **Home tile Logs** — "All session duration" label and cumulative time now displayed inline on the same row instead of stacked vertically
 - **Game Library** — sync toggle tooltip now reflects the actual detected streaming server (Apollo, Vibeshine, Vibepollo…) instead of the hardcoded "Sunshine"
+</details>
 
 <details>
 <summary>6.2.3 — "The Glow Update"</summary>
@@ -162,7 +169,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_6.2.4_Installer.exe` and run it.
+2. Download the latest `StreamTweak_6.2.5_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

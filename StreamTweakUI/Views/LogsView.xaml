@@ -190,7 +190,7 @@
 
                                         <!-- Games covers strip -->
                                         <ItemsControl Grid.Column="7"
-                                                      ItemsSource="{x:Bind GamesDetected}"
+                                                      ItemsSource="{x:Bind GameCoversForDisplay}"
                                                       VerticalAlignment="Center"
                                                       Visibility="{x:Bind HasGamesDetected,
                                                                    Converter={StaticResource BoolToVisibilityConverter}}">
@@ -200,12 +200,12 @@
                                                 </ItemsPanelTemplate>
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
-                                                <DataTemplate>
+                                                <DataTemplate x:DataType="StreamTweak:GameCoverItem">
                                                     <Border Width="33" Height="50"
                                                             CornerRadius="4"
                                                             Background="{StaticResource STBackground}"
-                                                            ToolTipService.ToolTip="{Binding}">
-                                                        <Image Source="{Binding Converter={StaticResource GameNameToCoverConverter}}"
+                                                            ToolTipService.ToolTip="{x:Bind Name}">
+                                                        <Image Source="{x:Bind CoverPath, Converter={StaticResource CoverPathToBitmapConverter}}"
                                                                Stretch="UniformToFill"/>
                                                     </Border>
                                                 </DataTemplate>

@@ -7,6 +7,13 @@ using System.Text.Json.Serialization;
 
 namespace StreamTweak
 {
+    /// <summary>
+    /// Lightweight record for a single game cover in the Logs table row.
+    /// <see cref="CoverPath"/> is pre-resolved using snapshot-first fallback logic,
+    /// so it stays valid even after the game is uninstalled.
+    /// </summary>
+    public record GameCoverItem(string Name, string? CoverPath);
+
     public class SessionEntry
     {
         public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
@@ -64,6 +71,35 @@ namespace StreamTweak
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public bool IsDebugSession { get; set; } = false;
+
+        /// <summary>
+        /// Ordered cover items for the Logs table row, one per <see cref="GamesDetected"/> entry.
+        /// Uses <see cref="GamesDetectedCoverPaths"/> snapshot first (survives game uninstall;
+        /// cover files are never deleted from cache), then falls back to the live
+        /// <see cref="GameLibraryState"/> for sessions that predate the snapshot feature.
+        /// </summary>
+        [JsonIgnore]
+        public IReadOnlyList<GameCoverItem> GameCoversForDisplay
+        {
+            get
+            {
+                if (GamesDetected == null || GamesDetected.Count == 0)
+                    return Array.Empty<GameCoverItem>();
+
+                var gameMap = GameLibraryState.Current.Games
+                    .ToDictionary(g => g.Name, g => g, StringComparer.OrdinalIgnoreCase);
+
+                return GamesDetected.Select(name =>
+                {
+                    if (GamesDetectedCoverPaths?.TryGetValue(name, out var snap) == true
+                        && File.Exists(snap))
+                        return new GameCoverItem(name, snap);
+
+                    gameMap.TryGetValue(name, out var entry);
+                    return new GameCoverItem(name, entry?.CoverImagePath);
+                }).ToList();
+            }
+        }
 
         /// <summary>True when the process monitor ran and detected at least one game.</summary>
         [JsonIgnore] public bool HasGamesDetected    => GamesDetected is { Count: > 0 };

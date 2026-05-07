@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage;
 using Windows.UI;
@@ -344,14 +345,23 @@ namespace StreamTweak.ViewModels
                 DetailGameCovers.Add(new SessionGameCover(name));
             HasDetailGameCovers = true;
 
-            // Load images asynchronously
+            // Load images asynchronously — snapshot-first, then live state fallback
             var gameMap = GameLibraryState.Current.Games
                 .ToDictionary(g => g.Name, g => g, StringComparer.OrdinalIgnoreCase);
 
             for (int i = 0; i < s.GamesDetected.Count; i++)
             {
-                if (!gameMap.TryGetValue(s.GamesDetected[i], out var entry)) continue;
-                string? path = entry.CoverImagePath;
+                // GamesDetectedCoverPaths snapshot survives game uninstall (cover files never deleted)
+                string? path = null;
+                if (s.GamesDetectedCoverPaths?.TryGetValue(s.GamesDetected[i], out var snap) == true
+                    && File.Exists(snap))
+                {
+                    path = snap;
+                }
+                else if (gameMap.TryGetValue(s.GamesDetected[i], out var entry))
+                {
+                    path = entry.CoverImagePath;
+                }
                 if (path == null) continue;
                 try
                 {

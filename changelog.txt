@@ -4,6 +4,14 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+Version 6.2.5 - "The Covers Update" (07/05/2026)
+------------------------------------------
+
+🐛 BUG FIXES:
+• Logs — game covers for uninstalled games: cover art no longer disappears from the session table row or the session detail overlay when a game has been uninstalled or removed from the library. Logs now use the same snapshot-first lookup already used by Home and Game Library — cover paths snapshotted in GamesDetectedCoverPaths at session-end time are checked first; the live game library is only consulted as a fallback for sessions that predate the snapshot feature. Cover files are never deleted from the cache directory, so the fix is always effective regardless of when the game was removed
+• App exit — fixed ObjectDisposedException in WatchActivationRequests: when the app exited while the single-instance activation watcher thread was blocked on WaitOne(), Cleanup() could dispose the EventWaitHandle between the null check and the WaitOne() call, raising an unhandled ObjectDisposedException. Fixed by capturing the handle reference in a local variable before each wait (eliminates the NullReferenceException window) and catching ObjectDisposedException for a clean thread exit on shutdown
+
+------------------------------------------
 Version 6.2.4 - "The Detail Update" (30/04/2026)
 ------------------------------------------
 

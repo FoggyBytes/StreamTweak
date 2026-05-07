@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v6.2.4 - GitHub Release Installer
+; StreamTweak v6.2.5 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 1.8) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "6.2.4"
+#define MyAppVersion "6.2.5"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
