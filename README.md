@@ -61,10 +61,17 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all nine managed settings at a glance (3×3 grid)
 
-## ✨ What's New in 6.2.5 — "The Covers Update"
+## ✨ What's New in 6.2.6 — "The Steam Update"
+
+- **Improvement: game metadata now sourced exclusively from Steam** — developer and release date are fetched from the Steam Store API for all games regardless of source store (Epic, GOG, Ubisoft, Xbox, Battle.net, EA App, manual). For games without a known AppId, a name search against the Steam Store Search endpoint resolves it automatically. RAWG.io and PCGamingWiki have been removed entirely — no API key required
+- **Bug fix: Logs — game covers for uninstalled games** — cover art no longer disappears from the session list or the session detail overlay when a game has been uninstalled or removed from the library after the session was recorded
+
+<details>
+<summary>6.2.5 — "The Covers Update"</summary>
 
 - **Bug fix: Logs — game covers for uninstalled games** — cover art no longer disappears from the session table row or the session detail overlay when a game has been uninstalled or removed from the library. Logs now use the same snapshot-first lookup already used by Home — cover paths snapshotted at session-end time are checked first; the live game library is only a fallback for older sessions
 - **Bug fix: app exit crash** — fixed an `ObjectDisposedException` that could occur in the single-instance activation watcher thread when the app closed while the thread was blocked on `WaitOne()`
+</details>
 
 <details>
 <summary>6.2.4 — "The Detail Update"</summary>
@@ -169,7 +176,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_6.2.5_Installer.exe` and run it.
+2. Download the latest `StreamTweak_6.2.6_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

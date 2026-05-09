@@ -214,9 +214,6 @@ namespace StreamTweak
                 return result;
             };
 
-            // Pass RAWG API key to the Core library (key is stored in config.json).
-            GameMetadataService.RawgApiKey = ConfigService.Get("RawgApiKey");
-
             // Load previous run's metadata cache immediately so the
             // Game Library page shows data before the background refresh completes.
             GameMetadataService.LoadFromDisk();

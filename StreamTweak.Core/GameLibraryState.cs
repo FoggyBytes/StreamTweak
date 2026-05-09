@@ -40,6 +40,13 @@ namespace StreamTweak
         public string? ExePath { get; set; }
 
         /// <summary>
+        /// Explicit process name for Xbox Game Pass / UWP games (e.g. "Forza Motorsport").
+        /// Populated by the Xbox scanner or set manually by the user.
+        /// Takes priority over the display Name in process-name matching.
+        /// </summary>
+        public string? ProcessName { get; set; }
+
+        /// <summary>
         /// Root installation directory. Populated only for Battle.net games and used by
         /// SessionProcessMonitor for directory-based process matching (since all Battle.net
         /// games share the same client launcher and cannot be identified by exe name alone).
