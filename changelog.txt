@@ -12,7 +12,7 @@ Version 6.2.6 - "The Steam Update" (09/05/2026)
 • Game metadata — developer and release date now fetched exclusively from the Steam Store API for all games, regardless of source store. For games without a known AppId, a name search against the Steam Store Search endpoint resolves it automatically. RAWG.io and PCGamingWiki have been removed entirely — no API key required
 
 🐛 BUG FIXES:
-• Logs — game covers: cover art no longer disappears from the session list and session detail overlay when a game has been uninstalled or removed from the library after the session was recorded
+• Logs — Xbox game covers: cover art for Xbox library games was not detected at all in the session list and session detail overlay. Cover lookup now correctly resolves Xbox titles alongside all other stores
 
 ------------------------------------------
 Version 6.2.5 - "The Covers Update" (07/05/2026)

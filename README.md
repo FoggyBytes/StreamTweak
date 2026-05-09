@@ -64,7 +64,7 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 ## ✨ What's New in 6.2.6 — "The Steam Update"
 
 - **Improvement: game metadata now sourced exclusively from Steam** — developer and release date are fetched from the Steam Store API for all games regardless of source store (Epic, GOG, Ubisoft, Xbox, Battle.net, EA App, manual). For games without a known AppId, a name search against the Steam Store Search endpoint resolves it automatically. RAWG.io and PCGamingWiki have been removed entirely — no API key required
-- **Bug fix: Logs — game covers for uninstalled games** — cover art no longer disappears from the session list or the session detail overlay when a game has been uninstalled or removed from the library after the session was recorded
+- **Bug fix: Logs — Xbox game covers not detected** — cover art for Xbox library games was not detected at all in the session list or the session detail overlay. Cover lookup now correctly resolves Xbox titles alongside all other stores
 
 <details>
 <summary>6.2.5 — "The Covers Update"</summary>
