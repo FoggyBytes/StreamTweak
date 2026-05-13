@@ -5,6 +5,24 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 ------------------------------------------
+Version 6.2.7 - "The Stability Update" (13/05/2026)
+------------------------------------------
+
+🐛 BUG FIXES:
+• Session logs — games missing on host shutdown: games played during a session that ended via host PC shutdown or power loss were not recorded in the session log. Two separate root causes fixed: (1) WriteCheckpoint() had an early-return guard (SampleCount < 2) that skipped the entire method including the games snapshot — this affected all sessions started without StreamLight and any session interrupted before the first 30-second checkpoint; the guard now checks telemetry and games independently and only skips when both are absent. (2) OnSystemSessionEnding() was not collecting the detected game list from SessionProcessMonitor before calling SessionLogger.EndSession() — fixed to match the existing pattern in HandleAutoStreamStop
+• Phantom session at startup: StreamTweak could incorrectly detect an active streaming session at startup when no stream was running. Root cause: HasActiveMoonlightSession() matched any established TCP connection from the Sunshine process, including its HTTPS web UI on ports 47989/47990, which any machine on the LAN can open without streaming. Fixed by filtering to port 48010 (RTSP), the only port active during a real streaming session
+• Phantom session from stale log file: CheckForExistingSession() Phase 2 (head-of-file scan) could fire a retrospective StreamStarted event from an old log entry when no session was actually in progress. Fixed by requiring a positive TCP check (HasActiveMoonlightSession) before raising the event
+• Stop Streaming Mode race condition: HandleAutoStreamStop() was declared async void, which caused ToggleStreamingAsync() in NetworkViewModel to receive Task.CompletedTask immediately and consider the stop complete before any async work ran. Changed to async Task; all callers updated accordingly
+• sessions.json corruption on crash: SessionLogger.Save() now writes to a .tmp file first, then renames it atomically — prevents a truncated (empty) sessions.json if the process is killed mid-write
+
+🧹 CODE CLEANUP:
+• Removed FpsTimeSeries from SessionEntry — this property was never written by any code path and never read in any UI or telemetry consumer; it was dead scaffolding from an early telemetry design
+• Fixed stale doc comments referencing SettingsWindow, the WPF-era class removed in the WinUI3 rewrite (6.0.0)
+• Fixed incorrect comment in DolbyAudioMonitor stating the initial wait was 30 seconds (actual: 10 seconds)
+• Removed stale comment in NetworkViewModel referencing the WPF SettingsWindow.GetTailscaleInfo() method
+• Updated CoverArtFetcher.cs class doc to reflect its current role as the shared cache-layer primitive used by GameLibraryService, StoreCoverFetcher, and SunshineSync
+
+------------------------------------------
 Version 6.2.6 - "The Steam Update" (09/05/2026)
 ------------------------------------------
 

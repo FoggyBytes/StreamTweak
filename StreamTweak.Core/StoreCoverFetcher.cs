@@ -21,13 +21,15 @@ namespace StreamTweak
     /// Downloads game cover art using each store's native CDN or local files.
     /// No API keys required — all sources are public or local.
     ///
-    /// Sources by store:
-    ///   Epic Games   → catcache.bin (local cache of CDN image URLs, no API call needed)
-    ///   GOG          → local GOG Galaxy SQLite DB + webcache → GOG catalog/product API → Steam search fallback
-    ///   Ubisoft      → local YAML config + ubistatic3-a.akamaihd.net CDN
-    ///   Xbox         → local image files from MicrosoftGame.config (Square480x480Logo etc.)
-    ///   Battle.net   → aggregate.json logo_art_uri (local file, no API call needed)
-    ///   EA App       → Steam Store Search fallback (Origin API is dead)
+    /// Resolution order for non-Steam games:
+    ///   1. Steam CDN (via AppId already resolved by GameMetadataService — no search needed)
+    ///   2. Store-native source:
+    ///        Epic Games  → catcache.bin (local CDN URL cache, no API call needed)
+    ///        GOG         → local GOG Galaxy SQLite DB + webcache
+    ///        Ubisoft     → local YAML config + ubistatic3-a.akamaihd.net CDN
+    ///        Xbox        → Steam Store search by name (portrait cover) → local MicrosoftGame.config logos (fallback)
+    ///        Battle.net  → aggregate.json logo_art_uri (local file, no API call needed)
+    ///   3. GOG catalog/product API (last resort remote fallback, all stores)
     /// </summary>
     public static class StoreCoverFetcher
     {
@@ -35,7 +37,9 @@ namespace StreamTweak
 
         /// <summary>
         /// For every non-Steam game whose cover is not yet cached, attempts to download
-        /// a cover from the appropriate store source. Failures are silently ignored.
+        /// a cover. Resolution order: Steam CDN (AppId from metadata cache) →
+        /// store-native source → GOG remote API as last resort.
+        /// Failures are silently ignored.
         /// </summary>
         public static async Task FetchAllAsync(IEnumerable<DiscoveredGame> games, string cacheDir)
         {
@@ -49,10 +53,9 @@ namespace StreamTweak
 
             if (toFetch.Count == 0) return;
 
-            // Load data sources that are shared across multiple games (one I/O per source)
-            var epicUrls      = await LoadEpicCatalogUrlsAsync();
+            var epicUrls = await LoadEpicCatalogUrlsAsync();
             var ubisoftThumbs = LoadUbisoftThumbImages();
-            var bnetUrls      = LoadBattleNetCoverUrls();
+            var bnetUrls = LoadBattleNetCoverUrls();
 
             using var sem = new SemaphoreSlim(3);
             var tasks = toFetch.Select(g =>
@@ -73,39 +76,123 @@ namespace StreamTweak
             {
                 string cachePath = CoverArtFetcher.GetCacheFilePath(game, cacheDir)!;
 
+                // ── Tier 1: Steam CDN (AppId already resolved by GameMetadataService) ──
+                string? resolvedSteamAppId = TryGetResolvedSteamAppId(game);
+                if (!string.IsNullOrEmpty(resolvedSteamAppId))
+                {
+                    bool fetched = await TryFetchSteamCoverByAppIdAsync(resolvedSteamAppId, cachePath);
+                    if (fetched) return;
+                }
+
+                // ── Tier 2: store-native source ──────────────────────────────────────
+                bool nativeFetched = await TryFetchNativeAsync(game, cachePath, epicUrls, ubisoftThumbs, bnetUrls);
+                if (nativeFetched) return;
+
+                // ── Tier 3: GOG catalog/product API (last resort) ───────────────────
+                await FetchGogRemoteFallbackAsync(game, cachePath);
+            }
+            catch { }
+            finally { sem.Release(); }
+        }
+
+        /// <summary>
+        /// Looks up the Steam AppId that GameMetadataService already resolved for this game.
+        /// Returns null if no AppId was resolved.
+        /// </summary>
+        private static string? TryGetResolvedSteamAppId(DiscoveredGame game)
+        {
+            // SteamAppId is set for Steam games; for non-Steam games it remains null
+            // and the Steam CDN tier is skipped in favour of store-native sources.
+            return game.SteamAppId;
+        }
+
+        /// <summary>
+        /// Attempts to fetch a cover directly from Steam CDN given a known AppId.
+        /// Tries IStoreBrowseService first (high-res library_capsule_2x), then the
+        /// deterministic CDN pattern (library_600x900.jpg) as fallback.
+        /// Returns true if a cover was successfully saved to cachePath.
+        /// </summary>
+        private static async Task<bool> TryFetchSteamCoverByAppIdAsync(string appId, string cachePath)
+        {
+            try
+            {
+                if (!int.TryParse(appId, out int appIdInt)) return false;
+
+                string? coverUrl = await GetSteamCoverUrlAsync(appIdInt);
+                if (!string.IsNullOrEmpty(coverUrl))
+                {
+                    await DownloadAsPngAsync(coverUrl, cachePath);
+                    return true;
+                }
+
+                // Deterministic CDN fallback — no API call needed
+                string fallbackUrl = $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900.jpg";
+                await DownloadAsPngAsync(fallbackUrl, cachePath);
+                return true;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// Attempts the store-native cover fetch for the game's store.
+        /// Returns true if a cover was successfully saved. Does NOT fall through to
+        /// remote GOG tiers — those are handled separately in Tier 3.
+        /// </summary>
+        private static async Task<bool> TryFetchNativeAsync(
+            DiscoveredGame game,
+            string cachePath,
+            Dictionary<string, string> epicUrls,
+            Dictionary<string, string> ubisoftThumbs,
+            Dictionary<string, string> bnetUrls)
+        {
+            try
+            {
                 switch (game.Store)
                 {
                     case "Epic Games":
                         if (game.StoreId != null && epicUrls.TryGetValue(game.StoreId, out string? epicUrl))
+                        {
                             await DownloadAsPngAsync(epicUrl, cachePath);
-                        break;
+                            return true;
+                        }
+                        return false;
 
                     case "GOG":
-                        await FetchGogCoverAsync(game, cachePath);
-                        break;
+                        return await TryFetchGogLocalAsync(game, cachePath);
 
                     case "Ubisoft Connect":
-                        await FetchUbisoftCoverAsync(game, cachePath, ubisoftThumbs);
-                        break;
+                        if (game.StoreId != null && ubisoftThumbs.TryGetValue(game.StoreId, out string? thumb)
+                            && !string.IsNullOrEmpty(thumb))
+                        {
+                            string url = $"https://ubistatic3-a.akamaihd.net/orbit/uplay_launcher_3_0/assets/{thumb}";
+                            await DownloadAsPngAsync(url, cachePath);
+                            return true;
+                        }
+                        return false;
 
                     case "Xbox":
+                        // Tier 1: Steam Store search by name (portrait cover — preferred over square local logos)
+                        bool xboxSteamFetched = await TryFetchXboxViaSteamSearchAsync(game, cachePath);
+                        if (xboxSteamFetched) return true;
+                        // Tier 2: local MicrosoftGame.config logo files (square — last resort)
                         await FetchXboxCoverAsync(game, cachePath);
-                        break;
+                        return File.Exists(cachePath);
 
                     case "Battle.net":
                         if (game.StoreId != null &&
                             bnetUrls.TryGetValue(game.StoreId, out string? bnetUrl) &&
                             !string.IsNullOrEmpty(bnetUrl))
+                        {
                             await DownloadAsPngAsync(bnetUrl, cachePath);
-                        break;
+                            return true;
+                        }
+                        return false;
 
-                    case "EA App":
-                        await FetchCoverViaSteamSearchAsync(game, cachePath);
-                        break;
+                    default:
+                        return false;
                 }
             }
-            catch { /* silently skip per-game failures */ }
-            finally { sem.Release(); }
+            catch { return false; }
         }
 
         // ── Epic: catcache.bin ────────────────────────────────────────────────
@@ -141,7 +228,7 @@ namespace StreamTweak
                     foreach (var img in keyImages.EnumerateArray())
                     {
                         string? type = img.TryGetProperty("type", out var t) ? t.GetString() : null;
-                        string? url  = img.TryGetProperty("url",  out var u) ? u.GetString() : null;
+                        string? url = img.TryGetProperty("url", out var u) ? u.GetString() : null;
                         if (string.IsNullOrEmpty(url)) continue;
 
                         if (type == "DieselGameBoxTall") { bestUrl = url; break; }
@@ -157,151 +244,150 @@ namespace StreamTweak
             return result;
         }
 
-        // ── GOG: local Galaxy SQLite DB + webcache ────────────────────────────
-        // Following DLSS Swap's approach: read covers from local GOG Galaxy data,
-        // no internet API needed. Fallback tiers use remote APIs only as last resort.
+        // ── GOG: local Galaxy SQLite DB ───────────────────────────────────────
+        // Reads covers from local GOG Galaxy data only (no internet API).
+        // Remote GOG API tiers are handled separately in FetchGogRemoteFallbackAsync,
+        // called as Tier 3 after Steam CDN and all native sources have failed.
         //
         // DB: %ProgramData%\GOG.com\Galaxy\storage\galaxy-2.0.db
         // Cache: %ProgramData%\GOG.com\Galaxy\webcache\{userId}\gog\{platformId}\{filename}
 
         /// <summary>
-        /// GOG cover art retrieval following DLSS Swap's exact approach:
-        ///   Tier 1: Local webcache file (verticalCover resource from Galaxy DB)
-        ///   Tier 2: Remote URL from GamePieces.originalImages.verticalCover (Galaxy DB)
-        ///   Tier 3: Remote URL from LimitedDetails.Images.logo2x (Galaxy DB)
-        ///   Tier 4: GOG Catalog API search by name with ID verification
-        ///   Tier 5: GOG Product API → logo → glx_vertical_cover
+        /// GOG local-only fetch: Tier 1 (webcache file) + Tier 2 (originalImages URL) +
+        /// Tier 3 (LimitedDetails logo2x). Does NOT call any remote API.
+        /// Returns true if a cover was saved.
         /// </summary>
-        private static async Task FetchGogCoverAsync(DiscoveredGame game, string cachePath)
+        private static async Task<bool> TryFetchGogLocalAsync(DiscoveredGame game, string cachePath)
         {
-            if (game.StoreId == null) return;
+            if (game.StoreId == null) return false;
 
             string programData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData);
             string dbPath = Path.Combine(programData, "GOG.com", "Galaxy", "storage", "galaxy-2.0.db");
-            string releaseKey = $"gog_{game.StoreId}";
+            if (!File.Exists(dbPath)) return false;
 
-            // Tier 1 & 2: Try local Galaxy DB
-            if (File.Exists(dbPath))
+            try
             {
-                try
+                string connStr = new SqliteConnectionStringBuilder
                 {
-                    string connStr = new SqliteConnectionStringBuilder
-                    {
-                        DataSource = dbPath,
-                        Mode = SqliteOpenMode.ReadOnly
-                    }.ToString();
+                    DataSource = dbPath,
+                    Mode = SqliteOpenMode.ReadOnly
+                }.ToString();
 
-                    using var conn = new SqliteConnection(connStr);
-                    conn.Open();
+                using var conn = new SqliteConnection(connStr);
+                conn.Open();
 
-                    // Get resource type ID for "verticalCover" (default: 3)
-                    int verticalCoverTypeId = 3;
-                    using (var cmd = conn.CreateCommand())
-                    {
-                        cmd.CommandText = "SELECT id FROM WebCacheResourceTypes WHERE type = 'verticalCover' LIMIT 1";
-                        var result = cmd.ExecuteScalar();
-                        if (result is long id) verticalCoverTypeId = (int)id;
-                    }
+                string releaseKey = $"gog_{game.StoreId}";
 
-                    // Get game piece type ID for "originalImages" (default: 378)
-                    int originalImagesTypeId = 378;
-                    using (var cmd = conn.CreateCommand())
-                    {
-                        cmd.CommandText = "SELECT id FROM GamePieceTypes WHERE type = 'originalImages' LIMIT 1";
-                        var result = cmd.ExecuteScalar();
-                        if (result is long id) originalImagesTypeId = (int)id;
-                    }
+                int verticalCoverTypeId = 3;
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT id FROM WebCacheResourceTypes WHERE type = 'verticalCover' LIMIT 1";
+                    if (cmd.ExecuteScalar() is long id) verticalCoverTypeId = (int)id;
+                }
 
-                    // Tier 1: Local webcache file
-                    using (var cmd = conn.CreateCommand())
+                int originalImagesTypeId = 378;
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT id FROM GamePieceTypes WHERE type = 'originalImages' LIMIT 1";
+                    if (cmd.ExecuteScalar() is long id) originalImagesTypeId = (int)id;
+                }
+
+                // Tier 1: local webcache file
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT id, userId FROM WebCache WHERE releaseKey = @rk";
+                    cmd.Parameters.AddWithValue("@rk", releaseKey);
+                    using var reader = cmd.ExecuteReader();
+                    while (reader.Read())
                     {
-                        cmd.CommandText = "SELECT id, userId FROM WebCache WHERE releaseKey = @rk";
-                        cmd.Parameters.AddWithValue("@rk", releaseKey);
-                        using var reader = cmd.ExecuteReader();
-                        while (reader.Read())
+                        long webCacheId = reader.GetInt64(0);
+                        long userId = reader.GetInt64(1);
+
+                        using var cmd2 = conn.CreateCommand();
+                        cmd2.CommandText = "SELECT filename FROM WebCacheResources WHERE webCacheId = @wid AND webCacheResourceTypeId = @tid LIMIT 1";
+                        cmd2.Parameters.AddWithValue("@wid", webCacheId);
+                        cmd2.Parameters.AddWithValue("@tid", verticalCoverTypeId);
+                        string? filename = cmd2.ExecuteScalar() as string;
+
+                        if (!string.IsNullOrEmpty(filename))
                         {
-                            long webCacheId = reader.GetInt64(0);
-                            long userId = reader.GetInt64(1);
-
-                            using var cmd2 = conn.CreateCommand();
-                            cmd2.CommandText = "SELECT filename FROM WebCacheResources WHERE webCacheId = @wid AND webCacheResourceTypeId = @tid LIMIT 1";
-                            cmd2.Parameters.AddWithValue("@wid", webCacheId);
-                            cmd2.Parameters.AddWithValue("@tid", verticalCoverTypeId);
-                            string? filename = cmd2.ExecuteScalar() as string;
-
-                            if (!string.IsNullOrEmpty(filename))
+                            string localPath = Path.Combine(programData, "GOG.com", "Galaxy", "webcache",
+                                userId.ToString(CultureInfo.InvariantCulture),
+                                "gog", game.StoreId, filename);
+                            if (File.Exists(localPath))
                             {
-                                string localPath = Path.Combine(programData, "GOG.com", "Galaxy", "webcache",
-                                    userId.ToString(CultureInfo.InvariantCulture),
-                                    "gog", game.StoreId, filename);
-                                if (File.Exists(localPath))
+                                byte[] bytes = await File.ReadAllBytesAsync(localPath);
+                                if (bytes.Length > 0)
                                 {
-                                    byte[] bytes = await File.ReadAllBytesAsync(localPath);
-                                    if (bytes.Length > 0)
-                                    {
-                                        await SaveBytesAsPngAsync(bytes, cachePath);
-                                        return;
-                                    }
+                                    await SaveBytesAsPngAsync(bytes, cachePath);
+                                    return true;
                                 }
                             }
                         }
                     }
+                }
 
-                    // Tier 2: Remote URL from GamePieces.originalImages.verticalCover
-                    string? fallbackUrl = null;
-                    using (var cmd = conn.CreateCommand())
+                // Tier 2: originalImages.verticalCover from GamePieces
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT value FROM GamePieces WHERE releaseKey = @rk AND gamePieceTypeId = @tid LIMIT 1";
+                    cmd.Parameters.AddWithValue("@rk", releaseKey);
+                    cmd.Parameters.AddWithValue("@tid", originalImagesTypeId);
+                    if (cmd.ExecuteScalar() is string json)
                     {
-                        cmd.CommandText = "SELECT value FROM GamePieces WHERE releaseKey = @rk AND gamePieceTypeId = @tid LIMIT 1";
-                        cmd.Parameters.AddWithValue("@rk", releaseKey);
-                        cmd.Parameters.AddWithValue("@tid", originalImagesTypeId);
-                        string? json = cmd.ExecuteScalar() as string;
-                        if (!string.IsNullOrEmpty(json))
+                        try
                         {
-                            try
+                            using var doc = JsonDocument.Parse(json);
+                            if (doc.RootElement.TryGetProperty("verticalCover", out var vc))
                             {
-                                using var doc = JsonDocument.Parse(json);
-                                if (doc.RootElement.TryGetProperty("verticalCover", out var vc))
+                                string? url = vc.GetString();
+                                if (!string.IsNullOrEmpty(url))
                                 {
-                                    string? url = vc.GetString();
-                                    if (!string.IsNullOrEmpty(url))
-                                        fallbackUrl = url;
+                                    await DownloadAsPngAsync(url, cachePath);
+                                    return true;
                                 }
                             }
-                            catch { }
                         }
-                    }
-
-                    // Tier 3: Remote URL from LimitedDetails.Images.logo2x
-                    if (string.IsNullOrEmpty(fallbackUrl))
-                    {
-                        using var cmd = conn.CreateCommand();
-                        cmd.CommandText = "SELECT images FROM LimitedDetails WHERE productId = @pid LIMIT 1";
-                        cmd.Parameters.AddWithValue("@pid", game.StoreId);
-                        string? imagesJson = cmd.ExecuteScalar() as string;
-                        if (!string.IsNullOrEmpty(imagesJson))
-                        {
-                            try
-                            {
-                                using var doc = JsonDocument.Parse(imagesJson);
-                                if (doc.RootElement.TryGetProperty("logo2x", out var logo2x))
-                                {
-                                    string? url = logo2x.GetString();
-                                    if (!string.IsNullOrEmpty(url))
-                                        fallbackUrl = url;
-                                }
-                            }
-                            catch { }
-                        }
-                    }
-
-                    if (!string.IsNullOrEmpty(fallbackUrl))
-                    {
-                        try { await DownloadAsPngAsync(fallbackUrl, cachePath); return; }
                         catch { }
                     }
                 }
-                catch { /* DB locked or missing tables — fall through to API */ }
+
+                // Tier 3: LimitedDetails.Images.logo2x
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT images FROM LimitedDetails WHERE productId = @pid LIMIT 1";
+                    cmd.Parameters.AddWithValue("@pid", game.StoreId);
+                    if (cmd.ExecuteScalar() is string imagesJson)
+                    {
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(imagesJson);
+                            if (doc.RootElement.TryGetProperty("logo2x", out var logo2x))
+                            {
+                                string? url = logo2x.GetString();
+                                if (!string.IsNullOrEmpty(url))
+                                {
+                                    await DownloadAsPngAsync(url, cachePath);
+                                    return true;
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+                }
             }
+            catch { /* DB locked or missing tables — fall through */ }
+
+            return false;
+        }
+
+        /// <summary>
+        /// GOG remote fallback: Tier 4 (GOG Catalog API) + Tier 5 (GOG Product API).
+        /// Called as last resort for all stores after Steam CDN and native sources fail.
+        /// </summary>
+        private static async Task FetchGogRemoteFallbackAsync(DiscoveredGame game, string cachePath)
+        {
+            if (game.StoreId == null) return;
 
             // Tier 4: GOG Catalog API search by name with ID verification
             try
@@ -315,8 +401,7 @@ namespace StreamTweak
                     foreach (var product in products.EnumerateArray())
                     {
                         string? productId = product.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
-                        if (!string.Equals(productId, game.StoreId, StringComparison.OrdinalIgnoreCase))
-                            continue;
+                        if (!string.Equals(productId, game.StoreId, StringComparison.OrdinalIgnoreCase)) continue;
                         string? coverUrl = product.TryGetProperty("coverVertical", out var c) ? c.GetString() : null;
                         if (!string.IsNullOrEmpty(coverUrl))
                         {
@@ -341,14 +426,10 @@ namespace StreamTweak
                     {
                         string coverUrl = $"https:{logo.Replace("glx_logo", "glx_vertical_cover")}";
                         await DownloadAsPngAsync(coverUrl, cachePath);
-                        return;
                     }
                 }
             }
             catch { }
-
-            // Tier 6: Steam Store Search — last resort for GOG games also on Steam
-            await FetchCoverViaSteamSearchAsync(game, cachePath);
         }
 
         // ── Ubisoft: local YAML config ────────────────────────────────────────
@@ -369,9 +450,8 @@ namespace StreamTweak
                 if (!File.Exists(configPath)) return result;
 
                 byte[] bytes = File.ReadAllBytes(configPath);
-                string content = System.Text.Encoding.GetEncoding("iso-8859-1").GetString(bytes);
+                string content = Encoding.GetEncoding("iso-8859-1").GetString(bytes);
 
-                // Find all registry references: Installs\{id}\InstallDir
                 var installRefs = Regex.Matches(content, @"Installs[\\/](\d+)[\\/]InstallDir");
                 var thumbRe = new Regex(@"thumb_image:\s*([a-f0-9]{20,}\.(?:jpg|png|webp))", RegexOptions.IgnoreCase);
 
@@ -380,33 +460,28 @@ namespace StreamTweak
                     string installId = m.Groups[1].Value;
                     if (result.ContainsKey(installId)) continue;
 
-                    // Search backwards from this reference (within 5000 chars) for the nearest thumb_image
                     int searchStart = Math.Max(0, m.Index - 5000);
                     string before = content.Substring(searchStart, m.Index - searchStart);
                     var thumbMatches = thumbRe.Matches(before);
                     if (thumbMatches.Count > 0)
                     {
-                        // Take the LAST match (nearest to the register reference)
                         string thumb = thumbMatches[thumbMatches.Count - 1].Groups[1].Value;
                         result[installId] = thumb;
                     }
                 }
 
                 // Also handle thumb_image that is a localization key (not a hash filename).
-                // Search for patterns like "thumb_image: THUMBIMAGE" and resolve via localizations.default
                 var locKeyRefs = Regex.Matches(content, @"thumb_image:\s*([A-Z_]+)\b");
                 foreach (Match lm in locKeyRefs)
                 {
                     string key = lm.Groups[1].Value;
                     if (key == "THUMBIMAGE" || key.StartsWith("RELATED_")) continue;
 
-                    // Find the localizations.default section nearby and look up the key
                     int searchEnd = Math.Min(content.Length, lm.Index + 5000);
                     string after = content.Substring(lm.Index, searchEnd - lm.Index);
                     var locMatch = Regex.Match(after, $@"{Regex.Escape(key)}:\s*([a-f0-9]{{20,}}\.(?:jpg|png|webp))");
                     if (!locMatch.Success) continue;
 
-                    // Find which installId this belongs to
                     string afterForInstall = content.Substring(lm.Index, Math.Min(10000, content.Length - lm.Index));
                     var installMatch = Regex.Match(afterForInstall, @"Installs[\\/](\d+)[\\/]InstallDir");
                     if (installMatch.Success)
@@ -417,33 +492,83 @@ namespace StreamTweak
             return result;
         }
 
-        private static async Task FetchUbisoftCoverAsync(
-            DiscoveredGame game, string cachePath, Dictionary<string, string> ubisoftThumbs)
-        {
-            // Match by installId (StoreId for Ubisoft games)
-            if (game.StoreId != null && ubisoftThumbs.TryGetValue(game.StoreId, out string? thumb)
-                && !string.IsNullOrEmpty(thumb))
-            {
-                string url = $"https://ubistatic3-a.akamaihd.net/orbit/uplay_launcher_3_0/assets/{thumb}";
-                try { await DownloadAsPngAsync(url, cachePath); return; }
-                catch { }
-            }
+        // ── Xbox: Steam Store search by name ─────────────────────────────────
+        // Xbox games have no SteamAppId, so we search the Steam Store by game name.
+        // The search endpoint returns JSON with items[].id (appId) which we then use
+        // to fetch the portrait cover via IStoreBrowseService + CDN fallback.
+        // Returns true if a portrait cover was successfully saved.
 
-            // Fallback: search Steam Store (many Ubisoft games are also on Steam)
-            await FetchCoverViaSteamSearchAsync(game, cachePath);
+        private static async Task<bool> TryFetchXboxViaSteamSearchAsync(DiscoveredGame game, string cachePath)
+        {
+            try
+            {
+                string searchUrl = $"https://store.steampowered.com/api/storesearch/" +
+                                   $"?term={Uri.EscapeDataString(game.Name)}&l=english&cc=US";
+                string json = await _http.GetStringAsync(searchUrl);
+                using var doc = JsonDocument.Parse(json);
+
+                if (!doc.RootElement.TryGetProperty("items", out var items) ||
+                    items.ValueKind != JsonValueKind.Array ||
+                    items.GetArrayLength() == 0)
+                    return false;
+
+                string nameNorm = NormalizeName(game.Name);
+                int matchAppId = 0;
+
+                // Pass 1: exact normalized match
+                foreach (var item in items.EnumerateArray())
+                {
+                    string? resultName = item.TryGetProperty("name", out var n) ? n.GetString() : null;
+                    if (string.IsNullOrEmpty(resultName)) continue;
+                    if (NormalizeName(resultName) != nameNorm) continue;
+
+                    matchAppId = item.TryGetProperty("id", out var idEl) ? idEl.GetInt32() : 0;
+                    break;
+                }
+
+                // Pass 2: partial match — one name contains the other (handles subtitle variants
+                // e.g. "Halo Infinite" ↔ "Halo Infinite (Campaign)")
+                if (matchAppId == 0)
+                {
+                    foreach (var item in items.EnumerateArray())
+                    {
+                        string? resultName = item.TryGetProperty("name", out var n) ? n.GetString() : null;
+                        if (string.IsNullOrEmpty(resultName)) continue;
+
+                        string resultNorm = NormalizeName(resultName);
+                        if (!nameNorm.Contains(resultNorm) && !resultNorm.Contains(nameNorm)) continue;
+
+                        matchAppId = item.TryGetProperty("id", out var idEl) ? idEl.GetInt32() : 0;
+                        break;
+                    }
+                }
+
+                if (matchAppId == 0) return false;
+
+                // Try high-res IStoreBrowseService cover first, then deterministic CDN fallback
+                string? coverUrl = await GetSteamCoverUrlAsync(matchAppId);
+                if (!string.IsNullOrEmpty(coverUrl))
+                {
+                    await DownloadAsPngAsync(coverUrl, cachePath);
+                    return true;
+                }
+
+                string fallbackUrl = $"https://cdn.cloudflare.steamstatic.com/steam/apps/{matchAppId}/library_600x900.jpg";
+                await DownloadAsPngAsync(fallbackUrl, cachePath);
+                return true;
+            }
+            catch { return false; }
         }
 
-        private static string NormalizeName(string name) =>
-            Regex.Replace(name.ToLowerInvariant(), @"[^a-z0-9 ]", " ").Trim();
-
-        // ── Xbox: local logo files ────────────────────────────────────────────
-        // Reads ShellVisuals logo paths from MicrosoftGame.config and copies them to cache.
+        // ── Xbox: local logo files (fallback) ────────────────────────────────
+        // Used only when Steam Store search fails. Reads ShellVisuals logo paths
+        // from MicrosoftGame.config — these are square icons, not portrait covers.
 
         private static async Task FetchXboxCoverAsync(DiscoveredGame game, string cachePath)
         {
             try
             {
-                string configDir = game.ExePath; // ExePath = Content dir set by scanner
+                string configDir = game.ExePath;
                 if (!Directory.Exists(configDir)) return;
 
                 string configPath = Path.Combine(configDir, "MicrosoftGame.config");
@@ -517,55 +642,7 @@ namespace StreamTweak
             return result;
         }
 
-        // ── Fallback: Steam Store Search ───────────────────────────────────────
-        // For stores without a working cover art API (e.g. EA App after Origin shutdown),
-        // search the Steam Store by game name and use the Steam CDN cover if found.
-        // Most major titles are cross-listed on Steam, so this works well in practice.
-
-        private static async Task FetchCoverViaSteamSearchAsync(DiscoveredGame game, string cachePath)
-        {
-            try
-            {
-                string searchUrl = $"https://store.steampowered.com/api/storesearch/" +
-                    $"?term={Uri.EscapeDataString(game.Name)}&l=english&cc=US";
-                string json = await _http.GetStringAsync(searchUrl);
-                using var doc = JsonDocument.Parse(json);
-
-                if (!doc.RootElement.TryGetProperty("items", out var items) ||
-                    items.ValueKind != JsonValueKind.Array) return;
-
-                // Find the best match by name similarity
-                string gameNameNorm = NormalizeName(game.Name);
-                foreach (var item in items.EnumerateArray())
-                {
-                    string? itemName = item.TryGetProperty("name", out var n) ? n.GetString() : null;
-                    int appId = item.TryGetProperty("id", out var id) ? id.GetInt32() : 0;
-                    if (string.IsNullOrEmpty(itemName) || appId == 0) continue;
-
-                    // Only use if type is "app" (not DLC/bundle)
-                    string? type = item.TryGetProperty("type", out var t) ? t.GetString() : null;
-                    if (type != "app") continue;
-
-                    if (NormalizeName(itemName).Contains(gameNameNorm) ||
-                        gameNameNorm.Contains(NormalizeName(itemName)))
-                    {
-                        // Use IStoreBrowseService for high-quality library_capsule_2x
-                        string? coverUrl = await GetSteamCoverUrlAsync(appId);
-                        if (!string.IsNullOrEmpty(coverUrl))
-                        {
-                            await DownloadAsPngAsync(coverUrl, cachePath);
-                            return;
-                        }
-
-                        // Fallback: direct CDN pattern
-                        string fallbackUrl = $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900.jpg";
-                        await DownloadAsPngAsync(fallbackUrl, cachePath);
-                        return;
-                    }
-                }
-            }
-            catch { }
-        }
+        // ── Steam: IStoreBrowseService ────────────────────────────────────────
 
         private static async Task<string?> GetSteamCoverUrlAsync(int appId)
         {
@@ -601,6 +678,9 @@ namespace StreamTweak
         }
 
         // ── Image helpers ─────────────────────────────────────────────────────
+
+        private static string NormalizeName(string name) =>
+            Regex.Replace(name.ToLowerInvariant(), @"[^a-z0-9 ]", " ").Trim();
 
         private static async Task DownloadAsPngAsync(string url, string cachePath)
         {

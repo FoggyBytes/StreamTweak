@@ -15,7 +15,7 @@ namespace StreamTweak
     {
         private const int WaitSeconds      = 10;
         private const int RetryIntervalSec = 5;
-        private const int MaxRetryAttempts = 36; // 36 × 5 s = 3 min of retrying after the initial 30 s wait
+        private const int MaxRetryAttempts = 36; // 36 × 5 s = 3 min of retrying after the initial 10 s wait
 
         private CancellationTokenSource? _cts;
         private volatile bool _activatedThisSession;

@@ -352,7 +352,6 @@ namespace StreamTweak.ViewModels
         /// <summary>
         /// Detects Tailscale by scanning network interfaces for one named/described
         /// "Tailscale" that has a 100.x.x.x IPv4 address (Tailscale's CGNAT range).
-        /// Identical logic to the WPF SettingsWindow.GetTailscaleInfo().
         /// </summary>
         private static (bool detected, string ip) GetTailscaleInfo()
         {

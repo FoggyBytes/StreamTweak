@@ -157,7 +157,7 @@ namespace StreamTweak
 
             // Wire AppStateService action delegates
             AppStateService.Instance.StartStreamingModeAction  = StartManualStreamingMode;
-            AppStateService.Instance.StopStreamingModeAction   = () => { HandleAutoStreamStop("User"); return Task.CompletedTask; };
+            AppStateService.Instance.StopStreamingModeAction   = () => HandleAutoStreamStop("User");
             AppStateService.Instance.RequestStopStreamAction   = () => _stopStreamRequested = true;
             AppStateService.Instance.StartDebugModeAction      = StartDebugSession;
             AppStateService.Instance.StopDebugModeAction       = () => { StopDebugSession(); return Task.CompletedTask; };
@@ -401,25 +401,37 @@ namespace StreamTweak
             try
             {
                 var (stats, rtt, drops, bitrate, decode) = _telemetryAccumulator.Finalize();
-                if (stats.SampleCount < 2) return;
 
-                var grade = QualityGradeCalculator.Evaluate(stats, _telemetryAccumulator.TargetFps);
-                // Snapshot the games detected so far — if the session ends abruptly
-                // (host shutdown, crash) before EndSession() is called, Initialize()
-                // can recover this list from the checkpoint on the next startup.
+                // Snapshot detected games BEFORE the SampleCount guard.
+                // A retrospective session (StreamTweak started mid-stream with no prior
+                // telemetry) or a desktop session (no StreamLight connected) may have
+                // SampleCount < 2 but still have games detected by the process monitor.
+                // Previously the early return on SampleCount < 2 also skipped this
+                // snapshot, so if the host was shut down the checkpoint was never written
+                // and Initialize() would recover the session with no game data.
                 var detectedGames = _sessionProcessMonitor?.GetDetectedGames();
+
+                bool hasTelemetry = stats.SampleCount >= 2;
+                bool hasGames     = detectedGames is { Count: > 0 };
+
+                // Nothing useful to persist — skip this tick.
+                if (!hasTelemetry && !hasGames) return;
+
+                var grade = hasTelemetry
+                    ? QualityGradeCalculator.Evaluate(stats, _telemetryAccumulator.TargetFps)
+                    : QualityGrade.NoData;
 
                 var cp = new TelemetryCheckpoint
                 {
-                    SessionId    = sessionId,
-                    Timestamp    = DateTime.Now,
-                    Stats        = stats,
-                    Grade        = (int)grade,
-                    RttSeries    = rtt,
-                    DropsSeries  = drops,
+                    SessionId     = sessionId,
+                    Timestamp     = DateTime.Now,
+                    Stats         = stats,      // SampleCount may be 0; Initialize() checks before using
+                    Grade         = (int)grade,
+                    RttSeries     = rtt,
+                    DropsSeries   = drops,
                     BitrateSeries = bitrate,
                     DecodeSeries  = decode,
-                    GamesDetected = detectedGames is { Count: > 0 } ? detectedGames : null,
+                    GamesDetected = hasGames ? detectedGames : null,
                 };
 
                 // Scrittura atomica: .tmp → File.Move overwrite per evitare file corrotti.
@@ -634,7 +646,7 @@ namespace StreamTweak
             finally { _sessionStartInProgress = false; }
         }
 
-        private async void HandleAutoStreamStop(string endReason = "User")
+        private async Task HandleAutoStreamStop(string endReason = "User")
         {
             try
             {
@@ -813,7 +825,7 @@ namespace StreamTweak
                 {
                     StopInactivityTimer();
                     if (_isAutoStreamingActive || _isAutoSessionActive)
-                        HandleAutoStreamStop("Disconnected");
+                        _ = HandleAutoStreamStop("Disconnected");
                 };
             }
             _inactivityTimer.Stop();
@@ -888,7 +900,7 @@ namespace StreamTweak
             _dispatcher.TryEnqueue(() =>
             {
                 if (_isAutoStreamingActive || _isAutoSessionActive)
-                    HandleAutoStreamStop("User");
+                    _ = HandleAutoStreamStop("User");
             });
         }
 
@@ -977,9 +989,20 @@ namespace StreamTweak
         {
             if (_isAutoSessionActive)
             {
+                // Collect detected games BEFORE ending the session — mirrors HandleAutoStreamStop.
+                // Previously this called EndSession without gamesDetected, so sessions that
+                // ended via host shutdown always had GamesDetected=null (monitor never ran)
+                // even though the process monitor was active throughout the session.
+                List<string>? detectedGames = null;
+                if (_sessionProcessMonitor != null)
+                {
+                    detectedGames = _sessionProcessMonitor.GetDetectedGames();
+                    _sessionProcessMonitor.Dispose();
+                    _sessionProcessMonitor = null;
+                }
                 FinalizeSessionTelemetry();
                 StopCheckpointTimer();
-                SessionLogger.EndSession("Host Shutdown");
+                SessionLogger.EndSession("Host Shutdown", detectedGames);
             }
         }
 
@@ -1021,7 +1044,7 @@ namespace StreamTweak
             _trayStreamingModeItem.Click += async (_, _) =>
             {
                 if (_isAutoStreamingActive || _isAutoSessionActive)
-                    HandleAutoStreamStop("User");
+                    await HandleAutoStreamStop("User");
                 else
                     await StartManualStreamingMode();
             };

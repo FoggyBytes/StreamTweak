@@ -61,10 +61,20 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - Quality report — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
 - Home dashboard — real-time status tiles for all nine managed settings at a glance (3×3 grid)
 
-## ✨ What's New in 6.2.6 — "The Steam Update"
+## ✨ What's New in 6.2.7 — "The Stability Update"
+
+- **Bug fix: session logs — games missing on host shutdown** — games played during a session that ended via host PC shutdown or power loss were not recorded in the session log. Two separate fixes: (1) `WriteCheckpoint()` had an early-return guard that skipped the entire method (including the games snapshot) when fewer than 2 telemetry samples had been collected — this affected all sessions started without StreamLight and any session cut short before the first 30-second checkpoint; (2) `OnSystemSessionEnding()` was not collecting the detected game list before calling `SessionLogger.EndSession()` — fixed to match the existing pattern in `HandleAutoStreamStop`
+- **Bug fix: phantom session at startup** — StreamTweak could incorrectly detect an active streaming session when none was running; the root cause was `HasActiveMoonlightSession()` matching Sunshine's HTTPS web UI connections (ports 47989/47990), which any LAN machine can open without streaming. Fixed by filtering strictly to port 48010 (RTSP), the only port active during a real streaming session
+- **Bug fix: phantom session from stale log** — `CheckForExistingSession()` Phase 2 (head-of-file scan) could raise a retrospective `StreamStarted` event from an old log entry when no session was active. Fixed by requiring a positive TCP check before raising the event
+- **Bug fix: Stop Streaming Mode race condition** — `HandleAutoStreamStop` was `async void`, causing `ToggleStreamingAsync` in NetworkViewModel to receive `Task.CompletedTask` immediately and proceed before any async work ran. Changed to `async Task`
+- **Bug fix: sessions.json atomic write** — `SessionLogger.Save()` now writes to `.tmp` first and renames atomically, preventing a truncated file on crash
+
+<details>
+<summary>6.2.6 — "The Steam Update"</summary>
 
 - **Improvement: game metadata now sourced exclusively from Steam** — developer and release date are fetched from the Steam Store API for all games regardless of source store (Epic, GOG, Ubisoft, Xbox, Battle.net, EA App, manual). For games without a known AppId, a name search against the Steam Store Search endpoint resolves it automatically. RAWG.io and PCGamingWiki have been removed entirely — no API key required
 - **Bug fix: Logs — Xbox game covers not detected** — cover art for Xbox library games was not detected at all in the session list or the session detail overlay. Cover lookup now correctly resolves Xbox titles alongside all other stores
+</details>
 
 <details>
 <summary>6.2.5 — "The Covers Update"</summary>
@@ -176,7 +186,7 @@ StreamLight communicates with StreamTweak over a plain TCP bridge on **port 4799
 
 ## 📝 Installation
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_6.2.6_Installer.exe` and run it.
+2. Download the latest `StreamTweak_6.2.7_Installer.exe` and run it.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

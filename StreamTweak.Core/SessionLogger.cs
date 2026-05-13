@@ -32,9 +32,6 @@ namespace StreamTweak
         public QualityGrade? Grade { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public List<float>? FpsTimeSeries { get; set; }
-
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<float>? RttTimeSeries { get; set; }
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -481,8 +478,13 @@ namespace StreamTweak
             lock (_fileLock)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
-                File.WriteAllText(LogPath, JsonSerializer.Serialize(sessions,
+                // Atomic write: .tmp → File.Move overwrite — same pattern as GameLibraryState
+                // and CoverArtFetcher. Prevents a truncated sessions.json if the process is
+                // killed mid-write (host shutdown, crash), which would silently wipe all history.
+                string tmp = LogPath + ".tmp";
+                File.WriteAllText(tmp, JsonSerializer.Serialize(sessions,
                     new JsonSerializerOptions { WriteIndented = true }));
+                File.Move(tmp, LogPath, overwrite: true);
             }
         }
     }

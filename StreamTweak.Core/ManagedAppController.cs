@@ -8,7 +8,7 @@ namespace StreamTweak
 {
     /// <summary>
     /// Shared logic for killing and relaunching managed apps.
-    /// Used both by SettingsWindow (manual buttons) and App.xaml.cs (automation).
+    /// Used both by AppsViewModel (manual kill/relaunch buttons) and App.xaml.cs (automation).
     /// </summary>
     public static class ManagedAppController
     {

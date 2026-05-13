@@ -269,9 +269,10 @@ namespace StreamTweak
         // ─── Active session detection via TCP ─────────────────────────────────
 
         // Primary: find the streaming server process and check via GetExtendedTcpTable
-        // whether it has any ESTABLISHED TCP connection to a non-loopback remote IP.
-        // This works regardless of which port the user configured (not hardcoded to 48010).
-        // Fallback: check port 48010 directly via IPGlobalProperties (original approach).
+        // whether it has an ESTABLISHED TCP connection on port 48010 (RTSP) to a non-loopback IP.
+        // Filtering to port 48010 prevents false positives from Sunshine's HTTPS web UI
+        // (47989/47990), which can be accessed from another machine without an active stream.
+        // Fallback: same check via IPGlobalProperties — less precise (any process, same port).
         public static bool HasActiveMoonlightSession()
         {
             // Primary: process-scoped TCP check
@@ -378,6 +379,18 @@ namespace StreamTweak
 
                         if (row.dwOwningPid != (uint)pid) continue;
                         if (row.dwState    != MIB_TCP_STATE_ESTAB) continue;
+
+                        // Only count connections on the RTSP streaming control port (48010).
+                        // dwLocalPort is stored in network byte order (big-endian); convert
+                        // to host order by swapping the low two bytes.
+                        // Filtering to 48010 prevents false positives from Sunshine's HTTPS
+                        // web UI (ports 47989/47990), which can be accessed from any machine
+                        // on the LAN without an active streaming session.
+                        // Note: the fallback path below also checks port 48010, so this is
+                        // consistent with both detection paths.
+                        int localPort = (int)(((row.dwLocalPort & 0xFF) << 8)
+                                            | ((row.dwLocalPort >> 8) & 0xFF));
+                        if (localPort != 48010) continue;
 
                         var remoteIp = new IPAddress(row.dwRemoteAddr);
                         if (!IPAddress.IsLoopback(remoteIp))

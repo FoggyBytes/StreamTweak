@@ -12,8 +12,9 @@ using Windows.Storage.Streams;
 namespace StreamTweak
 {
     /// <summary>
-    /// Downloads and caches game cover art images.
-    /// Currently supports Steam (library_600x900.jpg from Cloudflare CDN).
+    /// Cache layer for game cover art images (filename convention + path resolution).
+    /// Shared by <see cref="GameLibraryService"/>, <see cref="StoreCoverFetcher"/> and
+    /// <see cref="SunshineSync"/>. Also provides a Steam CDN fallback fetch for Steam games.
     /// Cover art is cached in %LOCALAPPDATA%\StreamTweak\covers\.
     /// </summary>
     public static class CoverArtFetcher

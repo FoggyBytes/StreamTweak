@@ -298,14 +298,22 @@ namespace StreamTweak
                 // Phase 2: no events found in the tail.
                 // For per-session log files (Vibeshine/Vibepollo style), a long-running session
                 // produces enough verbose output to push the initial CLIENT CONNECTED line outside
-                // the tail window. In that case, check the file head for a StreamStarted event
-                // with no corresponding StreamStopped anywhere in the tail.
+                // the tail window. Check the file head for a StreamStarted event.
+                //
+                // IMPORTANT: always re-verify via TCP before firing, even though the TCP check
+                // already returned false (which is why we entered CheckForExistingSession at all).
+                // Without this guard, a stale log file that contains a StreamStarted from a
+                // long-past session — whose StreamStopped was written between the tail window and
+                // the head — would trigger a phantom retrospective session on every startup.
+                // The re-check here ensures Phase 2 only fires when the session is still live
+                // (i.e. TCP confirms it, possibly recovering from a brief gap that cleared up
+                // while we were reading the file).
                 string[] headLines = ReadHeadLines(logFilePath, 200);
                 bool headHasStart = headLines.Any(l =>
                     LogParser.ParseLogLine(l) == LogParser.StreamingEvent.StreamStarted);
-                if (headHasStart)
+                if (headHasStart && LogParser.HasActiveMoonlightSession())
                 {
-                    DebugLog("Active session detected in file head at startup (long session) — raising StreamStarted retroactively");
+                    DebugLog("Active session detected in file head at startup (long session, TCP verified) — raising StreamStarted retroactively");
                     FireRetrospectiveStarted();
                     return;
                 }
