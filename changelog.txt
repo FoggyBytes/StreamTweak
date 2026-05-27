@@ -5,7 +5,7 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 ------------------------------------------
-Version 6.3.0 - "The Tailscale Update" (20/05/2026)
+Version 6.3.0 - "The Tailscale Update" (27/05/2026)
 ------------------------------------------
 
 ✨ NEW FEATURES:
