@@ -1,9 +1,13 @@
 ## 🎮 StreamTweak
 ![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue.svg) ![Framework](https://img.shields.io/badge/Framework-.NET%208%20%2F%20WinUI%203-purple.svg) ![Downloads](https://img.shields.io/github/downloads/foggybytes/StreamTweak/total?label=Downloads&color=FA8140) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-brightgreen.svg)](https://claude.ai/code)
 
+<img width="1583" height="892" alt="streamtweak" src="https://github.com/user-attachments/assets/328ab6eb-de04-4e8b-9184-dd7243e3be31" />
+
 **StreamTweak** is the host-side half of the FoggyBytes streaming duo. It automates the technical setup that makes Moonlight game streaming reliable — NIC throttling, spatial audio, HDR, game library sync, session telemetry — so you can focus on playing. Paired with its companion client [**StreamLight**](https://github.com/FoggyBytes/StreamLight), the two apps form a tight, end-to-end streaming stack: configuration, telemetry, store metadata and Tailscale presence flow seamlessly between host and client over a local TCP bridge, with no manual setup on either side.
 
-<img width="1583" height="892" alt="StreamTweak — Home dashboard with 3×3 status tile grid" src="https://github.com/user-attachments/assets/0f8fc1cb-5540-4ec8-959f-2c417a2987b8" />
+<div align="center">
+  <img width="960" height="540" alt="streamlighthome" src="https://github.com/user-attachments/assets/c4000b75-0700-48e3-b715-db1622ebbf68" />
+</div>
 
 ## ✅ Compatibility
 
