@@ -8,18 +8,36 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="16" Padding="28,24,28,28">
 
-            <!-- Page title -->
-            <StackPanel Spacing="3" Margin="0,0,0,4">
-                <TextBlock Text="Display" Style="{StaticResource ST_PageTitle}"/>
-                <TextBlock Text="HDR output and Auto HDR settings."
-                           Style="{StaticResource ST_PageSubtitle}"/>
-            </StackPanel>
+            <!-- Page title + optional error InfoBar grouped in a Grid so the InfoBar's
+                 collapsed-state doesn't break the outer StackPanel.Spacing rhythm.
+                 (WinUI3 StackPanel applies Spacing to collapsed children as well, which
+                 would otherwise add a ghost 16px gap above the first card.) -->
+            <Grid Margin="0,0,0,4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
 
-            <!-- Dynamic error bar (keep as InfoBar — it's a conditional alert) -->
-            <InfoBar IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
-                     Severity="Error"
-                     Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}"
-                     IsClosable="False"/>
+                <StackPanel Grid.Row="0" Spacing="3">
+                    <TextBlock Text="Display" Style="{StaticResource ST_PageTitle}"/>
+                    <TextBlock Text="HDR output and Auto HDR settings."
+                               Style="{StaticResource ST_PageSubtitle}"/>
+                </StackPanel>
+
+                <!-- Dynamic error bar (keep as InfoBar — it's a conditional alert).
+                     Visibility is bound explicitly so the control is removed from the
+                     layout (and its Margin doesn't reserve a phantom 16px) when there
+                     is no error. IsOpen alone only collapses the InfoBar's inner
+                     content, not the control itself — see issue analysis. -->
+                <InfoBar Grid.Row="1"
+                         Margin="0,16,0,0"
+                         Visibility="{x:Bind ViewModel.HasError, Mode=OneWay,
+                                      Converter={StaticResource BoolToVisibilityConverter}}"
+                         IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+                         Severity="Error"
+                         Message="{x:Bind ViewModel.ErrorText, Mode=OneWay}"
+                         IsClosable="False"/>
+            </Grid>
 
             <!-- ── Per-Display HDR Output ─────────────────────────────────────── -->
             <Border Style="{StaticResource ST_Card}">

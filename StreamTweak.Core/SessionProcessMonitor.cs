@@ -9,15 +9,23 @@ namespace StreamTweak
 {
     /// <summary>
     /// Polls running processes every 5 seconds during a streaming session and matches
-    /// them against the Game Library. Uses three strategies:
-    ///   1. Exe-name match      — for all stores with a known ExePath (Steam, Epic, GOG, EA, Ubisoft, Manual).
-    ///   2. Install-dir match   — for Battle.net games, whose launcher exe is short-lived;
-    ///                            any process whose full path starts with a game's install directory
-    ///                            is counted, excluding known Battle.net support processes.
-    ///   3. Process-name match  — for Xbox Game Pass / UWP games, whose executables live in the
-    ///                            protected WindowsApps folder and cannot be resolved via MainModule.
-    ///                            Matches p.ProcessName against an explicit ProcessName field or,
-    ///                            as a fallback, the game's display name.
+    /// them against the Game Library. Uses three strategies, evaluated in order:
+    ///
+    ///   1. Exe-name match (Strategy 1) — fastest, used as a quick hit when ExePath is a
+    ///      real exe file (Epic LaunchExecutable, GOG registry exe, Manual user pick, …).
+    ///
+    ///   2. Install-dir match (Strategy 2) — robust against renamed binaries, launcher→game
+    ///      handoff, multi-process games, and games whose ExePath is a directory (Steam, Xbox).
+    ///      Any process whose full path lies under a game's install directory is counted,
+    ///      EXCEPT processes whose filename appears in the store-specific support-exe denylist
+    ///      (Steam overlay, Epic launcher helpers, Battle.net client, …). This avoids false
+    ///      positives when the user has a store client open without playing a game.
+    ///
+    ///   3. Process-name match (Strategy 3) — only avenue for Xbox Game Pass / UWP games
+    ///      whose executables live in the protected WindowsApps folder. MainModule.FileName
+    ///      always throws AccessDenied, so we fall back to matching p.ProcessName against the
+    ///      ProcessName field populated by the Xbox scanner from MicrosoftGame.Config.
+    ///
     /// Detected games are accumulated in a deduplicated list (insertion order ≈ launch order).
     /// </summary>
     public sealed class SessionProcessMonitor : IDisposable
@@ -25,19 +33,61 @@ namespace StreamTweak
         // exeName (lowercase, no extension) → display name
         private readonly Dictionary<string, string> _exeToGame;
 
-        // installDir (trailing separator, OrdinalIgnoreCase) → display name  [Battle.net only]
-        private readonly Dictionary<string, string> _installDirToGame;
+        // installDir (trailing separator, OrdinalIgnoreCase) → (display name, store) — every store
+        private readonly Dictionary<string, (string Name, string Store)> _installDirToGame;
 
-        // processName (OrdinalIgnoreCase) → display name  [Xbox Game Pass / UWP only]
+        // processName (OrdinalIgnoreCase) → display name — Xbox / UWP only
         private readonly Dictionary<string, string> _processNameToGame;
 
-        // Battle.net support processes excluded from directory-based matching
-        private static readonly HashSet<string> _bnetSupportExes =
+        // Per-store denylist of support-exe filenames (no extension, case-insensitive).
+        // A process whose filename matches here is NOT credited to the store's game via
+        // Strategy 2 even if it sits under the game's install directory.
+        // Keys are the GameLibraryEntry.Store values exactly as written by the scanners.
+        private static readonly Dictionary<string, HashSet<string>> _supportExesByStore =
             new(StringComparer.OrdinalIgnoreCase)
             {
-                "BlizzardError", "Battle.net", "Battle.net Helper",
-                "Agent", "SceneCefBrowser", "ClientSdkFirewallHelper", "ClientSdkMDNSHost"
+                ["Steam"] = new(StringComparer.OrdinalIgnoreCase)
+                {
+                    "steam", "steamwebhelper", "gameoverlayui", "streaming_client",
+                    "crashhandler64", "crashhandler", "steamservice", "steamerrorreporter",
+                    "steamerrorreporter64",
+                },
+                ["Epic Games"] = new(StringComparer.OrdinalIgnoreCase)
+                {
+                    "EpicGamesLauncher", "EpicWebHelper", "UnrealCEFSubProcess",
+                    "CrashReportClient", "EpicOnlineServicesHost",
+                    "EpicOnlineServicesUserHelper", "EpicOnlineServicesUIHelper",
+                },
+                ["GOG"] = new(StringComparer.OrdinalIgnoreCase)
+                {
+                    "GalaxyClient", "GalaxyClient Helper", "GalaxyClientService",
+                    "GalaxyCommunication", "GalaxyOverlay",
+                    "GOG Galaxy Notifications Renderer",
+                },
+                ["Ubisoft Connect"] = new(StringComparer.OrdinalIgnoreCase)
+                {
+                    "upc", "UbisoftConnect", "UbisoftGameLauncher", "UplayWebCore",
+                    "CrashReporter", "CrashReport", "UbisoftConnect.Renderer",
+                    "UbisoftGameLauncher64",
+                },
+                ["EA App"] = new(StringComparer.OrdinalIgnoreCase)
+                {
+                    "EADesktop", "EALauncher", "EAConnect", "EAUpdater",
+                    "OriginWebHelperService", "OriginThinSetupInternal", "EACrashReporter",
+                    "EABackgroundService", "Origin",
+                },
+                ["Battle.net"] = new(StringComparer.OrdinalIgnoreCase)
+                {
+                    "BlizzardError", "Battle.net", "Battle.net Helper", "Agent",
+                    "SceneCefBrowser", "ClientSdkFirewallHelper", "ClientSdkMDNSHost",
+                },
             };
+
+        // Returns the support-exe denylist for the given store, or an empty set if none defined.
+        private static HashSet<string> SupportExesFor(string store) =>
+            _supportExesByStore.TryGetValue(store, out var set)
+                ? set
+                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         // Ordered list of detected games (insertion order = detection/launch order)
         private readonly List<string> _detectedNames = new();
@@ -97,17 +147,46 @@ namespace StreamTweak
             return dict;
         }
 
-        private static Dictionary<string, string> BuildDirLookup(IReadOnlyList<GameLibraryEntry> games)
+        /// <summary>
+        /// Builds the install-dir lookup used by Strategy 2 (prefix match against process full path).
+        /// Includes every store with a known InstallDir EXCEPT Xbox/UWP — those processes always
+        /// have a null full path (Access denied on MainModule.FileName), so prefix matching can't
+        /// see them. They are handled by Strategy 3 instead.
+        /// The lookup value carries both the display name and the originating store so Tick() can
+        /// apply the correct support-exe denylist.
+        ///
+        /// IMPORTANT: keys are canonicalized via Path.GetFullPath, which yields the Windows
+        /// canonical form (uppercase drive letter, all backslashes). This matters because
+        /// MainModule.FileName always returns canonical paths, and the Steam scanner historically
+        /// produced InstallDir values with mixed separators (`c:/program files (x86)/steam\steamapps\common\<game>`)
+        /// because Steam's HKCU\SOFTWARE\Valve\Steam\SteamPath uses forward slashes and
+        /// Path.Combine doesn't normalize the prefix. Without this normalization, the OrdinalIgnoreCase
+        /// StartsWith check in Tick() would silently fail for every Steam game.
+        /// </summary>
+        private static Dictionary<string, (string Name, string Store)> BuildDirLookup(
+            IReadOnlyList<GameLibraryEntry> games)
         {
-            var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var dict = new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase);
             foreach (var g in games)
             {
                 if (string.IsNullOrEmpty(g.InstallDir)) continue;
+                // Xbox uses Strategy 3 (UWP processes have no readable full path → prefix match
+                // can't fire). Including Xbox here would be harmless but is removed for clarity.
+                if (string.Equals(g.Store, "Xbox", StringComparison.OrdinalIgnoreCase)) continue;
+
+                // Canonicalize separators + drive letter so the StartsWith match in Tick() works
+                // regardless of how the scanner originally wrote the path. Falls back to the raw
+                // string if GetFullPath throws (malformed/absurdly-long paths).
+                string normalized;
+                try { normalized = Path.GetFullPath(g.InstallDir); }
+                catch { normalized = g.InstallDir; }
+
                 // Normalize: trailing separator ensures prefix match doesn't bleed into sibling dirs
-                string key = g.InstallDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                // (e.g. "...\Cyberpunk" must not match a process under "...\Cyberpunk 2077 DLC").
+                string key = normalized.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                              + Path.DirectorySeparatorChar;
                 if (!dict.ContainsKey(key))
-                    dict[key] = g.Name;
+                    dict[key] = (g.Name, g.Store ?? "");
             }
             return dict;
         }
@@ -182,20 +261,22 @@ namespace StreamTweak
                             continue;
                         }
 
-                        // ── Strategy 2: install-dir match (Battle.net only) ───────────────────
+                        // ── Strategy 2: install-dir match (all stores with a known InstallDir) ─
+                        // Robust against renamed binaries, launcher→game handoffs, and stores
+                        // whose ExePath is a directory (Steam). The store-specific support-exe
+                        // denylist prevents Steam overlay, EA Desktop, Battle.net client, etc.
+                        // from being credited as the game they happen to sit next to.
                         if (_installDirToGame.Count > 0 && !string.IsNullOrEmpty(fullPath))
                         {
                             string exeBaseName = Path.GetFileNameWithoutExtension(fullPath);
-                            if (!_bnetSupportExes.Contains(exeBaseName))
+                            foreach (var kvp in _installDirToGame)
                             {
-                                foreach (var kvp in _installDirToGame)
-                                {
-                                    if (fullPath.StartsWith(kvp.Key, StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        AddDetected(kvp.Value);
-                                        break;
-                                    }
-                                }
+                                if (!fullPath.StartsWith(kvp.Key, StringComparison.OrdinalIgnoreCase))
+                                    continue;
+                                if (SupportExesFor(kvp.Value.Store).Contains(exeBaseName))
+                                    continue;
+                                AddDetected(kvp.Value.Name);
+                                break;
                             }
                         }
 

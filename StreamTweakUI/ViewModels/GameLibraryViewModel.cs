@@ -210,6 +210,37 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _lastSyncText, value);
         }
 
+        // ── Host tile swap (desktop.png / steam.png in <HostInstallDir>\assets) ──
+
+        private string? _hostAssetsDir;
+
+        private bool _hostAssetsAvailable;
+        public bool HostAssetsAvailable
+        {
+            get => _hostAssetsAvailable;
+            private set => SetProperty(ref _hostAssetsAvailable, value);
+        }
+
+        private bool _hostAssetsApplied;
+        public bool HostAssetsApplied
+        {
+            get => _hostAssetsApplied;
+            private set
+            {
+                if (SetProperty(ref _hostAssetsApplied, value))
+                {
+                    OnPropertyChanged(nameof(HostAssetsButtonText));
+                    OnPropertyChanged(nameof(HostAssetsHelpText));
+                }
+            }
+        }
+
+        public string HostAssetsButtonText => _hostAssetsApplied ? "Restore tiles" : "Change tiles";
+
+        public string HostAssetsHelpText => _hostAssetsApplied
+            ? $"Restore {DetectedServerName}'s original Desktop & Steam tiles"
+            : $"Replace {DetectedServerName}'s default Desktop & Steam tiles";
+
         // ── Public API ────────────────────────────────────────────────────────
 
         public void Load()
@@ -219,12 +250,71 @@ namespace StreamTweak.ViewModels
             DetectedServerName = hostInfo?.AppName ?? "Sunshine";
             SyncLabel = $"Sync to {DetectedServerName}";
 
+            // Host tile-swap state: derive the <HostInstallDir>\assets folder and check
+            // whether a previous swap is still applied (a *_backup.png is present).
+            _hostAssetsDir = HostAssetsManager.GetAssetsDirectory(hostInfo);
+            HostAssetsAvailable = _hostAssetsDir != null;
+            HostAssetsApplied   = _hostAssetsDir != null && HostAssetsManager.IsApplied(_hostAssetsDir);
+            OnPropertyChanged(nameof(HostAssetsButtonText));
+            OnPropertyChanged(nameof(HostAssetsHelpText));
+
             var state = GameLibraryState.Current;
             _syncEnabled = state.SyncEnabled;
             OnPropertyChanged(nameof(SyncEnabled));
 
             RefreshLastSyncText(state);
             RefreshGameList(state);
+        }
+
+        public async Task ToggleHostAssetsAsync()
+        {
+            if (_isBusy || _hostAssetsDir == null) return;
+
+            IsBusy = true;
+            try
+            {
+                if (_hostAssetsApplied)
+                {
+                    bool ok = await HostAssetsManager.RestoreAsync(_hostAssetsDir);
+                    if (ok)
+                    {
+                        HostAssetsApplied = HostAssetsManager.IsApplied(_hostAssetsDir);
+                        ShowStatus($"Restored {DetectedServerName}'s original Desktop & Steam tiles.", isError: false);
+                    }
+                    else
+                    {
+                        ShowStatus("Could not restore host tiles. Is the StreamTweak service running?", isError: true);
+                    }
+                }
+                else
+                {
+                    string baseDir = AppContext.BaseDirectory;
+                    string desktopSrc = Path.Combine(baseDir, "Resources", "desktop.png");
+                    string steamSrc   = Path.Combine(baseDir, "Resources", "steam.png");
+
+                    if (!File.Exists(desktopSrc) || !File.Exists(steamSrc))
+                    {
+                        ShowStatus("Bundled replacement tiles not found in Resources/.", isError: true);
+                        return;
+                    }
+
+                    bool ok = await HostAssetsManager.SwapAsync(_hostAssetsDir, desktopSrc, steamSrc);
+                    if (ok)
+                    {
+                        HostAssetsApplied = HostAssetsManager.IsApplied(_hostAssetsDir);
+                        ShowStatus($"Replaced {DetectedServerName}'s Desktop & Steam tiles. Originals backed up.", isError: false);
+                    }
+                    else
+                    {
+                        ShowStatus("Could not replace host tiles. Is the StreamTweak service running?", isError: true);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowStatus($"Host tiles operation failed: {ex.Message}", isError: true);
+            }
+            finally { IsBusy = false; }
         }
 
         public async Task SyncNowAsync()

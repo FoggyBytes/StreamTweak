@@ -25,7 +25,8 @@ namespace StreamTweak
         string ExePath,
         string? StoreId = null,
         string? CoverUrl = null,
-        string? InstallDir = null);
+        string? InstallDir = null,
+        string? ProcessName = null);
 
     /// <summary>
     /// Scans installed game libraries on the local machine.
@@ -196,7 +197,19 @@ namespace StreamTweak
                         continue;
 
                     string exeDir = Path.Combine(libPath, "common", installDir);
-                    yield return new DiscoveredGame(name, "Steam", appId, exeDir);
+                    // Canonicalize: Steam's HKCU\SOFTWARE\Valve\Steam\SteamPath uses forward
+                    // slashes (`c:/program files (x86)/steam`), and Path.Combine preserves the
+                    // mixed prefix. SessionProcessMonitor's Strategy 2 prefix-match against
+                    // MainModule.FileName (canonical Windows form, all backslashes) would silently
+                    // fail without this normalization. SessionProcessMonitor also normalizes
+                    // defensively at lookup-build time, but writing canonical paths here keeps
+                    // gamelibrarystate.json clean for any other future consumer.
+                    try { exeDir = Path.GetFullPath(exeDir); } catch { /* keep raw on malformed */ }
+                    // InstallDir = root of the game install — used by SessionProcessMonitor
+                    // Strategy 2 (install-dir prefix match) to detect the runtime process
+                    // regardless of its filename.
+                    yield return new DiscoveredGame(name, "Steam", appId, exeDir,
+                                                    InstallDir: exeDir);
                 }
             }
         }
@@ -240,8 +253,10 @@ namespace StreamTweak
                     string? catalogItemId = root.TryGetProperty("CatalogItemId", out var cidEl)
                         ? cidEl.GetString() : null;
 
-                    string exePath = Path.Combine(locEl.GetString() ?? "", exeEl.GetString() ?? "");
-                    game = new DiscoveredGame(name, "Epic Games", null, exePath, catalogItemId);
+                    string installLocation = locEl.GetString() ?? "";
+                    string exePath = Path.Combine(installLocation, exeEl.GetString() ?? "");
+                    game = new DiscoveredGame(name, "Epic Games", null, exePath, catalogItemId,
+                                              InstallDir: installLocation);
                 }
                 catch { }
 
@@ -268,7 +283,8 @@ namespace StreamTweak
                     string? exe  = gameKey.GetValue("exe")      as string;
 
                     if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(exe) && File.Exists(exe))
-                        game = new DiscoveredGame(name, "GOG", null, exe, gameId); // gameId = ProductId
+                        game = new DiscoveredGame(name, "GOG", null, exe, gameId, // gameId = ProductId
+                                                  InstallDir: Path.GetDirectoryName(exe));
                 }
                 catch { }
 
@@ -323,7 +339,8 @@ namespace StreamTweak
                         }
                     }
 
-                    game = new DiscoveredGame(name, "Ubisoft Connect", null, exes[0], installId);
+                    game = new DiscoveredGame(name, "Ubisoft Connect", null, exes[0], installId,
+                                              InstallDir: installDir);
                 }
                 catch { }
 
@@ -464,6 +481,30 @@ namespace StreamTweak
                 string? packageName = identity?.Attribute("Name")?.Value;
                 if (string.IsNullOrWhiteSpace(packageName)) return null;
 
+                // Resolve the actual game executable from <ExecutableList><Executable Name="..."/>.
+                // Falls back to the first .exe found in the config directory if absent.
+                // The Win32 process name = filename without extension (15-char limit pre-Win10 not
+                // an issue for UWP). This is what Process.GetProcesses() returns as p.ProcessName,
+                // and the only reliable way to detect UWP/Game Pass games at runtime.
+                string? processName = null;
+                try
+                {
+                    var execEl = doc.Descendants(ns + "Executable").FirstOrDefault()
+                              ?? doc.Descendants("Executable").FirstOrDefault();
+                    string? execName = execEl?.Attribute("Name")?.Value;
+                    if (!string.IsNullOrWhiteSpace(execName))
+                        processName = Path.GetFileNameWithoutExtension(execName);
+                    if (string.IsNullOrEmpty(processName))
+                    {
+                        var firstExe = Directory.EnumerateFiles(configDir, "*.exe", SearchOption.TopDirectoryOnly)
+                            .FirstOrDefault(e => !Path.GetFileName(e)
+                                .Equals("gamelaunchhelper.exe", StringComparison.OrdinalIgnoreCase));
+                        if (firstExe != null)
+                            processName = Path.GetFileNameWithoutExtension(firstExe);
+                    }
+                }
+                catch { }
+
                 // Read ApplicationId from appxmanifest.xml for the full App User Model ID
                 string? appId = null;
                 foreach (string manifestName in new[] { "appxmanifest.xml", "AppxManifest.xml" })
@@ -497,7 +538,9 @@ namespace StreamTweak
 
                         // Also use the full FamilyName for StoreId (needed for shell:appsFolder launch)
                         string storeId = appId != null ? $"{kvp.Key}!{appId}" : kvp.Key;
-                        return new DiscoveredGame(displayName, "Xbox", null, configDir, storeId);
+                        return new DiscoveredGame(displayName, "Xbox", null, configDir, storeId,
+                                                  InstallDir: configDir,
+                                                  ProcessName: processName);
                     }
                 }
 
@@ -519,7 +562,9 @@ namespace StreamTweak
                 // StoreId = "PackageName!AppId" → used to build shell:appsFolder launch URL
                 string fallbackStoreId = appId != null ? $"{packageName}!{appId}" : packageName;
 
-                return new DiscoveredGame(displayName!, "Xbox", null, configDir, fallbackStoreId);
+                return new DiscoveredGame(displayName!, "Xbox", null, configDir, fallbackStoreId,
+                                          InstallDir: configDir,
+                                          ProcessName: processName);
             }
             catch { return null; }
         }
@@ -677,7 +722,8 @@ namespace StreamTweak
                             .ToArray();
                         string exePath = exes.Length > 0 ? exes[0] : installPath;
 
-                        game = new DiscoveredGame(displayName, "EA App", null, exePath, contentId);
+                        game = new DiscoveredGame(displayName, "EA App", null, exePath, contentId,
+                                                  InstallDir: installPath);
                     }
                     catch { }
 

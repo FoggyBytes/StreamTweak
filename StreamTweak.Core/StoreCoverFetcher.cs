@@ -172,11 +172,17 @@ namespace StreamTweak
 
                     case "Xbox":
                         // Tier 1: Steam Store search by name (portrait cover — preferred over square local logos)
-                        bool xboxSteamFetched = await TryFetchXboxViaSteamSearchAsync(game, cachePath);
+                        bool xboxSteamFetched = await TryFetchViaSteamSearchAsync(game, cachePath);
                         if (xboxSteamFetched) return true;
                         // Tier 2: local MicrosoftGame.config logo files (square — last resort)
                         await FetchXboxCoverAsync(game, cachePath);
                         return File.Exists(cachePath);
+
+                    case "EA App":
+                        // EA App has no local cover artwork in a standard format; nearly all EA
+                        // titles ship on Steam too, so a Steam Store name search is the most
+                        // reliable source for a portrait cover.
+                        return await TryFetchViaSteamSearchAsync(game, cachePath);
 
                     case "Battle.net":
                         if (game.StoreId != null &&
@@ -492,13 +498,13 @@ namespace StreamTweak
             return result;
         }
 
-        // ── Xbox: Steam Store search by name ─────────────────────────────────
-        // Xbox games have no SteamAppId, so we search the Steam Store by game name.
+        // ── Steam Store search by name (Xbox + EA App fallback) ──────────────
+        // For games without a known SteamAppId, search the Steam Store by name.
         // The search endpoint returns JSON with items[].id (appId) which we then use
         // to fetch the portrait cover via IStoreBrowseService + CDN fallback.
         // Returns true if a portrait cover was successfully saved.
 
-        private static async Task<bool> TryFetchXboxViaSteamSearchAsync(DiscoveredGame game, string cachePath)
+        private static async Task<bool> TryFetchViaSteamSearchAsync(DiscoveredGame game, string cachePath)
         {
             try
             {

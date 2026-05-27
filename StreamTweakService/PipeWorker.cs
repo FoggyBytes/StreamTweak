@@ -133,6 +133,56 @@ public class PipeWorker : BackgroundService
                         }
                         break;
 
+                    case "SWAPASSETS":
+                        if (string.IsNullOrWhiteSpace(cmd.AssetsDir) ||
+                            string.IsNullOrWhiteSpace(cmd.DesktopSource) ||
+                            string.IsNullOrWhiteSpace(cmd.SteamSource))
+                        {
+                            await writer.WriteLineAsync("ERROR:missing fields");
+                            return;
+                        }
+                        if (!IsAllowedHostAssetsDir(cmd.AssetsDir))
+                        {
+                            await writer.WriteLineAsync("ERROR:path not allowed");
+                            return;
+                        }
+                        try
+                        {
+                            SwapAssets(cmd.AssetsDir, cmd.DesktopSource, cmd.SteamSource);
+                            _logger.LogInformation("SwapAssets OK: {Dir}", cmd.AssetsDir);
+                            await writer.WriteLineAsync("OK");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "SwapAssets failed: {Dir}", cmd.AssetsDir);
+                            await writer.WriteLineAsync($"ERROR:{ex.Message}");
+                        }
+                        break;
+
+                    case "RESTOREASSETS":
+                        if (string.IsNullOrWhiteSpace(cmd.AssetsDir))
+                        {
+                            await writer.WriteLineAsync("ERROR:missing fields");
+                            return;
+                        }
+                        if (!IsAllowedHostAssetsDir(cmd.AssetsDir))
+                        {
+                            await writer.WriteLineAsync("ERROR:path not allowed");
+                            return;
+                        }
+                        try
+                        {
+                            RestoreAssets(cmd.AssetsDir);
+                            _logger.LogInformation("RestoreAssets OK: {Dir}", cmd.AssetsDir);
+                            await writer.WriteLineAsync("OK");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "RestoreAssets failed: {Dir}", cmd.AssetsDir);
+                            await writer.WriteLineAsync($"ERROR:{ex.Message}");
+                        }
+                        break;
+
                     default:
                         await writer.WriteLineAsync("ERROR:unknown command");
                         break;
@@ -173,6 +223,82 @@ public class PipeWorker : BackgroundService
             normalized.StartsWith(b, StringComparison.OrdinalIgnoreCase));
 
         return hasAppName && hasValidBase;
+    }
+
+    /// <summary>
+    /// Security check for host-tile asset operations:
+    ///  - the directory must end with "\assets"
+    ///  - must contain one of the known streaming-server app names as a directory component
+    ///  - must sit under a known base path (Program Files / ProgramData / AppData)
+    /// </summary>
+    private static bool IsAllowedHostAssetsDir(string dir)
+    {
+        string normalized;
+        try { normalized = Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar); }
+        catch { return false; }
+
+        if (!normalized.EndsWith(Path.DirectorySeparatorChar + "assets", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        bool hasAppName = _allowedAppNames.Any(app =>
+            normalized.Contains(Path.DirectorySeparatorChar + app + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase));
+
+        bool hasValidBase = _allowedBasePaths.Any(b =>
+            !string.IsNullOrEmpty(b) &&
+            normalized.StartsWith(b, StringComparison.OrdinalIgnoreCase));
+
+        return hasAppName && hasValidBase;
+    }
+
+    private static readonly string[] _tileFiles = { "desktop.png", "steam.png" };
+
+    private static void SwapAssets(string assetsDir, string desktopSource, string steamSource)
+    {
+        if (!Directory.Exists(assetsDir))
+            throw new DirectoryNotFoundException($"Assets directory not found: {assetsDir}");
+        if (!File.Exists(desktopSource))
+            throw new FileNotFoundException($"Source desktop tile not found: {desktopSource}");
+        if (!File.Exists(steamSource))
+            throw new FileNotFoundException($"Source steam tile not found: {steamSource}");
+
+        var ops = new (string SourcePath, string TileName)[]
+        {
+            (desktopSource, "desktop.png"),
+            (steamSource,   "steam.png"),
+        };
+
+        foreach (var (sourcePath, tileName) in ops)
+        {
+            string original = Path.Combine(assetsDir, tileName);
+            string backup   = Path.Combine(assetsDir, Path.GetFileNameWithoutExtension(tileName) + "_backup.png");
+
+            // Only create a backup if one isn't already present AND an original file exists.
+            // Re-running Swap on an already-swapped directory must not overwrite the backup.
+            if (File.Exists(original) && !File.Exists(backup))
+                File.Move(original, backup);
+            else if (File.Exists(original) && File.Exists(backup))
+                File.Delete(original); // already-applied state: drop the current override before copying the new one
+
+            File.Copy(sourcePath, original, overwrite: true);
+        }
+    }
+
+    private static void RestoreAssets(string assetsDir)
+    {
+        if (!Directory.Exists(assetsDir))
+            throw new DirectoryNotFoundException($"Assets directory not found: {assetsDir}");
+
+        foreach (var tileName in _tileFiles)
+        {
+            string original = Path.Combine(assetsDir, tileName);
+            string backup   = Path.Combine(assetsDir, Path.GetFileNameWithoutExtension(tileName) + "_backup.png");
+
+            if (File.Exists(original))
+                File.Delete(original);
+            if (File.Exists(backup))
+                File.Move(backup, original);
+        }
     }
 
     // Primary method: use CIM (WMI) directly — no child process needed
@@ -255,12 +381,16 @@ public class PipeWorker : BackgroundService
     /// Unified pipe command.
     /// Omit Command (or set to "SetSpeed") for NIC speed changes.
     /// Set Command = "WriteFile" to write a file as LocalSystem.
+    /// Set Command = "SwapAssets" / "RestoreAssets" for host-tile swap/restore.
     /// </summary>
     private record PipeCommand(
         string?  Command,
         string?  AdapterName,
         string?  RegistryValue,
         string?  Path,
-        string?  Content
+        string?  Content,
+        string?  AssetsDir,
+        string?  DesktopSource,
+        string?  SteamSource
     );
 }

@@ -7,13 +7,25 @@
 
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- page header -->
             <RowDefinition Height="Auto"/>  <!-- status bar -->
             <RowDefinition Height="*"/>     <!-- main card -->
         </Grid.RowDefinitions>
 
-        <!-- Dynamic status InfoBar (keep as InfoBar — closable) -->
-        <InfoBar Grid.Row="0"
-                 Margin="28,24,28,0"
+        <!-- Page title (matches Network / Display / Audio pattern) -->
+        <StackPanel Grid.Row="0" Margin="28,24,28,4">
+            <TextBlock Text="Game Library" Style="{StaticResource ST_PageTitle}"/>
+        </StackPanel>
+
+        <!-- Dynamic status InfoBar (keep as InfoBar — closable).
+             Visibility is bound explicitly so the control is removed from the layout
+             when there is no status — IsOpen alone only collapses the InfoBar's inner
+             content, not the control itself, which would otherwise leave an 8px
+             phantom gap above the main card. -->
+        <InfoBar Grid.Row="1"
+                 Margin="28,8,28,0"
+                 Visibility="{x:Bind ViewModel.HasStatus, Mode=OneWay,
+                              Converter={StaticResource BoolToVisibilityConverter}}"
                  IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
                  Severity="{x:Bind ViewModel.StatusIsError, Mode=OneWay,
                             Converter={StaticResource BoolToInfoBarSeverityConverter}}"
@@ -22,24 +34,25 @@
                  Closed="StatusInfoBar_Closed"/>
 
         <!-- ── Main card ─────────────────────────────────────────────────── -->
-        <Border Grid.Row="1"
+        <Border Grid.Row="2"
                 Style="{StaticResource ST_CardNoPad}"
-                Margin="28,12,28,28">
+                Margin="28,16,28,28">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>  <!-- header -->
+                    <RowDefinition Height="Auto"/>  <!-- sync row (last-sync label + sync toggle) -->
                     <RowDefinition Height="Auto"/>  <!-- separator -->
                     <RowDefinition Height="Auto"/>  <!-- toolbar -->
                     <RowDefinition Height="*"/>     <!-- game list -->
                 </Grid.RowDefinitions>
 
-                <!-- Header -->
+                <!-- Sync row: last-sync info (left) + sync-to-host toggle (right). The
+                     section title is no longer rendered here — it now appears as the
+                     page title outside the card, like every other view. -->
                 <Grid Grid.Row="0" Margin="20,16,20,12">
-                    <StackPanel Spacing="3" VerticalAlignment="Center" Margin="0,0,120,0">
-                        <TextBlock Text="GAME LIBRARY" Style="{StaticResource ST_SectionLabel}"/>
-                        <TextBlock Text="{x:Bind ViewModel.LastSyncText, Mode=OneWay}"
-                                   Style="{StaticResource ST_RowDescription}"/>
-                    </StackPanel>
+                    <TextBlock Text="{x:Bind ViewModel.LastSyncText, Mode=OneWay}"
+                               Style="{StaticResource ST_RowDescription}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,120,0"/>
 
                     <!-- Sync enable toggle -->
                     <StackPanel Orientation="Horizontal"
@@ -59,33 +72,52 @@
                 <Border Grid.Row="1" Style="{StaticResource ST_Separator}"/>
 
                 <!-- Toolbar -->
-                <StackPanel Grid.Row="2" Orientation="Horizontal"
-                            Spacing="8" Margin="20,12,20,0">
+                <Grid Grid.Row="2" Margin="20,12,20,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
 
-                    <Button Content="Sync now"
-                            Style="{StaticResource ST_ButtonGreen}"
-                            IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
-                            Click="SyncNow_Click"/>
+                        <Button Content="Sync now"
+                                Style="{StaticResource ST_ButtonGreen}"
+                                IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
+                                Click="SyncNow_Click"/>
 
-                    <Button Content="Add game"
-                            Style="{StaticResource ST_ButtonSecondary}"
-                            IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
-                            Click="AddGame_Click"
-                            ToolTipService.ToolTip="Add an executable manually"/>
+                        <Button Content="Add game"
+                                Style="{StaticResource ST_ButtonSecondary}"
+                                IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
+                                Click="AddGame_Click"
+                                ToolTipService.ToolTip="Add an executable manually"/>
 
-                    <Button Content="Clear sync"
-                            Style="{StaticResource ST_ButtonDanger}"
-                            IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
-                            Click="ClearSync_Click"
-                            ToolTipService.ToolTip="Remove all managed entries from Sunshine and reset game list"/>
+                        <Button Content="Clear sync"
+                                Style="{StaticResource ST_ButtonDanger}"
+                                IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
+                                Click="ClearSync_Click"
+                                ToolTipService.ToolTip="Remove all managed entries from Sunshine and reset game list"/>
 
-                    <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
-                                  Width="20" Height="20"
-                                  VerticalAlignment="Center"
-                                  Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay,
-                                               Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                                      Width="20" Height="20"
+                                      VerticalAlignment="Center"
+                                      Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay,
+                                                   Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-                </StackPanel>
+                    </StackPanel>
+
+                    <!-- Host tile swap: replaces the default desktop.png/steam.png in
+                         <HostInstallDir>\assets with StreamTweak's bundled tiles.
+                         Visible only when a streaming-server install is detected. -->
+                    <StackPanel Orientation="Horizontal" Spacing="10"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Visibility="{x:Bind ViewModel.HostAssetsAvailable, Mode=OneWay,
+                                             Converter={StaticResource BoolToVisibilityConverter}}">
+                        <TextBlock Text="{x:Bind ViewModel.HostAssetsHelpText, Mode=OneWay}"
+                                   Style="{StaticResource ST_RowDescription}"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="NoWrap"/>
+                        <Button Content="{x:Bind ViewModel.HostAssetsButtonText, Mode=OneWay}"
+                                Style="{StaticResource ST_ButtonSecondary}"
+                                IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
+                                Click="ToggleHostAssets_Click"/>
+                    </StackPanel>
+                </Grid>
 
                 <!-- Game list -->
                 <ScrollViewer Grid.Row="3"

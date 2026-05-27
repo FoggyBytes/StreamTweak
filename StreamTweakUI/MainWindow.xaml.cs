@@ -34,6 +34,14 @@ namespace StreamTweak
             NavView.Resources["NavigationViewDefaultPaneBackground"]  = sidebarBrush;
             NavView.Resources["NavigationViewExpandedPaneBackground"] = sidebarBrush;
             NavView.Resources["NavigationViewTopPaneBackground"]      = sidebarBrush;
+            // Clear the content-area background (right side) and the pane border/divider
+            // so the content frame and empty sidebar space below nav items are transparent.
+            NavView.Resources["NavigationViewContentBackground"]      = sidebarBrush;
+            NavView.Resources["NavigationViewPaneBorderBrush"]        = sidebarBrush;
+            // The faint hairline between pane and content is the ContentGridBorder
+            // (template Border with BorderThickness="1,0,0,0"); WinUI3 binds its
+            // BorderBrush to NavigationViewContentGridBorderBrush. Clear it too.
+            NavView.Resources["NavigationViewContentGridBorderBrush"] = sidebarBrush;
 
             // Selection indicator (left accent bar on active item) — use system accent.
             // WinUI3 NavigationViewItem template binds the indicator Rectangle.Fill to
@@ -240,17 +248,17 @@ namespace StreamTweak
 
             Type? pageType = tag switch
             {
-                "Home"        => typeof(Views.HomeView),
-                "Network"     => typeof(Views.NetworkView),
-                "Audio"       => typeof(Views.AudioView),
-                "Display"     => typeof(Views.DisplayView),
-                "Apps"        => typeof(Views.AppsView),
-                "GameLibrary" => typeof(Views.GameLibraryView),
-                "Store"       => typeof(Views.StoreView),
-                "Logs"        => typeof(Views.LogsView),
-                "Glossary"    => typeof(Views.GlossaryView),
-                "Settings"    => typeof(Views.SettingsView),
-                _             => null
+                "Home"          => typeof(Views.HomeView),
+                "Network"       => typeof(Views.NetworkView),
+                "Audio"         => typeof(Views.AudioView),
+                "Display"       => typeof(Views.DisplayView),
+                "Apps"          => typeof(Views.AppsView),
+                "GameLibrary"   => typeof(Views.GameLibraryView),
+                "Store"         => typeof(Views.StoreView),
+                "Logs"          => typeof(Views.LogsView),
+                "Glossary"      => typeof(Views.GlossaryView),
+                "Settings"      => typeof(Views.SettingsView),
+                _               => null
             };
 
             if (pageType != null)

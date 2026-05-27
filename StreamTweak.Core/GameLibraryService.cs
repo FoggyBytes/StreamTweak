@@ -123,19 +123,24 @@ namespace StreamTweak
                         existing.SteamAppId = g.SteamAppId;
                         existing.StoreId    = g.StoreId;
                         existing.ExePath    = g.ExePath;      // refresh path from latest scan
-                        existing.InstallDir = g.InstallDir;   // refresh install dir (Battle.net)
+                        existing.InstallDir = g.InstallDir;   // refresh install dir (used by Strategy 2 process detection)
+                        // Refresh ProcessName from scanner when available (Xbox/UWP) — don't
+                        // clobber user-set values: only overwrite when the scanner provides one.
+                        if (!string.IsNullOrEmpty(g.ProcessName))
+                            existing.ProcessName = g.ProcessName;
                         return existing;
                     }
 
                     return new GameLibraryEntry
                     {
-                        Name       = g.Name,
-                        Store      = g.Store,
-                        SteamAppId = g.SteamAppId,
-                        StoreId    = g.StoreId,
-                        ExePath    = g.ExePath,               // persist path from scanner
-                        InstallDir = g.InstallDir,            // persist install dir (Battle.net)
-                        Enabled    = true,
+                        Name        = g.Name,
+                        Store       = g.Store,
+                        SteamAppId  = g.SteamAppId,
+                        StoreId     = g.StoreId,
+                        ExePath     = g.ExePath,               // persist path from scanner
+                        InstallDir  = g.InstallDir,            // persist install dir (used by Strategy 2 process detection)
+                        ProcessName = g.ProcessName,           // persist runtime process name (Xbox/UWP)
+                        Enabled     = true,
                     };
                 }).ToList();
 
@@ -217,13 +222,18 @@ namespace StreamTweak
                 }
                 catch { name = Path.GetFileNameWithoutExtension(exePath); }
 
+                string? manualInstallDir = null;
+                try { manualInstallDir = Path.GetDirectoryName(exePath); }
+                catch { }
+
                 var entry = new GameLibraryEntry
                 {
-                    Name     = name,
-                    Store    = "Manual",
-                    ExePath  = exePath,
-                    IsManual = true,
-                    Enabled  = true,
+                    Name       = name,
+                    Store      = "Manual",
+                    ExePath    = exePath,
+                    InstallDir = manualInstallDir,   // enables Strategy 2 detection in SessionProcessMonitor
+                    IsManual   = true,
+                    Enabled    = true,
                 };
 
                 var state = GameLibraryState.Current;

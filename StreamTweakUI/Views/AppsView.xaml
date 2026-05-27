@@ -7,13 +7,27 @@
 
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>  <!-- page header -->
             <RowDefinition Height="Auto"/>  <!-- status bar -->
             <RowDefinition Height="*"/>     <!-- main card -->
         </Grid.RowDefinitions>
 
-        <!-- Dynamic status InfoBar (keep as InfoBar — closable) -->
-        <InfoBar Grid.Row="0"
-                 Margin="28,24,28,0"
+        <!-- Page title (matches Network / Display / Audio pattern) -->
+        <StackPanel Grid.Row="0" Spacing="3" Margin="28,24,28,4">
+            <TextBlock Text="Apps" Style="{StaticResource ST_PageTitle}"/>
+            <TextBlock Text="Apps in this list are closed when a streaming session starts and relaunched when it ends."
+                       Style="{StaticResource ST_PageSubtitle}"/>
+        </StackPanel>
+
+        <!-- Dynamic status InfoBar (keep as InfoBar — closable).
+             Visibility is bound explicitly so the control is removed from the layout
+             when there is no status — IsOpen alone only collapses the InfoBar's inner
+             content, not the control itself, which would otherwise leave an 8px
+             phantom gap above the main card. -->
+        <InfoBar Grid.Row="1"
+                 Margin="28,8,28,0"
+                 Visibility="{x:Bind ViewModel.HasStatus, Mode=OneWay,
+                              Converter={StaticResource BoolToVisibilityConverter}}"
                  IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
                  Severity="{x:Bind ViewModel.StatusIsError, Mode=OneWay,
                             Converter={StaticResource BoolToInfoBarSeverityConverter}}"
@@ -22,33 +36,22 @@
                  Closed="StatusInfoBar_Closed"/>
 
         <!-- ── Main card ─────────────────────────────────────────────────── -->
-        <Border Grid.Row="1"
+        <Border Grid.Row="2"
                 Style="{StaticResource ST_CardNoPad}"
-                Margin="28,12,28,28">
+                Margin="28,16,28,28">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                     <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
-                <!-- Header -->
-                <StackPanel Grid.Row="0" Spacing="3" Margin="20,16,20,10">
-                    <TextBlock Text="STREAMING APP MANAGER" Style="{StaticResource ST_SectionLabel}"/>
-                    <TextBlock Text="Apps in this list are closed when a streaming session starts and relaunched when it ends."
-                               Style="{StaticResource ST_RowDescription}"/>
-                </StackPanel>
-
-                <Border Grid.Row="1" Style="{StaticResource ST_Separator}"/>
-
                 <!-- App list -->
-                <ListView Grid.Row="2"
+                <ListView Grid.Row="0"
                           x:Name="AppListView"
                           ItemsSource="{x:Bind ViewModel.Apps}"
                           SelectedItem="{x:Bind ViewModel.SelectedApp, Mode=TwoWay}"
                           SelectionMode="Single"
-                          Padding="20,8,20,8">
+                          Padding="20,16,20,8">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem" BasedOn="{StaticResource DefaultListViewItemStyle}">
                             <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
@@ -102,7 +105,7 @@
                 </ListView>
 
                 <!-- Action buttons -->
-                <StackPanel Grid.Row="3"
+                <StackPanel Grid.Row="1"
                             Orientation="Horizontal"
                             Spacing="8"
                             Margin="20,0,20,16">

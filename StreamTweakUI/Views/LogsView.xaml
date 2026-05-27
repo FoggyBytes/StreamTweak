@@ -24,7 +24,7 @@
             </Grid.RowDefinitions>
 
             <!-- Page header -->
-            <Grid Grid.Row="0" Margin="28,24,28,12">
+            <Grid Grid.Row="0" Margin="28,24,28,4">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -42,7 +42,7 @@
 
             <!-- Main card -->
             <Border Grid.Row="1"
-                    Margin="28,0,28,28"
+                    Margin="28,16,28,28"
                     Style="{StaticResource ST_CardNoPad}">
                 <Grid>
                     <Grid.RowDefinitions>

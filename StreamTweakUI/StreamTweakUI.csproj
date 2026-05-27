@@ -18,9 +18,9 @@
     <ApplicationIcon>Resources\streamtweak.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>StreamTweakUI</AssemblyName>
-    <Version>6.2.7</Version>
-    <AssemblyVersion>6.2.7.0</AssemblyVersion>
-    <FileVersion>6.2.7.0</FileVersion>
+    <Version>6.3.0</Version>
+    <AssemblyVersion>6.3.0.0</AssemblyVersion>
+    <FileVersion>6.3.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -55,6 +55,13 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\paypal.svg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <!-- Custom host tile PNGs deployed to <HostInstallDir>\assets\ on demand -->
+    <Content Include="Resources\desktop.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\steam.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>

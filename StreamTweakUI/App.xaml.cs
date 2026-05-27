@@ -68,7 +68,7 @@ namespace StreamTweak
         private DispatcherQueueTimer? _inactivityTimer;
         private const int INACTIVITY_TIMEOUT_MS = 30_000;
 
-        // ── Checkpoint timer (telemetria periodica su disco) ──────────────────
+        // ── Checkpoint timer (periodic telemetry flush to disk) ───────────────
         private System.Threading.Timer? _checkpointTimer;
 
         // ────────────────────────────────────────────────────────────────────
@@ -154,6 +154,11 @@ namespace StreamTweak
                 return json;
             };
             _bridge.AppStoresProvider  = () => GameLibraryState.Current.ToAppStoresJson();
+            _bridge.TailscaleProvider  = () =>
+            {
+                var (detected, ip) = TailscaleDetector.Detect();
+                return detected && !string.IsNullOrEmpty(ip) && ip != "IP unknown" ? ip : "NOT_DETECTED";
+            };
 
             // Wire AppStateService action delegates
             AppStateService.Instance.StartStreamingModeAction  = StartManualStreamingMode;
@@ -374,11 +379,11 @@ namespace StreamTweak
             catch { }
         }
 
-        // ── Checkpoint periodico telemetria ──────────────────────────────────
+        // ── Periodic telemetry checkpoint ────────────────────────────────────
 
         /// <summary>
-        /// Avvia un timer che scrive il checkpoint ogni 30 s.
-        /// Chiamare subito dopo <see cref="SessionLogger.StartSession"/>.
+        /// Starts a timer that writes the checkpoint every 30 s.
+        /// Call immediately after <see cref="SessionLogger.StartSession"/>.
         /// </summary>
         private void StartCheckpointTimer()
         {
@@ -393,8 +398,8 @@ namespace StreamTweak
         }
 
         /// <summary>
-        /// Serializza lo snapshot corrente dell'accumulatore su disco in modo atomico.
-        /// Chiamato dal thread pool del timer — non tocca lo UI thread.
+        /// Serializes the current accumulator snapshot to disk atomically.
+        /// Called from the timer's thread pool — does not touch the UI thread.
         /// </summary>
         private void WriteCheckpoint(string sessionId)
         {
@@ -444,9 +449,9 @@ namespace StreamTweak
         }
 
         /// <summary>
-        /// Ferma il timer e cancella il file checkpoint.
-        /// Chiamare dopo <see cref="FinalizeSessionTelemetry"/> + <see cref="SessionLogger.EndSession"/>
-        /// per evitare che un checkpoint stale venga letto al prossimo avvio.
+        /// Stops the timer and deletes the checkpoint file.
+        /// Call after <see cref="FinalizeSessionTelemetry"/> + <see cref="SessionLogger.EndSession"/>
+        /// to prevent a stale checkpoint from being read on the next startup.
         /// </summary>
         private void StopCheckpointTimer()
         {
@@ -473,6 +478,12 @@ namespace StreamTweak
         private void StopAutoStreamingMonitor()
         {
             if (_isAutoStreamingEnabled || _isAudioMonitorEnabled) return;
+            // Never kill the log monitor while a session is in progress.
+            // If the user disables both Auto Streaming and Auto Spatial Audio mid-session,
+            // the monitor must keep running so CLIENT DISCONNECTED can be detected.
+            // HandleAutoStreamStop will call StopAutoStreamingMonitor again after
+            // _isAutoSessionActive becomes false, giving it a clean opportunity to stop.
+            if (_isAutoSessionActive) return;
             StopLogMonitorForced();
         }
 
@@ -692,6 +703,11 @@ namespace StreamTweak
                     _isAutoSessionActive = false;
                     AppStateService.Instance.IsSessionActive = false;
                     UpdateTrayStreamingState(false);
+                    // If both Auto Streaming and Auto Spatial Audio are disabled, the
+                    // StopAutoStreamingMonitor() call that ran mid-session returned early
+                    // (guarded by _isAutoSessionActive). Now that the session is over,
+                    // give it another chance to stop the monitor if appropriate.
+                    StopAutoStreamingMonitor();
                 }
 
                 // Relaunch managed apps after any session end, regardless of whether

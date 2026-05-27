@@ -35,6 +35,9 @@ namespace StreamTweak.Views
         private async void AddGame_Click(object sender, RoutedEventArgs e)
             => await ViewModel.AddGameAsync();
 
+        private async void ToggleHostAssets_Click(object sender, RoutedEventArgs e)
+            => await ViewModel.ToggleHostAssetsAsync();
+
         private void PlayGame_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.DataContext is ObservableGameEntry entry)

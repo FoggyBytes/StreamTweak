@@ -19,7 +19,7 @@
     <!-- ── COLOR TOKENS ──────────────────────────────────────────────────────── -->
     <!-- Superfici — semi-trasparenti per lasciare filtrare Mica.
          Alpha ridotto (50–88%) per lasciare emergere l'effetto Mica Base. -->
-    <SolidColorBrush x:Key="STBackground"     Color="#80111010"/>
+    <SolidColorBrush x:Key="STBackground"     Color="Transparent"/>
     <SolidColorBrush x:Key="STSidebar"        Color="Transparent"/>
     <SolidColorBrush x:Key="STCard"           Color="#99111010"/>
     <SolidColorBrush x:Key="STInput"          Color="#CC242220"/>
@@ -53,7 +53,7 @@
     <SolidColorBrush x:Key="STBadgeRedBg"     Color="#26ef4444"/>
     <SolidColorBrush x:Key="STBadgeRedBdr"    Color="#4Def4444"/>
 
-    <!-- Banner sessione attiva -->
+    <!-- Active session banner -->
     <SolidColorBrush x:Key="STActiveSessionBg"  Color="#1022c55e"/>
     <SolidColorBrush x:Key="STNicNoticeBg"       Color="#0F22c55e"/>
 
@@ -526,6 +526,26 @@
         <Setter Property="Margin"           Value="0"/>
         <Setter Property="Padding"          Value="0"/>
     </Style>
+
+    <!-- ── CHECKBOX checked-state colours ──────────────────────────────────────
+         WinUI3 default CheckBox uses SystemAccentColor when checked, which is
+         pink/coral on systems where the user picked an accent in that range.
+         Override the INDICATOR BOX colours (CheckBackgroundFill / Stroke / Glyph)
+         only — NOT CheckBoxBackground, which is the whole control's background
+         and would paint the entire row green. Palette matches ST_ButtonGreen.
+    ────────────────────────────────────────────────────────────────────────── -->
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked"               Color="#22c55e"/>
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver"    Color="#4ade80"/>
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed"        Color="#16a34a"/>
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedDisabled"       Color="#3322c55e"/>
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked"             Color="#22c55e"/>
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver"  Color="#4ade80"/>
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed"      Color="#16a34a"/>
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedDisabled"     Color="#3322c55e"/>
+    <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundChecked"              Color="#111110"/>
+    <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPointerOver"   Color="#111110"/>
+    <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPressed"       Color="#111110"/>
+    <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedDisabled"      Color="#88111110"/>
 
     <!-- ── INFO BOX (callout accent-tinted) -->
     <Style x:Key="ST_InfoBox" TargetType="Border">

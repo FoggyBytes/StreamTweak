@@ -71,6 +71,64 @@ namespace StreamTweak
         }
 
         /// <summary>
+        /// Asks the StreamTweakService (LocalSystem) to back up the host's default
+        /// desktop.png / steam.png in <paramref name="assetsDir"/> and copy custom
+        /// replacements over them.
+        /// </summary>
+        public static bool SwapHostAssets(string assetsDir, string desktopSource, string steamSource)
+        {
+            try
+            {
+                using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut);
+                client.Connect(PipeTimeoutMs);
+
+                using var writer = new StreamWriter(client, leaveOpen: true) { AutoFlush = true };
+                using var reader = new StreamReader(client, leaveOpen: true);
+
+                string json = JsonSerializer.Serialize(new
+                {
+                    Command       = "SwapAssets",
+                    AssetsDir     = assetsDir,
+                    DesktopSource = desktopSource,
+                    SteamSource   = steamSource
+                });
+                writer.WriteLine(json);
+
+                string? response = reader.ReadLine();
+                return response == "OK";
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// Asks the StreamTweakService (LocalSystem) to delete the custom tile PNGs
+        /// in <paramref name="assetsDir"/> and rename desktop_backup.png / steam_backup.png
+        /// back to their original names.
+        /// </summary>
+        public static bool RestoreHostAssets(string assetsDir)
+        {
+            try
+            {
+                using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut);
+                client.Connect(PipeTimeoutMs);
+
+                using var writer = new StreamWriter(client, leaveOpen: true) { AutoFlush = true };
+                using var reader = new StreamReader(client, leaveOpen: true);
+
+                string json = JsonSerializer.Serialize(new
+                {
+                    Command   = "RestoreAssets",
+                    AssetsDir = assetsDir
+                });
+                writer.WriteLine(json);
+
+                string? response = reader.ReadLine();
+                return response == "OK";
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
         /// Fallback for environments without the service installed (e.g. development).
         /// Launches PowerShell with Verb = "runas" — triggers a UAC prompt.
         /// </summary>

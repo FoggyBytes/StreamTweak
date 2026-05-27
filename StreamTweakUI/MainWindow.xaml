@@ -57,9 +57,8 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItemSeparator/>
-
-                <NavigationViewItem Tag="Apps" Content="Apps">
+                <NavigationViewItem Tag="Apps" Content="Apps"
+                                   Margin="0,24,0,0">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE71D;" FontFamily="Segoe MDL2 Assets"/>
                     </NavigationViewItem.Icon>
@@ -77,9 +76,8 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItemSeparator/>
-
-                <NavigationViewItem Tag="Logs" Content="Logs">
+                <NavigationViewItem Tag="Logs" Content="Logs"
+                                   Margin="0,24,0,0">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE9F9;" FontFamily="Segoe MDL2 Assets"/>
                     </NavigationViewItem.Icon>

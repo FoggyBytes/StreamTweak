@@ -349,32 +349,6 @@ namespace StreamTweak.ViewModels
             catch { }
         }
 
-        /// <summary>
-        /// Detects Tailscale by scanning network interfaces for one named/described
-        /// "Tailscale" that has a 100.x.x.x IPv4 address (Tailscale's CGNAT range).
-        /// </summary>
-        private static (bool detected, string ip) GetTailscaleInfo()
-        {
-            try
-            {
-                foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
-                {
-                    if (!ni.Name.Contains("Tailscale", StringComparison.OrdinalIgnoreCase) &&
-                        !ni.Description.Contains("Tailscale", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    foreach (var addr in ni.GetIPProperties().UnicastAddresses)
-                    {
-                        if (addr.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork &&
-                            addr.Address.ToString().StartsWith("100."))
-                            return (true, addr.Address.ToString());
-                    }
-                    // Tailscale adapter found but no 100.x address yet
-                    return (true, "IP unknown");
-                }
-            }
-            catch { }
-            return (false, string.Empty);
-        }
+        private static (bool detected, string ip) GetTailscaleInfo() => TailscaleDetector.Detect();
     }
 }

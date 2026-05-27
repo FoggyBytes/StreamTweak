@@ -67,7 +67,7 @@ namespace StreamTweak
         public int   SampleCount     { get; set; }
     }
 
-    // ── Accumulatore in-memory per la sessione attiva ─────────────────────────
+    // ── In-memory accumulator for the active session ──────────────────────────
 
     public sealed class TelemetryAccumulator
     {
@@ -243,13 +243,13 @@ namespace StreamTweak
         }
     }
 
-    // ── Checkpoint telemetria su disco (recupero dopo shutdown brusco) ───────
+    // ── Telemetry checkpoint on disk (recovery after abrupt shutdown) ─────────
 
     /// <summary>
-    /// Scritto ogni 30 s durante una sessione attiva in
+    /// Written every 30 s during an active session to
     /// %LOCALAPPDATA%\StreamTweak\telemetry_checkpoint.json.
-    /// Al riavvio, <see cref="SessionLogger.Initialize"/> lo carica per
-    /// ricostruire i quality stats della sessione "Interrupted".
+    /// On restart, <see cref="SessionLogger.Initialize"/> loads it to
+    /// rebuild the quality stats of the "Interrupted" session.
     /// </summary>
     public sealed class TelemetryCheckpoint
     {

@@ -55,6 +55,14 @@ namespace StreamTweak
         public Func<string>? AppStoresProvider { get; set; }
 
         /// <summary>
+        /// Optional delegate that returns the Tailscale IPv4 address of the host
+        /// (e.g. "100.64.1.2") if Tailscale is installed and active, or "NOT_DETECTED".
+        /// Called when a TAILSCALE command arrives. Set this in App.xaml.cs after
+        /// creating the bridge.
+        /// </summary>
+        public Func<string>? TailscaleProvider { get; set; }
+
+        /// <summary>
         /// Raised when a SESSIONDATA command is received from StreamLight.
         /// The argument is the deserialized ClientBatch for the current session.
         /// Subscribe in App.xaml.cs to feed the TelemetryAccumulator.
@@ -162,6 +170,11 @@ namespace StreamTweak
                         case "APPSTORES":
                             string appStores = AppStoresProvider?.Invoke() ?? "{}";
                             await writer.WriteLineAsync(appStores);
+                            break;
+
+                        case "TAILSCALE":
+                            string tailscale = TailscaleProvider?.Invoke() ?? "NOT_DETECTED";
+                            await writer.WriteLineAsync(tailscale);
                             break;
 
                         case "SESSIONID":

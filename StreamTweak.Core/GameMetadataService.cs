@@ -25,7 +25,36 @@ namespace StreamTweak
     {
         public record GameMetadata(string? Developer, string? ReleaseDate);
 
+        // Bump this when the fetch logic changes in a way that makes previously cached
+        // values incorrect (e.g. a different cc/locale shifts release dates by a day).
+        // On a mismatch, LoadFromDisk discards the file and the background refresh
+        // rebuilds the cache from scratch on next launch.
+        private const int CacheSchemaVersion = 3;
+
+        private sealed class CacheFile
+        {
+            public int SchemaVersion { get; set; }
+            public Dictionary<string, GameMetadata> Entries { get; set; } = new();
+        }
+
         private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(15) };
+
+        // Country code derived from Windows regional settings. Steam returns the
+        // release_date.date string already localized for the (cc, l) pair, so passing
+        // the user's actual region keeps the date in the user's timezone — without
+        // cc, Steam defaults to US Pacific and a global midnight-UTC launch can show
+        // as the previous day.
+        private static readonly string _cc = ResolveCountryCode();
+
+        private static string ResolveCountryCode()
+        {
+            try
+            {
+                string c = RegionInfo.CurrentRegion.TwoLetterISORegionName;
+                return string.IsNullOrWhiteSpace(c) ? "US" : c;
+            }
+            catch { return "US"; }
+        }
 
         static GameMetadataService()
         {
@@ -68,11 +97,17 @@ namespace StreamTweak
             {
                 if (!File.Exists(CacheFilePath)) return;
                 string json = File.ReadAllText(CacheFilePath);
-                var loaded = JsonSerializer.Deserialize<Dictionary<string, GameMetadata>>(json,
+                var loaded = JsonSerializer.Deserialize<CacheFile>(json,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                if (loaded != null)
-                    lock (_cacheLock)
-                        _cache = new Dictionary<string, GameMetadata>(loaded, StringComparer.OrdinalIgnoreCase);
+
+                if (loaded == null || loaded.SchemaVersion != CacheSchemaVersion)
+                {
+                    DebugLogger.Log($"[Meta] Cache schema mismatch (file={loaded?.SchemaVersion ?? 0}, expected={CacheSchemaVersion}) — discarding cache, will rebuild");
+                    return;
+                }
+
+                lock (_cacheLock)
+                    _cache = new Dictionary<string, GameMetadata>(loaded.Entries, StringComparer.OrdinalIgnoreCase);
             }
             catch { }
         }
@@ -168,7 +203,7 @@ namespace StreamTweak
 
         private static async Task<string?> SearchSteamAppIdAsync(string gameName)
         {
-            string url = $"https://store.steampowered.com/api/storesearch/?term={Uri.EscapeDataString(gameName)}&l=english&cc=US";
+            string url = $"https://store.steampowered.com/api/storesearch/?term={Uri.EscapeDataString(gameName)}&l=english&cc={_cc}";
             string json = await _http.GetStringAsync(url);
             using var doc = JsonDocument.Parse(json);
 
@@ -196,7 +231,7 @@ namespace StreamTweak
 
         private static async Task<GameMetadata?> FetchBySteamApiAsync(string steamAppId)
         {
-            string url = $"https://store.steampowered.com/api/appdetails?appids={steamAppId}&l=english";
+            string url = $"https://store.steampowered.com/api/appdetails?appids={steamAppId}&l=english&cc={_cc}";
             string json = await _http.GetStringAsync(url);
             using var doc = JsonDocument.Parse(json);
 
@@ -214,17 +249,33 @@ namespace StreamTweak
             {
                 string? raw = dateEl.GetString();
                 if (!string.IsNullOrWhiteSpace(raw))
-                {
-                    if (DateTime.TryParse(raw, CultureInfo.GetCultureInfo("en-US"),
-                            DateTimeStyles.None, out var parsed))
-                        releaseDate = parsed.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture);
-                    else
-                        releaseDate = raw;
-                }
+                    releaseDate = ParseSteamDate(raw);
             }
 
             if (developer == null && releaseDate == null) return null;
             return new GameMetadata(developer, releaseDate);
+        }
+
+        // Steam returns release_date.date as a free-text string whose format depends
+        // on (cc, l). With l=english it can come back as either "May 19, 2026" (US
+        // month-first) or "19 May, 2026" (EU day-first). Try cultures in order, fall
+        // back to the raw string if none parse.
+        private static string? ParseSteamDate(string raw)
+        {
+            CultureInfo[] cultures =
+            {
+                CultureInfo.GetCultureInfo("en-GB"), // day-first English
+                CultureInfo.GetCultureInfo("en-US"), // month-first English
+                CultureInfo.InvariantCulture,
+            };
+
+            foreach (var culture in cultures)
+            {
+                if (DateTime.TryParse(raw, culture, DateTimeStyles.None, out var parsed))
+                    return parsed.ToString("MMMM d, yyyy", CultureInfo.InvariantCulture);
+            }
+
+            return raw;
         }
 
         // ── Name matching helpers ─────────────────────────────────────────────
@@ -241,9 +292,14 @@ namespace StreamTweak
         {
             try
             {
+                var file = new CacheFile
+                {
+                    SchemaVersion = CacheSchemaVersion,
+                    Entries = cache,
+                };
                 string tmp = CacheFilePath + ".tmp";
                 Directory.CreateDirectory(Path.GetDirectoryName(CacheFilePath)!);
-                File.WriteAllText(tmp, JsonSerializer.Serialize(cache,
+                File.WriteAllText(tmp, JsonSerializer.Serialize(file,
                     new JsonSerializerOptions { WriteIndented = true }));
                 File.Move(tmp, CacheFilePath, overwrite: true);
             }

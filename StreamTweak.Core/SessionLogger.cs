@@ -219,14 +219,13 @@ namespace StreamTweak
 
     public static class SessionLogger
     {
-        private const int MaxSessions = 10;
         private static readonly string LogPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "StreamTweak", "sessions.json");
 
         /// <summary>
-        /// Percorso del checkpoint telemetria scritto ogni 30 s durante una sessione attiva.
-        /// Accessibile da App.xaml.cs per la scrittura periodica e la pulizia.
+        /// Path of the telemetry checkpoint written every 30 s during an active session.
+        /// Accessed from App.xaml.cs for periodic writes and cleanup.
         /// </summary>
         public static readonly string CheckpointPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -257,8 +256,8 @@ namespace StreamTweak
                     _activeSessionStartTime = entry.StartTime;
                     sessions.Insert(0, entry);
 
-                    if (sessions.Count > MaxSessions)
-                        sessions = sessions.Take(MaxSessions).ToList();
+                    // No max-session cap: full history retained until the user manually
+                    // clears it via the "Clear history" button in the Logs view.
 
                     Save(sessions);
                 }
@@ -309,9 +308,9 @@ namespace StreamTweak
                 {
                     s.EndReason = "Interrupted";
 
-                    // Tenta di recuperare la telemetria dal checkpoint periodico.
-                    // Il checkpoint contiene gli stats aggregati fino all'ultimo flush
-                    // (ogni 30 s), scritti atomicamente durante la sessione attiva.
+                    // Attempt to recover telemetry from the periodic checkpoint.
+                    // The checkpoint holds aggregated stats up to the last flush
+                    // (every 30 s), written atomically during an active session.
                     var cp = LoadCheckpoint(s.Id);
                     s.EndTime = cp?.Timestamp ?? DateTime.Now;
 
