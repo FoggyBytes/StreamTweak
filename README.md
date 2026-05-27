@@ -5,9 +5,7 @@
 
 **StreamTweak** is the host-side half of the FoggyBytes streaming duo. It automates the technical setup that makes Moonlight game streaming reliable — NIC throttling, spatial audio, HDR, game library sync, session telemetry — so you can focus on playing. Paired with its companion client [**StreamLight**](https://github.com/FoggyBytes/StreamLight), the two apps form a tight, end-to-end streaming stack: configuration, telemetry, store metadata and Tailscale presence flow seamlessly between host and client over a local TCP bridge, with no manual setup on either side.
 
-<div align="center">
-  <img width="960" height="540" alt="streamlighthome" src="https://github.com/user-attachments/assets/c4000b75-0700-48e3-b715-db1622ebbf68" />
-</div>
+
 
 ## ✅ Compatibility
 
