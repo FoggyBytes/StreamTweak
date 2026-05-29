@@ -60,6 +60,8 @@ namespace StreamTweak
         private readonly TelemetryAccumulator _telemetryAccumulator = new();
         private StreamingLogMonitor? _logMonitor = null;
         private SessionProcessMonitor? _sessionProcessMonitor;
+        // NVIDIA Sentinel — ported NVPI DRS layer; self-detects NVAPI, null-safe on non-NVIDIA.
+        private StreamTweak.Nvidia.NvidiaSentinelService? _nvidiaSentinel;
 
         // ── Debug mode ───────────────────────────────────────────────────────
         private bool _isDebugModeActive = false;
@@ -113,6 +115,40 @@ namespace StreamTweak
             NotificationService.Initialize();
             SessionLogger.Initialize();
             LoadConfig();
+
+            // ── NVIDIA Sentinel ──────────────────────────────────────────────
+            // Construct unconditionally; the service self-detects NVAPI and sets
+            // IsNvidiaAvailable=false on AMD/Intel/no-driver (its ctor catches all
+            // errors). The "NVIDIA Sentinel" sidebar item is added in MainWindow
+            // only when IsNvidiaAvailable is true.
+            try
+            {
+                _nvidiaSentinel = new StreamTweak.Nvidia.NvidiaSentinelService();
+                AppStateService.Instance.NvidiaSentinel = _nvidiaSentinel;
+
+                if (_nvidiaSentinel.IsNvidiaAvailable)
+                {
+                    // Persist LastRestoreAt across restarts (ISO 8601 round-trip "O").
+                    _nvidiaSentinel.PersistLastRestoreCallback = at =>
+                        ConfigService.Set("NvidiaLastRestoreAt", at?.ToString("O") ?? string.Empty);
+
+                    var lastRestoreStr = ConfigService.Get("NvidiaLastRestoreAt", string.Empty);
+                    if (!string.IsNullOrEmpty(lastRestoreStr)
+                        && DateTime.TryParse(lastRestoreStr,
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            System.Globalization.DateTimeStyles.RoundtripKind,
+                            out var lastRestoreDt))
+                    {
+                        _nvidiaSentinel.LoadLastRestoreAt(lastRestoreDt);
+                    }
+
+                    // Auto-restore is opt-in: default false. It only ever acts when the
+                    // user has captured a snapshot AND armed the toggle in the UI.
+                    if (ConfigService.GetBool("NvidiaAutoRestore", false))
+                        _nvidiaSentinel.SetAutoRestoreEnabled(true);
+                }
+            }
+            catch { _nvidiaSentinel = null; }
 
             // When launched at Windows login via the autostart registry entry the exe
             // is invoked with --minimized: skip Activate() so the window never appears.
@@ -991,6 +1027,8 @@ namespace StreamTweak
             _metricsCollector.Dispose();
             StopLogMonitorForced();
             _dolbyMonitor.Disable();
+            try { _nvidiaSentinel?.Dispose(); } catch { }
+            _nvidiaSentinel = null;
             Microsoft.Win32.SystemEvents.SessionEnding -= OnSystemSessionEnding;
 
             // Release single-instance resources so the watcher thread can exit cleanly.

@@ -25,7 +25,7 @@ namespace StreamTweak
             var v = Assembly.GetExecutingAssembly().GetName().Version;
             SidebarVersionText.Text = v != null
                 ? $"v{v.Major}.{v.Minor}.{v.Build}"
-                : "v6.2.2";
+                : "v7.0.0";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -130,6 +130,11 @@ namespace StreamTweak
                     ShowWindow(WindowNative.GetWindowHandle(this), SW_HIDE);
             };
 
+            // Insert the "NVIDIA Sentinel" navigation entry at runtime, right after
+            // Display. On AMD/Intel (or no working NVAPI) the entry is shown greyed
+            // out and disabled rather than hidden.
+            InsertNvidiaProfileNavItem();
+
             // Navigate to Home on startup
             NavView.SelectedItem = NavHome;
             ContentFrame.Navigate(typeof(Views.HomeView));
@@ -138,6 +143,42 @@ namespace StreamTweak
             // immediately in case the boot-time check has already completed.
             AppStateService.Instance.UpdateAvailabilityChanged += OnUpdateAvailabilityChanged;
             RefreshUpdateIndicator();
+        }
+
+        private void InsertNvidiaProfileNavItem()
+        {
+            var svc = AppStateService.Instance.NvidiaSentinel;
+            bool available = svc?.IsNvidiaAvailable == true;
+
+            // Locate the Display item and insert the new entry right after it.
+            int insertIndex = -1;
+            for (int i = 0; i < NavView.MenuItems.Count; i++)
+            {
+                if (NavView.MenuItems[i] is NavigationViewItem nvi
+                    && (nvi.Tag as string) == "Display")
+                {
+                    insertIndex = i + 1;
+                    break;
+                }
+            }
+            if (insertIndex < 0) insertIndex = NavView.MenuItems.Count;
+
+            var item = new NavigationViewItem
+            {
+                Tag       = "NvidiaProfile",
+                Content   = "NVIDIA Sentinel",
+                Icon      = new ImageIcon
+                {
+                    Source = new Microsoft.UI.Xaml.Media.Imaging.SvgImageSource(
+                        new Uri("ms-appx:///Resources/nvidia-eye.svg")),
+                },
+                // Greyed out + non-clickable on AMD/Intel or when NVAPI is unavailable.
+                IsEnabled = available,
+            };
+            if (!available)
+                ToolTipService.SetToolTip(item, "Requires an NVIDIA GPU");
+
+            NavView.MenuItems.Insert(insertIndex, item);
         }
 
         private void OnUpdateAvailabilityChanged(object? sender, EventArgs e)
@@ -252,6 +293,7 @@ namespace StreamTweak
                 "Network"       => typeof(Views.NetworkView),
                 "Audio"         => typeof(Views.AudioView),
                 "Display"       => typeof(Views.DisplayView),
+                "NvidiaProfile" => typeof(Views.NvidiaProfileView),
                 "Apps"          => typeof(Views.AppsView),
                 "GameLibrary"   => typeof(Views.GameLibraryView),
                 "Store"         => typeof(Views.StoreView),

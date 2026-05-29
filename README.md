@@ -3,7 +3,7 @@
 
 <img width="1583" height="892" alt="streamtweak" src="https://github.com/user-attachments/assets/328ab6eb-de04-4e8b-9184-dd7243e3be31" />
 
-**StreamTweak** is the host-side half of the FoggyBytes streaming duo. It automates the technical setup that makes Moonlight game streaming reliable — NIC throttling, spatial audio, HDR, game library sync, session telemetry — so you can focus on playing. Paired with its companion client [**StreamLight**](https://github.com/FoggyBytes/StreamLight), the two apps form a tight, end-to-end streaming stack: configuration, telemetry, store metadata and Tailscale presence flow seamlessly between host and client over a local TCP bridge, with no manual setup on either side.
+**StreamTweak** is the host-side half of the FoggyBytes streaming duo. It automates the technical setup that makes Moonlight game streaming reliable — NIC throttling, spatial audio, HDR, game library sync, session telemetry, NVIDIA driver protection — so you can focus on playing. Paired with its companion client [**StreamLight**](https://github.com/FoggyBytes/StreamLight), the two apps form a tight, end-to-end streaming stack: configuration, telemetry, store metadata and Tailscale presence flow seamlessly between host and client over a local TCP bridge, with no manual setup on either side.
 
 <div align="center">
   <img width="960" height="540" alt="streamlighthost" src="https://github.com/user-attachments/assets/cef244ca-f914-4211-83a0-68888b47b430" />
@@ -11,7 +11,7 @@
 
 ## ✅ Compatibility
 
-Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (Tailscale dual-tile, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **6.3.0** with [**StreamLight 3.0.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
+Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (Tailscale dual-tile, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.0.0** with [**StreamLight 3.0.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
 
 > ⚠️ **Installer warning:** Windows SmartScreen may flag the installer because it lacks a commercial code-signing certificate. Choose **Keep / Keep anyway**. Full source code is available in this repository.
 
@@ -26,6 +26,12 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 **🖥️ Display**
 - **HDR toggle per monitor** — enable or disable HDR from StreamTweak without opening Windows Settings
 - **Auto HDR toggle** — toggle Windows Auto HDR system-wide; change broadcast instantly to running apps
+
+**🛡️ NVIDIA Sentinel** *(new in 7.0.0, NVIDIA GPUs only)*
+- **Profile snapshot** — capture the NVIDIA global driver profile to a `.nip` file (the same format NVIDIA Profile Inspector uses) with one click, restore it, or clear it. The header shows the driver package (Game Ready / Studio), version and release date
+- **Auto-restore** — arm the toggle and StreamTweak watches the driver settings database (`FileSystemWatcher` + 5-second polling) and silently re-applies your saved profile within seconds whenever NVIDIA App resets it; every restore is logged to `%LocalAppData%\StreamTweak\nvidia-restore.log`
+- **Readable settings panel** — a collapsible terminal-style view lists each customized setting with its NVIDIA label (e.g. "Force on", "Medium") and the real installed DLSS SR / RR / FG versions
+- **No external dependency** — built on a native port of NVIDIA Profile Inspector's DRS layer (MIT, © Orbmu2k), decrypter included, so encrypted "internal" settings (DLSS overrides, Shader Cache) are captured and restored correctly. The sidebar entry is greyed out on AMD / Intel
 
 **🎧 Audio**
 - **Auto spatial audio** — activates Dolby Atmos for Headphones or Windows Sonic shortly after session start, on the output device of your choice
@@ -65,25 +71,21 @@ These features cross the bridge and require both apps. The version next to each 
 - **Remote session pause** *(StreamLight 2.3.0+)* — a Pause button on the Home page stops the active stream on the client side, piggybacked on the existing `STATS` polling channel
 - **Tailscale dual-tile** *(StreamLight 3.0.0+, flagship of this release pair)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight offers a one-time popup to add a **second** host tile pinned to that Tailscale address — so the user can stream from outside the LAN with a single click, no port forwarding. On the client side, StreamLight 3.0.0 can also be configured to **auto-start Tailscale at launch**, completing the round-trip: when both apps cooperate the remote stream is always one click away
 
-## ✨ What's New in 6.3.0 — "The Tailscale Update"
+## ✨ What's New in 7.0.0 — "The Sentinel Update"
 
-- **New: Tailscale dual-tile** *(requires StreamLight 3.0.0)* — StreamTweak exposes the host's Tailscale presence via the new `TAILSCALE` bridge command. After StreamLight finishes pairing with a host via its LAN IP, it queries this command and — if Tailscale is detected on the host — offers a one-time popup to create a second host tile pinned to the `100.x.y.z` Tailscale address. The popup can be dismissed permanently per-host. The detection logic reuses the same `NetworkInterface` scan already powering the Network tab. Replies `NOT_DETECTED` when Tailscale is not installed or has no usable IP yet — the client then suppresses the popup silently
-- **New: Host tile replacement (Game Library)** — a toggle in the Game Library toolbar replaces the streaming server's default `desktop.png` and `steam.png` (in `<HostInstallDir>\assets\`) with StreamTweak-bundled covers, and reverts them on demand. The detected server (Sunshine / Apollo / Vibeshine / Vibepollo) is shown dynamically in the help text. All file writes are routed through `StreamTweakService` (LocalSystem) via two new pipe commands — `SWAPASSETS` and `RESTOREASSETS`, both path-allowlisted — so no UAC prompt is ever shown when writing into `C:\Program Files\Sunshine\assets\` and equivalents
-- **Bug fix: Xbox / Game Pass games never recognized in session logs** — `SessionProcessMonitor` could not match Xbox/UWP games because the scanner never populated `ProcessName`. The Xbox scanner now reads `<Executable Name="...">` from each game's `MicrosoftGame.config` (with fallback to the first `.exe` in `Content/`, excluding `gamelaunchhelper.exe`) and persists it to the library state, so the process-name match strategy finally works for Forza Horizon, Halo, Sea of Thieves, and every other Game Pass title
-- **Bug fix: EA App game covers never fetched** — cover art for EA App titles (F1, EA Sports games, etc.) was always missing because `StoreCoverFetcher` had no case for "EA App" in its native-source switch — every EA game fell through to the GOG remote fallback and silently failed. EA App now uses the same Steam Store name-search path already used for Xbox / Game Pass: the matching Steam AppId is resolved by normalized-name search, then the portrait cover is fetched via `IStoreBrowseService.GetItems` (`library_capsule_2x`) with the deterministic `library_600x900.jpg` CDN as fallback
-- **Improvement: process detection generalized to all stores** — install-dir prefix match is now active for every store, not only Battle.net. Every scanner (Steam, Epic, GOG, Ubisoft, EA App, Xbox, manual) populates `InstallDir`, so a process running anywhere under a game's install root is correctly credited to that game — robust against renamed binaries, launcher→game handoffs, and stores like Steam whose `ExePath` is a directory rather than a file
-- **Improvement: per-store support-exe denylists** — to keep the install-dir match from misattributing store-client processes (Steam overlay, Epic Games Launcher helpers, GOG Galaxy, Ubisoft Connect, EA Desktop, Battle.net client) to whichever game happens to sit nearby, each store has its own denylist of support executables
-- **Improvement: unlimited session history** — removed the hard cap of 10 entries in `SessionLogger`. The full history is now retained indefinitely and can be cleared at any time via the "Clear history" button in the Logs view
-- **UI: NavigationView seam, page headers, uniform spacing** — the hairline divider between the sidebar and the content area is now fully transparent so the Mica backdrop is uniform across the window; "Apps" and "Game Library" pages got proper page titles consistent with the other views; the title-to-card gap is now exactly 20 px everywhere (a phantom margin reserved by collapsed `InfoBar` controls has been eliminated by binding `Visibility` explicitly)
+- **New: NVIDIA Sentinel** — a dedicated sidebar page (NVIDIA GPUs only; greyed out on AMD / Intel) that protects the NVIDIA global driver profile from being silently reset by NVIDIA App. **Save current as my profile** snapshots the global profile to a `.nip` file (the same format NVIDIA Profile Inspector uses); **Restore my profile** re-applies it; **Clear my profile** discards it. The header shows the driver package (Game Ready / Studio), version and release date
+- **New: Auto-restore** — arm the toggle and StreamTweak watches the driver settings database (`FileSystemWatcher` + 5-second polling safety net) and silently re-applies your saved profile within a couple of seconds whenever NVIDIA App resets it. Every restore (manual or automatic) is logged to `%LocalAppData%\StreamTweak\nvidia-restore.log`
+- **New: Captured settings view** — a collapsible terminal-style panel lists each customized setting in human-readable form: name, hex id, and the value translated to its NVIDIA label (e.g. "Force on", "Medium"), including the real installed DLSS Super Resolution / Ray Reconstruction / Frame Generation versions injected by the override
+- **Under the hood** — built on a native port of NVIDIA Profile Inspector's DRS layer (MIT, © Orbmu2k), decrypter included, so encrypted "internal" settings (DLSS overrides, Shader Cache) are read and restored correctly with no external runtime dependency. Scope: the global driver profile only (NVIDIA App's "Global settings"); per-application profiles are not snapshotted
 
-For full version history see [changelog.txt](changelog.txt).
+> The previous release, **6.3.0 "The Tailscale Update"**, added the Tailscale dual-tile and Game Library host-tile replacement. See [changelog.txt](changelog.txt) for the full history.
 
 ## 🏗️ Architecture
 
 StreamTweak consists of three components:
 
 - **`StreamTweakUI.exe`** — WinUI 3 tray app (unprivileged), built on Windows App SDK 1.8
-- **`StreamTweak.Core`** — shared business logic library (NIC control, audio, HDR, game library, telemetry, Tailscale detector, TCP bridge)
+- **`StreamTweak.Core`** — shared business logic library (NIC control, audio, HDR, game library, telemetry, NVIDIA Sentinel / DRS layer, Tailscale detector, TCP bridge)
 - **`StreamTweakService.exe`** — Windows Service (LocalSystem), handles NIC speed changes and host-assets writes via Named Pipe; no UAC ever appears in the tray app
 
 The host-client bridge is a plain TCP listener on **port 47998** (LAN, line-delimited ASCII). Commands accepted from StreamLight: `PREPARE`, `RESTORE`, `STATUS`, `STATS`, `APPSTORES`, `TAILSCALE`.
@@ -102,7 +104,7 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
 ## 📝 Installation
 
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_6.3.0_Installer.exe` and run it.
+2. Download the latest `StreamTweak_7.0.0_Installer.exe` and run it.
 
 The installer registers `StreamTweakService` as a Windows Service (LocalSystem) so that NIC and host-assets operations require no UAC prompt. Windows App SDK 1.8 runtime is installed automatically if missing.
 
@@ -115,6 +117,7 @@ The installer registers `StreamTweakService` as a Windows Service (LocalSystem) 
 - [**Sunshine**](https://github.com/LizardByte/Sunshine) — the streaming host that started it all
 - [**Apollo**](https://github.com/ClassicOldSong/Apollo) — community-driven Sunshine fork
 - [**Vibeshine**](https://github.com/Nonary/vibeshine) and [**Vibepollo**](https://github.com/Nonary/Vibepollo) — fully supported since v2.5.2
+- [**NVIDIA Profile Inspector**](https://github.com/Orbmu2k/nvidiaProfileInspector) by Orbmu2k (MIT) — its DRS layer and setting catalog were ported natively to power NVIDIA Sentinel
 
 ## License
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-green.svg)](https://www.gnu.org/licenses/gpl-3.0)

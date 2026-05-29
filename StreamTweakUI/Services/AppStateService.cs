@@ -145,6 +145,14 @@ namespace StreamTweak.Services
 
         public void RaiseSettingsChanged() => SettingsChanged?.Invoke(this, EventArgs.Empty);
 
+        // ── NVIDIA Sentinel ───────────────────────────────────────────────────
+        //
+        // Singleton NvidiaSentinelService (ported NVIDIA Profile Inspector DRS layer).
+        // Null until App.xaml.cs creates it at boot. The "NVIDIA Sentinel" sidebar
+        // entry in MainWindow is added at runtime only when this is non-null AND its
+        // IsNvidiaAvailable is true (i.e. an NVIDIA GPU + working NVAPI is present).
+        public StreamTweak.Nvidia.NvidiaSentinelService? NvidiaSentinel { get; set; }
+
         // ── Update availability (GitHub releases poll) ────────────────────────
         //
         // The update check used to live in HomeViewModel and only ran when the

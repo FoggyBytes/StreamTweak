@@ -1,0 +1,370 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
+using System.Threading.Tasks;
+using Microsoft.UI.Dispatching;
+using StreamTweak.Nvidia;
+using StreamTweak.Services;
+
+namespace StreamTweak.ViewModels
+{
+    /// <summary>
+    /// One captured global-profile setting in UI-bindable form. DisplayName falls
+    /// back to the hex setting ID when the driver did not report a friendly name
+    /// (friendly value-name mapping is a later phase).
+    /// </summary>
+    /// <summary>
+    /// One captured setting shown as a single readable line: name · hex id · value label.
+    /// Only settings whose value maps to a friendly catalog label are shown (IsReadable);
+    /// raw internal values (DLSS sentinels, unmapped numbers) are hidden by design.
+    /// </summary>
+    public sealed class CapturedSettingVM
+    {
+        public CapturedSettingVM(NvidiaSnapshotEntry src)
+        {
+            DisplayName = string.IsNullOrWhiteSpace(src.Name) ? src.SettingIdHex : src.Name;
+            HexId       = src.SettingIdHex;
+
+            string? label = NvidiaSettingCatalog.GetValueLabel(src.SettingId, src.Value);
+            IsReadable = label != null;
+            ValueLabel = label ?? src.Value;
+        }
+
+        public string DisplayName { get; }
+        public string HexId { get; }
+        public string ValueLabel { get; }
+        public bool IsReadable { get; }
+    }
+
+    /// <summary>
+    /// ViewModel for NVIDIA Sentinel: capture the global driver profile to a .nip
+    /// snapshot, restore it, list what was captured, and arm auto-restore (Phase 4).
+    /// Friendly value names + default column come in Phase 3.
+    /// </summary>
+    public sealed class NvidiaProfileViewModel : ViewModelBase
+    {
+        private readonly NvidiaSentinelService? _svc;
+        private readonly DispatcherQueue _ui;
+
+        public NvidiaProfileViewModel()
+        {
+            _ui  = DispatcherQueue.GetForCurrentThread();
+            _svc = AppStateService.Instance.NvidiaSentinel;
+
+            GpuHeader = BuildGpuHeader(_svc);
+
+            if (_svc != null)
+            {
+                _autoRestoreEnabled = _svc.AutoRestoreEnabled;
+                _svc.AutoRestorePerformed += OnAutoRestorePerformed;
+            }
+
+            UpdateLastRestoreText();
+        }
+
+        public string GpuHeader { get; }
+
+        /// <summary>e.g. "NVIDIA Game Ready Driver 610.47  ·  19/05/2026". Uses InvariantCulture
+        /// for the version so the decimal separator is always a dot (610.47, not 610,47).</summary>
+        private static string BuildGpuHeader(NvidiaSentinelService? svc)
+        {
+            if (svc == null || !svc.IsNvidiaAvailable) return "NVIDIA GPU";
+
+            string type   = svc.DriverType;   // "Game Ready" / "Studio" / ""
+            string prefix = string.IsNullOrEmpty(type)
+                ? "NVIDIA Driver"
+                : $"NVIDIA {type} Driver";
+
+            string line = prefix;
+            if (svc.DriverVersion > 0f)
+                line += " " + svc.DriverVersion.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture);
+            if (svc.DriverReleaseDate is { } d)
+                line += "  ·  " + d.ToString("dd/MM/yyyy", System.Globalization.CultureInfo.InvariantCulture);
+
+            return line;
+        }
+
+        public ObservableCollection<CapturedSettingVM> CapturedSettings { get; } = new();
+
+        // ── Snapshot state ─────────────────────────────────────────────────────
+
+        private bool _hasSnapshot;
+        public bool HasSnapshot
+        {
+            get => _hasSnapshot;
+            private set => SetProperty(ref _hasSnapshot, value);
+        }
+
+        private int _capturedCount;
+        public int CapturedCount
+        {
+            get => _capturedCount;
+            private set
+            {
+                if (SetProperty(ref _capturedCount, value))
+                    OnPropertyChanged(nameof(CapturedCountText));
+            }
+        }
+
+        public string CapturedCountText => _capturedCount == 1
+            ? "1 customized setting captured"
+            : $"{_capturedCount} customized settings captured";
+
+        private int _readableCount;
+        /// <summary>How many captured settings have a human-readable value (shown in the panel).</summary>
+        public int ReadableCount
+        {
+            get => _readableCount;
+            private set
+            {
+                if (SetProperty(ref _readableCount, value))
+                {
+                    OnPropertyChanged(nameof(ReadableCountText));
+                    OnPropertyChanged(nameof(HasReadableSettings));
+                }
+            }
+        }
+
+        public bool HasReadableSettings => _readableCount > 0;
+
+        public string ReadableCountText => _readableCount == 1
+            ? "1 readable setting"
+            : $"{_readableCount} readable settings";
+
+        private string _profileSavedText = "No profile saved yet.";
+        public string ProfileSavedText
+        {
+            get => _profileSavedText;
+            private set => SetProperty(ref _profileSavedText, value);
+        }
+
+        // ── Auto-restore ───────────────────────────────────────────────────────
+
+        private bool _autoRestoreEnabled;
+        public bool AutoRestoreEnabled
+        {
+            get => _autoRestoreEnabled;
+            set
+            {
+                if (!SetProperty(ref _autoRestoreEnabled, value)) return;
+                _svc?.SetAutoRestoreEnabled(value);
+                ConfigService.Set("NvidiaAutoRestore", value);
+                OnPropertyChanged(nameof(ArmedBadgeText));
+                OnPropertyChanged(nameof(ArmedBadgeBgHex));
+                OnPropertyChanged(nameof(ArmedBadgeFgHex));
+                StatusMessage = value
+                    ? "Auto-restore armed — your profile will be re-applied if NVIDIA App resets it."
+                    : "Auto-restore disabled.";
+            }
+        }
+
+        public string ArmedBadgeText  => _autoRestoreEnabled ? "ARMED" : "DISABLED";
+        public string ArmedBadgeBgHex => _autoRestoreEnabled ? "#1F22c55e" : "#1A6e6b68";
+        public string ArmedBadgeFgHex => _autoRestoreEnabled ? "#22c55e" : "#888480";
+
+        private string _lastRestoreText = "Never";
+        public string LastRestoreText
+        {
+            get => _lastRestoreText;
+            private set => SetProperty(ref _lastRestoreText, value);
+        }
+
+        // ── Busy / status ──────────────────────────────────────────────────────
+
+        private bool _isBusy;
+        public bool IsBusy
+        {
+            get => _isBusy;
+            private set
+            {
+                if (SetProperty(ref _isBusy, value))
+                    OnPropertyChanged(nameof(IsNotBusy));
+            }
+        }
+
+        /// <summary>Inverse of IsBusy — bound to button IsEnabled (no inverse-bool converter needed).</summary>
+        public bool IsNotBusy => !_isBusy;
+
+        private string _statusMessage = string.Empty;
+        public string StatusMessage
+        {
+            get => _statusMessage;
+            private set
+            {
+                if (SetProperty(ref _statusMessage, value))
+                    OnPropertyChanged(nameof(HasStatusMessage));
+            }
+        }
+
+        public bool HasStatusMessage => !string.IsNullOrEmpty(_statusMessage);
+
+        // ── Lifecycle ──────────────────────────────────────────────────────────
+
+        public async Task InitializeAsync()
+        {
+            if (_svc != null) _autoRestoreEnabled = _svc.AutoRestoreEnabled;
+            OnPropertyChanged(nameof(AutoRestoreEnabled));
+            OnPropertyChanged(nameof(ArmedBadgeText));
+            OnPropertyChanged(nameof(ArmedBadgeBgHex));
+            OnPropertyChanged(nameof(ArmedBadgeFgHex));
+            UpdateLastRestoreText();
+            await LoadSnapshotAsync();
+        }
+
+        // ── Commands ───────────────────────────────────────────────────────────
+
+        public async Task SaveCurrentAsync()
+        {
+            if (_svc == null || !_svc.IsNvidiaAvailable) return;
+            IsBusy = true;
+            StatusMessage = "Capturing current NVIDIA global profile…";
+            try
+            {
+                await Task.Run(() => _svc.CaptureSnapshot());
+                await LoadSnapshotAsync();
+                StatusMessage = $"Captured {_capturedCount} customized settings.";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Capture failed: {ex.Message}";
+            }
+            finally { IsBusy = false; }
+        }
+
+        public async Task RestoreAsync()
+        {
+            if (_svc == null || !_svc.IsNvidiaAvailable) return;
+            if (!HasSnapshot) return;
+            IsBusy = true;
+            StatusMessage = "Restoring your saved profile…";
+            try
+            {
+                string report = await Task.Run(() => _svc.RestoreSnapshot());
+                StatusMessage = string.IsNullOrWhiteSpace(report)
+                    ? "Profile restored to the captured state."
+                    : "Restore completed with warnings — see nvidia-restore.log.";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Restore failed: {ex.Message}";
+            }
+            finally { IsBusy = false; }
+        }
+
+        public async Task ClearAsync()
+        {
+            if (_svc == null || !HasSnapshot) return;
+            IsBusy = true;
+            try
+            {
+                _svc.ClearSnapshot();
+                await LoadSnapshotAsync();   // file gone → HasSnapshot=false, list cleared
+                StatusMessage = "Saved profile cleared.";
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = $"Clear failed: {ex.Message}";
+            }
+            finally { IsBusy = false; }
+        }
+
+        public void OpenLogFile()
+        {
+            try
+            {
+                var path = NvidiaRestoreLogger.LogPath;
+                if (!File.Exists(path))
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                    File.WriteAllText(path, string.Empty);
+                }
+                Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+            }
+            catch { }
+        }
+
+        // ── Helpers ────────────────────────────────────────────────────────────
+
+        private async Task LoadSnapshotAsync()
+        {
+            CapturedSettings.Clear();
+            string? path = _svc?.SnapshotPath;
+            if (_svc == null || string.IsNullOrEmpty(path) || !File.Exists(path))
+            {
+                HasSnapshot      = false;
+                CapturedCount    = 0;
+                ReadableCount    = 0;
+                ProfileSavedText = "No profile saved yet.";
+                return;
+            }
+
+            List<NvidiaSnapshotEntry>? entries = null;
+            Exception? err = null;
+
+            // Read the .nip and warm the catalog (XML parse + NGX version resolution)
+            // off the UI thread, so the per-row label lookups below are fast dict reads.
+            await Task.Run(() =>
+            {
+                try
+                {
+                    entries = NvidiaSentinelService.ReadSnapshot(path);
+                    NvidiaSettingCatalog.Warm();
+                }
+                catch (Exception ex) { err = ex; }
+            });
+
+            if (err != null || entries == null)
+            {
+                HasSnapshot      = false;
+                CapturedCount    = 0;
+                ReadableCount    = 0;
+                ProfileSavedText = "Could not read saved profile.";
+                if (err != null) StatusMessage = $"Error reading snapshot: {err.Message}";
+                return;
+            }
+
+            int readable = 0;
+            foreach (var e in entries)
+            {
+                var vm = new CapturedSettingVM(e);
+                if (!vm.IsReadable) continue;   // hide raw/internal values
+                CapturedSettings.Add(vm);
+                readable++;
+            }
+
+            CapturedCount    = entries.Count;
+            ReadableCount    = readable;
+            HasSnapshot      = true;
+            ProfileSavedText = "Saved " + File.GetLastWriteTime(path).ToString("dd/MM/yyyy HH:mm");
+        }
+
+        private void UpdateLastRestoreText()
+        {
+            LastRestoreText = _svc?.LastRestoreAt is { } at
+                ? at.ToLocalTime().ToString("dd/MM/yyyy  HH:mm:ss")
+                : "Never";
+        }
+
+        private void OnAutoRestorePerformed(object? sender, EventArgs e)
+        {
+            _ui.TryEnqueue(() =>
+            {
+                UpdateLastRestoreText();
+                StatusMessage = "Auto-restore performed — your profile was re-applied.";
+            });
+        }
+
+        /// <summary>
+        /// Unsubscribes from the singleton service's event. Called from the View's
+        /// OnNavigatedFrom so navigating away doesn't leak this VM (a new VM is created
+        /// on every navigation to the page).
+        /// </summary>
+        public void Cleanup()
+        {
+            if (_svc != null)
+                _svc.AutoRestorePerformed -= OnAutoRestorePerformed;
+        }
+    }
+}

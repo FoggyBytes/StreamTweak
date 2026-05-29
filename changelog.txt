@@ -5,27 +5,36 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 ------------------------------------------
+Version 7.0.0 - "The Sentinel Update" (30/05/2026)
+------------------------------------------
+
+✨ NEW FEATURES:
+• NVIDIA Sentinel: a dedicated sidebar page (NVIDIA GPUs only — greyed out on AMD/Intel) that protects the NVIDIA global driver profile from being silently reset by NVIDIA App. "Save current as my profile" snapshots the global profile to a .nip file (the same format NVIDIA Profile Inspector uses), "Restore my profile" re-applies it, "Clear my profile" discards it. The header shows the driver package (Game Ready / Studio), version and release date
+• NVIDIA Sentinel — Auto-restore: arm the toggle and StreamTweak watches the driver settings database (FileSystemWatcher + 5-second polling) and silently re-applies your saved profile within a couple of seconds whenever NVIDIA App resets it. Every restore is recorded in %LocalAppData%\StreamTweak\nvidia-restore.log
+• NVIDIA Sentinel — Captured settings view: a collapsible terminal-style panel lists each customized setting in human-readable form — name, hex id, and the value translated to its NVIDIA label (e.g. "Force on", "Medium") — including the real installed DLSS Super Resolution / Ray Reconstruction / Frame Generation versions injected by the override
+
+🔧 IMPROVEMENTS:
+• Built on a native port of NVIDIA Profile Inspector's DRS layer (MIT, © Orbmu2k), including its setting decrypter — so encrypted "internal" settings (DLSS overrides, Shader Cache) are read and restored correctly, with no external runtime dependency
+• Scope: covers the global driver profile (NVIDIA App's "Global settings"); per-application profiles are not snapshotted. After a restore NVIDIA App's UI may still display stale values (it caches them separately), but the driver uses the restored values for actual rendering
+
+------------------------------------------
 Version 6.3.0 - "The Tailscale Update" (27/05/2026)
 ------------------------------------------
 
 ✨ NEW FEATURES:
-• Tailscale dual-tile (with StreamLight 3.0.0+): a new TAILSCALE bridge command exposes the host's Tailscale presence to StreamLight. After pairing via LAN IP, StreamLight queries the command and — if Tailscale is detected — offers a one-time popup to create a second host tile pinned to the 100.x.y.z Tailscale address. The new tile coexists permanently with the LAN one and survives mDNS rediscovery; the popup can be dismissed permanently per-host. Replies NOT_DETECTED when Tailscale is not installed or has no usable IP yet, in which case StreamLight stays silent
-• Host tile replacement (Game Library): a toggle in the Game Library toolbar replaces the streaming server's default Desktop and Steam tiles with StreamTweak-bundled PNGs, and reverts them on demand. Fully reversible (originals are backed up), state-aware across app restarts, and routed through StreamTweakService so no UAC prompt is ever shown when writing into Sunshine / Apollo / Vibeshine / Vibepollo install folders. Hidden entirely when no host is installed
+• Tailscale dual-tile (requires StreamLight 3.0.0+): a new TAILSCALE bridge command lets StreamLight, after pairing over the LAN, offer a one-time popup to add a second host tile pinned to the host's 100.x.y.z Tailscale address — one-click streaming from outside the LAN, no port forwarding. Dismissible permanently per-host
+• Host tile replacement (Game Library): a toolbar toggle swaps the streaming server's default Desktop and Steam tiles for StreamTweak-bundled PNGs and reverts them on demand — fully reversible, no UAC prompt (writes routed through the LocalSystem service)
 
 🐛 BUG FIXES:
-• Xbox / Game Pass games never recognized in session logs: the Xbox scanner never populated the executable name, so process detection always failed for UWP titles. The scanner now reads <Executable Name="..."/> from each game's MicrosoftGame.config (with fallback to the first .exe under Content/) and Forza Horizon, Halo, Sea of Thieves and every other Game Pass game are now correctly attributed to their session
-• EA App game covers never fetched: cover art for EA App titles (F1, EA Sports games, etc.) was always missing because no native source was wired up. EA App now reuses the same Steam Store name-search path already used for Xbox / Game Pass — resolve AppId by name, fetch the portrait capsule from Steam
+• Xbox / Game Pass games not recognized in session logs: the scanner now reads the executable name from each game's MicrosoftGame.config, so Game Pass titles are correctly attributed to their session
+• EA App game covers never fetched: EA App now resolves covers via Steam Store name-search, the same path already used for Xbox / Game Pass
 
 🔧 IMPROVEMENTS:
-• Process detection — install-dir prefix match generalized to all stores (Steam, Epic, GOG, Ubisoft, EA App, Xbox, manual), no longer only Battle.net. A process running anywhere under a game's install root is correctly credited to that game — fixes Steam detection entirely (its ExePath was a directory and the exe-name match could never fire) and stores where the launcher spawns a binary with a different name (GOG, Ubisoft, EA)
-• Process detection — per-store support-exe denylists prevent store-client processes (Steam overlay, Epic Games Launcher helpers, GOG Galaxy, Ubisoft Connect, EA Desktop, Battle.net client) from being misattributed to whichever game happens to sit nearby
-• Manual games — manually added games now also benefit from install-dir detection (the parent folder of the chosen .exe is recorded as install root)
-• Session history — removed the hard cap of 10 sessions. The full list is now retained indefinitely; users can clear it at any time via the "Clear history" button in the Logs view
+• Process detection generalized to all stores (Steam, Epic, GOG, Ubisoft, EA App, Xbox, manual): a process running anywhere under a game's install root is credited to that game — fixes Steam detection and launcher→game handoffs. Per-store denylists keep store-client processes from being misattributed
+• Session history is no longer capped at 10 entries — the full list is retained and can be cleared from the Logs view
 
 🎨 UI POLISH:
-• NavigationView seam — the hairline divider between sidebar and content area is now transparent; the Mica backdrop is uniform across the whole window
-• Apps & Game Library page headers — the "STREAMING APP MANAGER" and "GAME LIBRARY" labels are now proper page titles ("Apps", "Game Library") matching the Network / Display / Audio pattern; descriptive subtitle sits above the first card instead of inside it
-• Uniform title-to-card spacing — the gap between page title and first card is now exactly 20px across every view; fixes the phantom margin left behind by conditional InfoBars whose outer Margin used to reserve 8–16px even when collapsed
+• Transparent NavigationView seam (uniform Mica across the window), proper page titles on Apps and Game Library, and a consistent 20px title-to-card gap everywhere
 
 ------------------------------------------
 Version 6.2.7 - "The Stability Update" (13/05/2026)

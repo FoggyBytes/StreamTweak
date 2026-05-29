@@ -23,4 +23,12 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- NVIDIA Sentinel value-label catalog — sourced from nvidiaProfileInspector
+         (github.com/Orbmu2k/nvidiaProfileInspector), MIT © Orbmu2k. Used by
+         NvidiaSettingCatalog to map raw DRS values to friendly labels (e.g. 2 → "Medium"). -->
+    <EmbeddedResource Include="Resources\Npi\CustomSettingNames.xml" />
+    <EmbeddedResource Include="Resources\Npi\LICENSE.NPI.txt" />
+  </ItemGroup>
+
 </Project>
