@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text.Json;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
+using StreamTweak.Nvidia;
 using StreamTweak.Services;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
@@ -404,6 +405,48 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _managedAppsText, value);
         }
 
+        // ── NVIDIA Sentinel tile ──────────────────────────────────────────────
+
+        private bool _isNvSentinelAvailable;
+        public bool IsNvSentinelAvailable
+        {
+            get => _isNvSentinelAvailable;
+            private set => SetProperty(ref _isNvSentinelAvailable, value);
+        }
+
+        private string _nvSentinelAutoRestoreText = "Off";
+        public string NvSentinelAutoRestoreText
+        {
+            get => _nvSentinelAutoRestoreText;
+            private set
+            {
+                if (SetProperty(ref _nvSentinelAutoRestoreText, value))
+                {
+                    OnPropertyChanged(nameof(NvSentinelAutoRestoreColorHex));
+                    OnPropertyChanged(nameof(NvSentinelAutoRestoreBgHex));
+                    OnPropertyChanged(nameof(NvSentinelAutoRestoreBorderHex));
+                }
+            }
+        }
+
+        public string NvSentinelAutoRestoreColorHex  => _nvSentinelAutoRestoreText == "On" ? "#22c55e"   : "#ef4444";
+        public string NvSentinelAutoRestoreBgHex     => _nvSentinelAutoRestoreText == "On" ? "#1F22c55e" : "#1Aef4444";
+        public string NvSentinelAutoRestoreBorderHex => _nvSentinelAutoRestoreText == "On" ? "#4D22c55e" : "#40ef4444";
+
+        private string _nvSentinelBadgeText = "Off";
+        public string NvSentinelBadgeText
+        {
+            get => _nvSentinelBadgeText;
+            private set => SetProperty(ref _nvSentinelBadgeText, value);
+        }
+
+        private string _nvSentinelLastRestoreValue = "never";
+        public string NvSentinelLastRestoreValue
+        {
+            get => _nvSentinelLastRestoreValue;
+            private set => SetProperty(ref _nvSentinelLastRestoreValue, value);
+        }
+
         // ── LOGS tile ─────────────────────────────────────────────────────────
 
         private string _logsSessionCount = "0";
@@ -487,6 +530,10 @@ namespace StreamTweak.ViewModels
             AppStateService.Instance.SpatialAudioStatusChanged += OnSpatialAudioStatusChanged;
             AppStateService.Instance.LiveTelemetrySample       += OnLiveSample;
 
+            var sentinel = AppStateService.Instance.NvidiaSentinel;
+            if (sentinel != null)
+                sentinel.AutoRestorePerformed += OnNvAutoRestorePerformed;
+
             if (IsSessionActive)
                 StartLiveSession();
 
@@ -508,7 +555,14 @@ namespace StreamTweak.ViewModels
             AppStateService.Instance.SessionStateChanged       -= OnSessionStateChanged;
             AppStateService.Instance.SpatialAudioStatusChanged -= OnSpatialAudioStatusChanged;
             AppStateService.Instance.LiveTelemetrySample       -= OnLiveSample;
+
+            var sentinel = AppStateService.Instance.NvidiaSentinel;
+            if (sentinel != null)
+                sentinel.AutoRestorePerformed -= OnNvAutoRestorePerformed;
         }
+
+        private void OnNvAutoRestorePerformed(object? sender, EventArgs e)
+            => _dispatcher.TryEnqueue(RefreshNvSentinelTile);
 
         private void RefreshNicSpeed()
         {
@@ -791,6 +845,45 @@ namespace StreamTweak.ViewModels
                 AutoHdrText = await HdrService.GetAutoHdrAsync() ? "On" : "Off";
             }
             catch { AutoHdrText = "—"; }
+
+            RefreshNvSentinelTile();
+        }
+
+        private void RefreshNvSentinelTile()
+        {
+            var svc = AppStateService.Instance.NvidiaSentinel;
+            IsNvSentinelAvailable = svc?.IsNvidiaAvailable == true;
+
+            if (svc == null || !svc.IsNvidiaAvailable)
+            {
+                NvSentinelAutoRestoreText  = "Off";
+                NvSentinelBadgeText        = "Off";
+                NvSentinelLastRestoreValue = "never";
+                return;
+            }
+
+            NvSentinelAutoRestoreText = svc.AutoRestoreEnabled ? "On" : "Off";
+
+            if (svc.AutoRestoreEnabled)
+            {
+                int n = 0;
+                try
+                {
+                    string? path = svc.SnapshotPath;
+                    if (!string.IsNullOrEmpty(path) && File.Exists(path))
+                        n = NvidiaSentinelService.ReadSnapshot(path)?.Count ?? 0;
+                }
+                catch { n = 0; }
+                NvSentinelBadgeText = n == 1 ? "1 setting saved" : $"{n} settings saved";
+            }
+            else
+            {
+                NvSentinelBadgeText = "Off";
+            }
+
+            NvSentinelLastRestoreValue = svc.LastRestoreAt is { } at
+                ? at.ToLocalTime().ToString("dd/MM/yyyy  HH:mm")
+                : "never";
         }
 
         public void RequestStopStream()

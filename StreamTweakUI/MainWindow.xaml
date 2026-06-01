@@ -99,32 +99,36 @@
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
-            <!-- ── PANE FOOTER: version badge + update indicator ───────────────
-                 The update indicator (HyperlinkButton) is collapsed by default;
-                 MainWindow.xaml.cs subscribes to AppStateService.UpdateAvailabilityChanged
-                 and toggles its visibility / text when GitHub reports a newer release.
-                 Click → opens the Releases page in the default browser. -->
-            <NavigationView.PaneFooter>
-                <Border Padding="14,4,14,12">
-                    <StackPanel Spacing="2">
-                        <TextBlock x:Name="SidebarVersionText"
-                                   Style="{StaticResource ST_FooterText}"/>
-                        <HyperlinkButton x:Name="SidebarUpdateLink"
-                                         Visibility="Collapsed"
-                                         Padding="0"
-                                         FontFamily="{StaticResource DMSans}"
-                                         FontSize="11"
-                                         Foreground="{StaticResource STWarning}"
-                                         Click="SidebarUpdateLink_Click"
-                                         ToolTipService.ToolTip="Open the GitHub releases page"/>
-                    </StackPanel>
-                </Border>
-            </NavigationView.PaneFooter>
-
             <!-- Content frame — Transparent so Mica bleeds through the page bg -->
             <Frame x:Name="ContentFrame" Background="Transparent"/>
 
         </NavigationView>
+
+        <!-- ── BOTTOM-RIGHT OVERLAY: version + update indicator ───────────────
+             Anchored at the bottom-right of the content area (Row 1 spans the
+             sidebar + content; HorizontalAlignment=Right keeps the badge over
+             the content frame, not the pane). MainWindow.xaml.cs subscribes to
+             AppStateService.UpdateAvailabilityChanged and toggles the update
+             link visibility / text when GitHub reports a newer release. -->
+        <StackPanel Grid.Row="1"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    Margin="0,0,20,14"
+                    Spacing="2"
+                    IsHitTestVisible="True">
+            <TextBlock x:Name="SidebarVersionText"
+                       Style="{StaticResource ST_FooterText}"
+                       HorizontalAlignment="Right"/>
+            <HyperlinkButton x:Name="SidebarUpdateLink"
+                             Visibility="Collapsed"
+                             Padding="0"
+                             FontFamily="{StaticResource DMSans}"
+                             FontSize="11"
+                             Foreground="{StaticResource STWarning}"
+                             HorizontalAlignment="Right"
+                             Click="SidebarUpdateLink_Click"
+                             ToolTipService.ToolTip="Open the GitHub releases page"/>
+        </StackPanel>
 
         <!-- ── ROW 0: custom title bar ───────────────────────────────────── -->
         <Grid x:Name="AppTitleBar"

@@ -11,7 +11,7 @@
 
 ## ✅ Compatibility
 
-Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (Tailscale dual-tile, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.0.0** with [**StreamLight 3.0.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
+Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (Tailscale dual-tile, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.0.1** with [**StreamLight 3.0.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
 
 > ⚠️ **Installer warning:** Windows SmartScreen may flag the installer because it lacks a commercial code-signing certificate. Choose **Keep / Keep anyway**. Full source code is available in this repository.
 
@@ -71,14 +71,13 @@ These features cross the bridge and require both apps. The version next to each 
 - **Remote session pause** *(StreamLight 2.3.0+)* — a Pause button on the Home page stops the active stream on the client side, piggybacked on the existing `STATS` polling channel
 - **Tailscale dual-tile** *(StreamLight 3.0.0+, flagship of this release pair)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight offers a one-time popup to add a **second** host tile pinned to that Tailscale address — so the user can stream from outside the LAN with a single click, no port forwarding. On the client side, StreamLight 3.0.0 can also be configured to **auto-start Tailscale at launch**, completing the round-trip: when both apps cooperate the remote stream is always one click away
 
-## ✨ What's New in 7.0.0 — "The Sentinel Update"
+## ✨ What's New in 7.0.1 — "The Dashboard Update"
 
-- **New: NVIDIA Sentinel** — a dedicated sidebar page (NVIDIA GPUs only; greyed out on AMD / Intel) that protects the NVIDIA global driver profile from being silently reset by NVIDIA App. **Save current as my profile** snapshots the global profile to a `.nip` file (the same format NVIDIA Profile Inspector uses); **Restore my profile** re-applies it; **Clear my profile** discards it. The header shows the driver package (Game Ready / Studio), version and release date
-- **New: Auto-restore** — arm the toggle and StreamTweak watches the driver settings database (`FileSystemWatcher` + 5-second polling safety net) and silently re-applies your saved profile within a couple of seconds whenever NVIDIA App resets it. Every restore (manual or automatic) is logged to `%LocalAppData%\StreamTweak\nvidia-restore.log`
-- **New: Captured settings view** — a collapsible terminal-style panel lists each customized setting in human-readable form: name, hex id, and the value translated to its NVIDIA label (e.g. "Force on", "Medium"), including the real installed DLSS Super Resolution / Ray Reconstruction / Frame Generation versions injected by the override
-- **Under the hood** — built on a native port of NVIDIA Profile Inspector's DRS layer (MIT, © Orbmu2k), decrypter included, so encrypted "internal" settings (DLSS overrides, Shader Cache) are read and restored correctly with no external runtime dependency. Scope: the global driver profile only (NVIDIA App's "Global settings"); per-application profiles are not snapshotted
+- **New: NVIDIA Sentinel home tile** — the home dashboard now surfaces Sentinel status at a glance. The badge shows **"{N} settings saved"** in green when Auto-restore is armed, or **Off** in red when disabled; a *Last auto-restore — dd/MM/yyyy HH:mm* line below it mirrors the JetBrains Mono styling used by the LOGS tile. Click the tile to jump to the NVIDIA Sentinel page; live updates via the `AutoRestorePerformed` event mean no tab refresh is needed
+- **Home grid grows to 3×4** — the tile grid adds a fourth row to host the new Sentinel tile; the STORE tile moves to row 4, centered. NVIDIA Sentinel sits in row 3 between MANAGED APPS and LOGS
+- **Version footer relocated** — the version label and the "↑ Update to vX.Y.Z" indicator (visible when a newer release is available) move from the sidebar pane footer to the bottom-right corner of the window, freeing the sidebar of footer text while keeping the indicator visible on every page
 
-> The previous release, **6.3.0 "The Tailscale Update"**, added the Tailscale dual-tile and Game Library host-tile replacement. See [changelog.txt](changelog.txt) for the full history.
+> The previous release, **7.0.0 "The Sentinel Update"**, introduced NVIDIA Sentinel itself — the dedicated sidebar page that snapshots and auto-restores the NVIDIA global driver profile against NVIDIA App resets. See [changelog.txt](changelog.txt) for the full history.
 
 ## 🏗️ Architecture
 
@@ -104,7 +103,7 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
 ## 📝 Installation
 
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_7.0.0_Installer.exe` and run it.
+2. Download the latest `StreamTweak_7.0.1_Installer.exe` and run it.
 
 The installer registers `StreamTweakService` as a Windows Service (LocalSystem) so that NIC and host-assets operations require no UAC prompt. Windows App SDK 1.8 runtime is installed automatically if missing.
 

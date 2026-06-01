@@ -5,6 +5,15 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 ------------------------------------------
+Version 7.0.1 - "The Dashboard Update" (01/06/2026)
+------------------------------------------
+
+🎨 UI / UX:
+• Home — NVIDIA Sentinel tile: a new tile surfaces NVIDIA Sentinel status on the home dashboard. The badge shows "{N} settings saved" in green when Auto-restore is armed, or "Off" in red when disabled; below it a "Last auto-restore — dd/MM/yyyy HH:mm" line uses the same JetBrains Mono style as the LOGS tile total-duration value. Clicking the tile navigates to the NVIDIA Sentinel page. The tile updates live via the AutoRestorePerformed event, no tab refresh needed
+• Home — 3×4 grid: the tile grid grows to a fourth row to host the new Sentinel tile; the STORE tile moves to row 4, centered. NVIDIA Sentinel sits in row 3 between MANAGED APPS and LOGS
+• Version footer relocated: the version label and "↑ Update to vX.Y.Z" indicator (when a newer release is available) have been moved from the sidebar pane footer to the bottom-right corner of the window, freeing the sidebar of footer text while keeping the indicator visible across all pages
+
+------------------------------------------
 Version 7.0.0 - "The Sentinel Update" (30/05/2026)
 ------------------------------------------
 

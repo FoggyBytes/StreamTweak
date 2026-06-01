@@ -398,6 +398,7 @@
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
 
                 <!-- NIC Speed → Network -->
@@ -574,8 +575,44 @@
                     </StackPanel>
                 </Button>
 
-                <!-- STORE → Store -->
+                <!-- NVIDIA Sentinel → NvidiaProfile -->
                 <Button Grid.Row="2" Grid.Column="1"
+                        Style="{StaticResource ST_TileButton}"
+                        Click="NvidiaSentinelTile_Click">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <Image Width="13" Height="13" VerticalAlignment="Center">
+                                <Image.Source>
+                                    <SvgImageSource UriSource="ms-appx:///Resources/nvidia-eye.svg"/>
+                                </Image.Source>
+                            </Image>
+                            <TextBlock Text="NVIDIA SENTINEL" Style="{StaticResource ST_SectionLabel}"/>
+                        </StackPanel>
+                        <Border CornerRadius="4" Padding="8,2"
+                                Background="{x:Bind ViewModel.NvSentinelAutoRestoreBgHex, Mode=OneWay,
+                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                BorderBrush="{x:Bind ViewModel.NvSentinelAutoRestoreBorderHex, Mode=OneWay,
+                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                BorderThickness="1"
+                                HorizontalAlignment="Left">
+                            <TextBlock Text="{x:Bind ViewModel.NvSentinelBadgeText, Mode=OneWay}"
+                                       Style="{StaticResource ST_BadgeText}"
+                                       Foreground="{x:Bind ViewModel.NvSentinelAutoRestoreColorHex, Mode=OneWay,
+                                                    Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="Last auto-restore"
+                                       Style="{StaticResource ST_BodySmall}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{x:Bind ViewModel.NvSentinelLastRestoreValue, Mode=OneWay}"
+                                       Style="{StaticResource ST_MonoValueSmall}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+
+                <!-- STORE → Store (centered on row 3) -->
+                <Button Grid.Row="3" Grid.Column="1"
                         Style="{StaticResource ST_TileButton}"
                         Click="StoreTile_Click">
                     <StackPanel Spacing="8">
@@ -589,7 +626,7 @@
                             <TextBlock Text="powered by"
                                        Style="{StaticResource ST_BodySmall}"
                                        VerticalAlignment="Center"/>
-                            <Image Height="13" VerticalAlignment="Center">
+                            <Image Height="18" VerticalAlignment="Center">
                                 <Image.Source>
                                     <SvgImageSource UriSource="ms-appx:///Resources/instant-gaming-logo.svg"/>
                                 </Image.Source>
