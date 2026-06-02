@@ -7,7 +7,7 @@
     Background="{StaticResource STBackground}">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="14" Padding="28,24,28,28">
+        <StackPanel Spacing="10" Padding="28,20,28,20">
 
             <!-- ═══════════════════════════════════════════════════════════════
                  SESSION CARD — mostra stato live o ultima sessione
@@ -388,14 +388,13 @@
             <!-- ═══════════════════════════════════════════════════════════════
                  QUICK STATS — 3×3 grid di tile cliccabili
             ════════════════════════════════════════════════════════════════ -->
-            <Grid ColumnSpacing="10" RowSpacing="10">
+            <Grid ColumnSpacing="10" RowSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
@@ -509,8 +508,44 @@
                     </StackPanel>
                 </Button>
 
-                <!-- Game Library → GameLibrary -->
+                <!-- NVIDIA Sentinel → NvidiaProfile (centro, riga 1) -->
                 <Button Grid.Row="1" Grid.Column="1"
+                        Style="{StaticResource ST_TileButton}"
+                        Click="NvidiaSentinelTile_Click">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="5">
+                            <Image Width="13" Height="13" VerticalAlignment="Center">
+                                <Image.Source>
+                                    <SvgImageSource UriSource="ms-appx:///Resources/nvidia-eye.svg"/>
+                                </Image.Source>
+                            </Image>
+                            <TextBlock Text="NVIDIA SENTINEL" Style="{StaticResource ST_SectionLabel}"/>
+                        </StackPanel>
+                        <Border CornerRadius="4" Padding="8,2"
+                                Background="{x:Bind ViewModel.NvSentinelAutoRestoreBgHex, Mode=OneWay,
+                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                BorderBrush="{x:Bind ViewModel.NvSentinelAutoRestoreBorderHex, Mode=OneWay,
+                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                BorderThickness="1"
+                                HorizontalAlignment="Left">
+                            <TextBlock Text="{x:Bind ViewModel.NvSentinelBadgeText, Mode=OneWay}"
+                                       Style="{StaticResource ST_BadgeText}"
+                                       Foreground="{x:Bind ViewModel.NvSentinelAutoRestoreColorHex, Mode=OneWay,
+                                                    Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="Last auto-restore"
+                                       Style="{StaticResource ST_BodySmall}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{x:Bind ViewModel.NvSentinelLastRestoreValue, Mode=OneWay}"
+                                       Style="{StaticResource ST_MonoValueSmall}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+
+                <!-- Game Library → GameLibrary (centro, riga 2) -->
+                <Button Grid.Row="2" Grid.Column="1"
                         Style="{StaticResource ST_TileButton}"
                         Click="GameLibraryTile_Click">
                     <StackPanel Spacing="8">
@@ -571,67 +606,6 @@
                         <TextBlock Text="{x:Bind ViewModel.ManagedAppsText, Mode=OneWay}"
                                    Style="{StaticResource ST_MonoMedium}"
                                    Foreground="#f59e0b"/>
-                        <TextBlock Opacity="0" Style="{StaticResource ST_BodySmall}" Text=" "/>
-                    </StackPanel>
-                </Button>
-
-                <!-- NVIDIA Sentinel → NvidiaProfile -->
-                <Button Grid.Row="2" Grid.Column="1"
-                        Style="{StaticResource ST_TileButton}"
-                        Click="NvidiaSentinelTile_Click">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <Image Width="13" Height="13" VerticalAlignment="Center">
-                                <Image.Source>
-                                    <SvgImageSource UriSource="ms-appx:///Resources/nvidia-eye.svg"/>
-                                </Image.Source>
-                            </Image>
-                            <TextBlock Text="NVIDIA SENTINEL" Style="{StaticResource ST_SectionLabel}"/>
-                        </StackPanel>
-                        <Border CornerRadius="4" Padding="8,2"
-                                Background="{x:Bind ViewModel.NvSentinelAutoRestoreBgHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderBrush="{x:Bind ViewModel.NvSentinelAutoRestoreBorderHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderThickness="1"
-                                HorizontalAlignment="Left">
-                            <TextBlock Text="{x:Bind ViewModel.NvSentinelBadgeText, Mode=OneWay}"
-                                       Style="{StaticResource ST_BadgeText}"
-                                       Foreground="{x:Bind ViewModel.NvSentinelAutoRestoreColorHex, Mode=OneWay,
-                                                    Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                        </Border>
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="Last auto-restore"
-                                       Style="{StaticResource ST_BodySmall}"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Text="{x:Bind ViewModel.NvSentinelLastRestoreValue, Mode=OneWay}"
-                                       Style="{StaticResource ST_MonoValueSmall}"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Button>
-
-                <!-- STORE → Store (centered on row 3) -->
-                <Button Grid.Row="3" Grid.Column="1"
-                        Style="{StaticResource ST_TileButton}"
-                        Click="StoreTile_Click">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <FontIcon Glyph="&#xE7BF;" FontFamily="Segoe MDL2 Assets"
-                                      FontSize="11" Foreground="White"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="STORE" Style="{StaticResource ST_SectionLabel}"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="powered by"
-                                       Style="{StaticResource ST_BodySmall}"
-                                       VerticalAlignment="Center"/>
-                            <Image Height="18" VerticalAlignment="Center">
-                                <Image.Source>
-                                    <SvgImageSource UriSource="ms-appx:///Resources/instant-gaming-logo.svg"/>
-                                </Image.Source>
-                            </Image>
-                        </StackPanel>
                         <TextBlock Opacity="0" Style="{StaticResource ST_BodySmall}" Text=" "/>
                     </StackPanel>
                 </Button>

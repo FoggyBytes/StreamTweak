@@ -281,7 +281,7 @@
         <Setter Property="BorderBrush"                Value="{StaticResource STBorder}"/>
         <Setter Property="BorderThickness"            Value="1"/>
         <Setter Property="CornerRadius"               Value="9"/>
-        <Setter Property="Padding"                    Value="16,14"/>
+        <Setter Property="Padding"                    Value="16,12"/>
         <Setter Property="HorizontalAlignment"        Value="Stretch"/>
         <Setter Property="VerticalAlignment"          Value="Stretch"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>

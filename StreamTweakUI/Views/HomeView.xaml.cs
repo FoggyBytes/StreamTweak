@@ -91,9 +91,6 @@ namespace StreamTweak.Views
         private void AppsTile_Click(object sender, RoutedEventArgs e)
             => NavigateTo("Apps");
 
-        private void StoreTile_Click(object sender, RoutedEventArgs e)
-            => NavigateTo("Store");
-
         private void NvidiaSentinelTile_Click(object sender, RoutedEventArgs e)
             => NavigateTo("NvidiaProfile");
 

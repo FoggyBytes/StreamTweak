@@ -5,6 +5,14 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 ------------------------------------------
+Version 7.0.2 - "The Fit Update" (02/06/2026)
+------------------------------------------
+
+🎨 UI / UX:
+• Home tile grid reorganized into a clean 3×3: NVIDIA Sentinel now sits in the visual center of the dashboard (row 1, column 1, replacing Game Library); Game Library has moved one row down (row 2, column 1, replacing the previous NVIDIA Sentinel position). The Store tile has been removed from the Home grid — Store remains accessible via the sidebar navigation entry as before. The fourth grid row introduced in 7.0.1 is gone
+• Home scrollbar fix at minimum window size (1280×720): four surgical spacing adjustments tightened the layout to reclaim ~34 px and keep everything visible without a scrollbar — page padding from 28,24,28,28 to 28,20,28,20, the outer StackPanel Spacing from 14 to 10, the tile grid RowSpacing from 10 to 8, and the ST_TileButton inner Padding from 16,14 to 16,12
+
+------------------------------------------
 Version 7.0.1 - "The Dashboard Update" (01/06/2026)
 ------------------------------------------
 
