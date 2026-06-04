@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,6 +31,31 @@ namespace StreamTweak
     public sealed class StreamTweakBridge : IDisposable
     {
         public const int Port = 47998;
+
+        // ── DoS hardening ──────────────────────────────────────────────────────
+        // The bridge listens on the LAN without authentication, so a single bad or
+        // hostile peer must not be able to exhaust resources. These caps bound the
+        // blast radius: idle connections time out, oversized lines are rejected
+        // before they can be buffered, and the number of concurrent handlers is
+        // limited so a flood of half-open sockets cannot pile up unbounded.
+        private const int MaxConcurrentConnections = 32;
+        private const int ReadTimeoutMs            = 10_000;
+        private const int MaxCommandLineLength     = 256;
+        private const int MaxPayloadLineLength     = 64 * 1024;
+
+        private readonly SemaphoreSlim _connectionLimiter =
+            new(MaxConcurrentConnections, MaxConcurrentConnections);
+
+        // ── Bridge authentication (StreamTweak 7.1.0) ───────────────────────────
+        // When RequireAuth is true, only commands carrying a valid AUTH1 signature
+        // from an approved client are executed; legacy unauthenticated commands are
+        // rejected with ERR_UNAUTHORIZED. CAPS and ENROLL are always accepted so a
+        // client can negotiate capabilities and enroll its certificate.
+        // The AUTH1 first line (verb + uniqueId + timestamp + base64 RSA-2048
+        // signature ≈ 400 chars) needs a larger cap than a bare command.
+        private const int MaxFirstLineLength = 1024;
+        public BridgeAuthService? AuthService { get; set; }
+        public bool RequireAuth { get; set; } = true;
 
         /// <summary>
         /// Optional delegate that returns the current NIC link speed in Mbps
@@ -115,6 +141,16 @@ namespace StreamTweak
                 try
                 {
                     var client = await _listener!.AcceptTcpClientAsync(ct);
+
+                    // Reject immediately (no queueing) once the concurrency cap is hit,
+                    // so a flood of connections cannot accumulate accepted sockets.
+                    if (!_connectionLimiter.Wait(0))
+                    {
+                        DebugLog("StreamTweakBridge: connection limit reached — rejecting peer");
+                        try { client.Dispose(); } catch { }
+                        continue;
+                    }
+
                     _ = HandleClientAsync(client, ct);
                 }
                 catch (OperationCanceledException) { break; }
@@ -128,6 +164,10 @@ namespace StreamTweak
 
         private async Task HandleClientAsync(TcpClient client, CancellationToken ct)
         {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(ReadTimeoutMs);
+            CancellationToken token = timeoutCts.Token;
+
             try
             {
                 using (client)
@@ -135,85 +175,211 @@ namespace StreamTweak
                 using (var reader = new StreamReader(stream))
                 using (var writer = new StreamWriter(stream) { AutoFlush = true })
                 {
-                    string? command = await reader.ReadLineAsync(ct);
-                    if (string.IsNullOrWhiteSpace(command))
+                    string? first = await ReadLineLimitedAsync(reader, MaxFirstLineLength, token);
+                    if (string.IsNullOrWhiteSpace(first))
                     {
                         await writer.WriteLineAsync("ERR");
                         return;
                     }
+                    first = first.Trim();
+                    var remote = client.Client.RemoteEndPoint as IPEndPoint;
 
-                    command = command.Trim().ToUpperInvariant();
-                    DebugLog($"StreamTweakBridge received: {command} from {client.Client.RemoteEndPoint}");
-
-                    switch (command)
+                    // ── CAPS: capability negotiation (always unauthenticated) ──────
+                    if (first.Equals("CAPS", StringComparison.OrdinalIgnoreCase))
                     {
-                        case "PREPARE":
-                            PrepareRequested?.Invoke();
-                            await writer.WriteLineAsync("OK");
-                            break;
-
-                        case "RESTORE":
-                            RestoreRequested?.Invoke();
-                            await writer.WriteLineAsync("OK");
-                            break;
-
-                        case "STATUS":
-                            string status = StatusProvider?.Invoke() ?? "UNKNOWN";
-                            await writer.WriteLineAsync(status);
-                            break;
-
-                        case "STATS":
-                            string stats = StatsProvider?.Invoke() ?? "STATS_UNAVAILABLE";
-                            await writer.WriteLineAsync(stats);
-                            break;
-
-                        case "APPSTORES":
-                            string appStores = AppStoresProvider?.Invoke() ?? "{}";
-                            await writer.WriteLineAsync(appStores);
-                            break;
-
-                        case "TAILSCALE":
-                            string tailscale = TailscaleProvider?.Invoke() ?? "NOT_DETECTED";
-                            await writer.WriteLineAsync(tailscale);
-                            break;
-
-                        case "SESSIONID":
-                            string sessionId = SessionLogger.ActiveSessionId ?? "NONE";
-                            await writer.WriteLineAsync(sessionId);
-                            break;
-
-                        case "SESSIONDATA":
-                            string? payload = await reader.ReadLineAsync(ct);
-                            if (string.IsNullOrWhiteSpace(payload))
-                            {
-                                await writer.WriteLineAsync("ERR");
-                                break;
-                            }
-                            try
-                            {
-                                var batch = JsonSerializer.Deserialize<ClientBatch>(payload,
-                                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                                if (batch != null)
-                                    SessionDataReceived?.Invoke(batch);
-                                await writer.WriteLineAsync("OK");
-                            }
-                            catch
-                            {
-                                DebugLog("StreamTweakBridge: failed to parse SESSIONDATA payload");
-                                await writer.WriteLineAsync("ERR");
-                            }
-                            break;
-
-                        default:
-                            DebugLog($"StreamTweakBridge unknown command: {command}");
-                            await writer.WriteLineAsync("ERR");
-                            break;
+                        await writer.WriteLineAsync($"CAPS1 auth={(RequireAuth ? "required" : "optional")}");
+                        return;
                     }
+
+                    // ── ENROLL <uniqueId> <pin> <base64 name> + <base64 PEM cert> (unauthenticated) ──
+                    if (first.StartsWith("ENROLL ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string[] tok = first.Substring(7).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        string uid = tok.Length > 0 ? tok[0] : "";
+                        string pin = tok.Length > 1 ? tok[1] : "";
+                        string name = DecodeClientName(tok.Length > 2 ? tok[2] : "", remote);
+                        string? certB64 = await ReadLineLimitedAsync(reader, MaxPayloadLineLength, token);
+                        EnrollResult res = AuthService?.Enroll(uid, certB64 ?? "", name, pin) ?? EnrollResult.Denied;
+                        await writer.WriteLineAsync(res switch
+                        {
+                            EnrollResult.Approved => "ENROLLED",
+                            EnrollResult.Denied   => "DENIED",
+                            _                     => "PENDING",
+                        });
+                        return;
+                    }
+
+                    // ── AUTH1 <uid> <ts> <sig> + <command> (authenticated) ─────────
+                    if (first.StartsWith("AUTH1 ", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string[] parts = first.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        string? cmdLine = await ReadLineLimitedAsync(reader, MaxCommandLineLength, token);
+                        if (parts.Length != 4 || string.IsNullOrWhiteSpace(cmdLine))
+                        {
+                            await writer.WriteLineAsync("ERR_UNAUTHORIZED");
+                            return;
+                        }
+                        string commandRaw = cmdLine.Trim();
+                        bool ok = long.TryParse(parts[2], out long ts)
+                               && AuthService != null
+                               && AuthService.TryVerify(parts[1], ts, parts[3], commandRaw);
+                        // When RequireAuth is off the bridge is open (legacy mode): an
+                        // unverified signature falls through and the command still runs.
+                        // When on, only an approved client's valid signature is accepted.
+                        if (!ok && RequireAuth)
+                        {
+                            DebugLog($"StreamTweakBridge: rejected unauthorized command from {remote}");
+                            await writer.WriteLineAsync("ERR_UNAUTHORIZED");
+                            return;
+                        }
+                        await ProcessCommandAsync(commandRaw.ToUpperInvariant(), reader, writer, remote, token);
+                        return;
+                    }
+
+                    // ── Legacy bare command ────────────────────────────────────────
+                    if (RequireAuth)
+                    {
+                        DebugLog($"StreamTweakBridge: rejected unauthenticated '{first.ToUpperInvariant()}' from {remote} (RequireAuth on)");
+                        await writer.WriteLineAsync("ERR_UNAUTHORIZED");
+                        return;
+                    }
+                    await ProcessCommandAsync(first.ToUpperInvariant(), reader, writer, remote, token);
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // Idle timeout or service shutdown — drop the connection silently.
+            }
+            catch (InvalidDataException)
+            {
+                DebugLog("StreamTweakBridge: input exceeded size limit — connection dropped");
             }
             catch (Exception ex)
             {
                 DebugLog($"StreamTweakBridge client handler error: {ex.Message}");
+            }
+            finally
+            {
+                try { _connectionLimiter.Release(); } catch { }
+            }
+        }
+
+        // Executes a verified (or, when RequireAuth is off, a legacy) command.
+        // SESSIONDATA consumes its JSON payload from a following line.
+        private async Task ProcessCommandAsync(
+            string command, StreamReader reader, StreamWriter writer, IPEndPoint? remote, CancellationToken token)
+        {
+            DebugLog($"StreamTweakBridge received: {command} from {remote}");
+
+            switch (command)
+            {
+                case "PREPARE":
+                    PrepareRequested?.Invoke();
+                    await writer.WriteLineAsync("OK");
+                    break;
+
+                case "RESTORE":
+                    RestoreRequested?.Invoke();
+                    await writer.WriteLineAsync("OK");
+                    break;
+
+                case "STATUS":
+                    string status = StatusProvider?.Invoke() ?? "UNKNOWN";
+                    await writer.WriteLineAsync(status);
+                    break;
+
+                case "STATS":
+                    string stats = StatsProvider?.Invoke() ?? "STATS_UNAVAILABLE";
+                    await writer.WriteLineAsync(stats);
+                    break;
+
+                case "APPSTORES":
+                    string appStores = AppStoresProvider?.Invoke() ?? "{}";
+                    await writer.WriteLineAsync(appStores);
+                    break;
+
+                case "TAILSCALE":
+                    string tailscale = TailscaleProvider?.Invoke() ?? "NOT_DETECTED";
+                    await writer.WriteLineAsync(tailscale);
+                    break;
+
+                case "SESSIONID":
+                    string sessionId = SessionLogger.ActiveSessionId ?? "NONE";
+                    await writer.WriteLineAsync(sessionId);
+                    break;
+
+                case "SESSIONDATA":
+                    string? payload = await ReadLineLimitedAsync(reader, MaxPayloadLineLength, token);
+                    if (string.IsNullOrWhiteSpace(payload))
+                    {
+                        await writer.WriteLineAsync("ERR");
+                        break;
+                    }
+                    try
+                    {
+                        var batch = JsonSerializer.Deserialize<ClientBatch>(payload,
+                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        if (batch != null)
+                            SessionDataReceived?.Invoke(batch);
+                        await writer.WriteLineAsync("OK");
+                    }
+                    catch
+                    {
+                        DebugLog("StreamTweakBridge: failed to parse SESSIONDATA payload");
+                        await writer.WriteLineAsync("ERR");
+                    }
+                    break;
+
+                default:
+                    DebugLog($"StreamTweakBridge unknown command: {command}");
+                    await writer.WriteLineAsync("ERR");
+                    break;
+            }
+        }
+
+        // Decodes the optional base64 client hostname sent with ENROLL into a friendly
+        // label ("StreamLight @ <hostname>"). Falls back to the remote IP for older
+        // clients that don't send a name. Newlines stripped and length capped so a
+        // hostile peer cannot inject control characters or an oversized label.
+        private static string DecodeClientName(string base64Name, IPEndPoint? remote)
+        {
+            if (!string.IsNullOrEmpty(base64Name))
+            {
+                try
+                {
+                    string decoded = Encoding.UTF8.GetString(Convert.FromBase64String(base64Name))
+                        .Replace("\r", "").Replace("\n", "").Trim();
+                    if (decoded.Length > 64) decoded = decoded.Substring(0, 64);
+                    if (decoded.Length > 0) return $"StreamLight @ {decoded}";
+                }
+                catch { }
+            }
+            return remote != null ? $"StreamLight @ {remote.Address}" : "StreamLight";
+        }
+
+        // Reads a single '\n'-terminated line, capping the length at maxChars so an
+        // unbounded line cannot be buffered into memory (OOM guard). '\r' is ignored
+        // and the supplied token enforces the idle timeout. Returns null on EOF with
+        // no data; throws InvalidDataException when the cap is exceeded.
+        private static async Task<string?> ReadLineLimitedAsync(
+            StreamReader reader, int maxChars, CancellationToken ct)
+        {
+            var sb = new StringBuilder();
+            var buf = new char[1];
+            while (true)
+            {
+                int n = await reader.ReadAsync(buf.AsMemory(0, 1), ct);
+                if (n == 0)
+                    return sb.Length == 0 ? null : sb.ToString();
+
+                char c = buf[0];
+                if (c == '\n')
+                    return sb.ToString();
+                if (c == '\r')
+                    continue;
+                if (sb.Length >= maxChars)
+                    throw new InvalidDataException("line exceeds maximum length");
+                sb.Append(c);
             }
         }
 
@@ -222,6 +388,7 @@ namespace StreamTweak
             if (_disposed) return;
             Stop();
             _cts?.Dispose();
+            _connectionLimiter.Dispose();
             _disposed = true;
         }
 

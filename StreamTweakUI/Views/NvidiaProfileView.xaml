@@ -143,7 +143,7 @@
             <!-- ── Captured settings (collapsible, Glossary-style terminal panel) ── -->
             <Expander HorizontalAlignment="Stretch"
                       HorizontalContentAlignment="Stretch"
-                      IsExpanded="True">
+                      IsExpanded="{x:Bind ViewModel.CapturedExpanded, Mode=TwoWay}">
                 <Expander.Header>
                     <Grid>
                         <Grid.ColumnDefinitions>

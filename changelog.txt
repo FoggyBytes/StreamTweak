@@ -5,6 +5,23 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 ------------------------------------------
+Version 7.1.0 - "The Secure Bridge Update" (04/06/2026)
+------------------------------------------
+
+✨ NEW FEATURES:
+• Authenticated bridge: the TCP bridge (port 47998) that StreamLight uses to control the NIC, read host metrics and the game list now requires authenticated clients. Each StreamLight device proves its identity by signing every command with its Moonlight certificate; the first time a new device connects, StreamTweak shows a one-time "Allow StreamLight client?" prompt (showing the device name and a 4-digit PIN to confirm against the one on the device) so you decide who is trusted. This closes the previously open bridge — a stranger on your LAN/VPN can no longer command your host or read its metrics
+• Bridge clients management (Settings → Bridge security): see every approved and pending client, approve or deny pending ones, and revoke access at any time. A "Require authenticated StreamLight clients" toggle (ON by default) enforces the new behaviour; turning it off restores the legacy unauthenticated bridge for compatibility with older StreamLight builds
+
+🔒 SECURITY HARDENING:
+• Service pipe lock-down: the LocalSystem helper service now verifies that the connecting process is the genuine StreamTweakUI.exe from the install directory before executing any command, preventing other local users from abusing it (e.g. to write a malicious apps.json)
+• Bridge denial-of-service guards: per-connection idle timeout, a cap on concurrent connections, and a maximum line length so a hostile peer cannot exhaust resources or send an oversized payload
+• Correct WQL escaping for the NIC speed query, lock-serialized atomic config writes, and a randomized temp-script path in the UAC fallback
+
+ℹ️ Authorization never blocks streaming. A non-authorized (or older) StreamLight client streams exactly as before — only the StreamTweak↔StreamLight integration is gated: host metrics overlay, NIC speed display & one-click Streaming Mode, store badges on covers, session quality reports & live charts, Tailscale dual-tile, and remote pause.
+
+⚠️ REQUIRES: StreamLight 3.1.0 or later on the client for those integration features. With "Require authenticated clients" ON (the default), older StreamLight versions can no longer use the bridge — update both apps together. You can temporarily turn the requirement off in Settings → Bridge security if you need to pair with an older client during the transition.
+
+------------------------------------------
 Version 7.0.2 - "The Fit Update" (02/06/2026)
 ------------------------------------------
 

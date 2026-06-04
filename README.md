@@ -11,7 +11,9 @@
 
 ## ✅ Compatibility
 
-Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (Tailscale dual-tile, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.0.2** with [**StreamLight 3.0.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
+Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (Tailscale dual-tile, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.1.0** with [**StreamLight 3.1.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
+
+> 🔐 **Authenticated bridge (7.1.0+).** The host↔client bridge now only accepts commands from StreamLight devices you have explicitly approved (a one-time prompt shows a 4-digit PIN to confirm against the one on the device). **Authorization never affects streaming** — it only gates the StreamTweak↔StreamLight integration: host metrics overlay, NIC speed & one-click Streaming Mode, store badges on covers, session quality reports & live charts, Tailscale dual-tile, and remote pause. Requires **StreamLight 3.1.0 or later**; update both apps together. You can turn it off in **Settings → Bridge security** to pair with older clients during the transition.
 
 > ⚠️ **Installer warning:** Windows SmartScreen may flag the installer because it lacks a commercial code-signing certificate. Choose **Keep / Keep anyway**. Full source code is available in this repository.
 
@@ -71,10 +73,12 @@ These features cross the bridge and require both apps. The version next to each 
 - **Remote session pause** *(StreamLight 2.3.0+)* — a Pause button on the Home page stops the active stream on the client side, piggybacked on the existing `STATS` polling channel
 - **Tailscale dual-tile** *(StreamLight 3.0.0+, flagship of this release pair)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight offers a one-time popup to add a **second** host tile pinned to that Tailscale address — so the user can stream from outside the LAN with a single click, no port forwarding. On the client side, StreamLight 3.0.0 can also be configured to **auto-start Tailscale at launch**, completing the round-trip: when both apps cooperate the remote stream is always one click away
 
-## ✨ What's New in 7.0.2 — "The Fit Update"
+## ✨ What's New in 7.1.0 — "The Secure Bridge Update"
 
-- **Home tile grid reorganized into a clean 3×3** — NVIDIA Sentinel now sits in the visual center of the dashboard (row 1, column 1); Game Library has moved one row down. The Store tile has been removed from the Home grid — Store remains accessible via the sidebar navigation entry as before
-- **No more scrollbar on Home at minimum window size** — tightened page padding, stack spacing, grid row spacing and tile inner padding reclaim ~34 px so the dashboard fits comfortably at 1280×720 with no scrollbar
+- **Authenticated bridge** — the TCP bridge StreamLight uses now only accepts commands from devices you have explicitly approved. Each client signs every command with its Moonlight certificate; on first contact StreamTweak shows a one-time *"Allow this client?"* prompt with the device name and a 4-digit PIN to confirm against the one shown on the device
+- **Bridge clients management** — *Settings → Bridge security* lists approved/pending clients with Approve / Revoke, plus a *Require authenticated StreamLight clients* toggle (ON by default)
+- **Authorization never blocks streaming** — it only gates the StreamTweak↔StreamLight integration (host metrics, NIC speed & Streaming Mode, store badges, session reports, Tailscale dual-tile, remote pause). Requires **StreamLight 3.1.0**; update both apps together
+- **Security hardening** — the LocalSystem service now verifies the calling process before acting; the bridge adds connection/size/timeout guards; correct WQL escaping and atomic config writes
 
 > See [changelog.txt](changelog.txt) for the full release history.
 
@@ -86,7 +90,7 @@ StreamTweak consists of three components:
 - **`StreamTweak.Core`** — shared business logic library (NIC control, audio, HDR, game library, telemetry, NVIDIA Sentinel / DRS layer, Tailscale detector, TCP bridge)
 - **`StreamTweakService.exe`** — Windows Service (LocalSystem), handles NIC speed changes and host-assets writes via Named Pipe; no UAC ever appears in the tray app
 
-The host-client bridge is a plain TCP listener on **port 47998** (LAN, line-delimited ASCII). Commands accepted from StreamLight: `PREPARE`, `RESTORE`, `STATUS`, `STATS`, `APPSTORES`, `TAILSCALE`.
+The host-client bridge is a TCP listener on **port 47998** (LAN, line-delimited ASCII). Commands accepted from StreamLight: `PREPARE`, `RESTORE`, `STATUS`, `STATS`, `APPSTORES`, `TAILSCALE`, `SESSIONDATA`. From 7.1.0 each command is authenticated: the client first negotiates (`CAPS`) and enrolls its Moonlight certificate (`ENROLL`, approved once on the host), then signs every command (`AUTH1`, RSA-SHA256).
 
 ```
 StreamLight (Qt, client PC)
@@ -102,7 +106,7 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
 ## 📝 Installation
 
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_7.0.2_Installer.exe` and run it.
+2. Download the latest `StreamTweak_7.1.0_Installer.exe` and run it.
 
 The installer registers `StreamTweakService` as a Windows Service (LocalSystem) so that NIC and host-assets operations require no UAC prompt. Windows App SDK 1.8 runtime is installed automatically if missing.
 

@@ -138,7 +138,12 @@ namespace StreamTweak
             string safeAdapterName    = adapterName.Replace("'", "''");
             string safeRegistryValue  = registryValue.Replace("'", "''");
 
-            string tempScript = Path.Combine(Path.GetTempPath(), "NetSpeedChanger.ps1");
+            // Use an unguessable filename in a dedicated subfolder, created exclusively,
+            // so another local user cannot pre-create or symlink the script path before
+            // it is executed elevated (TOCTOU hardening).
+            string tempDir = Path.Combine(Path.GetTempPath(), "StreamTweak");
+            Directory.CreateDirectory(tempDir);
+            string tempScript = Path.Combine(tempDir, Path.GetRandomFileName() + ".ps1");
             string psScript = $@"
 $adapterName = '{safeAdapterName}'
 $registryValue = '{safeRegistryValue}'
@@ -147,7 +152,9 @@ Restart-NetAdapter -Name $adapterName -Confirm:$false
 ";
             try
             {
-                File.WriteAllText(tempScript, psScript);
+                using (var fs = new FileStream(tempScript, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                using (var sw = new StreamWriter(fs))
+                    sw.Write(psScript);
 
                 var psi = new System.Diagnostics.ProcessStartInfo
                 {

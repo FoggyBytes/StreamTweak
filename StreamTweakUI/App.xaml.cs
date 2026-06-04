@@ -177,6 +177,18 @@ namespace StreamTweak
             _bridge.PrepareRequested    += OnBridgePrepareRequested;
             _bridge.RestoreRequested    += OnBridgeRestoreRequested;
             _bridge.SessionDataReceived += OnSessionDataReceived;
+
+            // Bridge authentication (7.1.0): only StreamLight clients the user has
+            // approved on this host may issue commands. Configured before Start()
+            // so the very first incoming connection is already gated.
+            var bridgeAuth = new BridgeAuthService();
+            AppStateService.Instance.BridgeAuth = bridgeAuth;
+            _bridge.AuthService = bridgeAuth;
+            _bridge.RequireAuth = ConfigService.GetBool("BridgeRequireAuth", true);
+            bridgeAuth.ApprovalRequested += client =>
+                _dispatcher.TryEnqueue(() => MainWindow?.ShowBridgeApproval(client));
+            AppStateService.Instance.SetBridgeRequireAuthAction = v => _bridge.RequireAuth = v;
+
             _bridge.Start();
             _bridge.StatusProvider     = () => { var (mbps, ok) = GetCurrentSpeed(); return ok ? mbps.ToString() : "UNKNOWN"; };
             _bridge.StatsProvider      = () =>

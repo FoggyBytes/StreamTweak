@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using StreamTweak.Services;
 using StreamTweak.ViewModels;
 using Windows.UI;
 
@@ -58,9 +59,9 @@ namespace StreamTweak.Views
                 {
                     Title             = "Auto-restore is active",
                     Content           = body,
-                    PrimaryButtonText = "Got it, I'll turn it off first",
-                    CloseButtonText   = "Save anyway",
-                    DefaultButton     = ContentDialogButton.Primary,
+                    PrimaryButtonText = "Save anyway",
+                    CloseButtonText   = "Got it, I'll turn it off first",
+                    DefaultButton     = ContentDialogButton.Close,
                     XamlRoot          = this.XamlRoot,
                 };
 
@@ -70,9 +71,10 @@ namespace StreamTweak.Views
 
                 var result = await dialog.ShowAsync();
 
-                // Primary = "Got it" = cancel save, let user disable auto-restore first.
-                // Close (or X) = "Save anyway" = proceed with current state.
-                if (result == ContentDialogResult.Primary) return;
+                // Affirmative ("Save anyway") on the left as Primary, to match every other
+                // StreamTweak dialog. Close (or X) = "Got it…" = cancel and let the user
+                // disable auto-restore first; it stays the safe default button.
+                if (result != ContentDialogResult.Primary) return;
             }
 
             _ = ViewModel.SaveCurrentAsync();

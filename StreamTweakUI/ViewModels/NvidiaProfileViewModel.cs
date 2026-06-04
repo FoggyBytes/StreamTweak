@@ -48,6 +48,22 @@ namespace StreamTweak.ViewModels
         private readonly NvidiaSentinelService? _svc;
         private readonly DispatcherQueue _ui;
 
+        /// <summary>
+        /// Persisted expand/collapse state of the CAPTURED SETTINGS panel. Bound
+        /// TwoWay so it survives navigation (the NavigationView recreates this page
+        /// every time) and app restarts. Backed directly by config.json.
+        /// </summary>
+        public bool CapturedExpanded
+        {
+            get => ConfigService.GetBool("NvidiaCapturedExpanded", true);
+            set
+            {
+                if (value == ConfigService.GetBool("NvidiaCapturedExpanded", true)) return;
+                ConfigService.Set("NvidiaCapturedExpanded", value);
+                OnPropertyChanged();
+            }
+        }
+
         public NvidiaProfileViewModel()
         {
             _ui  = DispatcherQueue.GetForCurrentThread();

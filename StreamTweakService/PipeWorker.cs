@@ -1,4 +1,5 @@
 using System.IO.Pipes;
+using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text.Json;
@@ -67,6 +68,17 @@ public class PipeWorker : BackgroundService
             {
                 using var reader = new StreamReader(server, leaveOpen: true);
                 using var writer = new StreamWriter(server, leaveOpen: true) { AutoFlush = true };
+
+                // Security gate: only StreamTweakUI.exe installed alongside this service
+                // (i.e. in an admin-only directory) may issue commands. This blocks any
+                // other local user's process from abusing the LocalSystem pipe — e.g. the
+                // WriteFile command, which could otherwise plant a malicious apps.json.
+                if (!IsAuthorizedClient(server))
+                {
+                    _logger.LogWarning("Rejected pipe client: caller is not the trusted StreamTweak UI.");
+                    await writer.WriteLineAsync("ERROR:unauthorized");
+                    return;
+                }
 
                 string? line = await reader.ReadLineAsync(ct);
                 if (string.IsNullOrWhiteSpace(line))
@@ -308,8 +320,10 @@ public class PipeWorker : BackgroundService
         {
             using var session = CimSession.Create(null);
 
-            // Escape single quotes for WQL string literals (same rule as SQL: double them up).
-            string safeAdapterName = adapterName.Replace("'", "''");
+            // Escape for WQL string literals: the escape character is the backslash,
+            // so a backslash must be doubled and a single quote prefixed with a backslash.
+            // (Doubling the quote is the SQL rule and is NOT correct for WQL.)
+            string safeAdapterName = adapterName.Replace("\\", "\\\\").Replace("'", "\\'");
 
             string query = $"SELECT * FROM MSFT_NetAdapterAdvancedPropertySettingData " +
                            $"WHERE Name = '{safeAdapterName}' AND RegistryKeyword = '*SpeedDuplex'";
@@ -376,6 +390,69 @@ public class PipeWorker : BackgroundService
             return false;
         }
     }
+
+    // ── Client authorization ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Verifies that the connected pipe client is the trusted StreamTweak UI:
+    /// the same StreamTweakUI.exe that sits in this service's own (admin-only)
+    /// install directory. Any failure to prove that is treated as unauthorized.
+    /// </summary>
+    private bool IsAuthorizedClient(NamedPipeServerStream server)
+    {
+        try
+        {
+            if (!GetNamedPipeClientProcessId(server.SafePipeHandle.DangerousGetHandle(), out uint pid))
+                return false;
+
+            string? clientPath = GetProcessImagePath(pid);
+            if (string.IsNullOrEmpty(clientPath))
+                return false;
+
+            string? serviceDir = Path.GetDirectoryName(Environment.ProcessPath ?? string.Empty);
+            if (string.IsNullOrEmpty(serviceDir))
+                return false;
+
+            string expected = Path.Combine(serviceDir, "StreamTweakUI.exe");
+            return string.Equals(
+                Path.GetFullPath(clientPath),
+                Path.GetFullPath(expected),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Pipe client authorization check failed");
+            return false;
+        }
+    }
+
+    private static string? GetProcessImagePath(uint pid)
+    {
+        IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (h == IntPtr.Zero)
+            return null;
+        try
+        {
+            uint size = 1024;
+            var sb = new System.Text.StringBuilder((int)size);
+            return QueryFullProcessImageNameW(h, 0, sb, ref size) ? sb.ToString() : null;
+        }
+        finally { CloseHandle(h); }
+    }
+
+    private const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetNamedPipeClientProcessId(IntPtr Pipe, out uint ClientProcessId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr OpenProcess(uint dwDesiredAccess, bool bInheritHandle, uint dwProcessId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool CloseHandle(IntPtr hObject);
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool QueryFullProcessImageNameW(IntPtr hProcess, uint dwFlags, System.Text.StringBuilder lpExeName, ref uint lpdwSize);
 
     /// <summary>
     /// Unified pipe command.

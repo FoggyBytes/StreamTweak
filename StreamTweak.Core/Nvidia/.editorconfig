@@ -1,0 +1,24 @@
+# ──────────────────────────────────────────────────────────────────────────
+# StreamTweak.Core/Nvidia/  —  vendored NVIDIA Profile Inspector DRS layer
+# (native port, MIT © Orbmu2k). This is third-party code ported as-is; we do
+# NOT hold it to our nullable-reference-types / naming conventions, so the
+# corresponding compiler warnings are silenced for this folder only.
+#
+# Applies to this directory and its subfolders. Do not add first-party source
+# here. See memory/nvidia-sentinel/REVIVAL-PLAN.md before touching the port.
+# ──────────────────────────────────────────────────────────────────────────
+
+[*.cs]
+# Nullable reference type warnings (the port predates NRT annotations)
+dotnet_diagnostic.CS8600.severity = none
+dotnet_diagnostic.CS8601.severity = none
+dotnet_diagnostic.CS8602.severity = none
+dotnet_diagnostic.CS8603.severity = none
+dotnet_diagnostic.CS8604.severity = none
+dotnet_diagnostic.CS8605.severity = none
+dotnet_diagnostic.CS8607.severity = none
+dotnet_diagnostic.CS8618.severity = none
+dotnet_diagnostic.CS8625.severity = none
+
+# Type name composed only of lowercase ASCII (e.g. the 'nvw' interop namespace)
+dotnet_diagnostic.CS8981.severity = none

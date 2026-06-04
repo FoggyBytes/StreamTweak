@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Reflection;
 using Microsoft.Win32;
@@ -23,7 +24,7 @@ namespace StreamTweak.ViewModels
         public string AppVersion { get; } =
             Assembly.GetExecutingAssembly().GetName().Version is { } v
                 ? $"{v.Major}.{v.Minor}.{v.Build}"
-                : "6.2.2";
+                : "7.1.0";
 
         // ── Update notice (mirrors AppStateService) ───────────────────────────
         // Rebroadcasts the centralized GitHub-release poll into properties the
@@ -156,6 +157,61 @@ namespace StreamTweak.ViewModels
             }
         }
 
+        // ── Bridge security (7.1.0) ───────────────────────────────────────────
+
+        public bool RequireBridgeAuth
+        {
+            get => Services.ConfigService.GetBool("BridgeRequireAuth", true);
+            set
+            {
+                Services.ConfigService.Set("BridgeRequireAuth", value);
+                AppStateService.Instance.SetBridgeRequireAuthAction?.Invoke(value);
+                OnPropertyChanged();
+            }
+        }
+
+        public ObservableCollection<BridgeClientItem> BridgeClients { get; } = new();
+
+        public bool HasNoBridgeClients => BridgeClients.Count == 0;
+
+        public void RefreshBridgeClients()
+        {
+            BridgeClients.Clear();
+            var auth = AppStateService.Instance.BridgeAuth;
+            if (auth != null)
+            {
+                foreach (var c in auth.GetClients())
+                {
+                    string status = c.Status switch
+                    {
+                        "approved" => "Authorized",
+                        "denied"   => "Denied",
+                        _          => "Pending approval",
+                    };
+                    BridgeClients.Add(new BridgeClientItem
+                    {
+                        UniqueId         = c.UniqueId,
+                        Name             = c.Name,
+                        StatusLabel      = status,
+                        CanApprove       = c.Status == "pending" || c.Status == "denied",
+                    });
+                }
+            }
+            OnPropertyChanged(nameof(HasNoBridgeClients));
+        }
+
+        public void ApproveBridgeClient(string uniqueId)
+        {
+            AppStateService.Instance.BridgeAuth?.Approve(uniqueId);
+            RefreshBridgeClients();
+        }
+
+        public void RevokeBridgeClient(string uniqueId)
+        {
+            AppStateService.Instance.BridgeAuth?.Revoke(uniqueId);
+            RefreshBridgeClients();
+        }
+
         // ── Status ────────────────────────────────────────────────────────────
 
         private string _statusText = string.Empty;
@@ -185,6 +241,10 @@ namespace StreamTweak.ViewModels
         {
             // Restore debug-mode toggle state (survives tab navigation)
             IsDebugModeActive = AppStateService.Instance.IsDebugModeActive;
+
+            // Bridge security state
+            OnPropertyChanged(nameof(RequireBridgeAuth));
+            RefreshBridgeClients();
 
             // Streaming server info via LogParser
             try
@@ -309,5 +369,16 @@ namespace StreamTweak.ViewModels
             StatusIsError = isError;
             HasStatus     = true;
         }
+    }
+
+    /// <summary>
+    /// Lightweight view item for one row in the Settings "Bridge clients" list.
+    /// </summary>
+    public sealed class BridgeClientItem
+    {
+        public string UniqueId    { get; init; } = "";
+        public string Name        { get; init; } = "";
+        public string StatusLabel { get; init; } = "";
+        public bool   CanApprove  { get; init; }   // pending OR denied → can be (re)approved
     }
 }

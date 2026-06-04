@@ -153,6 +153,17 @@ namespace StreamTweak.Services
         // IsNvidiaAvailable is true (i.e. an NVIDIA GPU + working NVAPI is present).
         public StreamTweak.Nvidia.NvidiaSentinelService? NvidiaSentinel { get; set; }
 
+        // ── Bridge authentication (7.1.0) ─────────────────────────────────────
+        //
+        // Set by App.xaml.cs at boot. Holds the approved StreamLight client list
+        // and verifies per-command signatures on the TCP bridge. The approval
+        // dialog (MainWindow) and the Settings "Bridge clients" list read/write
+        // through this instance.
+        public StreamTweak.BridgeAuthService? BridgeAuth { get; set; }
+
+        /// <summary>Toggle whether the bridge requires authenticated clients (live, wired by App.xaml.cs).</summary>
+        public Action<bool>? SetBridgeRequireAuthAction { get; set; }
+
         // ── Update availability (GitHub releases poll) ────────────────────────
         //
         // The update check used to live in HomeViewModel and only ran when the

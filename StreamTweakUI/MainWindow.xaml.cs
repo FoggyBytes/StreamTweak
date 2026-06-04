@@ -25,7 +25,7 @@ namespace StreamTweak
             var v = Assembly.GetExecutingAssembly().GetName().Version;
             SidebarVersionText.Text = v != null
                 ? $"v{v.Major}.{v.Minor}.{v.Build}"
-                : "v7.0.2";
+                : "v7.1.0";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -208,6 +208,123 @@ namespace StreamTweak
                 new Uri("https://github.com/FoggyBytes/StreamTweak/releases/latest"));
         }
 
+        // ── Bridge client approval (7.1.0) ──────────────────────────────────────
+
+        private bool _bridgeDialogOpen;
+        private readonly Queue<BridgeClient> _pendingApprovals = new();
+
+        /// <summary>
+        /// Queues a trust-on-first-use approval prompt for a StreamLight client that
+        /// just enrolled on the bridge. Safe to call from any thread's dispatch.
+        /// </summary>
+        public void ShowBridgeApproval(BridgeClient client)
+        {
+            _pendingApprovals.Enqueue(client);
+            if (!_bridgeDialogOpen)
+                _ = ShowNextBridgeApprovalAsync();
+        }
+
+        private async Task ShowNextBridgeApprovalAsync()
+        {
+            if (_bridgeDialogOpen) return;
+            _bridgeDialogOpen = true;
+            try
+            {
+                BringToFront(); // un-hide from tray so the user actually sees the prompt
+
+                while (_pendingApprovals.Count > 0)
+                {
+                    var client = _pendingApprovals.Dequeue();
+                    var dmSans = new FontFamily("ms-appx:///Resources/DMSans-Regular.ttf#DM Sans");
+
+                    var content = new StackPanel { Spacing = 12 };
+                    content.Children.Add(new TextBlock
+                    {
+                        Text         = $"{client.Name} wants to control StreamTweak — change the NIC speed, read host metrics and your game list. Allow it only if the PIN below matches the one shown on the device.",
+                        FontFamily   = dmSans,
+                        FontSize     = 13,
+                        Foreground   = new SolidColorBrush(Color.FromArgb(0xFF, 0xC0, 0xBC, 0xB8)),
+                        TextWrapping = TextWrapping.Wrap,
+                    });
+                    content.Children.Add(new TextBlock
+                    {
+                        Text       = "PIN shown on the device",
+                        FontFamily = dmSans,
+                        FontSize   = 11,
+                        Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x90, 0x8C, 0x88)),
+                    });
+                    content.Children.Add(new TextBlock
+                    {
+                        Text             = string.IsNullOrEmpty(client.Pin) ? "————" : client.Pin,
+                        FontFamily       = new FontFamily("Consolas"),
+                        FontSize         = 34,
+                        FontWeight       = Microsoft.UI.Text.FontWeights.Bold,
+                        CharacterSpacing = 240,
+                        Foreground       = new SolidColorBrush(Color.FromArgb(0xFF, 0x4A, 0xDE, 0x80)),
+                    });
+                    content.Children.Add(new TextBlock
+                    {
+                        Text         = "Denying does not affect streaming — it only blocks StreamTweak's host metrics, NIC speed & Streaming Mode, store badges and session reports for this device.",
+                        FontFamily   = dmSans,
+                        FontSize     = 11,
+                        Foreground   = new SolidColorBrush(Color.FromArgb(0xFF, 0x90, 0x8C, 0x88)),
+                        TextWrapping = TextWrapping.Wrap,
+                    });
+
+                    var dialog = new ContentDialog
+                    {
+                        Title             = "Allow StreamLight client?",
+                        Content           = content,
+                        PrimaryButtonText = "Allow",
+                        CloseButtonText   = "Deny",
+                        DefaultButton     = ContentDialogButton.Close,
+                        XamlRoot          = this.Content.XamlRoot,
+                    };
+                    dialog.Resources["ContentDialogBackground"]       = new SolidColorBrush(Color.FromArgb(0xE6, 0x1d, 0x1b, 0x1a));
+                    dialog.Resources["ContentDialogBorderBrush"]      = new SolidColorBrush(Color.FromArgb(0xFF, 0x2A, 0x27, 0x24));
+                    dialog.Resources["ContentControlThemeFontFamily"] = dmSans;
+
+                    // Allow = green. As the non-default button, "Allow" (Primary) uses the
+                    // regular Button* resources; "Deny" (the DefaultButton=Close) uses the
+                    // AccentButton* resources — so we colour Button* green and AccentButton* red.
+                    dialog.Resources["ButtonBackground"]             = new SolidColorBrush(Color.FromArgb(0x1F, 0x22, 0xC5, 0x5E));
+                    dialog.Resources["ButtonForeground"]             = new SolidColorBrush(Color.FromArgb(0xFF, 0x4A, 0xDE, 0x80));
+                    dialog.Resources["ButtonBorderBrush"]            = new SolidColorBrush(Color.FromArgb(0x4D, 0x22, 0xC5, 0x5E));
+                    dialog.Resources["ButtonBackgroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0x2D, 0x22, 0xC5, 0x5E));
+                    dialog.Resources["ButtonForegroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0xFF, 0x4A, 0xDE, 0x80));
+                    dialog.Resources["ButtonBorderBrushPointerOver"] = new SolidColorBrush(Color.FromArgb(0x66, 0x22, 0xC5, 0x5E));
+                    dialog.Resources["ButtonBackgroundPressed"]      = new SolidColorBrush(Color.FromArgb(0x12, 0x22, 0xC5, 0x5E));
+                    dialog.Resources["ButtonForegroundPressed"]      = new SolidColorBrush(Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E));
+                    dialog.Resources["ButtonBorderBrushPressed"]     = new SolidColorBrush(Color.FromArgb(0x44, 0x22, 0xC5, 0x5E));
+
+                    // Deny = red.
+                    dialog.Resources["AccentButtonBackground"]             = new SolidColorBrush(Color.FromArgb(0x1A, 0xEF, 0x44, 0x44));
+                    dialog.Resources["AccentButtonForeground"]             = new SolidColorBrush(Color.FromArgb(0xFF, 0xEF, 0x44, 0x44));
+                    dialog.Resources["AccentButtonBorderBrush"]            = new SolidColorBrush(Color.FromArgb(0x40, 0xEF, 0x44, 0x44));
+                    dialog.Resources["AccentButtonBackgroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0x2D, 0xEF, 0x44, 0x44));
+                    dialog.Resources["AccentButtonForegroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0xFF, 0xFC, 0xA5, 0xA5));
+                    dialog.Resources["AccentButtonBorderBrushPointerOver"] = new SolidColorBrush(Color.FromArgb(0x66, 0xEF, 0x44, 0x44));
+                    dialog.Resources["AccentButtonBackgroundPressed"]      = new SolidColorBrush(Color.FromArgb(0x12, 0xEF, 0x44, 0x44));
+                    dialog.Resources["AccentButtonForegroundPressed"]      = new SolidColorBrush(Color.FromArgb(0xFF, 0xEF, 0x44, 0x44));
+                    dialog.Resources["AccentButtonBorderBrushPressed"]     = new SolidColorBrush(Color.FromArgb(0x44, 0xEF, 0x44, 0x44));
+
+                    var auth = AppStateService.Instance.BridgeAuth;
+                    try
+                    {
+                        var result = await dialog.ShowAsync();
+                        if (result == ContentDialogResult.Primary) auth?.Approve(client.UniqueId);
+                        else                                       auth?.Deny(client.UniqueId);
+                    }
+                    catch
+                    {
+                        // ShowAsync can throw if another dialog is mid-flight; leave the
+                        // client pending so it can still be approved from Settings.
+                    }
+                }
+            }
+            finally { _bridgeDialogOpen = false; }
+        }
+
         // ── Title bar ───────────────────────────────────────────────────────────
 
         private void ConfigureTitleBar()
@@ -286,6 +403,12 @@ namespace StreamTweak
         {
             if (args.SelectedItemContainer is not NavigationViewItem item) return;
             string? tag = item.Tag as string;
+
+            // The version badge in the bottom-right only belongs on the Home page;
+            // hide it on every other tab.
+            SidebarVersionText.Visibility = tag == "Home"
+                ? Visibility.Visible
+                : Visibility.Collapsed;
 
             Type? pageType = tag switch
             {

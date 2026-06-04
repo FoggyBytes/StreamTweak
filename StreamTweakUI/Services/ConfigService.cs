@@ -13,6 +13,10 @@ namespace StreamTweak.Services
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "StreamTweak", "config.json");
 
+        // Serialises read-modify-write cycles so two concurrent Set(...) calls
+        // cannot clobber each other or collide on the shared .tmp file.
+        private static readonly object _ioLock = new();
+
         // ── Read ──────────────────────────────────────────────────────────────
 
         public static string Get(string key, string defaultValue = "")
@@ -63,12 +67,15 @@ namespace StreamTweak.Services
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(ConfigPath)!);
-                var obj = LoadNode() ?? new JsonObject();
-                mutate(obj);
-                string tmp = ConfigPath + ".tmp";
-                File.WriteAllText(tmp, obj.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
-                File.Move(tmp, ConfigPath, overwrite: true);
+                lock (_ioLock)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(ConfigPath)!);
+                    var obj = LoadNode() ?? new JsonObject();
+                    mutate(obj);
+                    string tmp = ConfigPath + ".tmp";
+                    File.WriteAllText(tmp, obj.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+                    File.Move(tmp, ConfigPath, overwrite: true);
+                }
             }
             catch { }
         }

@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
+using StreamTweak.Services;
 using StreamTweak.ViewModels;
 
 namespace StreamTweak.Views
@@ -8,6 +9,8 @@ namespace StreamTweak.Views
     public sealed partial class SettingsView : Page
     {
         public SettingsViewModel ViewModel { get; } = new SettingsViewModel();
+
+        private Action? _bridgeClientsHandler;
 
         public SettingsView()
         {
@@ -18,6 +21,35 @@ namespace StreamTweak.Views
         {
             base.OnNavigatedTo(e);
             ViewModel.Load();
+
+            // Live-refresh the bridge client list while this page is open.
+            var auth = AppStateService.Instance.BridgeAuth;
+            if (auth != null)
+            {
+                _bridgeClientsHandler = () => DispatcherQueue.TryEnqueue(ViewModel.RefreshBridgeClients);
+                auth.ClientsChanged += _bridgeClientsHandler;
+            }
+        }
+
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            base.OnNavigatedFrom(e);
+            var auth = AppStateService.Instance.BridgeAuth;
+            if (auth != null && _bridgeClientsHandler != null)
+                auth.ClientsChanged -= _bridgeClientsHandler;
+            _bridgeClientsHandler = null;
+        }
+
+        private void ApproveClient_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is string uid)
+                ViewModel.ApproveBridgeClient(uid);
+        }
+
+        private void RevokeClient_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is string uid)
+                ViewModel.RevokeBridgeClient(uid);
         }
 
         private void OpenDataFolder_Click(object sender, RoutedEventArgs e)
