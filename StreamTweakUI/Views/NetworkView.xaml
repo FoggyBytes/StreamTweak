@@ -185,6 +185,7 @@
                                 Click="CopyTailscaleIp_Click"
                                 Visibility="{x:Bind ViewModel.TailscaleDetected, Mode=OneWay,
                                              Converter={StaticResource BoolToVisibilityConverter}}"
+                                AutomationProperties.Name="Copy Tailscale IP to clipboard"
                                 ToolTipService.ToolTip="Copy to clipboard">
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}"
                                       FontSize="13" Glyph="&#xE8C8;"/>

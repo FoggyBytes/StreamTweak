@@ -5,6 +5,23 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 ------------------------------------------
+Version 7.1.1 - "The Refinement Update" (04/06/2026)
+------------------------------------------
+
+⚡ PERFORMANCE:
+• Game Library list virtualized: the list now renders only the rows currently on screen instead of building every entry (and loading every cover) at once. Large libraries with hundreds of titles open instantly and use far less memory
+
+♿ ACCESSIBILITY:
+• Icon-only buttons now expose proper names to screen readers and UI automation: the Store toolbar (Back, Forward, Instant Gaming home, Open in browser), the Logs session detail and delete buttons, and the Network "copy Tailscale IP" button. Previously these were announced only as a generic "button"
+
+🔒 SECURITY:
+• The embedded Store now validates web domains by host name (exact match or subdomain) instead of a plain substring check, so a look-alike address such as "instant-gaming.com.example.net" can no longer be treated as Instant Gaming or as a trusted sign-in provider
+
+🔧 IMPROVEMENTS:
+• Diagnostics: failures in the session / NIC / telemetry pipeline (speed change, checkpoint write, session start/stop, bridge prepare, live telemetry) are now recorded to debug.log instead of being silently swallowed — making rare issues like a failed NIC speed change or lost game detection traceable. No change to on-screen behaviour
+• Dialog styling consolidated into shared helpers; the only visible effect is the Quit confirmation button now using the same danger-red hover/pressed shades as every other red button in the app
+
+------------------------------------------
 Version 7.1.0 - "The Secure Bridge Update" (04/06/2026)
 ------------------------------------------
 

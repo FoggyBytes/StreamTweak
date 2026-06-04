@@ -25,7 +25,7 @@ namespace StreamTweak
             var v = Assembly.GetExecutingAssembly().GetName().Version;
             SidebarVersionText.Text = v != null
                 ? $"v{v.Major}.{v.Minor}.{v.Build}"
-                : "v7.1.0";
+                : "v7.1.1";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -70,17 +70,15 @@ namespace StreamTweak
                 _quitDialogOpen = true;
                 try
                 {
-                    var dmSans = new FontFamily("ms-appx:///Resources/DMSans-Regular.ttf#DM Sans");
-
                     var dialog = new ContentDialog
                     {
                         Title   = "Quit StreamTweak",
                         Content = new TextBlock
                         {
                             Text         = "StreamTweak will stop monitoring streaming sessions.",
-                            FontFamily   = dmSans,
+                            FontFamily   = DmSans,
                             FontSize     = 13,
-                            Foreground   = new SolidColorBrush(Color.FromArgb(0xFF, 0xC0, 0xBC, 0xB8)),
+                            Foreground   = new SolidColorBrush(DialogBodyText),
                             TextWrapping = TextWrapping.Wrap,
                         },
                         PrimaryButtonText = "Quit",
@@ -89,25 +87,11 @@ namespace StreamTweak
                         XamlRoot          = this.Content.XamlRoot,
                     };
 
-                    // Background, border, font.
-                    dialog.Resources["ContentDialogBackground"]       = new SolidColorBrush(Color.FromArgb(0xE6, 0x1d, 0x1b, 0x1a));
-                    dialog.Resources["ContentDialogBorderBrush"]      = new SolidColorBrush(Color.FromArgb(0xFF, 0x2A, 0x27, 0x24));
-                    dialog.Resources["ContentControlThemeFontFamily"] = dmSans;
+                    ApplyDialogChrome(dialog);
+                    // Quit is the Primary button; WinUI3 ContentDialog styles it via the
+                    // AccentButton* keys, so the red danger palette goes there.
+                    ApplyDangerAccentPalette(dialog);
 
-                    // Primary button (Quit) — override AccentButtonStyle resources,
-                    // which is what WinUI3 ContentDialog actually applies to the primary button.
-                    var dangerFg  = new SolidColorBrush(Color.FromArgb(0xFF, 0xEF, 0x44, 0x44));
-                    var dangerBg  = new SolidColorBrush(Color.FromArgb(0x1A, 0xEF, 0x44, 0x44));
-                    var dangerBdr = new SolidColorBrush(Color.FromArgb(0x40, 0xEF, 0x44, 0x44));
-                    dialog.Resources["AccentButtonBackground"]             = dangerBg;
-                    dialog.Resources["AccentButtonForeground"]             = dangerFg;
-                    dialog.Resources["AccentButtonBorderBrush"]            = dangerBdr;
-                    dialog.Resources["AccentButtonBackgroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0x33, 0xEF, 0x44, 0x44));
-                    dialog.Resources["AccentButtonForegroundPointerOver"]  = dangerFg;
-                    dialog.Resources["AccentButtonBorderBrushPointerOver"] = dangerBdr;
-                    dialog.Resources["AccentButtonBackgroundPressed"]      = new SolidColorBrush(Color.FromArgb(0x55, 0xEF, 0x44, 0x44));
-                    dialog.Resources["AccentButtonForegroundPressed"]      = dangerFg;
-                    dialog.Resources["AccentButtonBorderBrushPressed"]     = dangerBdr;
                     var result = await dialog.ShowAsync();
                     if (result == ContentDialogResult.Primary)
                         ((App)Application.Current).ExitApp();
@@ -235,23 +219,22 @@ namespace StreamTweak
                 while (_pendingApprovals.Count > 0)
                 {
                     var client = _pendingApprovals.Dequeue();
-                    var dmSans = new FontFamily("ms-appx:///Resources/DMSans-Regular.ttf#DM Sans");
 
                     var content = new StackPanel { Spacing = 12 };
                     content.Children.Add(new TextBlock
                     {
                         Text         = $"{client.Name} wants to control StreamTweak — change the NIC speed, read host metrics and your game list. Allow it only if the PIN below matches the one shown on the device.",
-                        FontFamily   = dmSans,
+                        FontFamily   = DmSans,
                         FontSize     = 13,
-                        Foreground   = new SolidColorBrush(Color.FromArgb(0xFF, 0xC0, 0xBC, 0xB8)),
+                        Foreground   = new SolidColorBrush(DialogBodyText),
                         TextWrapping = TextWrapping.Wrap,
                     });
                     content.Children.Add(new TextBlock
                     {
                         Text       = "PIN shown on the device",
-                        FontFamily = dmSans,
+                        FontFamily = DmSans,
                         FontSize   = 11,
-                        Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x90, 0x8C, 0x88)),
+                        Foreground = new SolidColorBrush(DialogMutedText),
                     });
                     content.Children.Add(new TextBlock
                     {
@@ -260,14 +243,14 @@ namespace StreamTweak
                         FontSize         = 34,
                         FontWeight       = Microsoft.UI.Text.FontWeights.Bold,
                         CharacterSpacing = 240,
-                        Foreground       = new SolidColorBrush(Color.FromArgb(0xFF, 0x4A, 0xDE, 0x80)),
+                        Foreground       = new SolidColorBrush(GreenText),
                     });
                     content.Children.Add(new TextBlock
                     {
                         Text         = "Denying does not affect streaming — it only blocks StreamTweak's host metrics, NIC speed & Streaming Mode, store badges and session reports for this device.",
-                        FontFamily   = dmSans,
+                        FontFamily   = DmSans,
                         FontSize     = 11,
-                        Foreground   = new SolidColorBrush(Color.FromArgb(0xFF, 0x90, 0x8C, 0x88)),
+                        Foreground   = new SolidColorBrush(DialogMutedText),
                         TextWrapping = TextWrapping.Wrap,
                     });
 
@@ -280,33 +263,12 @@ namespace StreamTweak
                         DefaultButton     = ContentDialogButton.Close,
                         XamlRoot          = this.Content.XamlRoot,
                     };
-                    dialog.Resources["ContentDialogBackground"]       = new SolidColorBrush(Color.FromArgb(0xE6, 0x1d, 0x1b, 0x1a));
-                    dialog.Resources["ContentDialogBorderBrush"]      = new SolidColorBrush(Color.FromArgb(0xFF, 0x2A, 0x27, 0x24));
-                    dialog.Resources["ContentControlThemeFontFamily"] = dmSans;
-
+                    ApplyDialogChrome(dialog);
                     // Allow = green. As the non-default button, "Allow" (Primary) uses the
-                    // regular Button* resources; "Deny" (the DefaultButton=Close) uses the
-                    // AccentButton* resources — so we colour Button* green and AccentButton* red.
-                    dialog.Resources["ButtonBackground"]             = new SolidColorBrush(Color.FromArgb(0x1F, 0x22, 0xC5, 0x5E));
-                    dialog.Resources["ButtonForeground"]             = new SolidColorBrush(Color.FromArgb(0xFF, 0x4A, 0xDE, 0x80));
-                    dialog.Resources["ButtonBorderBrush"]            = new SolidColorBrush(Color.FromArgb(0x4D, 0x22, 0xC5, 0x5E));
-                    dialog.Resources["ButtonBackgroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0x2D, 0x22, 0xC5, 0x5E));
-                    dialog.Resources["ButtonForegroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0xFF, 0x4A, 0xDE, 0x80));
-                    dialog.Resources["ButtonBorderBrushPointerOver"] = new SolidColorBrush(Color.FromArgb(0x66, 0x22, 0xC5, 0x5E));
-                    dialog.Resources["ButtonBackgroundPressed"]      = new SolidColorBrush(Color.FromArgb(0x12, 0x22, 0xC5, 0x5E));
-                    dialog.Resources["ButtonForegroundPressed"]      = new SolidColorBrush(Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E));
-                    dialog.Resources["ButtonBorderBrushPressed"]     = new SolidColorBrush(Color.FromArgb(0x44, 0x22, 0xC5, 0x5E));
-
-                    // Deny = red.
-                    dialog.Resources["AccentButtonBackground"]             = new SolidColorBrush(Color.FromArgb(0x1A, 0xEF, 0x44, 0x44));
-                    dialog.Resources["AccentButtonForeground"]             = new SolidColorBrush(Color.FromArgb(0xFF, 0xEF, 0x44, 0x44));
-                    dialog.Resources["AccentButtonBorderBrush"]            = new SolidColorBrush(Color.FromArgb(0x40, 0xEF, 0x44, 0x44));
-                    dialog.Resources["AccentButtonBackgroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0x2D, 0xEF, 0x44, 0x44));
-                    dialog.Resources["AccentButtonForegroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0xFF, 0xFC, 0xA5, 0xA5));
-                    dialog.Resources["AccentButtonBorderBrushPointerOver"] = new SolidColorBrush(Color.FromArgb(0x66, 0xEF, 0x44, 0x44));
-                    dialog.Resources["AccentButtonBackgroundPressed"]      = new SolidColorBrush(Color.FromArgb(0x12, 0xEF, 0x44, 0x44));
-                    dialog.Resources["AccentButtonForegroundPressed"]      = new SolidColorBrush(Color.FromArgb(0xFF, 0xEF, 0x44, 0x44));
-                    dialog.Resources["AccentButtonBorderBrushPressed"]     = new SolidColorBrush(Color.FromArgb(0x44, 0xEF, 0x44, 0x44));
+                    // regular Button* keys; "Deny" (the DefaultButton=Close) uses the
+                    // AccentButton* keys — so we colour Button* green and AccentButton* red.
+                    ApplyGreenButtonPalette(dialog);
+                    ApplyDangerAccentPalette(dialog);
 
                     var auth = AppStateService.Instance.BridgeAuth;
                     try
@@ -323,6 +285,67 @@ namespace StreamTweak
                 }
             }
             finally { _bridgeDialogOpen = false; }
+        }
+
+        // ── Shared dialog styling ───────────────────────────────────────────────
+        // StreamTweak's ContentDialogs (Quit, bridge approval) share the same dark
+        // Mica-friendly chrome and the app-wide green/red button palettes. These were
+        // previously duplicated brush-by-brush in each dialog; centralizing them keeps
+        // a single source of truth and matches the ST_ButtonGreen / ST_ButtonDanger
+        // hover/pressed shades defined in Themes/StreamTweakStyles.xaml.
+
+        private static readonly FontFamily DmSans =
+            new("ms-appx:///Resources/DMSans-Regular.ttf#DM Sans");
+
+        private static readonly Color DialogBg        = Color.FromArgb(0xE6, 0x1d, 0x1b, 0x1a);
+        private static readonly Color DialogBorder    = Color.FromArgb(0xFF, 0x2A, 0x27, 0x24);
+        private static readonly Color DialogBodyText  = Color.FromArgb(0xFF, 0xC0, 0xBC, 0xB8);
+        private static readonly Color DialogMutedText = Color.FromArgb(0xFF, 0x90, 0x8C, 0x88);
+        private static readonly Color DangerColor     = Color.FromArgb(0xFF, 0xEF, 0x44, 0x44);
+        private static readonly Color GreenColor      = Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E);
+        private static readonly Color GreenText       = Color.FromArgb(0xFF, 0x4A, 0xDE, 0x80);
+
+        /// <summary>Dark background, border, and DM Sans font shared by all dialogs.</summary>
+        private static void ApplyDialogChrome(ContentDialog dialog)
+        {
+            dialog.Resources["ContentDialogBackground"]       = new SolidColorBrush(DialogBg);
+            dialog.Resources["ContentDialogBorderBrush"]      = new SolidColorBrush(DialogBorder);
+            dialog.Resources["ContentControlThemeFontFamily"] = DmSans;
+        }
+
+        /// <summary>
+        /// Red "danger" palette applied to the AccentButton* slot. WinUI3 ContentDialog
+        /// styles its default/primary accent button with these keys, so this colours the
+        /// Quit (Primary) button and the bridge Deny (Close/default) button red.
+        /// </summary>
+        private static void ApplyDangerAccentPalette(ContentDialog dialog)
+        {
+            dialog.Resources["AccentButtonBackground"]             = new SolidColorBrush(Color.FromArgb(0x1A, 0xEF, 0x44, 0x44));
+            dialog.Resources["AccentButtonForeground"]             = new SolidColorBrush(DangerColor);
+            dialog.Resources["AccentButtonBorderBrush"]            = new SolidColorBrush(Color.FromArgb(0x40, 0xEF, 0x44, 0x44));
+            dialog.Resources["AccentButtonBackgroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0x2D, 0xEF, 0x44, 0x44));
+            dialog.Resources["AccentButtonForegroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0xFF, 0xFC, 0xA5, 0xA5));
+            dialog.Resources["AccentButtonBorderBrushPointerOver"] = new SolidColorBrush(Color.FromArgb(0x66, 0xEF, 0x44, 0x44));
+            dialog.Resources["AccentButtonBackgroundPressed"]      = new SolidColorBrush(Color.FromArgb(0x12, 0xEF, 0x44, 0x44));
+            dialog.Resources["AccentButtonForegroundPressed"]      = new SolidColorBrush(DangerColor);
+            dialog.Resources["AccentButtonBorderBrushPressed"]     = new SolidColorBrush(Color.FromArgb(0x44, 0xEF, 0x44, 0x44));
+        }
+
+        /// <summary>
+        /// Green "affirmative" palette applied to the regular Button* slot — used by the
+        /// bridge Allow button (the non-default Primary button uses these keys).
+        /// </summary>
+        private static void ApplyGreenButtonPalette(ContentDialog dialog)
+        {
+            dialog.Resources["ButtonBackground"]             = new SolidColorBrush(Color.FromArgb(0x1F, 0x22, 0xC5, 0x5E));
+            dialog.Resources["ButtonForeground"]             = new SolidColorBrush(GreenText);
+            dialog.Resources["ButtonBorderBrush"]            = new SolidColorBrush(Color.FromArgb(0x4D, 0x22, 0xC5, 0x5E));
+            dialog.Resources["ButtonBackgroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0x2D, 0x22, 0xC5, 0x5E));
+            dialog.Resources["ButtonForegroundPointerOver"]  = new SolidColorBrush(GreenText);
+            dialog.Resources["ButtonBorderBrushPointerOver"] = new SolidColorBrush(Color.FromArgb(0x66, 0x22, 0xC5, 0x5E));
+            dialog.Resources["ButtonBackgroundPressed"]      = new SolidColorBrush(Color.FromArgb(0x12, 0x22, 0xC5, 0x5E));
+            dialog.Resources["ButtonForegroundPressed"]      = new SolidColorBrush(GreenColor);
+            dialog.Resources["ButtonBorderBrushPressed"]     = new SolidColorBrush(Color.FromArgb(0x44, 0x22, 0xC5, 0x5E));
         }
 
         // ── Title bar ───────────────────────────────────────────────────────────

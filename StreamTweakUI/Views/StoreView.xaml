@@ -50,6 +50,7 @@
                             Style="{StaticResource ST_ToolbarIconButton}"
                             IsEnabled="{x:Bind ViewModel.CanGoBack, Mode=OneWay}"
                             Click="BackButton_Click"
+                            AutomationProperties.Name="Back"
                             ToolTipService.ToolTip="Back">
                         <FontIcon Glyph="&#xE76B;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
                     </Button>
@@ -58,6 +59,7 @@
                             Style="{StaticResource ST_ToolbarIconButton}"
                             IsEnabled="{x:Bind ViewModel.CanGoForward, Mode=OneWay}"
                             Click="ForwardButton_Click"
+                            AutomationProperties.Name="Forward"
                             ToolTipService.ToolTip="Forward">
                         <FontIcon Glyph="&#xE76C;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
                     </Button>
@@ -71,6 +73,7 @@
                             BorderThickness="0"
                             CornerRadius="6"
                             Click="HomeButton_Click"
+                            AutomationProperties.Name="Instant Gaming home"
                             ToolTipService.ToolTip="Instant Gaming home">
                         <Image Height="14" Stretch="Uniform">
                             <Image.Source>
@@ -87,6 +90,7 @@
                         Style="{StaticResource ST_ToolbarIconButton}"
                         Click="OpenInBrowserButton_Click"
                         VerticalAlignment="Center"
+                        AutomationProperties.Name="Open in browser"
                         ToolTipService.ToolTip="Open in browser">
                     <FontIcon Glyph="&#xE8A7;" FontFamily="Segoe MDL2 Assets" FontSize="12"/>
                 </Button>

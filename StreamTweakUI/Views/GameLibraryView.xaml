@@ -119,20 +119,24 @@
                     </StackPanel>
                 </Grid>
 
-                <!-- Game list -->
-                <ScrollViewer Grid.Row="3"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              Padding="20,12,20,16">
-
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.Games}">
-                        <ItemsControl.ItemContainerStyle>
-                            <Style TargetType="ContentPresenter">
-                                <Setter Property="HorizontalAlignment" Value="Stretch"/>
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            </Style>
-                        </ItemsControl.ItemContainerStyle>
-                        <ItemsControl.ItemTemplate>
+                <!-- Game list — virtualized ListView so large libraries (hundreds of
+                     titles) only realize the rows and covers actually on screen,
+                     instead of an ItemsControl that materializes every entry at once. -->
+                <ListView Grid.Row="3"
+                          ItemsSource="{x:Bind ViewModel.Games}"
+                          SelectionMode="None"
+                          IsItemClickEnabled="False"
+                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          Padding="20,12,20,16">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem" BasedOn="{StaticResource DefaultListViewItemStyle}">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
                             <DataTemplate x:DataType="vm:ObservableGameEntry">
 
                                 <Border Margin="0,0,0,6"
@@ -300,10 +304,8 @@
                                 </Border>
 
                             </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                </ScrollViewer>
+                    </ListView.ItemTemplate>
+                </ListView>
 
             </Grid>
         </Border>

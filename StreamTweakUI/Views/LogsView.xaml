@@ -236,6 +236,7 @@
                                                     Click="DetailButton_Click"
                                                     Visibility="{x:Bind HasGrade,
                                                                  Converter={StaticResource BoolToVisibilityConverter}}"
+                                                    AutomationProperties.Name="View session detail"
                                                     ToolTipService.ToolTip="View session detail"/>
 
                                             <Button Style="{StaticResource ST_ButtonGhost}"
@@ -244,6 +245,7 @@
                                                     Content="&#xE74D;"
                                                     FontFamily="{StaticResource SymbolThemeFontFamily}"
                                                     Click="DeleteSession_Click"
+                                                    AutomationProperties.Name="Delete this session"
                                                     ToolTipService.ToolTip="Delete this session"/>
                                         </StackPanel>
                                     </Grid>

@@ -424,7 +424,7 @@ namespace StreamTweak
                 }
                 _telemetryAccumulator.Reset();
             }
-            catch { }
+            catch (Exception ex) { DebugLogger.Log($"[Session] FinalizeSessionTelemetry failed: {ex}"); }
         }
 
         // ── Periodic telemetry checkpoint ────────────────────────────────────
@@ -493,7 +493,7 @@ namespace StreamTweak
                     System.Text.Json.JsonSerializer.Serialize(cp));
                 System.IO.File.Move(tmp, SessionLogger.CheckpointPath, overwrite: true);
             }
-            catch { }
+            catch (Exception ex) { DebugLogger.Log($"[Session] WriteCheckpoint failed: {ex}"); }
         }
 
         /// <summary>
@@ -617,7 +617,7 @@ namespace StreamTweak
                 NotificationService.ShowSpeedApplied(_adapterName, "1 Gbps");
                 _ = PollForNicReconnectAsync();
             }
-            catch { }
+            catch (Exception ex) { DebugLogger.Log($"[Streaming] StartManualStreamingMode failed: {ex}"); }
             finally { _sessionStartInProgress = false; }
         }
 
@@ -701,7 +701,7 @@ namespace StreamTweak
                 _sessionProcessMonitor = new SessionProcessMonitor(games);
                 _sessionProcessMonitor.Start();
             }
-            catch { }
+            catch (Exception ex) { DebugLogger.Log($"[Streaming] HandleAutoStreamStart failed: {ex}"); }
             finally { _sessionStartInProgress = false; }
         }
 
@@ -767,7 +767,7 @@ namespace StreamTweak
                     _appsToRelaunch.Clear();
                 }
             }
-            catch { }
+            catch (Exception ex) { DebugLogger.Log($"[Streaming] HandleAutoStreamStop failed: {ex}"); }
         }
 
         // ── Debug mode ───────────────────────────────────────────────────────
@@ -956,7 +956,7 @@ namespace StreamTweak
                 NotificationService.Show("StreamTweak Ready",
                     "Network set to 1 Gbps. Connect within 30 seconds or speed will be restored.");
             }
-            catch { }
+            catch (Exception ex) { DebugLogger.Log($"[Bridge] HandleBridgePrepareAsync failed: {ex}"); }
         }
 
         private void OnBridgeRestoreRequested()
@@ -999,7 +999,7 @@ namespace StreamTweak
                 foreach (var s in batch.Samples)
                     AppStateService.Instance.RaiseLiveSample(s.RttAvg, s.BitrateAvgMbps, s.Drops, s.FpsAvg);
             }
-            catch { }
+            catch (Exception ex) { DebugLogger.Log($"[Bridge] OnSessionDataReceived failed: {ex}"); }
         }
 
         // ── Spatial audio ─────────────────────────────────────────────────────

@@ -188,7 +188,8 @@ namespace StreamTweak.Views
                 !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                 return;
 
-            if (url.Contains("instant-gaming.com", StringComparison.OrdinalIgnoreCase))
+            if (Uri.TryCreate(url, UriKind.Absolute, out var navUri) &&
+                HostMatches(navUri.Host, "instant-gaming.com"))
             {
                 // All IG navigation passes through untouched.
             }
@@ -219,11 +220,35 @@ namespace StreamTweak.Views
 
         private static bool IsOAuthUrl(string url)
         {
-            foreach (string domain in _oauthDomains)
-                if (url.Contains(domain, StringComparison.OrdinalIgnoreCase))
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return false;
+
+            foreach (string entry in _oauthDomains)
+            {
+                // Entries are either a bare host ("facebook.com") or a host plus a
+                // path prefix ("discord.com/oauth2"). Match the host as an exact name
+                // or subdomain — never a substring, so "instant-gaming.com.evil.tld"
+                // can't impersonate an allowed domain.
+                int slash       = entry.IndexOf('/');
+                string domain   = slash < 0 ? entry : entry[..slash];
+                if (!HostMatches(uri.Host, domain)) continue;
+
+                if (slash < 0) return true;
+
+                string pathPrefix = entry[slash..]; // includes the leading '/'
+                if (uri.AbsolutePath.StartsWith(pathPrefix, StringComparison.OrdinalIgnoreCase))
                     return true;
+            }
             return false;
         }
+
+        /// <summary>
+        /// True when <paramref name="host"/> equals <paramref name="domain"/> or is a
+        /// subdomain of it (e.g. "m.facebook.com" matches "facebook.com"). Avoids the
+        /// substring pitfall where "instant-gaming.com.attacker.tld" passes a Contains check.
+        /// </summary>
+        private static bool HostMatches(string host, string domain) =>
+            host.Equals(domain, StringComparison.OrdinalIgnoreCase) ||
+            host.EndsWith("." + domain, StringComparison.OrdinalIgnoreCase);
 
         private static void OnOAuthWebResourceRequested(
             CoreWebView2 sender, CoreWebView2WebResourceRequestedEventArgs args)
