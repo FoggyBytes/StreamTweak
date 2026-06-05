@@ -774,18 +774,6 @@ begin
   end;
 end;
 
-procedure Dependency_AddWebView2;
-begin
-  // https://developer.microsoft.com/en-us/microsoft-edge/webview2
-  if not RegValueExists(HKLM, Dependency_String('SOFTWARE', 'SOFTWARE\WOW6432Node') + '\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}', 'pv') then begin
-    Dependency_Add('MicrosoftEdgeWebview2Setup.exe',
-      '/silent /install',
-      'WebView2 Runtime',
-      'https://go.microsoft.com/fwlink/p/?LinkId=2124703',
-      '', False, False);
-  end;
-end;
-
 procedure Dependency_AddAccessDatabaseEngine2010;
 begin
   // https://www.microsoft.com/en-us/download/details.aspx?id=13255

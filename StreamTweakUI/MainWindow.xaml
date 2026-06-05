@@ -70,12 +70,6 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Tag="Store" Content="Store">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7BF;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
                 <NavigationViewItem Tag="Logs" Content="Logs"
                                    Margin="0,24,0,0">
                     <NavigationViewItem.Icon>

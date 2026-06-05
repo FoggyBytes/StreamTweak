@@ -19,7 +19,9 @@ namespace StreamTweak
     ///              Acts as an explicit fallback alongside the log monitor.
     ///   STATUS   — client queries the current NIC link speed.
     ///              Server replies with the speed in Mbps (e.g. "1000") or "UNKNOWN".
-    /// 
+    ///   SHUTDOWN — client asks the host to power off. Requires a verified AUTH1
+    ///              signature (destructive); replies "OK", or "ERR" if unauthenticated.
+    ///
     /// Each connection is short-lived: client sends one line, server replies "OK",
     /// the speed string, or "ERR".
     /// 
@@ -102,6 +104,14 @@ namespace StreamTweak
 
         public event Action? PrepareRequested;
         public event Action? RestoreRequested;
+
+        /// <summary>
+        /// Raised when a SHUTDOWN command is received from an authenticated StreamLight
+        /// client. Powers off the host PC. Subscribe in App.xaml.cs.
+        /// SHUTDOWN is destructive, so it is only ever raised for a command that carried
+        /// a verified AUTH1 signature — never from the legacy/open code path.
+        /// </summary>
+        public event Action? ShutdownRequested;
 
         public void Start()
         {
@@ -232,7 +242,11 @@ namespace StreamTweak
                             await writer.WriteLineAsync("ERR_UNAUTHORIZED");
                             return;
                         }
-                        await ProcessCommandAsync(commandRaw.ToUpperInvariant(), reader, writer, remote, token);
+                        // `ok` is the genuine signature-verification result. In open mode
+                        // (RequireAuth off) a forged AUTH1 line falls through here with
+                        // ok=false; destructive commands (SHUTDOWN) gate on this flag, so
+                        // they never fire on an unverified signature regardless of RequireAuth.
+                        await ProcessCommandAsync(commandRaw.ToUpperInvariant(), reader, writer, remote, ok, token);
                         return;
                     }
 
@@ -243,7 +257,7 @@ namespace StreamTweak
                         await writer.WriteLineAsync("ERR_UNAUTHORIZED");
                         return;
                     }
-                    await ProcessCommandAsync(first.ToUpperInvariant(), reader, writer, remote, token);
+                    await ProcessCommandAsync(first.ToUpperInvariant(), reader, writer, remote, authenticated: false, token);
                 }
             }
             catch (OperationCanceledException)
@@ -266,8 +280,10 @@ namespace StreamTweak
 
         // Executes a verified (or, when RequireAuth is off, a legacy) command.
         // SESSIONDATA consumes its JSON payload from a following line.
+        // `authenticated` is true only when the command arrived with a verified AUTH1
+        // signature; destructive commands (SHUTDOWN) require it regardless of RequireAuth.
         private async Task ProcessCommandAsync(
-            string command, StreamReader reader, StreamWriter writer, IPEndPoint? remote, CancellationToken token)
+            string command, StreamReader reader, StreamWriter writer, IPEndPoint? remote, bool authenticated, CancellationToken token)
         {
             DebugLog($"StreamTweakBridge received: {command} from {remote}");
 
@@ -280,6 +296,19 @@ namespace StreamTweak
 
                 case "RESTORE":
                     RestoreRequested?.Invoke();
+                    await writer.WriteLineAsync("OK");
+                    break;
+
+                case "SHUTDOWN":
+                    // Destructive: powers off the host. Require a verified signature even
+                    // in open mode — a forged/unauthenticated SHUTDOWN must never fire.
+                    if (!authenticated)
+                    {
+                        DebugLog($"StreamTweakBridge: rejected unauthenticated SHUTDOWN from {remote}");
+                        await writer.WriteLineAsync("ERR");
+                        break;
+                    }
+                    ShutdownRequested?.Invoke();
                     await writer.WriteLineAsync("OK");
                     break;
 

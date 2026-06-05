@@ -1,5 +1,6 @@
 using System.Net.NetworkInformation;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows.Input;
 using H.NotifyIcon;
 using Microsoft.UI.Dispatching;
@@ -176,18 +177,19 @@ namespace StreamTweak
             // TCP bridge (StreamLight → StreamTweak commands)
             _bridge.PrepareRequested    += OnBridgePrepareRequested;
             _bridge.RestoreRequested    += OnBridgeRestoreRequested;
+            _bridge.ShutdownRequested   += OnBridgeShutdownRequested;
             _bridge.SessionDataReceived += OnSessionDataReceived;
 
-            // Bridge authentication (7.1.0): only StreamLight clients the user has
-            // approved on this host may issue commands. Configured before Start()
-            // so the very first incoming connection is already gated.
+            // Bridge authentication (7.2.0): mandatory. Only StreamLight clients the
+            // user has approved on this host may issue commands; the ability to turn
+            // authentication off was removed (the previous BridgeRequireAuth toggle).
+            // Configured before Start() so the very first incoming connection is gated.
             var bridgeAuth = new BridgeAuthService();
             AppStateService.Instance.BridgeAuth = bridgeAuth;
             _bridge.AuthService = bridgeAuth;
-            _bridge.RequireAuth = ConfigService.GetBool("BridgeRequireAuth", true);
+            _bridge.RequireAuth = true;
             bridgeAuth.ApprovalRequested += client =>
                 _dispatcher.TryEnqueue(() => MainWindow?.ShowBridgeApproval(client));
-            AppStateService.Instance.SetBridgeRequireAuthAction = v => _bridge.RequireAuth = v;
 
             _bridge.Start();
             _bridge.StatusProvider     = () => { var (mbps, ok) = GetCurrentSpeed(); return ok ? mbps.ToString() : "UNKNOWN"; };
@@ -968,6 +970,123 @@ namespace StreamTweak
             });
         }
 
+        // An approved StreamLight client asked the host to power off (Power → Host/Both).
+        // The bridge only raises this for a verified-authenticated SHUTDOWN, so no further
+        // auth check is needed here. Runs in the interactive UI process, which already
+        // holds SeShutdownPrivilege — no service/pipe round-trip required.
+        private void OnBridgeShutdownRequested()
+        {
+            _dispatcher.TryEnqueue(() =>
+            {
+                try
+                {
+                    // No on-screen toast here: the host is typically unattended for a
+                    // remote power-off, and ExitWindowsEx tears down the notification
+                    // shell, so a toast would race the shutdown. DebugLogger is the trace.
+                    DebugLogger.Log("[Bridge] SHUTDOWN requested by approved client — powering off host");
+
+                    // Best-effort: close out any active session so it is not left dangling.
+                    if (_isAutoSessionActive)
+                    {
+                        FinalizeSessionTelemetry();
+                        StopCheckpointTimer();
+                        var games = _sessionProcessMonitor?.GetDetectedGames();
+                        SessionLogger.EndSession("Host Shutdown", games);
+                    }
+
+                    ShutdownHost();
+                }
+                catch (Exception ex) { DebugLogger.Log($"[Bridge] OnBridgeShutdownRequested failed: {ex}"); }
+            });
+        }
+
+        // ── Host power-off (Win32) ───────────────────────────────────────────────
+        // Enables SeShutdownPrivilege on the current process token, then requests a
+        // full power-off via ExitWindowsEx. Falls back to the `shutdown` CLI if the
+        // Win32 path fails for any reason.
+        private static void ShutdownHost()
+        {
+            try
+            {
+                if (TryEnableShutdownPrivilege() &&
+                    ExitWindowsEx(EWX_SHUTDOWN | EWX_POWEROFF, SHTDN_REASON_MAJOR_OTHER))
+                    return;
+
+                DebugLogger.Log($"[Shutdown] ExitWindowsEx failed (err {Marshal.GetLastWin32Error()}); falling back to shutdown.exe");
+            }
+            catch (Exception ex) { DebugLogger.Log($"[Shutdown] Win32 path threw: {ex}"); }
+
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "shutdown",
+                    Arguments = "/s /t 0",
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                });
+            }
+            catch (Exception ex) { DebugLogger.Log($"[Shutdown] shutdown.exe fallback failed: {ex}"); }
+        }
+
+        private static bool TryEnableShutdownPrivilege()
+        {
+            if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, out IntPtr token))
+                return false;
+            try
+            {
+                if (!LookupPrivilegeValue(null, SE_SHUTDOWN_NAME, out LUID luid))
+                    return false;
+
+                var tp = new TOKEN_PRIVILEGES
+                {
+                    PrivilegeCount = 1,
+                    Luid = luid,
+                    Attributes = SE_PRIVILEGE_ENABLED,
+                };
+                if (!AdjustTokenPrivileges(token, false, ref tp, 0, IntPtr.Zero, IntPtr.Zero))
+                    return false;
+
+                // AdjustTokenPrivileges returns true even if not all privileges were
+                // assigned — ERROR_SUCCESS confirms SeShutdown was actually enabled.
+                return Marshal.GetLastWin32Error() == 0;
+            }
+            finally { CloseHandle(token); }
+        }
+
+        private const uint EWX_SHUTDOWN           = 0x00000001;
+        private const uint EWX_POWEROFF           = 0x00000008;
+        private const uint SHTDN_REASON_MAJOR_OTHER = 0x00000000;
+        private const uint TOKEN_ADJUST_PRIVILEGES = 0x0020;
+        private const uint TOKEN_QUERY             = 0x0008;
+        private const uint SE_PRIVILEGE_ENABLED    = 0x00000002;
+        private const string SE_SHUTDOWN_NAME      = "SeShutdownPrivilege";
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct LUID { public uint LowPart; public int HighPart; }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct TOKEN_PRIVILEGES { public uint PrivilegeCount; public LUID Luid; public uint Attributes; }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool ExitWindowsEx(uint uFlags, uint dwReason);
+
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetCurrentProcess();
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool CloseHandle(IntPtr hObject);
+
+        [DllImport("advapi32.dll", SetLastError = true)]
+        private static extern bool OpenProcessToken(IntPtr ProcessHandle, uint DesiredAccess, out IntPtr TokenHandle);
+
+        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool LookupPrivilegeValue(string? lpSystemName, string lpName, out LUID lpLuid);
+
+        [DllImport("advapi32.dll", SetLastError = true)]
+        private static extern bool AdjustTokenPrivileges(IntPtr TokenHandle, bool DisableAllPrivileges,
+            ref TOKEN_PRIVILEGES NewState, uint BufferLength, IntPtr PreviousState, IntPtr ReturnLength);
+
         private void OnSessionDataReceived(ClientBatch batch)
         {
             try
@@ -1032,6 +1151,7 @@ namespace StreamTweak
             {
                 _bridge.PrepareRequested    -= OnBridgePrepareRequested;
                 _bridge.RestoreRequested    -= OnBridgeRestoreRequested;
+                _bridge.ShutdownRequested   -= OnBridgeShutdownRequested;
                 _bridge.SessionDataReceived -= OnSessionDataReceived;
                 _bridge.Dispose();
             }

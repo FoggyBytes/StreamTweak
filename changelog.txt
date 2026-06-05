@@ -5,6 +5,25 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 ------------------------------------------
+Version 7.2.0 - "The Power Update" (05/06/2026)
+------------------------------------------
+
+✨ NEW FEATURES:
+• Remote host power-off: an approved StreamLight client (3.2.0 or later) can shut the host PC down over the authenticated bridge — straight from the host's Options menu on the client, no need to touch the host. Useful for powering the gaming PC down after a couch session ends. The shutdown command is destructive, so it is only ever accepted with a verified signature from an approved device — never unauthenticated, even in the old open mode
+
+🙏 THANKS:
+• Thanks to @SolemnDucc for suggesting this feature (https://github.com/FoggyBytes/StreamLight/issues/1)
+
+🔒 SECURITY:
+• Bridge authentication is now mandatory. The toggle that allowed turning authentication off (legacy open bridge) has been removed: only StreamLight devices you have approved can use the advanced integration. This never affects streaming itself — your games stream the same whether a device is approved or not — it only gates host metrics, NIC speed / Streaming Mode, store badges, session reports, the Tailscale dual-tile, remote pause and the new power-off. The Bridge security card now explains this in place of the old toggle
+
+🗑️ REMOVED:
+• The Store tab (embedded Instant Gaming browser) has been removed, along with the WebView2 runtime it required. The installer no longer downloads or installs WebView2
+
+⚠️ COMPATIBILITY:
+• Requires StreamLight 3.2.0 or later for the new power-off feature and for the advanced integration in general. Update both apps together
+
+------------------------------------------
 Version 7.1.1 - "The Refinement Update" (04/06/2026)
 ------------------------------------------
 

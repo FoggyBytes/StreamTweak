@@ -24,7 +24,7 @@ namespace StreamTweak.ViewModels
         public string AppVersion { get; } =
             Assembly.GetExecutingAssembly().GetName().Version is { } v
                 ? $"{v.Major}.{v.Minor}.{v.Build}"
-                : "7.1.1";
+                : "7.2.0";
 
         // ── Update notice (mirrors AppStateService) ───────────────────────────
         // Rebroadcasts the centralized GitHub-release poll into properties the
@@ -157,18 +157,9 @@ namespace StreamTweak.ViewModels
             }
         }
 
-        // ── Bridge security (7.1.0) ───────────────────────────────────────────
-
-        public bool RequireBridgeAuth
-        {
-            get => Services.ConfigService.GetBool("BridgeRequireAuth", true);
-            set
-            {
-                Services.ConfigService.Set("BridgeRequireAuth", value);
-                AppStateService.Instance.SetBridgeRequireAuthAction?.Invoke(value);
-                OnPropertyChanged();
-            }
-        }
+        // ── Bridge security (7.2.0) ───────────────────────────────────────────
+        // Authentication between StreamTweak and StreamLight is now mandatory; the
+        // toggle that allowed turning it off (BridgeRequireAuth) was removed in 7.2.0.
 
         public ObservableCollection<BridgeClientItem> BridgeClients { get; } = new();
 
@@ -182,11 +173,11 @@ namespace StreamTweak.ViewModels
             {
                 foreach (var c in auth.GetClients())
                 {
-                    string status = c.Status switch
+                    (string status, string color, string bg, string border) = c.Status switch
                     {
-                        "approved" => "Authorized",
-                        "denied"   => "Denied",
-                        _          => "Pending approval",
+                        "approved" => ("Authorized",       "#22c55e", "#1F22c55e", "#4D22c55e"),
+                        "denied"   => ("Denied",           "#ef4444", "#1Aef4444", "#40ef4444"),
+                        _          => ("Pending approval", "#f59e0b", "#1Af59e0b", "#40f59e0b"),
                     };
                     BridgeClients.Add(new BridgeClientItem
                     {
@@ -194,6 +185,9 @@ namespace StreamTweak.ViewModels
                         Name             = c.Name,
                         StatusLabel      = status,
                         CanApprove       = c.Status == "pending" || c.Status == "denied",
+                        StatusColorHex   = color,
+                        StatusBgHex      = bg,
+                        StatusBorderHex  = border,
                     });
                 }
             }
@@ -243,7 +237,6 @@ namespace StreamTweak.ViewModels
             IsDebugModeActive = AppStateService.Instance.IsDebugModeActive;
 
             // Bridge security state
-            OnPropertyChanged(nameof(RequireBridgeAuth));
             RefreshBridgeClients();
 
             // Streaming server info via LogParser
@@ -380,5 +373,11 @@ namespace StreamTweak.ViewModels
         public string Name        { get; init; } = "";
         public string StatusLabel { get; init; } = "";
         public bool   CanApprove  { get; init; }   // pending OR denied → can be (re)approved
+
+        // Status pill colours (green Authorized / amber Pending / red Denied),
+        // matching the app-wide badge palette.
+        public string StatusColorHex  { get; init; } = "#9E9E9E";
+        public string StatusBgHex     { get; init; } = "#1A9E9E9E";
+        public string StatusBorderHex { get; init; } = "#409E9E9E";
     }
 }

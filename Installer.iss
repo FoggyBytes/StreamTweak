@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v7.1.1 - GitHub Release Installer
+; StreamTweak v7.2.0 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 1.8) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "7.1.1"
+#define MyAppVersion "7.2.0"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -53,14 +53,7 @@ WelcomeLabel2=
 ; Excludes:
 ;   *.pdb              — debug symbols, not needed at runtime
 ;   ref\*              — compiler-only reference assemblies
-;   StreamTweakUI.exe.WebView2\*  — WebView2 user data folder (cookies, cache,
-;                                   IndexedDB, etc.) created at runtime when the
-;                                   user opens the Store tab during dev testing.
-;                                   It must NEVER ship: it can exceed Windows'
-;                                   260-char path limit, contains user-private
-;                                   data, and gets recreated automatically on
-;                                   first launch on the end-user machine.
-Source: "StreamTweakUI\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb,ref\*,StreamTweakUI.exe.WebView2\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "StreamTweakUI\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb,ref\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; ── Background service (LocalSystem account, manages NIC speed via CIM) ─────
 Source: "StreamTweakService\bin\x64\Release\net8.0-windows\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb,ref\*"; Flags: ignoreversion recursesubdirs createallsubdirs
@@ -174,7 +167,5 @@ begin
   Dependency_AddDotNet80;
   // Windows App SDK 1.8 runtime — provides the WinUI 3 XAML framework (DDLM package)
   Dependency_AddWindowsAppRuntime18;
-  // WebView2 runtime — required for Store tab WebView2 control
-  Dependency_AddWebView2;
   Result := True;
 end;

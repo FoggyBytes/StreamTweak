@@ -1,5 +1,5 @@
 ## 🎮 StreamTweak
-![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue.svg) ![Framework](https://img.shields.io/badge/Framework-.NET%208%20%2F%20WinUI%203-purple.svg) ![Downloads](https://img.shields.io/github/downloads/foggybytes/StreamTweak/total?label=Downloads&color=FA8140) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-brightgreen.svg)](https://claude.ai/code)
+![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue.svg) ![Framework](https://img.shields.io/badge/Framework-.NET%208%20%2F%20WinUI%203-purple.svg) ![Downloads](.badges/downloads.svg) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-brightgreen.svg)](https://claude.ai/code)
 
 <img width="1582" height="892" alt="streamtweak" src="https://github.com/user-attachments/assets/9d52efc1-0e65-4887-843c-0100c3261130" />
 
@@ -51,10 +51,6 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - **Manual game management** — Add any executable not auto-detected; remove individual entries with the Remove button
 - **Host tile replacement** *(new in 6.3.0)* — replace the default Desktop and Steam tiles in the streaming server's assets folder with StreamTweak-bundled PNGs and revert them on demand, fully reversible, no UAC prompt
 
-**🛒 Store**
-- **Instant Gaming integrated** — browse and buy games directly inside StreamTweak via an embedded browser. Purchases contribute a small affiliate commission to FoggyBytes at no extra cost to you, helping fund StreamTweak's development
-- **Open in browser** — hand off the current page to your default browser with one click; affiliate parameter preserved across the handoff
-
 **📋 Session History & Telemetry**
 - **Full session log** — every session recorded with duration, RTT avg, frame drops %, detected games and covers (unlimited as of 6.3.0)
 - **Quality report** — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
@@ -73,11 +69,19 @@ These features cross the bridge and require both apps. The version next to each 
 - **Remote session pause** *(StreamLight 2.3.0+)* — a Pause button on the Home page stops the active stream on the client side, piggybacked on the existing `STATS` polling channel
 - **Tailscale dual-tile** *(StreamLight 3.0.0+, flagship of this release pair)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight offers a one-time popup to add a **second** host tile pinned to that Tailscale address — so the user can stream from outside the LAN with a single click, no port forwarding. On the client side, StreamLight 3.0.0 can also be configured to **auto-start Tailscale at launch**, completing the round-trip: when both apps cooperate the remote stream is always one click away
 
+## ✨ What's New in 7.2.0 — "The Power Update"
+
+- **Remote host power-off** — an approved StreamLight client (3.2.0+) can shut the host PC down over the authenticated bridge, straight from the host's *Power…* menu on the client. The shutdown is destructive, so it is only accepted with a verified signature from an approved device — never unauthenticated
+- **Authentication now mandatory** — the *Require authenticated StreamLight clients* toggle was removed; only devices you approve can use the advanced integration (this never affects streaming itself). The *Bridge security* card now explains what authentication is for in place of the toggle
+- **Store tab removed** — the embedded Instant Gaming browser (and the WebView2 runtime it required) has been removed
+- Requires **StreamLight 3.2.0**; update both apps together
+
+> 🙏 Thanks to [**@SolemnDucc**](https://github.com/FoggyBytes/StreamLight/issues/1) for suggesting the remote shutdown feature ([StreamLight #1](https://github.com/FoggyBytes/StreamLight/issues/1)).
+
 ## ✨ What's New in 7.1.1 — "The Refinement Update"
 
 - **Faster Game Library** — the game list is now virtualized: only the rows on screen are rendered, so libraries with hundreds of titles open instantly and use far less memory
-- **Better accessibility** — icon-only buttons (Store toolbar, Logs detail/delete, Network copy-IP) now expose proper names to screen readers and UI automation
-- **Hardened Store** — embedded web domains are validated by host name (exact or subdomain), not substring, so a look-alike address can't impersonate Instant Gaming or a sign-in provider
+- **Better accessibility** — icon-only buttons (Logs detail/delete, Network copy-IP) now expose proper names to screen readers and UI automation
 - **Diagnostics** — failures in the session / NIC / telemetry pipeline are now logged to `debug.log` instead of being swallowed, making rare issues traceable. No change to on-screen behaviour
 
 ## ✨ What's New in 7.1.0 — "The Secure Bridge Update"
@@ -97,7 +101,7 @@ StreamTweak consists of three components:
 - **`StreamTweak.Core`** — shared business logic library (NIC control, audio, HDR, game library, telemetry, NVIDIA Sentinel / DRS layer, Tailscale detector, TCP bridge)
 - **`StreamTweakService.exe`** — Windows Service (LocalSystem), handles NIC speed changes and host-assets writes via Named Pipe; no UAC ever appears in the tray app
 
-The host-client bridge is a TCP listener on **port 47998** (LAN, line-delimited ASCII). Commands accepted from StreamLight: `PREPARE`, `RESTORE`, `STATUS`, `STATS`, `APPSTORES`, `TAILSCALE`, `SESSIONDATA`. From 7.1.0 each command is authenticated: the client first negotiates (`CAPS`) and enrolls its Moonlight certificate (`ENROLL`, approved once on the host), then signs every command (`AUTH1`, RSA-SHA256).
+The host-client bridge is a TCP listener on **port 47998** (LAN, line-delimited ASCII). Commands accepted from StreamLight: `PREPARE`, `RESTORE`, `STATUS`, `STATS`, `APPSTORES`, `TAILSCALE`, `SESSIONDATA`, `SHUTDOWN`. Each command is authenticated: the client first negotiates (`CAPS`) and enrolls its Moonlight certificate (`ENROLL`, approved once on the host), then signs every command (`AUTH1`, RSA-SHA256). As of 7.2.0 authentication is mandatory.
 
 ```
 StreamLight (Qt, client PC)
@@ -113,7 +117,7 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
 ## 📝 Installation
 
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_7.1.1_Installer.exe` and run it.
+2. Download the latest `StreamTweak_7.2.0_Installer.exe` and run it.
 
 The installer registers `StreamTweakService` as a Windows Service (LocalSystem) so that NIC and host-assets operations require no UAC prompt. Windows App SDK 1.8 runtime is installed automatically if missing.
 
