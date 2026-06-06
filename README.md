@@ -67,6 +67,7 @@ These features cross the bridge and require both apps. The version next to each 
 - **Session quality reports** *(StreamLight 2.1.0+)* — client-side telemetry streamed every second to StreamTweak, which computes the grade and the sparklines
 - **Live session charts** *(StreamLight 2.3.1+)* — 1-second SESSIONDATA cadence drives the live charts on the Home page
 - **Remote session pause** *(StreamLight 2.3.0+)* — a Pause button on the Home page stops the active stream on the client side, piggybacked on the existing `STATS` polling channel
+- **Remote host power-off** *(StreamLight 3.2.0+)* — an approved client can shut down the host PC (or this client, or both) from a *Power…* chooser, over the authenticated `SHUTDOWN` command. Destructive, so it only ever fires with a verified signature from an approved device
 - **Tailscale presence** *(StreamLight 3.0.0+; unified into a single tile in 3.3.0)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight records that address on the host's **single** tile (which now tracks both the LAN and Tailscale IPs, with a `TAILSCALE · AVAILABLE` badge) and offers a *Tailscale* option to open the host's apps over the `100.x` endpoint — so streaming from outside the LAN is one click away, no port forwarding. On the client side, StreamLight can also **auto-start Tailscale at launch**, completing the round-trip
 - **Remote Windows Update** *(StreamLight 3.3.0+, headline of this release pair)* — an approved client can scan and install Windows updates on the host and reboot it, or install pending updates as part of *Update and shut down* — all from the client, no keyboard on the host. The privileged Windows Update work runs in the LocalSystem service; see *What's New in 7.3.0* below
 
@@ -109,9 +110,9 @@ StreamTweak consists of three components:
 
 - **`StreamTweakUI.exe`** — WinUI 3 tray app (unprivileged), built on Windows App SDK 1.8
 - **`StreamTweak.Core`** — shared business logic library (NIC control, audio, HDR, game library, telemetry, NVIDIA Sentinel / DRS layer, Tailscale detector, TCP bridge)
-- **`StreamTweakService.exe`** — Windows Service (LocalSystem), handles NIC speed changes and host-assets writes via Named Pipe; no UAC ever appears in the tray app
+- **`StreamTweakService.exe`** — Windows Service (LocalSystem), handles NIC speed changes, host-assets writes, and Windows Update (scan / install / reboot via the Windows Update Agent) via Named Pipe; no UAC ever appears in the tray app
 
-The host-client bridge is a TCP listener on **port 47998** (LAN, line-delimited ASCII). Commands accepted from StreamLight: `PREPARE`, `RESTORE`, `STATUS`, `STATS`, `APPSTORES`, `TAILSCALE`, `SESSIONDATA`, `SHUTDOWN`. Each command is authenticated: the client first negotiates (`CAPS`) and enrolls its Moonlight certificate (`ENROLL`, approved once on the host), then signs every command (`AUTH1`, RSA-SHA256). As of 7.2.0 authentication is mandatory.
+The host-client bridge is a TCP listener on **port 47998** (LAN, line-delimited ASCII). Commands accepted from StreamLight: `PREPARE`, `RESTORE`, `STATUS`, `STATS`, `APPSTORES`, `TAILSCALE`, `SESSIONDATA`, `SHUTDOWN`, `SHUTDOWN_UPDATE`, `UPDATESTATE`, `UPDATECHECK`, `UPDATE_NOW`, `UPDATEPROGRESS`. Each command is authenticated: the client first negotiates (`CAPS`) and enrolls its Moonlight certificate (`ENROLL`, approved once on the host), then signs every command (`AUTH1`, RSA-SHA256). As of 7.2.0 authentication is mandatory; destructive commands (power-off, install + reboot) additionally require a verified signature even in legacy mode.
 
 ```
 StreamLight (Qt, client PC)
@@ -122,6 +123,7 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
                                                            ▼
                                                 NIC speed via CIM/WMI
                                                 Host assets via filesystem
+                                                Windows Update via WUA
 ```
 
 ## 📝 Installation
