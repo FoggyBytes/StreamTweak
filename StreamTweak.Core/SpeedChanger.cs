@@ -128,6 +128,55 @@ namespace StreamTweak
             catch { return false; }
         }
 
+        // ── Windows Update relay (remote "Update host" feature) ──────────────
+        // The privileged WUA work runs in the LocalSystem service; these just relay
+        // start/poll commands over the pipe. Fire-and-forget for start, JSON snapshot
+        // for poll.
+
+        /// <summary>Asks the service to start an async Windows-update scan.</summary>
+        public static bool StartUpdateCheck() => SendSimple("UpdateCheck", null);
+
+        /// <summary>Asks the service to start downloading+installing the scanned updates
+        /// filtered by scope ("SEC" or "ALL"), rebooting if required.</summary>
+        public static bool StartUpdateInstall(string scope) => SendSimple("UpdateInstall", scope);
+
+        /// <summary>Polls the service for the current update job state (JSON).
+        /// Returns an IDLE snapshot if the service is unreachable.</summary>
+        public static string GetUpdateProgress()
+        {
+            try
+            {
+                using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut);
+                client.Connect(PipeTimeoutMs);
+
+                using var writer = new StreamWriter(client, leaveOpen: true) { AutoFlush = true };
+                using var reader = new StreamReader(client, leaveOpen: true);
+
+                writer.WriteLine(JsonSerializer.Serialize(new { Command = "UpdateProgress" }));
+                string? response = reader.ReadLine();
+                return string.IsNullOrWhiteSpace(response) || response.StartsWith("ERROR")
+                    ? "{\"phase\":\"IDLE\"}"
+                    : response;
+            }
+            catch { return "{\"phase\":\"IDLE\"}"; }
+        }
+
+        private static bool SendSimple(string command, string? scope)
+        {
+            try
+            {
+                using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut);
+                client.Connect(PipeTimeoutMs);
+
+                using var writer = new StreamWriter(client, leaveOpen: true) { AutoFlush = true };
+                using var reader = new StreamReader(client, leaveOpen: true);
+
+                writer.WriteLine(JsonSerializer.Serialize(new { Command = command, Scope = scope }));
+                return reader.ReadLine() == "OK";
+            }
+            catch { return false; }
+        }
+
         /// <summary>
         /// Fallback for environments without the service installed (e.g. development).
         /// Launches PowerShell with Verb = "runas" — triggers a UAC prompt.

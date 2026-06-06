@@ -33,7 +33,11 @@
                             Converter={StaticResource BoolToInfoBarSeverityConverter}}"
                  Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                  IsClosable="True"
-                 Closed="StatusInfoBar_Closed"/>
+                 Closed="StatusInfoBar_Closed">
+            <InfoBar.Resources>
+                <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#22c55e"/>
+            </InfoBar.Resources>
+        </InfoBar>
 
         <!-- ── Main card ─────────────────────────────────────────────────── -->
         <Border Grid.Row="2"

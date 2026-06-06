@@ -18,9 +18,9 @@
     <ApplicationIcon>Resources\streamtweak.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>StreamTweakUI</AssemblyName>
-    <Version>7.2.0</Version>
-    <AssemblyVersion>7.2.0.0</AssemblyVersion>
-    <FileVersion>7.2.0.0</FileVersion>
+    <Version>7.3.0</Version>
+    <AssemblyVersion>7.3.0.0</AssemblyVersion>
+    <FileVersion>7.3.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

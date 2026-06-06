@@ -69,6 +69,11 @@ These features cross the bridge and require both apps. The version next to each 
 - **Remote session pause** *(StreamLight 2.3.0+)* — a Pause button on the Home page stops the active stream on the client side, piggybacked on the existing `STATS` polling channel
 - **Tailscale dual-tile** *(StreamLight 3.0.0+, flagship of this release pair)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight offers a one-time popup to add a **second** host tile pinned to that Tailscale address — so the user can stream from outside the LAN with a single click, no port forwarding. On the client side, StreamLight 3.0.0 can also be configured to **auto-start Tailscale at launch**, completing the round-trip: when both apps cooperate the remote stream is always one click away
 
+## ✨ What's New in 7.2.1
+
+- **UI polish** — the *Managed Apps* and *Game Library* counts on the Home dashboard are now green, matching the *Logs* tile
+- **Consistent accents** — the information icon on the status banners across *Settings*, *Apps* and *Game Library* now uses the same green accent as NVIDIA Sentinel
+
 ## ✨ What's New in 7.2.0 — "The Power Update"
 
 - **Remote host power-off** — an approved StreamLight client (3.2.0+) can shut the host PC down over the authenticated bridge, straight from the host's *Power…* menu on the client. The shutdown is destructive, so it is only accepted with a verified signature from an approved device — never unauthenticated
@@ -117,7 +122,7 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
 ## 📝 Installation
 
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_7.2.0_Installer.exe` and run it.
+2. Download the latest `StreamTweak_7.2.1_Installer.exe` and run it.
 
 The installer registers `StreamTweakService` as a Windows Service (LocalSystem) so that NIC and host-assets operations require no UAC prompt. Windows App SDK 1.8 runtime is installed automatically if missing.
 

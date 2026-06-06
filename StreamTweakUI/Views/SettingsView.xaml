@@ -19,7 +19,11 @@
                             Converter={StaticResource BoolToInfoBarSeverityConverter}}"
                  Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
                  IsClosable="True"
-                 Closed="StatusInfoBar_Closed"/>
+                 Closed="StatusInfoBar_Closed">
+            <InfoBar.Resources>
+                <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#22c55e"/>
+            </InfoBar.Resources>
+        </InfoBar>
 
         <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
@@ -37,6 +41,9 @@
                          IsClosable="False"
                          IsOpen="{x:Bind ViewModel.IsUpdateAvailable, Mode=OneWay}"
                          Message="{x:Bind ViewModel.UpdateMessage, Mode=OneWay}">
+                    <InfoBar.Resources>
+                        <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#22c55e"/>
+                    </InfoBar.Resources>
                     <InfoBar.ActionButton>
                         <HyperlinkButton Content="Open releases page"
                                          NavigateUri="https://github.com/FoggyBytes/StreamTweak/releases/latest"/>

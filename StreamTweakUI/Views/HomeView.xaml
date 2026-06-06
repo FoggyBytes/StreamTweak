@@ -557,7 +557,7 @@
                         </StackPanel>
                         <TextBlock Text="{x:Bind ViewModel.GameLibraryText, Mode=OneWay}"
                                    Style="{StaticResource ST_MonoMedium}"
-                                   Foreground="#f59e0b"/>
+                                   Foreground="#22c55e"/>
                         <TextBlock Text="{x:Bind ViewModel.GameLibrarySyncText, Mode=OneWay}"
                                    Style="{StaticResource ST_BodySmall}"
                                    Visibility="{x:Bind ViewModel.HasGameLibrarySyncText, Mode=OneWay,
@@ -605,7 +605,7 @@
                         </StackPanel>
                         <TextBlock Text="{x:Bind ViewModel.ManagedAppsText, Mode=OneWay}"
                                    Style="{StaticResource ST_MonoMedium}"
-                                   Foreground="#f59e0b"/>
+                                   Foreground="#22c55e"/>
                         <TextBlock Opacity="0" Style="{StaticResource ST_BodySmall}" Text=" "/>
                     </StackPanel>
                 </Button>

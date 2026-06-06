@@ -195,6 +195,25 @@ public class PipeWorker : BackgroundService
                         }
                         break;
 
+                    case "UPDATECHECK":
+                        WindowsUpdateManager.Instance.StartCheck();
+                        await writer.WriteLineAsync("OK");
+                        break;
+
+                    case "UPDATEINSTALL":
+                        if (string.IsNullOrWhiteSpace(cmd.Scope))
+                        {
+                            await writer.WriteLineAsync("ERROR:missing fields");
+                            return;
+                        }
+                        WindowsUpdateManager.Instance.StartInstall(cmd.Scope);
+                        await writer.WriteLineAsync("OK");
+                        break;
+
+                    case "UPDATEPROGRESS":
+                        await writer.WriteLineAsync(WindowsUpdateManager.Instance.GetStateJson());
+                        break;
+
                     default:
                         await writer.WriteLineAsync("ERROR:unknown command");
                         break;
@@ -468,6 +487,7 @@ public class PipeWorker : BackgroundService
         string?  Content,
         string?  AssetsDir,
         string?  DesktopSource,
-        string?  SteamSource
+        string?  SteamSource,
+        string?  Scope
     );
 }

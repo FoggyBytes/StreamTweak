@@ -209,6 +209,14 @@ namespace StreamTweak
                 var (detected, ip) = TailscaleDetector.Detect();
                 return detected && !string.IsNullOrEmpty(ip) && ip != "IP unknown" ? ip : "NOT_DETECTED";
             };
+            _bridge.UpdateStateProvider = () => WindowsUpdateState.ToJson();
+
+            // Remote "Update host" — relay scan/install/poll to the LocalSystem service,
+            // which drives Windows Update Agent. UPDATE_NOW reboots, so the bridge only
+            // raises UpdateInstallRequested for a verified-authenticated command.
+            _bridge.UpdateCheckRequested   += () => SpeedChanger.StartUpdateCheck();
+            _bridge.UpdateInstallRequested += scope => SpeedChanger.StartUpdateInstall(scope);
+            _bridge.UpdateProgressProvider  = () => SpeedChanger.GetUpdateProgress();
 
             // Wire AppStateService action delegates
             AppStateService.Instance.StartStreamingModeAction  = StartManualStreamingMode;
@@ -974,16 +982,16 @@ namespace StreamTweak
         // The bridge only raises this for a verified-authenticated SHUTDOWN, so no further
         // auth check is needed here. Runs in the interactive UI process, which already
         // holds SeShutdownPrivilege — no service/pipe round-trip required.
-        private void OnBridgeShutdownRequested()
+        private void OnBridgeShutdownRequested(bool installUpdates)
         {
             _dispatcher.TryEnqueue(() =>
             {
                 try
                 {
                     // No on-screen toast here: the host is typically unattended for a
-                    // remote power-off, and ExitWindowsEx tears down the notification
-                    // shell, so a toast would race the shutdown. DebugLogger is the trace.
-                    DebugLogger.Log("[Bridge] SHUTDOWN requested by approved client — powering off host");
+                    // remote power-off, and the shutdown tears down the notification
+                    // shell, so a toast would race it. DebugLogger is the trace.
+                    DebugLogger.Log($"[Bridge] {(installUpdates ? "SHUTDOWN_UPDATE" : "SHUTDOWN")} requested by approved client — powering off host");
 
                     // Best-effort: close out any active session so it is not left dangling.
                     if (_isAutoSessionActive)
@@ -994,7 +1002,7 @@ namespace StreamTweak
                         SessionLogger.EndSession("Host Shutdown", games);
                     }
 
-                    ShutdownHost();
+                    ShutdownHost(installUpdates);
                 }
                 catch (Exception ex) { DebugLogger.Log($"[Bridge] OnBridgeShutdownRequested failed: {ex}"); }
             });
@@ -1002,12 +1010,30 @@ namespace StreamTweak
 
         // ── Host power-off (Win32) ───────────────────────────────────────────────
         // Enables SeShutdownPrivilege on the current process token, then requests a
-        // full power-off via ExitWindowsEx. Falls back to the `shutdown` CLI if the
-        // Win32 path fails for any reason.
-        private static void ShutdownHost()
+        // full power-off. When installUpdates is true, uses InitiateShutdown with
+        // SHUTDOWN_INSTALL_UPDATES ("Update and shut down") so any pending Windows
+        // updates are installed before the machine powers off; otherwise uses the plain
+        // ExitWindowsEx path. Falls back to the `shutdown` CLI if the Win32 path fails.
+        private static void ShutdownHost(bool installUpdates = false)
         {
             try
             {
+                if (installUpdates && TryEnableShutdownPrivilege())
+                {
+                    // SHUTDOWN_FORCE_SELF: guarantee our own session is logged off (no
+                    // interactive prompt on a headless host). Planned reason avoids the
+                    // unplanned-shutdown state-file delay (see InitiateShutdown docs).
+                    uint rc = InitiateShutdownW(null, null, 0,
+                        SHUTDOWN_INSTALL_UPDATES | SHUTDOWN_POWEROFF | SHUTDOWN_FORCE_SELF,
+                        SHTDN_REASON_MAJOR_APPLICATION | SHTDN_REASON_FLAG_PLANNED);
+                    if (rc == ERROR_SUCCESS)
+                        return;
+
+                    // Fall through to a plain power-off so the host still shuts down even
+                    // if the update path is refused (updates just won't be installed).
+                    DebugLogger.Log($"[Shutdown] InitiateShutdown(install updates) failed (rc {rc}); falling back to plain power-off");
+                }
+
                 if (TryEnableShutdownPrivilege() &&
                     ExitWindowsEx(EWX_SHUTDOWN | EWX_POWEROFF, SHTDN_REASON_MAJOR_OTHER))
                     return;
@@ -1018,9 +1044,11 @@ namespace StreamTweak
 
             try
             {
+                // Full System32 path (not bare "shutdown") so the elevated/Win32 fallback
+                // can't be redirected by a hijacked PATH.
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = "shutdown",
+                    FileName = System.IO.Path.Combine(Environment.SystemDirectory, "shutdown.exe"),
                     Arguments = "/s /t 0",
                     CreateNoWindow = true,
                     UseShellExecute = false,
@@ -1057,6 +1085,14 @@ namespace StreamTweak
         private const uint EWX_SHUTDOWN           = 0x00000001;
         private const uint EWX_POWEROFF           = 0x00000008;
         private const uint SHTDN_REASON_MAJOR_OTHER = 0x00000000;
+
+        // InitiateShutdown flags / reason for the "Update and shut down" path.
+        private const uint SHUTDOWN_FORCE_SELF        = 0x00000002;
+        private const uint SHUTDOWN_POWEROFF          = 0x00000008;
+        private const uint SHUTDOWN_INSTALL_UPDATES   = 0x00000040;
+        private const uint SHTDN_REASON_MAJOR_APPLICATION = 0x00040000;
+        private const uint SHTDN_REASON_FLAG_PLANNED  = 0x80000000;
+        private const uint ERROR_SUCCESS              = 0;
         private const uint TOKEN_ADJUST_PRIVILEGES = 0x0020;
         private const uint TOKEN_QUERY             = 0x0008;
         private const uint SE_PRIVILEGE_ENABLED    = 0x00000002;
@@ -1070,6 +1106,10 @@ namespace StreamTweak
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool ExitWindowsEx(uint uFlags, uint dwReason);
+
+        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern uint InitiateShutdownW(
+            string? lpMachineName, string? lpMessage, uint dwGracePeriod, uint dwShutdownFlags, uint dwReason);
 
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetCurrentProcess();

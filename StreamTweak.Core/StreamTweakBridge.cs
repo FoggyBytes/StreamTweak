@@ -21,6 +21,18 @@ namespace StreamTweak
     ///              Server replies with the speed in Mbps (e.g. "1000") or "UNKNOWN".
     ///   SHUTDOWN — client asks the host to power off. Requires a verified AUTH1
     ///              signature (destructive); replies "OK", or "ERR" if unauthenticated.
+    ///   SHUTDOWN_UPDATE — like SHUTDOWN, but installs any pending Windows updates
+    ///              before powering off ("Update and shut down"). Same verified-signature
+    ///              requirement as SHUTDOWN.
+    ///   UPDATESTATE — client asks whether the host has updates waiting for a reboot.
+    ///              Server replies with {"pending":true|false}.
+    ///   UPDATECHECK — client asks the host to start an async Windows-update scan.
+    ///              Requires a verified AUTH1 signature (it triggers host activity).
+    ///              Replies "OK"/"ERR". Progress/result polled via UPDATEPROGRESS.
+    ///   UPDATE_NOW <SEC|ALL> — install the scanned updates and reboot if required.
+    ///              Destructive; requires a verified AUTH1 signature. Replies "OK"/"ERR".
+    ///   UPDATEPROGRESS — poll the current update job state. Server replies with JSON
+    ///              {"phase":…,"percent":…,"message":…,"updates":[…],"counts":{…}}.
     ///
     /// Each connection is short-lived: client sends one line, server replies "OK",
     /// the speed string, or "ERR".
@@ -91,6 +103,13 @@ namespace StreamTweak
         public Func<string>? TailscaleProvider { get; set; }
 
         /// <summary>
+        /// Optional delegate that returns the host's Windows-update state as JSON
+        /// ({"pending":true|false}). Called when an UPDATESTATE command arrives.
+        /// Set this in App.xaml.cs after creating the bridge.
+        /// </summary>
+        public Func<string>? UpdateStateProvider { get; set; }
+
+        /// <summary>
         /// Raised when a SESSIONDATA command is received from StreamLight.
         /// The argument is the deserialized ClientBatch for the current session.
         /// Subscribe in App.xaml.cs to feed the TelemetryAccumulator.
@@ -106,12 +125,33 @@ namespace StreamTweak
         public event Action? RestoreRequested;
 
         /// <summary>
-        /// Raised when a SHUTDOWN command is received from an authenticated StreamLight
-        /// client. Powers off the host PC. Subscribe in App.xaml.cs.
-        /// SHUTDOWN is destructive, so it is only ever raised for a command that carried
-        /// a verified AUTH1 signature — never from the legacy/open code path.
+        /// Raised when a SHUTDOWN / SHUTDOWN_UPDATE command is received from an
+        /// authenticated StreamLight client. Powers off the host PC; the bool argument is
+        /// true when pending Windows updates should be installed first ("Update and shut
+        /// down"). Subscribe in App.xaml.cs.
+        /// Both commands are destructive, so they are only ever raised for a command that
+        /// carried a verified AUTH1 signature — never from the legacy/open code path.
         /// </summary>
-        public event Action? ShutdownRequested;
+        public event Action<bool>? ShutdownRequested;
+
+        /// <summary>
+        /// Raised when an UPDATECHECK command is received: start an async Windows-update
+        /// scan on the host. Not destructive; gated by RequireAuth like the read commands.
+        /// </summary>
+        public event Action? UpdateCheckRequested;
+
+        /// <summary>
+        /// Raised when an UPDATE_NOW &lt;scope&gt; command is received from an authenticated
+        /// client: install the scanned updates ("SEC" or "ALL") and reboot if required.
+        /// Destructive (reboots the host) — only ever raised for a verified AUTH1 signature.
+        /// </summary>
+        public event Action<string>? UpdateInstallRequested;
+
+        /// <summary>
+        /// Optional delegate returning the current Windows-update job state as JSON.
+        /// Called when an UPDATEPROGRESS command arrives. Set in App.xaml.cs.
+        /// </summary>
+        public Func<string>? UpdateProgressProvider { get; set; }
 
         public void Start()
         {
@@ -287,7 +327,13 @@ namespace StreamTweak
         {
             DebugLog($"StreamTweakBridge received: {command} from {remote}");
 
-            switch (command)
+            // Split off an optional argument (only UPDATE_NOW carries one). For every other
+            // command verb == command, so the existing exact-match cases are unaffected.
+            int sp = command.IndexOf(' ');
+            string verb = sp < 0 ? command : command.Substring(0, sp);
+            string arg  = sp < 0 ? "" : command.Substring(sp + 1).Trim();
+
+            switch (verb)
             {
                 case "PREPARE":
                     PrepareRequested?.Invoke();
@@ -300,16 +346,55 @@ namespace StreamTweak
                     break;
 
                 case "SHUTDOWN":
+                case "SHUTDOWN_UPDATE":
                     // Destructive: powers off the host. Require a verified signature even
                     // in open mode — a forged/unauthenticated SHUTDOWN must never fire.
+                    // SHUTDOWN_UPDATE additionally installs pending updates before power-off.
                     if (!authenticated)
                     {
-                        DebugLog($"StreamTweakBridge: rejected unauthenticated SHUTDOWN from {remote}");
+                        DebugLog($"StreamTweakBridge: rejected unauthenticated {command} from {remote}");
                         await writer.WriteLineAsync("ERR");
                         break;
                     }
-                    ShutdownRequested?.Invoke();
+                    ShutdownRequested?.Invoke(command == "SHUTDOWN_UPDATE");
                     await writer.WriteLineAsync("OK");
+                    break;
+
+                case "UPDATESTATE":
+                    string updateState = UpdateStateProvider?.Invoke() ?? "{\"pending\":false}";
+                    await writer.WriteLineAsync(updateState);
+                    break;
+
+                case "UPDATECHECK":
+                    // Triggers a real Windows-update scan on the host (network + CPU) and
+                    // reveals pending updates, so gate it on a verified signature too — not
+                    // just RequireAuth — as defense-in-depth if the bridge is ever opened.
+                    if (!authenticated)
+                    {
+                        DebugLog($"StreamTweakBridge: rejected unauthenticated UPDATECHECK from {remote}");
+                        await writer.WriteLineAsync("ERR");
+                        break;
+                    }
+                    UpdateCheckRequested?.Invoke();
+                    await writer.WriteLineAsync("OK");
+                    break;
+
+                case "UPDATE_NOW":
+                    // Destructive: installs updates and reboots. Require a verified signature
+                    // even in open mode, exactly like SHUTDOWN.
+                    if (!authenticated)
+                    {
+                        DebugLog($"StreamTweakBridge: rejected unauthenticated UPDATE_NOW from {remote}");
+                        await writer.WriteLineAsync("ERR");
+                        break;
+                    }
+                    UpdateInstallRequested?.Invoke(string.IsNullOrWhiteSpace(arg) ? "SEC" : arg.ToUpperInvariant());
+                    await writer.WriteLineAsync("OK");
+                    break;
+
+                case "UPDATEPROGRESS":
+                    string updateProgress = UpdateProgressProvider?.Invoke() ?? "{\"phase\":\"IDLE\"}";
+                    await writer.WriteLineAsync(updateProgress);
                     break;
 
                 case "STATUS":
@@ -366,9 +451,9 @@ namespace StreamTweak
             }
         }
 
-        // Decodes the optional base64 client hostname sent with ENROLL into a friendly
-        // label ("StreamLight @ <hostname>"). Falls back to the remote IP for older
-        // clients that don't send a name. Newlines stripped and length capped so a
+        // Decodes the optional base64 client hostname sent with ENROLL into the device
+        // label (the bare device name, e.g. "Foggy-Ally"). Falls back to the remote IP for
+        // older clients that don't send a name. Newlines stripped and length capped so a
         // hostile peer cannot inject control characters or an oversized label.
         private static string DecodeClientName(string base64Name, IPEndPoint? remote)
         {
@@ -379,11 +464,11 @@ namespace StreamTweak
                     string decoded = Encoding.UTF8.GetString(Convert.FromBase64String(base64Name))
                         .Replace("\r", "").Replace("\n", "").Trim();
                     if (decoded.Length > 64) decoded = decoded.Substring(0, 64);
-                    if (decoded.Length > 0) return $"StreamLight @ {decoded}";
+                    if (decoded.Length > 0) return decoded;
                 }
                 catch { }
             }
-            return remote != null ? $"StreamLight @ {remote.Address}" : "StreamLight";
+            return remote != null ? remote.Address.ToString() : "StreamLight";
         }
 
         // Reads a single '\n'-terminated line, capping the length at maxChars so an

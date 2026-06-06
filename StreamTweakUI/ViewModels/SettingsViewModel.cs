@@ -24,7 +24,7 @@ namespace StreamTweak.ViewModels
         public string AppVersion { get; } =
             Assembly.GetExecutingAssembly().GetName().Version is { } v
                 ? $"{v.Major}.{v.Minor}.{v.Build}"
-                : "7.2.0";
+                : "7.3.0";
 
         // ── Update notice (mirrors AppStateService) ───────────────────────────
         // Rebroadcasts the centralized GitHub-release poll into properties the
@@ -165,6 +165,16 @@ namespace StreamTweak.ViewModels
 
         public bool HasNoBridgeClients => BridgeClients.Count == 0;
 
+        // Show only the bare device name. Older enrollments were stored with a
+        // "StreamLight @ " prefix (DecodeClientName no longer adds it); strip it here so
+        // existing entries display cleanly too.
+        private static string StripStreamLightPrefix(string? name)
+        {
+            const string prefix = "StreamLight @ ";
+            if (string.IsNullOrEmpty(name)) return "";
+            return name.StartsWith(prefix, StringComparison.Ordinal) ? name.Substring(prefix.Length) : name;
+        }
+
         public void RefreshBridgeClients()
         {
             BridgeClients.Clear();
@@ -182,7 +192,7 @@ namespace StreamTweak.ViewModels
                     BridgeClients.Add(new BridgeClientItem
                     {
                         UniqueId         = c.UniqueId,
-                        Name             = c.Name,
+                        Name             = StripStreamLightPrefix(c.Name),
                         StatusLabel      = status,
                         CanApprove       = c.Status == "pending" || c.Status == "denied",
                         StatusColorHex   = color,
