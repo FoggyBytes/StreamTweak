@@ -11,9 +11,9 @@
 
 ## ✅ Compatibility
 
-Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (Tailscale dual-tile, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.1.1** with [**StreamLight 3.1.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
+Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.3.0** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
 
-> 🔐 **Authenticated bridge (7.1.0+).** The host↔client bridge now only accepts commands from StreamLight devices you have explicitly approved (a one-time prompt shows a 4-digit PIN to confirm against the one on the device). **Authorization never affects streaming** — it only gates the StreamTweak↔StreamLight integration: host metrics overlay, NIC speed & one-click Streaming Mode, store badges on covers, session quality reports & live charts, Tailscale dual-tile, and remote pause. Requires **StreamLight 3.1.0 or later**; update both apps together. You can turn it off in **Settings → Bridge security** to pair with older clients during the transition.
+> 🔐 **Authenticated bridge (7.1.0+).** The host↔client bridge now only accepts commands from StreamLight devices you have explicitly approved (a one-time prompt shows a 4-digit PIN to confirm against the one on the device). **Authorization never affects streaming** — it only gates the StreamTweak↔StreamLight integration: host metrics overlay, NIC speed & one-click Streaming Mode, store badges on covers, session quality reports & live charts, Tailscale, and remote pause. Requires **StreamLight 3.1.0 or later**; update both apps together. You can turn it off in **Settings → Bridge security** to pair with older clients during the transition.
 
 > ⚠️ **Installer warning:** Windows SmartScreen may flag the installer because it lacks a commercial code-signing certificate. Choose **Keep / Keep anyway**. Full source code is available in this repository.
 
@@ -23,7 +23,7 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 - **Auto Streaming Mode** — monitors Sunshine/Apollo/Vibeshine/Vibepollo logs and throttles the host NIC to 1 Gbps on client connect; restores the original speed on disconnect. Fixes the bufferbloat-induced latency spikes caused by host/client NICs negotiating at mismatched speeds (e.g. 2.5 Gbps vs 1 Gbps)
 - **Manual streaming control** — one-click throttle/restore without waiting for log events
 - **UAC-free** — a LocalSystem Windows Service handles all NIC speed changes (and host-assets writes) via Named Pipe; no prompts ever
-- **[Tailscale](https://tailscale.com) detection** — the Network tab shows the host's Tailscale IP with a copy button. Combined with StreamLight 3.0.0+ this enables a **dual-tile workflow** for remote streaming with no port forwarding (see Paired Features below)
+- **[Tailscale](https://tailscale.com) detection** — the Network tab shows the host's Tailscale IP with a copy button. Combined with StreamLight 3.3.0+ the client tracks the host's Tailscale address on a single unified tile for remote streaming with no port forwarding (see Paired Features below)
 
 **🖥️ Display**
 - **HDR toggle per monitor** — enable or disable HDR from StreamTweak without opening Windows Settings
@@ -67,12 +67,17 @@ These features cross the bridge and require both apps. The version next to each 
 - **Session quality reports** *(StreamLight 2.1.0+)* — client-side telemetry streamed every second to StreamTweak, which computes the grade and the sparklines
 - **Live session charts** *(StreamLight 2.3.1+)* — 1-second SESSIONDATA cadence drives the live charts on the Home page
 - **Remote session pause** *(StreamLight 2.3.0+)* — a Pause button on the Home page stops the active stream on the client side, piggybacked on the existing `STATS` polling channel
-- **Tailscale dual-tile** *(StreamLight 3.0.0+, flagship of this release pair)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight offers a one-time popup to add a **second** host tile pinned to that Tailscale address — so the user can stream from outside the LAN with a single click, no port forwarding. On the client side, StreamLight 3.0.0 can also be configured to **auto-start Tailscale at launch**, completing the round-trip: when both apps cooperate the remote stream is always one click away
+- **Tailscale presence** *(StreamLight 3.0.0+; unified into a single tile in 3.3.0)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight records that address on the host's **single** tile (which now tracks both the LAN and Tailscale IPs, with a `TAILSCALE · AVAILABLE` badge) and offers a *Tailscale* option to open the host's apps over the `100.x` endpoint — so streaming from outside the LAN is one click away, no port forwarding. On the client side, StreamLight can also **auto-start Tailscale at launch**, completing the round-trip
+- **Remote Windows Update** *(StreamLight 3.3.0+, headline of this release pair)* — an approved client can scan and install Windows updates on the host and reboot it, or install pending updates as part of *Update and shut down* — all from the client, no keyboard on the host. The privileged Windows Update work runs in the LocalSystem service; see *What's New in 7.3.0* below
 
-## ✨ What's New in 7.2.1
+## ✨ What's New in 7.3.0 — "The Patch Tuesday Update"
 
-- **UI polish** — the *Managed Apps* and *Game Library* counts on the Home dashboard are now green, matching the *Logs* tile
-- **Consistent accents** — the information icon on the status banners across *Settings*, *Apps* and *Game Library* now uses the same green accent as NVIDIA Sentinel
+- **Remote Windows Update on the host** — an approved StreamLight client (3.3.0+) runs Windows Update on the host straight from its *Options* menu: a classified scan (*Security & critical / Defender / Optional*; feature/version upgrades are shown but never installed remotely), a scope choice (*Security + Defender* or *All updates*), then install + reboot-if-required. The privileged work runs in the LocalSystem service (no UAC); the install command needs a verified signature like power-off; the job is backgroundable (status-bar chip + reopen). Ideal for a headless host you can't reach with a keyboard
+- **Update and shut down** — the remote power-off can now install pending Windows updates before powering off, on the host and/or the client. It checks both sides, shows where updates are pending, and enables the option only when there's actually something to install. Uses Windows' documented *Update and shut down* path
+- **UI polish** — green Home tile counts and consistent status-banner accents; the *Bridge security* device list now shows just the device name
+- Requires **StreamLight 3.3.0**; update both apps together
+
+> 🙏 Thanks again to [**@SolemnDucc**](https://github.com/FoggyBytes/StreamLight/issues/1) for the headless-host Windows Update suggestions.
 
 ## ✨ What's New in 7.2.0 — "The Power Update"
 
@@ -93,7 +98,7 @@ These features cross the bridge and require both apps. The version next to each 
 
 - **Authenticated bridge** — the TCP bridge StreamLight uses now only accepts commands from devices you have explicitly approved. Each client signs every command with its Moonlight certificate; on first contact StreamTweak shows a one-time *"Allow this client?"* prompt with the device name and a 4-digit PIN to confirm against the one shown on the device
 - **Bridge clients management** — *Settings → Bridge security* lists approved/pending clients with Approve / Revoke, plus a *Require authenticated StreamLight clients* toggle (ON by default)
-- **Authorization never blocks streaming** — it only gates the StreamTweak↔StreamLight integration (host metrics, NIC speed & Streaming Mode, store badges, session reports, Tailscale dual-tile, remote pause). Requires **StreamLight 3.1.0**; update both apps together
+- **Authorization never blocks streaming** — it only gates the StreamTweak↔StreamLight integration (host metrics, NIC speed & Streaming Mode, store badges, session reports, Tailscale, remote pause). Requires **StreamLight 3.1.0**; update both apps together
 - **Security hardening** — the LocalSystem service now verifies the calling process before acting; the bridge adds connection/size/timeout guards; correct WQL escaping and atomic config writes
 
 > See [changelog.txt](changelog.txt) for the full release history.
@@ -122,7 +127,7 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
 ## 📝 Installation
 
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_7.2.1_Installer.exe` and run it.
+2. Download the latest `StreamTweak_7.3.0_Installer.exe` and run it.
 
 The installer registers `StreamTweakService` as a Windows Service (LocalSystem) so that NIC and host-assets operations require no UAC prompt. Windows App SDK 1.8 runtime is installed automatically if missing.
 
