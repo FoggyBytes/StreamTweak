@@ -20,9 +20,6 @@ Version 7.3.1 - "The Housekeeping Update" (10/06/2026)
 🧹 UNDER THE HOOD:
 • Internal cleanup with no change in behaviour: the large main app file was split into smaller focused parts, and the tray "Speed" readout no longer reaches into the notify-icon library's internals to stay current
 
-⚠️ COMPATIBILITY:
-• Drop-in update — no StreamLight changes required; it continues to pair with StreamLight 3.3.0
-
 --------------------------------------------------------
 Version 7.3.0 - "The Patch Tuesday Update" (06/06/2026)
 --------------------------------------------------------
