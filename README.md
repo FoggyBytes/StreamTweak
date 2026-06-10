@@ -77,7 +77,6 @@ These features cross the bridge and require both apps. The version next to each 
 - **More resilient remote updates** — if a Windows Update scan result goes stale before you pick what to install, the host silently re-scans and retries instead of failing with an obscure error
 - **Accessibility** — screen readers and UI automation now announce the toggles, buttons, drop-downs and lists across Network, Display, Audio, Apps, Game Library and Settings by name
 - **Under the hood** — the main app file was split into smaller focused parts and the tray *Speed* readout no longer reaches into the notify-icon library's internals; no change in behaviour
-- Drop-in update — **no StreamLight changes required**; continues to pair with **StreamLight 3.3.0**
 
 ## ✨ What's New in 7.3.0 — "The Patch Tuesday Update"
 
