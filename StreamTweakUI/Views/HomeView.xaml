@@ -558,10 +558,16 @@
                         <TextBlock Text="{x:Bind ViewModel.GameLibraryText, Mode=OneWay}"
                                    Style="{StaticResource ST_MonoMedium}"
                                    Foreground="#22c55e"/>
-                        <TextBlock Text="{x:Bind ViewModel.GameLibrarySyncText, Mode=OneWay}"
-                                   Style="{StaticResource ST_BodySmall}"
-                                   Visibility="{x:Bind ViewModel.HasGameLibrarySyncText, Mode=OneWay,
-                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
+                                    Visibility="{x:Bind ViewModel.HasGameLibrarySyncText, Mode=OneWay,
+                                                 Converter={StaticResource BoolToVisibilityConverter}}">
+                            <TextBlock Text="{x:Bind ViewModel.GameLibrarySyncText, Mode=OneWay}"
+                                       Style="{StaticResource ST_BodySmall}"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="{x:Bind ViewModel.GameLibrarySyncValue, Mode=OneWay}"
+                                       Style="{StaticResource ST_MonoValueSmall}"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
                     </StackPanel>
                 </Button>
 

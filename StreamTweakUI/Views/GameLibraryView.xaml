@@ -67,6 +67,8 @@
                                    Style="{StaticResource ST_RowDescription}"
                                    VerticalAlignment="Center"/>
                         <ToggleSwitch Style="{StaticResource ST_Toggle}"
+                                      AutomationProperties.AutomationId="GameLibrarySyncToggle"
+                                      AutomationProperties.Name="Sync game library to Sunshine"
                                       IsOn="{x:Bind ViewModel.SyncEnabled, Mode=TwoWay}"
                                       VerticalAlignment="Center"
                                       IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"/>
@@ -255,6 +257,7 @@
                                         <!-- Enable toggle -->
                                         <ToggleSwitch Grid.Column="3"
                                                       Style="{StaticResource ST_Toggle}"
+                                                      AutomationProperties.Name="{x:Bind Name}"
                                                       IsOn="{x:Bind Enabled, Mode=TwoWay}"
                                                       VerticalAlignment="Center"
                                                       HorizontalAlignment="Right"

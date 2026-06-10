@@ -52,6 +52,8 @@
                                 Width="32" Height="32"
                                 Padding="0"
                                 Click="RefreshButton_Click"
+                                AutomationProperties.AutomationId="RefreshDisplaysButton"
+                                AutomationProperties.Name="Refresh display list"
                                 ToolTipService.ToolTip="Refresh display list">
                             <FontIcon Glyph="&#xE72C;" FontSize="13"/>
                         </Button>
@@ -117,6 +119,7 @@
 
                                         <ToggleSwitch Grid.Column="1"
                                                       Style="{StaticResource ST_Toggle}"
+                                                      AutomationProperties.Name="{x:Bind FriendlyName}"
                                                       IsOn="{x:Bind HdrEnabled, Mode=OneWay}"
                                                       IsEnabled="{x:Bind HdrSupported}"
                                                       VerticalAlignment="Center"
@@ -147,6 +150,8 @@
                         </StackPanel>
                         <ToggleSwitch Grid.Column="1"
                                       Style="{StaticResource ST_Toggle}"
+                                      AutomationProperties.AutomationId="AutoHdrToggle"
+                                      AutomationProperties.Name="Auto HDR"
                                       IsOn="{x:Bind ViewModel.AutoHdrEnabled, Mode=TwoWay}"
                                       VerticalAlignment="Center"/>
                     </Grid>

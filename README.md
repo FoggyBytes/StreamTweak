@@ -11,7 +11,7 @@
 
 ## ✅ Compatibility
 
-Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.3.0** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
+Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.3.1** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
 
 > 🔐 **Authenticated bridge (7.1.0+).** The host↔client bridge now only accepts commands from StreamLight devices you have explicitly approved (a one-time prompt shows a 4-digit PIN to confirm against the one on the device). **Authorization never affects streaming** — it only gates the StreamTweak↔StreamLight integration: host metrics overlay, NIC speed & one-click Streaming Mode, store badges on covers, session quality reports & live charts, Tailscale, and remote pause. Requires **StreamLight 3.1.0 or later**; update both apps together. You can turn it off in **Settings → Bridge security** to pair with older clients during the transition.
 
@@ -71,6 +71,14 @@ These features cross the bridge and require both apps. The version next to each 
 - **Tailscale presence** *(StreamLight 3.0.0+; unified into a single tile in 3.3.0)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight records that address on the host's **single** tile (which now tracks both the LAN and Tailscale IPs, with a `TAILSCALE · AVAILABLE` badge) and offers a *Tailscale* option to open the host's apps over the `100.x` endpoint — so streaming from outside the LAN is one click away, no port forwarding. On the client side, StreamLight can also **auto-start Tailscale at launch**, completing the round-trip
 - **Remote Windows Update** *(StreamLight 3.3.0+, headline of this release pair)* — an approved client can scan and install Windows updates on the host and reboot it, or install pending updates as part of *Update and shut down* — all from the client, no keyboard on the host. The privileged Windows Update work runs in the LocalSystem service; see *What's New in 7.3.0* below
 
+## ✨ What's New in 7.3.1 — "The Housekeeping Update"
+
+- **Security hardening** — the host service's directory whitelist (used when writing `apps.json` or swapping host tiles) now matches on a proper folder boundary, so a look-alike sibling folder can't slip through
+- **More resilient remote updates** — if a Windows Update scan result goes stale before you pick what to install, the host silently re-scans and retries instead of failing with an obscure error
+- **Accessibility** — screen readers and UI automation now announce the toggles, buttons, drop-downs and lists across Network, Display, Audio, Apps, Game Library and Settings by name
+- **Under the hood** — the main app file was split into smaller focused parts and the tray *Speed* readout no longer reaches into the notify-icon library's internals; no change in behaviour
+- Drop-in update — **no StreamLight changes required**; continues to pair with **StreamLight 3.3.0**
+
 ## ✨ What's New in 7.3.0 — "The Patch Tuesday Update"
 
 - **Remote Windows Update on the host** — an approved StreamLight client (3.3.0+) runs Windows Update on the host straight from its *Options* menu: a classified scan (*Security & critical / Defender / Optional*; feature/version upgrades are shown but never installed remotely), a scope choice (*Security + Defender* or *All updates*), then install + reboot-if-required. The privileged work runs in the LocalSystem service (no UAC); the install command needs a verified signature like power-off; the job is backgroundable (status-bar chip + reopen). Ideal for a headless host you can't reach with a keyboard
@@ -129,7 +137,7 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
 ## 📝 Installation
 
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_7.3.0_Installer.exe` and run it.
+2. Download the latest `StreamTweak_7.3.1_Installer.exe` and run it.
 
 The installer registers `StreamTweakService` as a Windows Service (LocalSystem) so that NIC and host-assets operations require no UAC prompt. Windows App SDK 1.8 runtime is installed automatically if missing.
 

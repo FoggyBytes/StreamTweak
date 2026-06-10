@@ -25,7 +25,7 @@ namespace StreamTweak
             var v = Assembly.GetExecutingAssembly().GetName().Version;
             SidebarVersionText.Text = v != null
                 ? $"v{v.Major}.{v.Minor}.{v.Build}"
-                : "v7.3.0";
+                : "v7.3.1";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -58,6 +58,7 @@ namespace StreamTweak
 
             ConfigureTitleBar();    // sets up AppWindow.TitleBar colours + SetTitleBar()
             ConfigureWindowSize();
+            RestoreSidebarState();  // remember the collapsed/expanded sidebar across runs
             SubclassForMinSize(WindowNative.GetWindowHandle(this));
 
             // Clicking X shows a confirmation dialog instead of silently hiding.
@@ -377,6 +378,31 @@ namespace StreamTweak
 
         private const int MinLogicalWidth  = 1280;
         private const int MinLogicalHeight = 720;
+
+        // ── Sidebar collapsed/expanded state (restored across runs) ──────────────
+        private const string KeySidebarPaneOpen = "SidebarPaneOpen";
+        private bool _paneStateRestored;
+
+        private void RestoreSidebarState()
+        {
+            // Apply early to reduce flicker. This assignment is usually overridden by the
+            // NavigationView's first layout pass (in Expanded mode it auto-opens the pane),
+            // so we re-apply it in Loaded below — which is the reliable point.
+            NavView.IsPaneOpen = Services.ConfigService.GetBool(KeySidebarPaneOpen, true);
+
+            NavView.Loaded += (_, _) =>
+            {
+                if (_paneStateRestored) return; // Loaded can fire more than once; restore only once
+                _paneStateRestored = true;
+
+                NavView.IsPaneOpen = Services.ConfigService.GetBool(KeySidebarPaneOpen, true);
+
+                // Attach the save handlers ONLY AFTER restoring, so neither the restore itself
+                // nor the control's auto-open during initial layout clobbers the user's choice.
+                NavView.PaneOpening += (_, _) => Services.ConfigService.Set(KeySidebarPaneOpen, true);
+                NavView.PaneClosing += (_, _) => Services.ConfigService.Set(KeySidebarPaneOpen, false);
+            };
+        }
 
         private void ConfigureWindowSize()
         {

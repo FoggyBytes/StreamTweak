@@ -75,6 +75,7 @@
                                     Style="{StaticResource ST_ButtonSecondary}"
                                     Click="OpenLicense_Click"/>
                             <Button Style="{StaticResource ST_ButtonSecondary}"
+                                    AutomationProperties.Name="Donate"
                                     Click="OpenDonate_Click">
                                 <StackPanel Orientation="Horizontal" Spacing="5">
                                     <Image Width="12" Height="12" VerticalAlignment="Center">
@@ -222,6 +223,8 @@
                             </StackPanel>
                             <ToggleSwitch Grid.Column="1"
                                           Style="{StaticResource ST_Toggle}"
+                                          AutomationProperties.AutomationId="StartWithWindowsToggle"
+                                          AutomationProperties.Name="Start with Windows"
                                           IsOn="{x:Bind ViewModel.StartWithWindows, Mode=TwoWay}"
                                           VerticalAlignment="Center"/>
                         </Grid>
@@ -323,6 +326,8 @@
                             <ToggleSwitch Grid.Column="1"
                                           x:Name="DebugModeToggle"
                                           Style="{StaticResource ST_Toggle}"
+                                          AutomationProperties.AutomationId="DebugModeToggle"
+                                          AutomationProperties.Name="Debug mode"
                                           IsOn="{x:Bind ViewModel.IsDebugModeActive, Mode=OneWay}"
                                           Toggled="DebugModeToggle_Toggled"
                                           VerticalAlignment="Center"/>

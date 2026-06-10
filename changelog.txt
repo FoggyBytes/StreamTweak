@@ -4,6 +4,25 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+------------------------------------------------------
+Version 7.3.1 - "The Housekeeping Update" (10/06/2026)
+------------------------------------------------------
+
+🔒 SECURITY:
+• Tightened the host service's path checks: the directory whitelist used when writing apps.json or swapping host tiles now matches on a proper folder boundary, so a look-alike sibling folder (e.g. one whose name just starts the same) can no longer slip through
+
+🛠️ RELIABILITY:
+• Remote Windows Update: if a scan result goes stale before you pick what to install (a long pause, or Windows Update recycling in the background), the host now silently re-scans and retries instead of failing with an obscure error
+
+♿ ACCESSIBILITY:
+• Screen readers and UI automation tools now announce the toggles, buttons, drop-downs and lists across Network, Display, Audio, Apps, Game Library and Settings by name
+
+🧹 UNDER THE HOOD:
+• Internal cleanup with no change in behaviour: the large main app file was split into smaller focused parts, and the tray "Speed" readout no longer reaches into the notify-icon library's internals to stay current
+
+⚠️ COMPATIBILITY:
+• Drop-in update — no StreamLight changes required; it continues to pair with StreamLight 3.3.0
+
 --------------------------------------------------------
 Version 7.3.0 - "The Patch Tuesday Update" (06/06/2026)
 --------------------------------------------------------

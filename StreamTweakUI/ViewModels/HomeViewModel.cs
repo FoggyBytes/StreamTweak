@@ -354,6 +354,13 @@ namespace StreamTweak.ViewModels
 
         public bool HasGameLibrarySyncText => !string.IsNullOrEmpty(_gameLibrarySyncText);
 
+        private string _gameLibrarySyncValue = string.Empty;
+        public string GameLibrarySyncValue
+        {
+            get => _gameLibrarySyncValue;
+            private set => SetProperty(ref _gameLibrarySyncValue, value);
+        }
+
         private string _autoHdrText = "—";
         public string AutoHdrText
         {
@@ -819,12 +826,8 @@ namespace StreamTweak.ViewModels
                 if (state.LastSyncUtc != null)
                 {
                     var local = state.LastSyncUtc.Value.ToLocalTime();
-                    var now   = DateTime.Now;
-                    GameLibrarySyncText = local.Date == now.Date
-                        ? $"Synced today {local:HH:mm}"
-                        : local.Date == now.Date.AddDays(-1)
-                            ? $"Synced yesterday {local:HH:mm}"
-                            : $"Synced {local:d MMM yyyy}";
+                    GameLibrarySyncText  = "Synced";
+                    GameLibrarySyncValue = local.ToString("dd/MM/yyyy  HH:mm");
                 }
             }
             catch { GameLibraryText = "—"; }

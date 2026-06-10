@@ -29,6 +29,8 @@
                     <ComboBox ItemsSource="{x:Bind ViewModel.Adapters}"
                               SelectedItem="{x:Bind ViewModel.SelectedAdapter, Mode=TwoWay}"
                               HorizontalAlignment="Stretch"
+                              AutomationProperties.AutomationId="NetworkAdapterComboBox"
+                              AutomationProperties.Name="Network adapter"
                               IsEnabled="{x:Bind ViewModel.HasAdapters, Mode=OneWay}"/>
 
                     <StackPanel Orientation="Horizontal" Spacing="6">
@@ -73,10 +75,13 @@
                     <ComboBox ItemsSource="{x:Bind ViewModel.Speeds}"
                               SelectedItem="{x:Bind ViewModel.SelectedSpeed, Mode=TwoWay}"
                               HorizontalAlignment="Stretch"
+                              AutomationProperties.AutomationId="TargetLinkSpeedComboBox"
+                              AutomationProperties.Name="Target link speed"
                               IsEnabled="{x:Bind ViewModel.HasAdapters, Mode=OneWay}"/>
 
                     <Button Content="Apply Settings"
                             Style="{StaticResource ST_ButtonSecondary}"
+                            AutomationProperties.AutomationId="ApplyNetworkSettingsButton"
                             Click="ApplySettingsButton_Click"
                             HorizontalAlignment="Left"/>
 
@@ -99,6 +104,8 @@
                         </StackPanel>
                         <ToggleSwitch Grid.Column="1"
                                       Style="{StaticResource ST_Toggle}"
+                                      AutomationProperties.AutomationId="AutoStreamingModeToggle"
+                                      AutomationProperties.Name="Auto streaming mode"
                                       IsOn="{x:Bind ViewModel.AutoStreamingEnabled, Mode=TwoWay}"
                                       VerticalAlignment="Center"/>
                     </Grid>
@@ -112,12 +119,14 @@
 
                         <Button Content="Start Streaming Mode"
                                 Style="{StaticResource ST_ButtonGreen}"
+                                AutomationProperties.AutomationId="StartStreamingModeButton"
                                 Click="ToggleStreamingButton_Click"
                                 Visibility="{x:Bind ViewModel.IsStreamingModeActive, Mode=OneWay,
                                              Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
 
                         <Button Content="Stop Streaming Mode"
                                 Style="{StaticResource ST_ButtonDanger}"
+                                AutomationProperties.AutomationId="StopStreamingModeButton"
                                 Click="ToggleStreamingButton_Click"
                                 Visibility="{x:Bind ViewModel.IsStreamingModeActive, Mode=OneWay,
                                              Converter={StaticResource BoolToVisibilityConverter}}"/>

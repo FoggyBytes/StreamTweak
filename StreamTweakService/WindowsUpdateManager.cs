@@ -55,6 +55,13 @@ public sealed class WindowsUpdateManager
     // threads. Held as dynamic — the manager lives for the process lifetime.
     private dynamic? _searchResult;
 
+    // When the cached search completed. A WUA search result held for a long time can go
+    // stale (WUA service recycle, updates superseded), making Install() throw an opaque
+    // COM error. If the cached result is older than this, the install re-scans first so
+    // it works with fresh COM objects instead of failing with a cryptic message.
+    private DateTime _searchCompletedUtc = DateTime.MinValue;
+    private static readonly TimeSpan SearchStaleAfter = TimeSpan.FromMinutes(10);
+
     private void SetState(string phase, int percent, string message, string error = "")
     {
         lock (_lock)
@@ -134,38 +141,16 @@ public sealed class WindowsUpdateManager
     {
         try
         {
-            dynamic session = NewCom("Microsoft.Update.Session");
-            session.ClientApplicationID = "StreamTweak";
-            dynamic searcher = session.CreateUpdateSearcher();
-            // Software + driver updates not yet installed and not hidden.
-            dynamic result = searcher.Search("IsInstalled=0 and IsHidden=0");
+            Refresh();   // populates _searchResult / _list / _searchCompletedUtc under lock
 
-            var list = new List<UpdateInfo>();
-            int count = result.Updates.Count;
-            for (int i = 0; i < count; i++)
-            {
-                dynamic u = result.Updates.Item[i];
-                string category = Classify(u);
-                long sizeMb = 0;
-                try { sizeMb = (long)((decimal)u.MaxDownloadSize / (1024 * 1024)); } catch { }
-                string kb = "";
-                try { if (u.KBArticleIDs.Count > 0) kb = "KB" + u.KBArticleIDs.Item[0]; } catch { }
-                // Feature upgrades are surfaced for visibility but never installed remotely.
-                bool selectable = category != "upgrade";
-                list.Add(new UpdateInfo((string)u.Title, kb, category, sizeMb, selectable));
-            }
+            lock (_lock) { _busy = false; }
 
-            lock (_lock)
-            {
-                _searchResult = result;
-                _list = list;
-                _busy = false;
-            }
-
-            if (list.Count == 0)
+            int found;
+            lock (_lock) found = _list.Count(u => u.Selectable);
+            if (found == 0)
                 SetState(PhaseNoUpdates, -1, "The host is already up to date.");
             else
-                SetState(PhaseCheckReady, -1, $"{list.Count(u => u.Selectable)} update(s) found.");
+                SetState(PhaseCheckReady, -1, $"{found} update(s) found.");
         }
         catch (Exception ex)
         {
@@ -174,17 +159,88 @@ public sealed class WindowsUpdateManager
         }
     }
 
+    /// <summary>
+    /// Runs a fresh WUA search and refreshes the cached result, classified list, and
+    /// completion timestamp. Used by the check and by the install when the cached result
+    /// is stale. Returns the live COM search result.
+    /// </summary>
+    private dynamic Refresh()
+    {
+        dynamic session = NewCom("Microsoft.Update.Session");
+        session.ClientApplicationID = "StreamTweak";
+        dynamic searcher = session.CreateUpdateSearcher();
+        // Software + driver updates not yet installed and not hidden.
+        dynamic result = searcher.Search("IsInstalled=0 and IsHidden=0");
+
+        var list = new List<UpdateInfo>();
+        int count = result.Updates.Count;
+        for (int i = 0; i < count; i++)
+        {
+            dynamic u = result.Updates.Item[i];
+            string category = Classify(u);
+            long sizeMb = 0;
+            try { sizeMb = (long)((decimal)u.MaxDownloadSize / (1024 * 1024)); } catch { }
+            string kb = "";
+            try { if (u.KBArticleIDs.Count > 0) kb = "KB" + u.KBArticleIDs.Item[0]; } catch { }
+            // Feature upgrades are surfaced for visibility but never installed remotely.
+            bool selectable = category != "upgrade";
+            list.Add(new UpdateInfo((string)u.Title, kb, category, sizeMb, selectable));
+        }
+
+        lock (_lock)
+        {
+            _searchResult = result;
+            _list = list;
+            _searchCompletedUtc = DateTime.UtcNow;
+        }
+        return result;
+    }
+
     private void RunInstall(string scope)
     {
+        // Pick a fresh-enough search result. A cached result older than SearchStaleAfter
+        // (or none) is re-scanned up front so Install() never runs against stale COM
+        // objects. If the cached result turns out to be stale mid-use anyway, the COM
+        // exception is caught below and the install retried once against a fresh scan.
+        dynamic? cached;
+        bool stale;
+        lock (_lock)
+        {
+            cached = _searchResult;
+            stale  = cached == null || DateTime.UtcNow - _searchCompletedUtc > SearchStaleAfter;
+        }
+
         try
+        {
+            dynamic result = stale ? Refresh() : cached!;
+            try
+            {
+                InstallFromResult(result, scope);
+            }
+            catch (System.Runtime.InteropServices.COMException) when (!stale)
+            {
+                // The cached COM objects went stale between the check and now — re-scan
+                // once and retry the install against fresh objects.
+                SetState(PhaseDownloading, 0, "Refreshing the update list…");
+                InstallFromResult(Refresh(), scope);
+            }
+        }
+        catch (Exception ex)
+        {
+            lock (_lock) { _busy = false; }
+            SetState(PhaseError, -1, "Update failed.", Short(ex.Message));
+        }
+    }
+
+    private void InstallFromResult(dynamic result, string scope)
+    {
         {
             bool all = string.Equals(scope, "ALL", StringComparison.OrdinalIgnoreCase);
 
-            // Build the install set from the cached search result, filtered by scope and
+            // Build the install set from the search result, filtered by scope and
             // never including feature upgrades.
             dynamic toProcess = NewCom("Microsoft.Update.UpdateColl");
             long totalBytes = 0;
-            dynamic result = _searchResult!;
             int count = result.Updates.Count;
             for (int i = 0; i < count; i++)
             {
@@ -247,11 +303,6 @@ public sealed class WindowsUpdateManager
             {
                 SetState(PhaseDone, 100, "Updates installed. No restart needed.");
             }
-        }
-        catch (Exception ex)
-        {
-            lock (_lock) { _busy = false; }
-            SetState(PhaseError, -1, "Update failed.", Short(ex.Message));
         }
     }
 

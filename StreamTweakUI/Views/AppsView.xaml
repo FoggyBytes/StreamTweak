@@ -55,6 +55,8 @@
                           ItemsSource="{x:Bind ViewModel.Apps}"
                           SelectedItem="{x:Bind ViewModel.SelectedApp, Mode=TwoWay}"
                           SelectionMode="Single"
+                          AutomationProperties.AutomationId="ManagedAppsListView"
+                          AutomationProperties.Name="Managed apps"
                           Padding="20,16,20,8">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem" BasedOn="{StaticResource DefaultListViewItemStyle}">
@@ -98,6 +100,7 @@
                                     <!-- AutoManage toggle -->
                                     <ToggleSwitch Grid.Column="2"
                                                   Style="{StaticResource ST_Toggle}"
+                                                  AutomationProperties.Name="{x:Bind Name}"
                                                   IsOn="{x:Bind AutoManage, Mode=TwoWay}"
                                                   VerticalAlignment="Center"
                                                   HorizontalAlignment="Right"
@@ -116,21 +119,25 @@
 
                     <Button Content="Add"
                             Style="{StaticResource ST_ButtonSecondary}"
+                            AutomationProperties.AutomationId="AddAppButton"
                             Click="AddButton_Click"/>
 
                     <Button Content="Remove"
                             Style="{StaticResource ST_ButtonSecondary}"
+                            AutomationProperties.AutomationId="RemoveAppButton"
                             IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}"
                             Click="RemoveButton_Click"/>
 
                     <Button Content="End now"
                             Style="{StaticResource ST_ButtonSecondary}"
+                            AutomationProperties.AutomationId="EndAppNowButton"
                             IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}"
                             Click="KillButton_Click"
                             ToolTipService.ToolTip="Immediately terminate the selected app"/>
 
                     <Button Content="Restart"
                             Style="{StaticResource ST_ButtonSecondary}"
+                            AutomationProperties.AutomationId="RestartAppButton"
                             IsEnabled="{x:Bind ViewModel.HasSelection, Mode=OneWay}"
                             Click="RestartButton_Click"
                             ToolTipService.ToolTip="Kill then relaunch the selected app"/>

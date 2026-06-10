@@ -228,14 +228,21 @@ public class PipeWorker : BackgroundService
 
     /// <summary>
     /// Security check: only allow writing to apps.json files inside known streaming server directories.
+    ///
+    /// Only the machine-wide bases are listed. The per-user AppData folders are intentionally
+    /// NOT here: this service runs as LocalSystem, so SpecialFolder.ApplicationData /
+    /// LocalApplicationData resolve to the SYSTEM profile (…\config\systemprofile\AppData\…),
+    /// never to the logged-in user's profile — so they could only ever match a SYSTEM-profile
+    /// path, not the real user apps.json. Servers that keep apps.json under the user's AppData
+    /// (e.g. Apollo / Vibeshine) are handled entirely in the UI process, which writes there
+    /// directly (it owns that folder) when the service declines the path — see
+    /// SunshineSync.Sync's WriteAppsJson → direct File.WriteAllText fallback.
     /// </summary>
     private static readonly string[] _allowedBasePaths =
     {
         Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
         Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86),
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
     };
 
     private static bool IsAllowedAppsJsonPath(string path)
@@ -249,11 +256,25 @@ public class PipeWorker : BackgroundService
             normalized.Contains(Path.DirectorySeparatorChar + app + Path.DirectorySeparatorChar,
                 StringComparison.OrdinalIgnoreCase));
 
-        bool hasValidBase = _allowedBasePaths.Any(b =>
-            !string.IsNullOrEmpty(b) &&
-            normalized.StartsWith(b, StringComparison.OrdinalIgnoreCase));
+        return hasAppName && IsUnderAllowedBase(normalized);
+    }
 
-        return hasAppName && hasValidBase;
+    /// <summary>
+    /// True when <paramref name="normalized"/> sits under one of the allowed base
+    /// directories. The base must be followed by a directory separator (or be an exact
+    /// match) so that a sibling like "C:\Program FilesEvil" cannot pass a naive
+    /// StartsWith("C:\Program Files") prefix check.
+    /// </summary>
+    private static bool IsUnderAllowedBase(string normalized)
+    {
+        return _allowedBasePaths.Any(b =>
+        {
+            if (string.IsNullOrEmpty(b)) return false;
+            string baseDir = b.TrimEnd(Path.DirectorySeparatorChar);
+            return normalized.Equals(baseDir, StringComparison.OrdinalIgnoreCase)
+                || normalized.StartsWith(baseDir + Path.DirectorySeparatorChar,
+                    StringComparison.OrdinalIgnoreCase);
+        });
     }
 
     /// <summary>
@@ -275,11 +296,7 @@ public class PipeWorker : BackgroundService
             normalized.Contains(Path.DirectorySeparatorChar + app + Path.DirectorySeparatorChar,
                 StringComparison.OrdinalIgnoreCase));
 
-        bool hasValidBase = _allowedBasePaths.Any(b =>
-            !string.IsNullOrEmpty(b) &&
-            normalized.StartsWith(b, StringComparison.OrdinalIgnoreCase));
-
-        return hasAppName && hasValidBase;
+        return hasAppName && IsUnderAllowedBase(normalized);
     }
 
     private static readonly string[] _tileFiles = { "desktop.png", "steam.png" };

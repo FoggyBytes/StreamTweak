@@ -32,6 +32,8 @@
                     <ComboBox ItemsSource="{x:Bind ViewModel.Devices}"
                               SelectedItem="{x:Bind ViewModel.SelectedDevice, Mode=TwoWay}"
                               HorizontalAlignment="Stretch"
+                              AutomationProperties.AutomationId="AudioOutputDeviceComboBox"
+                              AutomationProperties.Name="Audio output device"
                               Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay,
                                            Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
 
@@ -64,6 +66,8 @@
                         <ToggleSwitch Grid.Column="1"
                                       x:Name="DolbyToggle"
                                       Style="{StaticResource ST_Toggle}"
+                                      AutomationProperties.AutomationId="DolbyAtmosToggle"
+                                      AutomationProperties.Name="Dolby Atmos for Headphones"
                                       IsEnabled="{x:Bind ViewModel.IsDolbyAvailable, Mode=OneWay}"
                                       Toggled="DolbyToggle_Toggled"
                                       VerticalAlignment="Center"/>
@@ -89,6 +93,8 @@
                         <ToggleSwitch Grid.Column="1"
                                       x:Name="SonicToggle"
                                       Style="{StaticResource ST_Toggle}"
+                                      AutomationProperties.AutomationId="WindowsSonicToggle"
+                                      AutomationProperties.Name="Windows Sonic for Headphones"
                                       IsEnabled="{x:Bind ViewModel.IsSonicAvailable, Mode=OneWay}"
                                       Toggled="SonicToggle_Toggled"
                                       VerticalAlignment="Center"/>
@@ -113,12 +119,16 @@
                         </StackPanel>
                         <ToggleSwitch Grid.Column="1"
                                       Style="{StaticResource ST_Toggle}"
+                                      AutomationProperties.AutomationId="AutoSpatialAudioToggle"
+                                      AutomationProperties.Name="Auto spatial audio"
                                       IsOn="{x:Bind ViewModel.SpatialAudioEnabled, Mode=TwoWay}"
                                       VerticalAlignment="Center"/>
                     </Grid>
 
                     <ComboBox SelectedIndex="{x:Bind ViewModel.AutoFormatIndex, Mode=TwoWay}"
-                              HorizontalAlignment="Stretch">
+                              HorizontalAlignment="Stretch"
+                              AutomationProperties.AutomationId="AutoSpatialFormatComboBox"
+                              AutomationProperties.Name="Auto spatial audio format">
                         <ComboBoxItem Content="Dolby Atmos for Headphones"/>
                         <ComboBoxItem Content="Windows Sonic for Headphones"/>
                     </ComboBox>
