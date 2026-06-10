@@ -11,7 +11,7 @@
 
 ## ✅ Compatibility
 
-Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.3.1** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
+Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.3.2** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
 
 > 🔐 **Authenticated bridge (7.1.0+).** The host↔client bridge now only accepts commands from StreamLight devices you have explicitly approved (a one-time prompt shows a 4-digit PIN to confirm against the one on the device). **Authorization never affects streaming** — it only gates the StreamTweak↔StreamLight integration: host metrics overlay, NIC speed & one-click Streaming Mode, store badges on covers, session quality reports & live charts, Tailscale, and remote pause. Requires **StreamLight 3.1.0 or later**; update both apps together. You can turn it off in **Settings → Bridge security** to pair with older clients during the transition.
 
@@ -70,6 +70,12 @@ These features cross the bridge and require both apps. The version next to each 
 - **Remote host power-off** *(StreamLight 3.2.0+)* — an approved client can shut down the host PC (or this client, or both) from a *Power…* chooser, over the authenticated `SHUTDOWN` command. Destructive, so it only ever fires with a verified signature from an approved device
 - **Tailscale presence** *(StreamLight 3.0.0+; unified into a single tile in 3.3.0)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight records that address on the host's **single** tile (which now tracks both the LAN and Tailscale IPs, with a `TAILSCALE · AVAILABLE` badge) and offers a *Tailscale* option to open the host's apps over the `100.x` endpoint — so streaming from outside the LAN is one click away, no port forwarding. On the client side, StreamLight can also **auto-start Tailscale at launch**, completing the round-trip
 - **Remote Windows Update** *(StreamLight 3.3.0+, headline of this release pair)* — an approved client can scan and install Windows updates on the host and reboot it, or install pending updates as part of *Update and shut down* — all from the client, no keyboard on the host. The privileged Windows Update work runs in the LocalSystem service; see *What's New in 7.3.0* below
+
+## ✨ What's New in 7.3.2 — "The Library Polish Update"
+
+- **Metadata for non-Steam games** — developer and release date for titles that aren't on Steam (Epic exclusives like *Alan Wake 2*) are now filled from **Wikidata** — the real studio and release date, no API key — instead of *N/A*. Steam stays the primary source; Wikidata is only a fallback for what Steam can't provide
+- **Sharper cover art** — Ubisoft Connect and Battle.net games now fetch a proper portrait cover from Steam when the title exists there, replacing the low-resolution square (Battle.net) or landscape (Ubisoft) art from those launchers — e.g. *Diablo IV*, *Assassin's Creed Shadows*. Falls back to the launcher art if the game isn't on Steam. Also fixed cover matching for names with a ™/® symbol (e.g. *Diablo® IV*)
+- **Steadier Home dashboard** — the Streaming Session card keeps the same height whether a stream is live or has just ended, so the page no longer resizes when a session stops; the recovered space shows the last session's game covers larger. The *NIC Speed* value is now always shown in green
 
 ## ✨ What's New in 7.3.1 — "The Housekeeping Update"
 
@@ -136,7 +142,7 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
 ## 📝 Installation
 
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_7.3.1_Installer.exe` and run it.
+2. Download the latest `StreamTweak_7.3.2_Installer.exe` and run it.
 
 The installer registers `StreamTweakService` as a Windows Service (LocalSystem) so that NIC and host-assets operations require no UAC prompt. Windows App SDK 1.8 runtime is installed automatically if missing.
 

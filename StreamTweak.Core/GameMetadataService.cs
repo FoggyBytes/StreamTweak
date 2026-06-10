@@ -186,8 +186,27 @@ namespace StreamTweak
                 }
                 else
                 {
-                    // Game not found on Steam — write N/A so it is not retried on every launch.
-                    newCache[key] = new GameMetadata("N/A", "N/A");
+                    // Not on Steam (e.g. Epic-exclusive). Fall back to Wikidata, which — unlike
+                    // PCGamingWiki (Cloudflare-walled) or the Epic local catalog (publisher-as-dev
+                    // + catalog-add date) — returns the real studio and release date key-free.
+                    GameMetadata? wd = null;
+                    try { wd = await WikidataMetadataService.FetchByNameAsync(game.Name); }
+                    catch (Exception ex) { DebugLogger.Log($"[Wikidata] ERROR {game.Name}: {ex.Message}"); }
+
+                    if (wd != null && (IsRealValue(wd.Developer) || IsRealValue(wd.ReleaseDate)))
+                    {
+                        newCache[key] = new GameMetadata(
+                            IsRealValue(wd.Developer) ? wd.Developer : "N/A",
+                            IsRealValue(wd.ReleaseDate) ? wd.ReleaseDate : "N/A");
+                        DebugLogger.Log($"[Wikidata] '{game.Name}' → dev={wd.Developer} date={wd.ReleaseDate}");
+                    }
+                    else
+                    {
+                        // Not found anywhere — write N/A.
+                        newCache[key] = new GameMetadata("N/A", "N/A");
+                        DebugLogger.Log($"[Wikidata] '{game.Name}' → not found");
+                    }
+                    await Task.Delay(400);
                 }
             }
 

@@ -118,6 +118,11 @@
                     <!-- ── Separator ──────────────────────────────────────────── -->
                     <Border Style="{StaticResource ST_Separator}" Margin="0,0,0,14"/>
 
+                    <!-- ── BODY: stesso MinHeight in ogni stato (active/inactive/empty)
+                         così la card mantiene un'altezza verticale costante; i tre
+                         pannelli si sovrappongono nella stessa cella (uno solo visibile) -->
+                    <Grid MinHeight="200">
+
                     <!-- ── EMPTY STATE: nessuna sessione registrata ──────────── -->
                     <StackPanel Visibility="{x:Bind ViewModel.ShowEmptyState, Mode=OneWay,
                                              Converter={StaticResource BoolToVisibilityConverter}}"
@@ -218,7 +223,7 @@
                                     </ItemsControl.ItemsPanel>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:SessionGameCover">
-                                            <Border Width="67" Height="100" CornerRadius="5"
+                                            <Border Width="100" Height="150" CornerRadius="5"
                                                     Background="{StaticResource STInput}"
                                                     BorderBrush="{StaticResource STBorder}"
                                                     BorderThickness="1"
@@ -231,9 +236,9 @@
                                                     <TextBlock Text="{x:Bind GameName}"
                                                                TextWrapping="Wrap"
                                                                TextAlignment="Center"
-                                                               FontSize="7"
+                                                               FontSize="9"
                                                                Opacity="0.4"
-                                                               Margin="3"
+                                                               Margin="4"
                                                                VerticalAlignment="Center"
                                                                HorizontalAlignment="Center"
                                                                Visibility="{x:Bind HasNoCover, Mode=OneWay,
@@ -382,6 +387,8 @@
 
                     </StackPanel>
 
+                    </Grid>
+
                 </StackPanel>
             </Border>
 
@@ -412,13 +419,13 @@
                             <TextBlock Text="NIC SPEED" Style="{StaticResource ST_SectionLabel}"/>
                         </StackPanel>
                         <Border CornerRadius="4" Padding="8,2"
-                                Background="#1Af59e0b"
-                                BorderBrush="#40f59e0b"
+                                Background="#1A22c55e"
+                                BorderBrush="#4022c55e"
                                 BorderThickness="1"
                                 HorizontalAlignment="Left">
                             <TextBlock Text="{x:Bind ViewModel.NicSpeedText, Mode=OneWay}"
                                        Style="{StaticResource ST_BadgeText}"
-                                       Foreground="{StaticResource STWarning}"/>
+                                       Foreground="{StaticResource STSuccess}"/>
                         </Border>
                         <TextBlock Text="{x:Bind ViewModel.NicAdapterName, Mode=OneWay}"
                                    Style="{StaticResource ST_BodySmall}"/>

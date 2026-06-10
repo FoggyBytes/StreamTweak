@@ -24,7 +24,7 @@ namespace StreamTweak.ViewModels
         public string AppVersion { get; } =
             Assembly.GetExecutingAssembly().GetName().Version is { } v
                 ? $"{v.Major}.{v.Minor}.{v.Build}"
-                : "7.3.1";
+                : "7.3.2";
 
         // ── Update notice (mirrors AppStateService) ───────────────────────────
         // Rebroadcasts the centralized GitHub-release poll into properties the

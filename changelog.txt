@@ -4,6 +4,21 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+--------------------------------------------------------
+Version 7.3.2 - "The Library Polish Update" (11/06/2026)
+--------------------------------------------------------
+
+✨ NEW FEATURES:
+• Developer and release date for games that aren't on Steam — Epic exclusives such as Alan Wake 2, for example — are now filled in from Wikidata: the real studio and the real release date, with no API key, instead of showing "N/A". Steam remains the primary source; Wikidata is only used as a fallback for the few titles Steam can't provide
+
+🖼️ GAME LIBRARY (cover art):
+• Ubisoft Connect and Battle.net games now fetch a proper portrait cover from Steam when the title exists there, replacing the low-resolution square (Battle.net) or landscape (Ubisoft) artwork those launchers provide — e.g. Diablo IV and Assassin's Creed Shadows now show a crisp 2:3 cover. If the game isn't on Steam, the launcher's own art is still used
+• Fixed cover lookup for games whose store name carries a ™ or ® symbol (e.g. "Diablo® IV"): the symbol previously broke the name match and forced the low-resolution fallback
+
+🎨 UI:
+• Home dashboard: the Streaming Session card now keeps the same height whether a stream is live or has just ended, so the page no longer resizes when a session stops — and the recovered space is used to show the last session's game covers larger
+• Home dashboard: the NIC Speed value is now always shown in green
+
 ------------------------------------------------------
 Version 7.3.1 - "The Housekeeping Update" (10/06/2026)
 ------------------------------------------------------

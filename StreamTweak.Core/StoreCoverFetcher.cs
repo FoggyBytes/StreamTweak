@@ -161,6 +161,10 @@ namespace StreamTweak
                         return await TryFetchGogLocalAsync(game, cachePath);
 
                     case "Ubisoft Connect":
+                        // Tier 1: Steam Store search by name (portrait 600×900 — preferred over
+                        // Ubisoft's landscape keyart thumb, which crops badly into a 2:3 cover)
+                        if (await TryFetchViaSteamSearchAsync(game, cachePath)) return true;
+                        // Tier 2: local Ubisoft thumb (landscape ~610×410 — last resort)
                         if (game.StoreId != null && ubisoftThumbs.TryGetValue(game.StoreId, out string? thumb)
                             && !string.IsNullOrEmpty(thumb))
                         {
@@ -185,6 +189,10 @@ namespace StreamTweak
                         return await TryFetchViaSteamSearchAsync(game, cachePath);
 
                     case "Battle.net":
+                        // Tier 1: Steam Store search by name (portrait 600×900 — preferred over
+                        // Battle.net's square ~300×300 logo_art, which looks soft when enlarged)
+                        if (await TryFetchViaSteamSearchAsync(game, cachePath)) return true;
+                        // Tier 2: local aggregate.json logo_art_uri (square — last resort)
                         if (game.StoreId != null &&
                             bnetUrls.TryGetValue(game.StoreId, out string? bnetUrl) &&
                             !string.IsNullOrEmpty(bnetUrl))
@@ -686,7 +694,10 @@ namespace StreamTweak
         // ── Image helpers ─────────────────────────────────────────────────────
 
         private static string NormalizeName(string name) =>
-            Regex.Replace(name.ToLowerInvariant(), @"[^a-z0-9 ]", " ").Trim();
+            // Collapse any run of non-alphanumeric chars (™, ®, ':', spaces, …) into a single
+            // space, so "Diablo® IV" → "diablo iv" matches Battle.net's "Diablo IV". Without the
+            // run-collapse a stray symbol leaves a double space and breaks both exact and Contains.
+            Regex.Replace(name.ToLowerInvariant(), @"[^a-z0-9]+", " ").Trim();
 
         private static async Task DownloadAsPngAsync(string url, string cachePath)
         {
