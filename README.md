@@ -11,7 +11,7 @@
 
 ## ✅ Compatibility
 
-Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.3.2** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
+Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.3.3** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) on the client PC.
 
 > 🔐 **Authenticated bridge (7.1.0+).** The host↔client bridge now only accepts commands from StreamLight devices you have explicitly approved (a one-time prompt shows a 4-digit PIN to confirm against the one on the device). **Authorization never affects streaming** — it only gates the StreamTweak↔StreamLight integration: host metrics overlay, NIC speed & one-click Streaming Mode, store badges on covers, session quality reports & live charts, Tailscale, and remote pause. Requires **StreamLight 3.1.0 or later**; update both apps together. You can turn it off in **Settings → Bridge security** to pair with older clients during the transition.
 
@@ -70,6 +70,11 @@ These features cross the bridge and require both apps. The version next to each 
 - **Remote host power-off** *(StreamLight 3.2.0+)* — an approved client can shut down the host PC (or this client, or both) from a *Power…* chooser, over the authenticated `SHUTDOWN` command. Destructive, so it only ever fires with a verified signature from an approved device
 - **Tailscale presence** *(StreamLight 3.0.0+; unified into a single tile in 3.3.0)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight records that address on the host's **single** tile (which now tracks both the LAN and Tailscale IPs, with a `TAILSCALE · AVAILABLE` badge) and offers a *Tailscale* option to open the host's apps over the `100.x` endpoint — so streaming from outside the LAN is one click away, no port forwarding. On the client side, StreamLight can also **auto-start Tailscale at launch**, completing the round-trip
 - **Remote Windows Update** *(StreamLight 3.3.0+, headline of this release pair)* — an approved client can scan and install Windows updates on the host and reboot it, or install pending updates as part of *Update and shut down* — all from the client, no keyboard on the host. The privileged Windows Update work runs in the LocalSystem service; see *What's New in 7.3.0* below
+
+## ✨ What's New in 7.3.3 — "The Fresh Look Update"
+
+- **Refreshed app icons**
+- **NVIDIA Sentinel** — the bundled NVIDIA setting catalog is updated to **NVIDIA Profile Inspector v3.0.1.15**, so captured driver settings show friendlier, up-to-date value labels (e.g. the new NVIDIA App Overlay flags and the renamed NVIDIA Ansel entry). Capture/restore behaviour is unchanged
 
 ## ✨ What's New in 7.3.2 — "The Library Polish Update"
 
@@ -142,7 +147,7 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
 ## 📝 Installation
 
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_7.3.2_Installer.exe` and run it.
+2. Download the latest `StreamTweak_7.3.3_Installer.exe` and run it.
 
 The installer registers `StreamTweakService` as a Windows Service (LocalSystem) so that NIC and host-assets operations require no UAC prompt. Windows App SDK 1.8 runtime is installed automatically if missing.
 

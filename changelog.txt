@@ -4,6 +4,16 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-----------------------------------------------------
+Version 7.3.3 - "The Fresh Look Update" (20/06/2026)
+-----------------------------------------------------
+
+🎨 UI:
+• Refreshed application icons
+
+🟩 NVIDIA SENTINEL:
+• Updated the bundled NVIDIA setting catalog to NVIDIA Profile Inspector v3.0.1.15, so captured driver settings show friendlier, up-to-date value labels (e.g. the new NVIDIA App Overlay flags and the renamed NVIDIA Ansel entry). Capture/restore behaviour is unchanged
+
 --------------------------------------------------------
 Version 7.3.2 - "The Library Polish Update" (11/06/2026)
 --------------------------------------------------------

@@ -15,11 +15,11 @@
             <Border x:Name="SessionCard"
                     Background="{StaticResource STCard}"
                     BorderBrush="{StaticResource STBorder}"
-                    BorderThickness="1" CornerRadius="10" Padding="20">
+                    BorderThickness="1" CornerRadius="10" Padding="20,12,20,20">
                 <StackPanel Spacing="0">
 
                     <!-- ── Header row ────────────────────────────────────────── -->
-                    <Grid Margin="0,0,0,14">
+                    <Grid Margin="0,0,0,8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
