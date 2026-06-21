@@ -25,7 +25,7 @@ namespace StreamTweak
             var v = Assembly.GetExecutingAssembly().GetName().Version;
             SidebarVersionText.Text = v != null
                 ? $"v{v.Major}.{v.Minor}.{v.Build}"
-                : "v7.3.3";
+                : "v7.4.0";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -298,7 +298,7 @@ namespace StreamTweak
         private static readonly FontFamily DmSans =
             new("ms-appx:///Resources/DMSans-Regular.ttf#DM Sans");
 
-        private static readonly Color DialogBg        = Color.FromArgb(0xE6, 0x1d, 0x1b, 0x1a);
+        private static readonly Color DialogBg        = Color.FromArgb(0xF2, 0x1d, 0x1b, 0x1a);
         private static readonly Color DialogBorder    = Color.FromArgb(0xFF, 0x2A, 0x27, 0x24);
         private static readonly Color DialogBodyText  = Color.FromArgb(0xFF, 0xC0, 0xBC, 0xB8);
         private static readonly Color DialogMutedText = Color.FromArgb(0xFF, 0x90, 0x8C, 0x88);

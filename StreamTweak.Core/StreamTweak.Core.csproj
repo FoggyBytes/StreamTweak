@@ -21,6 +21,11 @@
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
     <!-- SQLite per GOG library scanner (Chrome/GOG database) -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+    <!-- Override the native SQLite bundle pulled transitively by Microsoft.Data.Sqlite (2.1.6,
+         which ships SQLite < 3.50.2) to 3.0.3 — closes Dependabot alert GHSA-2m69-gcr7-jv3q /
+         CVE-2025-6965 (SQLite aggregate-term memory corruption). Hygiene: the only SQLite use is
+         a local read-only query of GOG Galaxy's own galaxy-2.0.db, not untrusted input. -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
   </ItemGroup>
 
   <ItemGroup>

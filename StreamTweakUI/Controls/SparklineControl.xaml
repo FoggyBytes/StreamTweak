@@ -9,11 +9,22 @@
             <RowDefinition Height="*"/>     <!-- chart + axis labels -->
         </Grid.RowDefinitions>
 
-        <!-- Title (shown inside chart area in fullscreen, above otherwise) -->
-        <TextBlock x:Name="TitleText"
-                   Grid.Row="0"
-                   FontSize="10" Opacity="0.65"
-                   Margin="0,0,0,3"/>
+        <!-- Title row: title on the left, optional multi-line legend on the right -->
+        <Grid Grid.Row="0" Margin="0,0,0,3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="TitleText"
+                       Grid.Column="0"
+                       FontSize="10" Opacity="0.65"
+                       VerticalAlignment="Center"/>
+            <StackPanel x:Name="LegendPanel"
+                        Grid.Column="1"
+                        Orientation="Horizontal" Spacing="10"
+                        VerticalAlignment="Center"
+                        Visibility="Collapsed"/>
+        </Grid>
 
         <!-- Chart area: Y-labels column | chart canvas | X-labels row -->
         <Grid Grid.Row="1">
@@ -53,6 +64,11 @@
                     <!-- Drawing canvas -->
                     <Canvas x:Name="ChartCanvas"
                             SizeChanged="ChartCanvas_SizeChanged">
+                        <!-- Min/max band (envelope mode): drawn behind the average line
+                             so downsampled spikes stay visible instead of being averaged away. -->
+                        <Polygon x:Name="EnvelopeBand"
+                                 StrokeThickness="0"
+                                 IsHitTestVisible="False"/>
                         <Polyline x:Name="DataLine"
                                   StrokeThickness="1.5"
                                   StrokeLineJoin="Round"/>

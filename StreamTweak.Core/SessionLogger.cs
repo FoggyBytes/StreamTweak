@@ -43,6 +43,18 @@ namespace StreamTweak
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<float>? DecodeTimeSeries { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? HostLatencyTimeSeries { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? HostGpuTimeSeries { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? HostEncTimeSeries { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? HostCpuTimeSeries { get; set; }
+
         /// <summary>
         /// Display names of games detected as running during this session (process monitor).
         /// Null  → monitor never ran (session pre-dates this feature, or manual streaming mode).
@@ -296,6 +308,28 @@ namespace StreamTweak
             catch { }
         }
 
+        /// <summary>
+        /// Deletes sessions recorded at or after <paramref name="cutoff"/> (browser-style
+        /// "clear the last hour/day/…" semantics — the most recent sessions go first).
+        /// Pass <see cref="DateTime.MinValue"/> to clear everything. The currently active
+        /// session is always preserved so EndSession() can still close it.
+        /// </summary>
+        public static void ClearSince(DateTime cutoff)
+        {
+            try
+            {
+                lock (_fileLock)
+                {
+                    var sessions = Load();
+                    var toKeep = sessions
+                        .Where(s => s.Id == _activeSessionId || s.StartTime < cutoff)
+                        .ToList();
+                    Save(toKeep);
+                }
+            }
+            catch { }
+        }
+
         public static void Initialize()
         {
             try
@@ -322,6 +356,10 @@ namespace StreamTweak
                         s.DropsTimeSeries   = cp.DropsSeries.Count   > 0 ? cp.DropsSeries   : null;
                         s.BitrateTimeSeries = cp.BitrateSeries.Count > 0 ? cp.BitrateSeries : null;
                         s.DecodeTimeSeries  = cp.DecodeSeries.Count  > 0 ? cp.DecodeSeries  : null;
+                        s.HostLatencyTimeSeries = cp.HostLatencySeries.Count > 0 ? cp.HostLatencySeries : null;
+                        s.HostGpuTimeSeries = cp.HostGpuSeries.Count > 0 ? cp.HostGpuSeries : null;
+                        s.HostEncTimeSeries = cp.HostEncSeries.Count > 0 ? cp.HostEncSeries : null;
+                        s.HostCpuTimeSeries = cp.HostCpuSeries.Count > 0 ? cp.HostCpuSeries : null;
                         usedCheckpoint = true;
                     }
 
@@ -387,7 +425,11 @@ namespace StreamTweak
             List<float> rttSeries,
             List<float> dropsSeries,
             List<float> bitrateSeries,
-            List<float> decodeSeries)
+            List<float> decodeSeries,
+            List<float> hostLatencySeries,
+            List<float> hostGpuSeries,
+            List<float> hostEncSeries,
+            List<float> hostCpuSeries)
         {
             try
             {
@@ -403,6 +445,10 @@ namespace StreamTweak
                     entry.DropsTimeSeries   = dropsSeries.Count   > 0 ? dropsSeries   : null;
                     entry.BitrateTimeSeries = bitrateSeries.Count > 0 ? bitrateSeries : null;
                     entry.DecodeTimeSeries  = decodeSeries.Count  > 0 ? decodeSeries  : null;
+                    entry.HostLatencyTimeSeries = hostLatencySeries.Count > 0 ? hostLatencySeries : null;
+                    entry.HostGpuTimeSeries = hostGpuSeries.Count > 0 ? hostGpuSeries : null;
+                    entry.HostEncTimeSeries = hostEncSeries.Count > 0 ? hostEncSeries : null;
+                    entry.HostCpuTimeSeries = hostCpuSeries.Count > 0 ? hostCpuSeries : null;
                     Save(sessions);
                 }
             }

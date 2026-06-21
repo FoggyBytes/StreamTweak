@@ -28,6 +28,11 @@ namespace StreamTweak
         [JsonPropertyName("jitter_max")]   public float JitterMax      { get; set; }
         [JsonPropertyName("decode_ms")]    public float DecodeMs       { get; set; }
         [JsonPropertyName("bitrate_mbps")] public float BitrateAvgMbps { get; set; }
+        // Host frame-processing latency (capture+encode) reported by the host in
+        // each video frame header and surfaced by StreamLight 4.1.0+. 0 = the
+        // client did not report it (older StreamLight, or no host timestamps).
+        [JsonPropertyName("host_latency_avg")] public float HostLatencyAvg { get; set; }
+        [JsonPropertyName("host_latency_max")] public float HostLatencyMax { get; set; }
     }
 
     public sealed class ClientBatch
@@ -52,6 +57,11 @@ namespace StreamTweak
         public float JitterMaxMs     { get; set; }
         public float DecodeAvgMs     { get; set; }
         public float BitrateAvgMbps  { get; set; }
+
+        // Host frame-processing latency (capture+encode), measured client-side from
+        // the per-frame host timestamp. -1 = not reported by the client.
+        public float HostLatencyAvgMs { get; set; } = -1f;
+        public float HostLatencyMaxMs { get; set; } = -1f;
 
         // Host metrics (sampled at each batch interval, -1 = not available)
         public int   HostGpuAvg      { get; set; } = -1;
@@ -83,6 +93,8 @@ namespace StreamTweak
         private readonly List<float> _jitterMaxSamples = new();
         private readonly List<float> _decodeSamples   = new();
         private readonly List<float> _bitrateSamples  = new();
+        private readonly List<float> _hostLatencyAvgSamples = new();
+        private readonly List<float> _hostLatencyMaxSamples = new();
 
         // Host (campionati una volta per batch, ogni ~10s)
         private readonly List<int>   _gpuSamples      = new();
@@ -96,6 +108,7 @@ namespace StreamTweak
         private readonly List<float> _dropsTimeSeries   = new();
         private readonly List<float> _bitrateTimeSeries = new();
         private readonly List<float> _decodeTimeSeries  = new();
+        private readonly List<float> _hostLatencyTimeSeries = new();
 
         private int  _targetFps;
         private long _totalFrames;
@@ -140,6 +153,16 @@ namespace StreamTweak
                     _dropsTimeSeries.Add(s.Drops);
                     _bitrateTimeSeries.Add(s.BitrateAvgMbps);
                     _decodeTimeSeries.Add(s.DecodeMs);
+
+                    // Host frame-processing latency — only when the client reported it
+                    // (>0). Older StreamLight builds send 0; excluded from the average,
+                    // the spike tracker and the sparkline so they read N/A, not zero.
+                    if (s.HostLatencyAvg > 0f)
+                    {
+                        _hostLatencyAvgSamples.Add(s.HostLatencyAvg);
+                        _hostLatencyMaxSamples.Add(s.HostLatencyMax);
+                        _hostLatencyTimeSeries.Add(s.HostLatencyAvg);
+                    }
                 }
 
                 // Host: un campione per batch (snapshot al momento della ricezione)
@@ -151,7 +174,7 @@ namespace StreamTweak
             }
         }
 
-        public (SessionQualityStats Stats, List<float> RttSeries, List<float> DropsSeries, List<float> BitrateSeries, List<float> DecodeSeries) Finalize()
+        public (SessionQualityStats Stats, List<float> RttSeries, List<float> DropsSeries, List<float> BitrateSeries, List<float> DecodeSeries, List<float> HostLatencySeries) Finalize()
         {
             lock (_lock)
             {
@@ -173,6 +196,9 @@ namespace StreamTweak
                     DecodeAvgMs     = count > 0 ? _decodeSamples.Average()           : 0f,
                     BitrateAvgMbps  = count > 0 ? _bitrateSamples.Average()          : 0f,
 
+                    HostLatencyAvgMs = _hostLatencyAvgSamples.Count > 0 ? _hostLatencyAvgSamples.Average() : -1f,
+                    HostLatencyMaxMs = _hostLatencyMaxSamples.Count > 0 ? _hostLatencyMaxSamples.Max()     : -1f,
+
                     HostGpuAvg      = _gpuSamples.Count     > 0 ? (int)_gpuSamples.Average()     : -1,
                     HostGpuPeak     = _gpuSamples.Count     > 0 ? _gpuSamples.Max()               : -1,
                     HostGpuEncAvg   = _gpuEncSamples.Count  > 0 ? (int)_gpuEncSamples.Average()  : -1,
@@ -186,11 +212,36 @@ namespace StreamTweak
 
                 const int MaxSeriesPoints = 600;
                 return (stats,
-                    Downsample(_rttTimeSeries,     MaxSeriesPoints),
-                    Downsample(_dropsTimeSeries,   MaxSeriesPoints),
-                    Downsample(_bitrateTimeSeries, MaxSeriesPoints),
-                    Downsample(_decodeTimeSeries,  MaxSeriesPoints));
+                    Downsample(_rttTimeSeries,         MaxSeriesPoints),
+                    Downsample(_dropsTimeSeries,       MaxSeriesPoints),
+                    Downsample(_bitrateTimeSeries,     MaxSeriesPoints),
+                    Downsample(_decodeTimeSeries,      MaxSeriesPoints),
+                    Downsample(_hostLatencyTimeSeries, MaxSeriesPoints));
             }
+        }
+
+        /// <summary>
+        /// Returns the per-batch host compute series (GPU %, Encoder %, CPU %),
+        /// downsampled to the same 600-point cap as the client series. Each list is
+        /// empty when that metric was never available. Call before <see cref="Reset"/>.
+        /// </summary>
+        public (List<float> Gpu, List<float> Enc, List<float> Cpu) GetHostSeries()
+        {
+            lock (_lock)
+            {
+                const int MaxSeriesPoints = 600;
+                return (
+                    Downsample(ToFloat(_gpuSamples),    MaxSeriesPoints),
+                    Downsample(ToFloat(_gpuEncSamples), MaxSeriesPoints),
+                    Downsample(ToFloat(_cpuSamples),    MaxSeriesPoints));
+            }
+        }
+
+        private static List<float> ToFloat(List<int> src)
+        {
+            var r = new List<float>(src.Count);
+            foreach (var v in src) r.Add(v);
+            return r;
         }
 
         public void Reset()
@@ -206,6 +257,8 @@ namespace StreamTweak
                 _jitterMaxSamples.Clear();
                 _decodeSamples.Clear();
                 _bitrateSamples.Clear();
+                _hostLatencyAvgSamples.Clear();
+                _hostLatencyMaxSamples.Clear();
                 _gpuSamples.Clear();
                 _gpuEncSamples.Clear();
                 _gpuTempSamples.Clear();
@@ -215,6 +268,7 @@ namespace StreamTweak
                 _dropsTimeSeries.Clear();
                 _bitrateTimeSeries.Clear();
                 _decodeTimeSeries.Clear();
+                _hostLatencyTimeSeries.Clear();
                 _targetFps   = 0;
                 _totalFrames = 0;
                 _totalDrops  = 0;
@@ -261,6 +315,10 @@ namespace StreamTweak
         public List<float> DropsSeries   { get; set; } = [];
         public List<float> BitrateSeries { get; set; } = [];
         public List<float> DecodeSeries  { get; set; } = [];
+        public List<float> HostLatencySeries { get; set; } = [];
+        public List<float> HostGpuSeries { get; set; } = [];
+        public List<float> HostEncSeries { get; set; } = [];
+        public List<float> HostCpuSeries { get; set; } = [];
 
         /// <summary>
         /// Games detected by SessionProcessMonitor up to the last checkpoint write.
@@ -304,9 +362,24 @@ namespace StreamTweak
                           : stats.HostGpuEncAvg < 90 ? QualityGrade.Medium
                           :                            QualityGrade.Low;
 
+            // Host frame-processing latency (capture+encode, client-measured) is a
+            // far more direct "the host couldn't keep up" signal than encoder
+            // utilization %: a high latency means the host took too long to produce
+            // the frame regardless of how busy the encoder looked. Only graded when
+            // the client reported it (>= 0); otherwise it doesn't penalize.
+            var gradeHostLat = stats.HostLatencyAvgMs < 0f  ? QualityGrade.High
+                             : stats.HostLatencyAvgMs < 8f  ? QualityGrade.High
+                             : stats.HostLatencyAvgMs <= 16f ? QualityGrade.Medium
+                             :                                QualityGrade.Low;
+
+            // A severe single-frame spike (>40 ms ≈ 2.5 frames at 60 Hz) drops the
+            // grade by one level even when the average is good.
+            if (stats.HostLatencyMaxMs > 40f && gradeHostLat < QualityGrade.Low)
+                gradeHostLat = (QualityGrade)((int)gradeHostLat + 1);
+
             return (QualityGrade)Math.Max(
-                Math.Max((int)gradeDrop, (int)gradeRtt),
-                (int)gradeEnc);
+                Math.Max(Math.Max((int)gradeDrop, (int)gradeRtt), (int)gradeEnc),
+                (int)gradeHostLat);
         }
     }
 }

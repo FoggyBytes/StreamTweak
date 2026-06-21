@@ -98,13 +98,16 @@
                                        Definition="Hardware video encoding engine on the GPU used to compress the stream (NVENC on NVIDIA)."/>
                     <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
                                        Term="GPU Temp"
-                                       Definition="GPU temperature in degrees Celsius. Available on NVIDIA hardware only via NVML."/>
+                                       Definition="GPU temperature in degrees Celsius, read cross-vendor (NVIDIA, AMD, Intel) from the same kernel source Windows Task Manager uses."/>
                     <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
                                        Term="VRAM"
                                        Definition="Dedicated video memory of the GPU, shown as used / total in MB."/>
                     <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
                                        Term="CPU"
                                        Definition="Main processor utilization averaged across all cores (%)."/>
+                    <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
+                                       Term="Host Frame Latency"
+                                       Definition="Time the host takes to capture and encode each frame before sending it (capture + encode), in ms — the most direct measure of whether the host kept up. Reported by the client from the per-frame host timestamp."/>
 
                     <!-- ── DISPLAY &amp; AUDIO ── -->
                     <TextBlock Text="// DISPLAY &amp; AUDIO"
@@ -155,7 +158,7 @@
 
                     <local:GlossaryRow xmlns:local="using:StreamTweak.Views"
                                        Term="Quality Grade"
-                                       Definition="Composite assessment of session quality based on drop rate, RTT, and GPU encoder load: Excellent, Good, or Poor."/>
+                                       Definition="Composite assessment of session quality based on drop rate, RTT, GPU encoder load, and host frame latency: Excellent, Good, or Poor."/>
 
                     <!-- ── APP MANAGEMENT ── -->
                     <TextBlock Text="// APP MANAGEMENT"

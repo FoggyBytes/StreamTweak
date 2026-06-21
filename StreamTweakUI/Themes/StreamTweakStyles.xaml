@@ -127,6 +127,13 @@
         <Setter Property="Foreground"  Value="{StaticResource STTextSecondary}"/>
     </Style>
 
+    <!-- Secondary value (max / peak / frame count): same mono font, dimmer grey -->
+    <Style x:Key="ST_MonoValueDim" TargetType="TextBlock">
+        <Setter Property="FontFamily"  Value="{StaticResource JetBrainsMono}"/>
+        <Setter Property="FontSize"    Value="12"/>
+        <Setter Property="Foreground"  Value="{StaticResource STTextMuted}"/>
+    </Style>
+
     <!-- Mono medium: JetBrains Mono 18px — last session header -->
     <Style x:Key="ST_MonoMedium" TargetType="TextBlock">
         <Setter Property="FontFamily"        Value="{StaticResource JetBrainsMonoMedium}"/>

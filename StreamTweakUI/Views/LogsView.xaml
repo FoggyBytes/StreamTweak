@@ -12,7 +12,7 @@
         Layer 2 — Session detail (covers layer 1 when visible)
         Layer 3 — Fullscreen chart (covers layers 1+2 when visible)
     -->
-    <Grid>
+    <Grid SizeChanged="Root_SizeChanged">
 
         <!-- ══════════════════════════════════════════════════════════════════ -->
         <!-- LAYER 1 — Session list                                            -->
@@ -33,11 +33,15 @@
                            Text="Session History"
                            Style="{StaticResource ST_PageTitle}"
                            VerticalAlignment="Center"/>
-                <Button Grid.Column="1"
-                        Content="Clear history"
-                        Style="{StaticResource ST_ButtonDanger}"
-                        VerticalAlignment="Center"
-                        Click="ClearHistory_Click"/>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                            VerticalAlignment="Center">
+                    <Button Content="Compare"
+                            Style="{StaticResource ST_ButtonSecondary}"
+                            Click="Compare_Click"/>
+                    <Button Content="Clear history"
+                            Style="{StaticResource ST_ButtonDanger}"
+                            Click="ClearHistory_Click"/>
+                </StackPanel>
             </Grid>
 
             <!-- Main card -->
@@ -287,19 +291,15 @@
 
                 <Grid Margin="20,18">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>   <!-- header -->
-                        <RowDefinition Height="Auto"/>   <!-- separator -->
-                        <RowDefinition Height="Auto"/>   <!-- stats panels -->
-                        <RowDefinition Height="Auto"/>   <!-- separator -->
-                        <RowDefinition Height="Auto"/>   <!-- "Client Charts" label -->
-                        <RowDefinition Height="*"/>      <!-- charts 2×2 -->
-                        <RowDefinition Height="Auto"/>   <!-- games section -->
-                        <RowDefinition Height="Auto"/>   <!-- grade bar -->
+                        <RowDefinition Height="Auto"/>   <!-- header (fixed) -->
+                        <RowDefinition Height="*"/>      <!-- scrollable body -->
+                        <RowDefinition Height="Auto"/>   <!-- grade bar (fixed) -->
                     </Grid.RowDefinitions>
 
-                    <!-- ── Row 0: Header ──────────────────────────────────── -->
+                    <!-- ── Row 0: Header (title · session covers · close) ──── -->
                     <Grid Grid.Row="0" Margin="0,0,0,14">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
@@ -309,7 +309,42 @@
                             <TextBlock Text="{x:Bind ViewModel.DetailHeaderSubtitle, Mode=OneWay}"
                                        Style="{StaticResource ST_PageSubtitle}"/>
                         </StackPanel>
-                        <Button Grid.Column="1"
+
+                        <!-- Covers of the games launched in this session, inline by the title -->
+                        <ScrollViewer Grid.Column="1"
+                                      Margin="20,0,12,0"
+                                      VerticalAlignment="Center"
+                                      HorizontalAlignment="Left"
+                                      HorizontalScrollMode="Auto"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollMode="Disabled"
+                                      Visibility="{x:Bind ViewModel.HasDetailGameCovers, Mode=OneWay,
+                                                   Converter={StaticResource BoolToVisibilityConverter}}">
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.DetailGameCovers, Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6"/></ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SessionGameCover">
+                                        <Border Width="34" Height="50" CornerRadius="4"
+                                                Background="{StaticResource STBackground}"
+                                                ToolTipService.ToolTip="{x:Bind GameName}">
+                                            <Grid>
+                                                <Image Source="{x:Bind CoverImage, Mode=OneWay}" Stretch="UniformToFill"
+                                                       Visibility="{x:Bind HasNoCover, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                                <TextBlock Text="{x:Bind GameName}"
+                                                           FontSize="7" TextWrapping="Wrap" TextAlignment="Center"
+                                                           Foreground="{StaticResource STTextDim}"
+                                                           Margin="2" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                           Visibility="{x:Bind HasNoCover, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+
+                        <Button Grid.Column="2"
                                 Style="{StaticResource ST_ButtonGhost}"
                                 Content="&#xE711;"
                                 FontFamily="{StaticResource SymbolThemeFontFamily}"
@@ -319,13 +354,20 @@
                                 ToolTipService.ToolTip="Close (Esc)"/>
                     </Grid>
 
+                    <!-- ── Row 1: Scrollable body (stats + charts + games) ── -->
+                    <ScrollViewer Grid.Row="1"
+                                  VerticalScrollMode="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollMode="Disabled"
+                                  Padding="0,0,12,0">
+                    <StackPanel>
+
                     <!-- ── Separator ─────────────────────────────────────── -->
-                    <Border Grid.Row="1"
-                            Style="{StaticResource ST_Separator}"
+                    <Border Style="{StaticResource ST_Separator}"
                             Margin="0,0,0,14"/>
 
-                    <!-- ── Row 2: Stats panels (CLIENT | HOST) ────────────── -->
-                    <Grid Grid.Row="2" ColumnSpacing="12" Margin="0,0,0,14">
+                    <!-- ── Stats panels (CLIENT | HOST) ───────────────────── -->
+                    <Grid ColumnSpacing="12" Margin="0,0,0,14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="*"/>
@@ -341,84 +383,45 @@
                                 <TextBlock Text="CLIENT  (StreamLight)"
                                            Style="{StaticResource ST_SectionLabel}"/>
 
-                                <Grid ColumnSpacing="10" RowSpacing="8">
+                                <!-- Two metric columns: label · primary value · dim secondary -->
+                                <Grid ColumnSpacing="18">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="62"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition/> <!-- Jitter -->
-                                        <RowDefinition/> <!-- Drops -->
-                                        <RowDefinition/> <!-- RTT -->
-                                        <RowDefinition/> <!-- Decode -->
-                                        <RowDefinition/> <!-- Bitrate -->
-                                    </Grid.RowDefinitions>
 
-                                    <!-- Jitter -->
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Jitter"
-                                               Style="{StaticResource ST_RowDescription}"
-                                               VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                        <TextBlock Text="avg" Style="{StaticResource ST_RowDescription}"/>
-                                        <TextBlock Text="{x:Bind ViewModel.DetailJitterAvg, Mode=OneWay}"
-                                                   Style="{StaticResource ST_MonoValueSmall}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                        <TextBlock Text="max" Style="{StaticResource ST_RowDescription}"/>
-                                        <TextBlock Text="{x:Bind ViewModel.DetailJitterMax, Mode=OneWay}"
-                                                   Style="{StaticResource ST_MonoValueSmall}"/>
+                                    <StackPanel Grid.Column="0" Spacing="7">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="RTT" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.DetailRttAvg, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.DetailRttMax, Mode=OneWay}" Style="{StaticResource ST_MonoValueDim}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Drops" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.DetailDropRate, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.DetailDrops, Mode=OneWay}" Style="{StaticResource ST_MonoValueDim}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Bitrate" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.DetailBitrateAvg, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                                        </Grid>
                                     </StackPanel>
 
-                                    <!-- Drops -->
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Drops"
-                                               Style="{StaticResource ST_RowDescription}"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1"
-                                               Text="{x:Bind ViewModel.DetailDropRate, Mode=OneWay}"
-                                               Style="{StaticResource ST_MonoValueSmall}"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="2"
-                                               Style="{StaticResource ST_RowDescription}"
-                                               VerticalAlignment="Center">
-                                        <Run Text="("/>
-                                        <Run Text="{x:Bind ViewModel.DetailDrops, Mode=OneWay}"/>
-                                        <Run Text=" frames)"/>
-                                    </TextBlock>
-
-                                    <!-- RTT -->
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="RTT"
-                                               Style="{StaticResource ST_RowDescription}"
-                                               VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                        <TextBlock Text="avg" Style="{StaticResource ST_RowDescription}"/>
-                                        <TextBlock Text="{x:Bind ViewModel.DetailRttAvg, Mode=OneWay}"
-                                                   Style="{StaticResource ST_MonoValueSmall}"/>
-                                    </StackPanel>
-                                    <StackPanel Grid.Row="2" Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                        <TextBlock Text="max" Style="{StaticResource ST_RowDescription}"/>
-                                        <TextBlock Text="{x:Bind ViewModel.DetailRttMax, Mode=OneWay}"
-                                                   Style="{StaticResource ST_MonoValueSmall}"/>
-                                    </StackPanel>
-
-                                    <!-- Decode -->
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="Decode"
-                                               Style="{StaticResource ST_RowDescription}"
-                                               VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                        <TextBlock Text="avg" Style="{StaticResource ST_RowDescription}"/>
-                                        <TextBlock Text="{x:Bind ViewModel.DetailDecodeAvg, Mode=OneWay}"
-                                                   Style="{StaticResource ST_MonoValueSmall}"/>
-                                    </StackPanel>
-
-                                    <!-- Bitrate -->
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Bitrate"
-                                               Style="{StaticResource ST_RowDescription}"
-                                               VerticalAlignment="Center"/>
-                                    <StackPanel Grid.Row="4" Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                                        <TextBlock Text="avg" Style="{StaticResource ST_RowDescription}"/>
-                                        <TextBlock Text="{x:Bind ViewModel.DetailBitrateAvg, Mode=OneWay}"
-                                                   Style="{StaticResource ST_MonoValueSmall}"/>
+                                    <StackPanel Grid.Column="1" Spacing="7">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Jitter" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.DetailJitterAvg, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.DetailJitterMax, Mode=OneWay}" Style="{StaticResource ST_MonoValueDim}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="58"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Decode" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.DetailDecodeAvg, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                                        </Grid>
                                     </StackPanel>
                                 </Grid>
                             </StackPanel>
@@ -436,70 +439,64 @@
                                 <TextBlock Text="HOST  (StreamTweak)"
                                            Style="{StaticResource ST_SectionLabel}"/>
 
-                                <Grid ColumnSpacing="10" RowSpacing="8">
+                                <!-- Two metric columns: label · primary value · dim secondary -->
+                                <Grid ColumnSpacing="18">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="72"/>
+                                        <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition/>
-                                        <RowDefinition/>
-                                        <RowDefinition/>
-                                        <RowDefinition/>
-                                        <RowDefinition/>
-                                    </Grid.RowDefinitions>
 
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="GPU"
-                                               Style="{StaticResource ST_RowDescription}"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="0" Grid.Column="1"
-                                               Text="{x:Bind ViewModel.DetailHostGpu, Mode=OneWay}"
-                                               Style="{StaticResource ST_MonoValueSmall}"
-                                               VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="0" Spacing="7">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="86"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="GPU" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.DetailHostGpu, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.DetailHostGpuSec, Mode=OneWay}" Style="{StaticResource ST_MonoValueDim}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="86"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="GPU Temp" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.DetailHostTemp, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.DetailHostTempSec, Mode=OneWay}" Style="{StaticResource ST_MonoValueDim}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="86"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Net TX" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.DetailHostNetTx, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </StackPanel>
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Encoder"
-                                               Style="{StaticResource ST_RowDescription}"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="1" Grid.Column="1"
-                                               Text="{x:Bind ViewModel.DetailHostEncoder, Mode=OneWay}"
-                                               Style="{StaticResource ST_MonoValueSmall}"
-                                               VerticalAlignment="Center"/>
-
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="GPU Temp"
-                                               Style="{StaticResource ST_RowDescription}"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="2" Grid.Column="1"
-                                               Text="{x:Bind ViewModel.DetailHostTemp, Mode=OneWay}"
-                                               Style="{StaticResource ST_MonoValueSmall}"
-                                               VerticalAlignment="Center"/>
-
-                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="CPU"
-                                               Style="{StaticResource ST_RowDescription}"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="3" Grid.Column="1"
-                                               Text="{x:Bind ViewModel.DetailHostCpu, Mode=OneWay}"
-                                               Style="{StaticResource ST_MonoValueSmall}"
-                                               VerticalAlignment="Center"/>
-
-                                    <TextBlock Grid.Row="4" Grid.Column="0" Text="Net TX avg"
-                                               Style="{StaticResource ST_RowDescription}"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Grid.Row="4" Grid.Column="1"
-                                               Text="{x:Bind ViewModel.DetailHostNetTx, Mode=OneWay}"
-                                               Style="{StaticResource ST_MonoValueSmall}"
-                                               VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Spacing="7">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="86"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Encoder" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.DetailHostEncoder, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.DetailHostEncoderSec, Mode=OneWay}" Style="{StaticResource ST_MonoValueDim}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="86"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="CPU" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.DetailHostCpu, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.DetailHostCpuSec, Mode=OneWay}" Style="{StaticResource ST_MonoValueDim}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="86"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="Frame latency" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.DetailHostLatency, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind ViewModel.DetailHostLatencySec, Mode=OneWay}" Style="{StaticResource ST_MonoValueDim}" Margin="8,0,0,0" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </StackPanel>
                                 </Grid>
                             </StackPanel>
                         </Border>
                     </Grid>
 
                     <!-- ── Separator ─────────────────────────────────────── -->
-                    <Border Grid.Row="3"
-                            Style="{StaticResource ST_Separator}"
+                    <Border Style="{StaticResource ST_Separator}"
                             Margin="0,0,0,10"/>
 
-                    <!-- ── Row 4: Charts section header ──────────────────── -->
-                    <StackPanel Grid.Row="4" Orientation="Horizontal" Spacing="10"
+                    <!-- ── Charts section header ──────────────────────────── -->
+                    <StackPanel Orientation="Horizontal" Spacing="10"
                                 Margin="0,0,0,10"
                                 Visibility="{x:Bind ViewModel.HasChartData, Mode=OneWay,
                                              Converter={StaticResource BoolToVisibilityConverter}}">
@@ -510,34 +507,28 @@
                                    VerticalAlignment="Center"/>
                     </StackPanel>
 
-                    <!-- ── Row 5: Charts 2×2 ─────────────────────────────── -->
-                    <Border Grid.Row="5"
-                            Background="#FA111010"
+                    <!-- ── Charts (single scrollable column) ──────────────── -->
+                    <Border Background="#FA111010"
                             CornerRadius="8"
                             Padding="12"
                             Visibility="{x:Bind ViewModel.HasChartData, Mode=OneWay,
                                          Converter={StaticResource BoolToVisibilityConverter}}">
-                        <Grid ColumnSpacing="12" RowSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="*"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-
-                            <Grid Grid.Row="0" Grid.Column="0"
+                        <!-- Single column, full-width. Each chart's height tracks the
+                             window size (185 → 225 → 280 px) via ViewModel.DetailChartHeight,
+                             set from the page SizeChanged handler. The whole body scrolls. -->
+                        <StackPanel Spacing="12">
+                            <Grid Height="{x:Bind ViewModel.DetailChartHeight, Mode=OneWay}"
                                   Tapped="RttChart_Tapped"
                                   ToolTipService.ToolTip="Click to expand">
                                 <ctl:SparklineControl
                                     Title="RTT ms"
                                     LineColor="#FFFFA726"
+                                    EnvelopeMode="True"
                                     Data="{x:Bind ViewModel.RttSeries, Mode=OneWay}"
                                     DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
                             </Grid>
 
-                            <Grid Grid.Row="0" Grid.Column="1"
+                            <Grid Height="{x:Bind ViewModel.DetailChartHeight, Mode=OneWay}"
                                   Tapped="DropsChart_Tapped"
                                   ToolTipService.ToolTip="Click to expand">
                                 <ctl:SparklineControl
@@ -547,7 +538,7 @@
                                     DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
                             </Grid>
 
-                            <Grid Grid.Row="1" Grid.Column="0"
+                            <Grid Height="{x:Bind ViewModel.DetailChartHeight, Mode=OneWay}"
                                   Tapped="BitrateChart_Tapped"
                                   ToolTipService.ToolTip="Click to expand">
                                 <ctl:SparklineControl
@@ -557,7 +548,7 @@
                                     DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
                             </Grid>
 
-                            <Grid Grid.Row="1" Grid.Column="1"
+                            <Grid Height="{x:Bind ViewModel.DetailChartHeight, Mode=OneWay}"
                                   Tapped="DecodeChart_Tapped"
                                   ToolTipService.ToolTip="Click to expand">
                                 <ctl:SparklineControl
@@ -566,69 +557,41 @@
                                     Data="{x:Bind ViewModel.DecodeSeries, Mode=OneWay}"
                                     DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
                             </Grid>
-                        </Grid>
+
+                            <!-- Host frame-processing latency (capture+encode) — the most
+                                 direct "host kept up?" signal, with a min/max band so a
+                                 single-frame spike stays visible. -->
+                            <Grid Height="{x:Bind ViewModel.DetailChartHeight, Mode=OneWay}"
+                                  Tapped="HostLatencyChart_Tapped"
+                                  ToolTipService.ToolTip="Click to expand">
+                                <ctl:SparklineControl
+                                    Title="Host frame latency ms"
+                                    LineColor="#FF66BB6A"
+                                    EnvelopeMode="True"
+                                    Data="{x:Bind ViewModel.HostLatencySeries, Mode=OneWay}"
+                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                            </Grid>
+
+                            <!-- Host compute %: GPU / Encoder / CPU overlaid on a shared
+                                 0–100% scale with a legend. -->
+                            <Grid Height="{x:Bind ViewModel.DetailChartHeight, Mode=OneWay}"
+                                  Tapped="HostComputeChart_Tapped"
+                                  ToolTipService.ToolTip="Click to expand"
+                                  Visibility="{x:Bind ViewModel.HasHostComputeChart, Mode=OneWay,
+                                               Converter={StaticResource BoolToVisibilityConverter}}">
+                                <ctl:SparklineControl
+                                    Title="Host compute %"
+                                    LinesData="{x:Bind ViewModel.HostComputeLines, Mode=OneWay}"
+                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                            </Grid>
+                        </StackPanel>
                     </Border>
 
-                    <!-- ── Row 6: Games section ──────────────────────────── -->
-                    <StackPanel Grid.Row="6"
-                                Margin="0,10,0,0"
-                                Spacing="10"
-                                Visibility="{x:Bind ViewModel.HasDetailGamesSection, Mode=OneWay,
-                                             Converter={StaticResource BoolToVisibilityConverter}}">
-
-                        <TextBlock Text="GAMES" Style="{StaticResource ST_SectionLabel}"/>
-
-                        <ScrollViewer HorizontalScrollMode="Auto"
-                                      HorizontalScrollBarVisibility="Hidden"
-                                      VerticalScrollMode="Disabled"
-                                      HorizontalAlignment="Left">
-                            <ItemsControl ItemsSource="{x:Bind ViewModel.DetailGameCovers, Mode=OneWay}"
-                                          HorizontalAlignment="Left"
-                                          Visibility="{x:Bind ViewModel.HasDetailGameCovers, Mode=OneWay,
-                                                       Converter={StaticResource BoolToVisibilityConverter}}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" Spacing="8"/>
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:SessionGameCover">
-                                        <Border Width="67" Height="100"
-                                                CornerRadius="6"
-                                                Background="{StaticResource STBackground}"
-                                                ToolTipService.ToolTip="{x:Bind GameName}">
-                                            <Grid>
-                                                <Image Source="{x:Bind CoverImage, Mode=OneWay}"
-                                                       Stretch="UniformToFill"
-                                                       Visibility="{x:Bind HasNoCover, Mode=OneWay,
-                                                                    Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                                                <TextBlock Text="{x:Bind GameName}"
-                                                           Style="{StaticResource ST_RowDescription}"
-                                                           FontSize="10"
-                                                           TextWrapping="Wrap"
-                                                           TextAlignment="Center"
-                                                           Margin="4"
-                                                           VerticalAlignment="Center"
-                                                           HorizontalAlignment="Center"
-                                                           Visibility="{x:Bind HasNoCover, Mode=OneWay,
-                                                                        Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                            </Grid>
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-
-                        <TextBlock Text="No games detected during this session"
-                                   Style="{StaticResource ST_RowDescription}"
-                                   FontStyle="Italic"
-                                   HorizontalAlignment="Center"
-                                   Visibility="{x:Bind ViewModel.HasNoDetailGames, Mode=OneWay,
-                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
                     </StackPanel>
+                    </ScrollViewer>
 
-                    <!-- ── Row 7: Grade bar ───────────────────────────────── -->
-                    <Border Grid.Row="7"
+                    <!-- ── Row 2: Grade bar (fixed footer) ────────────────── -->
+                    <Border Grid.Row="2"
                             Margin="0,14,0,0"
                             BorderThickness="1" CornerRadius="8"
                             Padding="16,10"
@@ -700,8 +663,325 @@
                         Grid.Row="2"
                         Title=""
                         Data="{x:Bind ViewModel.FullscreenChartData, Mode=OneWay}"
+                        LinesData="{x:Bind ViewModel.FullscreenChartLines, Mode=OneWay}"
                         LineColor="{x:Bind ViewModel.FullscreenLineColor, Mode=OneWay}"
                         DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <!-- LAYER 4 — Compare sessions                                        -->
+        <!-- ══════════════════════════════════════════════════════════════════ -->
+        <Grid Visibility="{x:Bind ViewModel.IsCompareVisible, Mode=OneWay,
+                            Converter={StaticResource BoolToVisibilityConverter}}"
+              Background="#E6111010">
+
+            <Border Margin="28,16,28,28"
+                    Style="{StaticResource ST_CardNoPad}">
+
+                <Grid Margin="20,18">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>   <!-- header -->
+                        <RowDefinition Height="Auto"/>   <!-- session pickers -->
+                        <RowDefinition Height="Auto"/>   <!-- separator -->
+                        <RowDefinition Height="*"/>      <!-- scrollable body -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Grid Grid.Row="0" Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+                            <TextBlock Text="Compare Sessions" Style="{StaticResource ST_PageTitle}"/>
+                            <TextBlock Text="Pick two recorded sessions to compare side by side."
+                                       Style="{StaticResource ST_PageSubtitle}"/>
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Style="{StaticResource ST_ButtonGhost}"
+                                Content="&#xE711;"
+                                FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                FontSize="14" Width="32" Height="32" Padding="0"
+                                VerticalAlignment="Top"
+                                Click="CloseCompare_Click"
+                                ToolTipService.ToolTip="Close (Esc)"/>
+                    </Grid>
+
+                    <!-- Session pickers (two dropdowns on one row) -->
+                    <Grid Grid.Row="1" Margin="0,0,0,14" ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Spacing="5">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="9" Height="9" VerticalAlignment="Center"
+                                         Fill="{x:Bind ViewModel.CompareColorAHex, Mode=OneWay,
+                                                Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                <TextBlock Text="Session 1" Style="{StaticResource ST_SectionLabel}"/>
+                            </StackPanel>
+                            <!-- Covers of the games launched in Session 1 -->
+                            <ScrollViewer HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollMode="Disabled" HorizontalAlignment="Left"
+                                          Visibility="{x:Bind ViewModel.HasCompareCoversA, Mode=OneWay,
+                                                       Converter={StaticResource BoolToVisibilityConverter}}">
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.CompareCoversA, Mode=OneWay}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="5"/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Width="34" Height="50" CornerRadius="4"
+                                                    Background="{StaticResource STBackground}"
+                                                    ToolTipService.ToolTip="{Binding GameName}">
+                                                <Grid>
+                                                    <Image Source="{Binding CoverImage}" Stretch="UniformToFill"
+                                                           Visibility="{Binding HasNoCover, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                                    <TextBlock Text="{Binding GameName}" FontSize="7" TextWrapping="Wrap" TextAlignment="Center"
+                                                               Foreground="{StaticResource STTextDim}" Margin="2"
+                                                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                               Visibility="{Binding HasNoCover, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <ComboBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{x:Bind ViewModel.CompareCandidatesA, Mode=OneWay}"
+                                      SelectedItem="{x:Bind ViewModel.CompareA, Mode=TwoWay}"
+                                      SelectionChanged="CompareSelection_Changed">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock>
+                                            <Run Text="{Binding StartTimeDisplay}"/>
+                                            <Run Text="  ·  "/>
+                                            <Run Text="{Binding TelemetryDurationDisplay}"/>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Spacing="5">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="9" Height="9" VerticalAlignment="Center"
+                                         Fill="{x:Bind ViewModel.CompareColorBHex, Mode=OneWay,
+                                                Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                <TextBlock Text="Session 2" Style="{StaticResource ST_SectionLabel}"/>
+                            </StackPanel>
+                            <!-- Covers of the games launched in Session 2 -->
+                            <ScrollViewer HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollMode="Disabled" HorizontalAlignment="Left"
+                                          Visibility="{x:Bind ViewModel.HasCompareCoversB, Mode=OneWay,
+                                                       Converter={StaticResource BoolToVisibilityConverter}}">
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.CompareCoversB, Mode=OneWay}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="5"/></ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Width="34" Height="50" CornerRadius="4"
+                                                    Background="{StaticResource STBackground}"
+                                                    ToolTipService.ToolTip="{Binding GameName}">
+                                                <Grid>
+                                                    <Image Source="{Binding CoverImage}" Stretch="UniformToFill"
+                                                           Visibility="{Binding HasNoCover, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                                    <TextBlock Text="{Binding GameName}" FontSize="7" TextWrapping="Wrap" TextAlignment="Center"
+                                                               Foreground="{StaticResource STTextDim}" Margin="2"
+                                                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                               Visibility="{Binding HasNoCover, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <ComboBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{x:Bind ViewModel.CompareCandidatesB, Mode=OneWay}"
+                                      SelectedItem="{x:Bind ViewModel.CompareB, Mode=TwoWay}"
+                                      SelectionChanged="CompareSelection_Changed">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock>
+                                            <Run Text="{Binding StartTimeDisplay}"/>
+                                            <Run Text="  ·  "/>
+                                            <Run Text="{Binding TelemetryDurationDisplay}"/>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Separator -->
+                    <Border Grid.Row="2" Style="{StaticResource ST_Separator}" Margin="0,0,0,14"/>
+
+                    <!-- Scrollable body -->
+                    <ScrollViewer Grid.Row="3"
+                                  VerticalScrollMode="Auto"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollMode="Disabled"
+                                  Padding="0,0,12,0">
+                        <StackPanel>
+
+                            <!-- Empty / not-enough-data hint -->
+                            <TextBlock Text="Select two sessions with recorded telemetry to compare."
+                                       Style="{StaticResource ST_RowDescription}"
+                                       HorizontalAlignment="Center"
+                                       Margin="0,30,0,0"
+                                       Visibility="{x:Bind ViewModel.HasCompareData, Mode=OneWay,
+                                                    Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+
+                            <StackPanel Visibility="{x:Bind ViewModel.HasCompareData, Mode=OneWay,
+                                                     Converter={StaticResource BoolToVisibilityConverter}}">
+
+                                <!-- Stats panels (CLIENT | HOST) -->
+                                <Grid ColumnSpacing="12" Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0"
+                                            Background="#FA111010"
+                                            BorderBrush="{StaticResource STBorder}"
+                                            BorderThickness="1" CornerRadius="8"
+                                            Padding="16,14">
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="CLIENT  (StreamLight)"
+                                                       Style="{StaticResource ST_SectionLabel}"/>
+                                            <!-- column key -->
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="92"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="74"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="1" Text="Session 1" FontSize="10"
+                                                           Foreground="{x:Bind ViewModel.CompareColorAHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                                <TextBlock Grid.Column="2" Text="Session 2" FontSize="10"
+                                                           Foreground="{x:Bind ViewModel.CompareColorBHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                                <TextBlock Grid.Column="3" Text="&#x0394;" FontSize="10"
+                                                           HorizontalAlignment="Right"
+                                                           Foreground="{StaticResource STTextDim}"/>
+                                            </Grid>
+                                            <ItemsControl ItemsSource="{x:Bind ViewModel.CompareClientMetrics, Mode=OneWay}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,0,0,5">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="92"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="74"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Label}"
+                                                                       Style="{StaticResource ST_RowDescription}"
+                                                                       VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding ValueA}"
+                                                                       Style="{StaticResource ST_MonoValueSmall}"
+                                                                       Foreground="#FF26C6DA" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding ValueB}"
+                                                                       Style="{StaticResource ST_MonoValueSmall}"
+                                                                       Foreground="#FFFFA726" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding Delta}"
+                                                                       Style="{StaticResource ST_MonoValueSmall}"
+                                                                       HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                                       Foreground="{Binding DeltaColorHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border Grid.Column="1"
+                                            Background="#FA111010"
+                                            BorderBrush="{StaticResource STBorder}"
+                                            BorderThickness="1" CornerRadius="8"
+                                            Padding="16,14">
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="HOST  (StreamTweak)"
+                                                       Style="{StaticResource ST_SectionLabel}"/>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="92"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="74"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="1" Text="Session 1" FontSize="10"
+                                                           Foreground="{x:Bind ViewModel.CompareColorAHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                                <TextBlock Grid.Column="2" Text="Session 2" FontSize="10"
+                                                           Foreground="{x:Bind ViewModel.CompareColorBHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                                <TextBlock Grid.Column="3" Text="&#x0394;" FontSize="10"
+                                                           HorizontalAlignment="Right"
+                                                           Foreground="{StaticResource STTextDim}"/>
+                                            </Grid>
+                                            <ItemsControl ItemsSource="{x:Bind ViewModel.CompareHostMetrics, Mode=OneWay}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,0,0,5">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="92"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="*"/>
+                                                                <ColumnDefinition Width="74"/>
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Grid.Column="0" Text="{Binding Label}"
+                                                                       Style="{StaticResource ST_RowDescription}"
+                                                                       VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="1" Text="{Binding ValueA}"
+                                                                       Style="{StaticResource ST_MonoValueSmall}"
+                                                                       Foreground="#FF26C6DA" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding ValueB}"
+                                                                       Style="{StaticResource ST_MonoValueSmall}"
+                                                                       Foreground="#FFFFA726" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="3" Text="{Binding Delta}"
+                                                                       Style="{StaticResource ST_MonoValueSmall}"
+                                                                       HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                                       Foreground="{Binding DeltaColorHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                        </StackPanel>
+                                    </Border>
+                                </Grid>
+
+                                <!-- Charts header -->
+                                <TextBlock Text="COMPARISON CHARTS"
+                                           Style="{StaticResource ST_SectionLabel}"
+                                           Margin="0,0,0,10"/>
+
+                                <!-- Charts (single column, both sessions per chart + legend) -->
+                                <Border Background="#FA111010" CornerRadius="8" Padding="12">
+                                    <ItemsControl ItemsSource="{x:Bind ViewModel.CompareCharts, Mode=OneWay}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Spacing="12"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <ctl:SparklineControl
+                                                    Height="{Binding Height}"
+                                                    Title="{Binding Title}"
+                                                    LinesData="{Binding Lines}"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </Border>
+
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Grid>
             </Border>
         </Grid>

@@ -5,6 +5,27 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 -----------------------------------------------------
+Version 7.4.0 - "The Deeper Insight Update" (21/06/2026)
+-----------------------------------------------------
+
+📊 SESSION QUALITY:
+• The quality grade now considers host frame latency — how long the host actually took to capture and encode each frame. This is a far more direct signal of "did the host keep up?" than encoder load %: a high latency means a late frame regardless of how busy the encoder looked. Reported by the client (StreamLight 4.x), shown in the session detail HOST panel and as a new "Host frame latency" chart. Sessions from older clients are unaffected
+
+🛠️ HOST METRICS:
+• GPU temperature and total VRAM now read through D3DKMT (the same kernel source Windows Task Manager uses), so they work on AMD and Intel GPUs too — not just NVIDIA. They also survive a graphics-driver reset (TDR) gracefully instead of risking a crash in the NVIDIA library; NVML is now only a fallback
+• Network throughput is now measured on the single interface that actually carries the internet route, so Tailscale, VPN and virtual switches no longer inflate the reported TX figure
+
+📈 CHARTS:
+• RTT and Host-latency charts now draw a faint min/max band behind the average line, so a single momentary spike stays visible instead of being smoothed away when a long session is compressed to fit the chart
+• New "Host compute %" chart in the session detail overlays GPU, Encoder and CPU on one shared scale with a legend, so you can read host load at a glance
+• Session detail charts redesigned: they're now stacked full-width in a single scrollable column and stay readable at any window size — from the minimum window up to 4K — instead of collapsing or getting squished. Chart height grows with the window
+• Session detail CLIENT/HOST panels reworked: a single consistent format across both (primary value + a dimmer max/peak/count), laid out in two compact columns so the panels are shorter; the played-game covers moved up next to the "Session Detail" title instead of a separate section at the bottom
+
+🗂️ SESSION HISTORY:
+• "Clear history" now opens a browser-style chooser — delete sessions from the last hour, 24 hours, 7 days, 4 weeks, or all time — with a red Delete confirm and a Cancel button, instead of wiping everything immediately
+• New "Compare" button — pick two sessions from two dropdowns and see them side by side: every CLIENT/HOST metric with a per-value delta that highlights which session was better, every chart drawn with both sessions overlaid (each in its own colour, with a legend), and each session's detected games. The whole view stacks in a single scrollable column so it stays readable at any window size
+
+-----------------------------------------------------
 Version 7.3.3 - "The Fresh Look Update" (20/06/2026)
 -----------------------------------------------------
 
