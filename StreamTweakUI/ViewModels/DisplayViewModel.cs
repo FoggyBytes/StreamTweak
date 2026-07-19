@@ -65,7 +65,7 @@ namespace StreamTweak.ViewModels
             else if (_hdrEnabled)
             {
                 HdrStateText     = "HDR  ON";
-                HdrStateColorHex = "#FF4CAF50";
+                HdrStateColorHex = "#FF4ade80";
             }
             else
             {

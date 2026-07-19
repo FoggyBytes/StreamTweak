@@ -513,7 +513,7 @@ namespace StreamTweak.ViewModels
         public string CompareColorBHex => "#FFFFA726";
         private static readonly Color CompareColorA = Color.FromArgb(0xFF, 0x26, 0xC6, 0xDA);
         private static readonly Color CompareColorB = Color.FromArgb(0xFF, 0xFF, 0xA7, 0x26);
-        private const string GreenHex   = "#FF22C55E";
+        private const string GreenHex   = "#FF4ade80";
         private const string RedHex     = "#FFEF4444";
         private const string NeutralHex = "#FF908C88";
 
@@ -776,7 +776,7 @@ namespace StreamTweak.ViewModels
             // Grade
             (GradeLabel, GradeColorHex) = s.Grade switch
             {
-                QualityGrade.High   => ("Excellent", "#FF4CAF50"),
+                QualityGrade.High   => ("Excellent", "#FF4ade80"),
                 QualityGrade.Medium => ("Good",      "#FFFFC107"),
                 QualityGrade.Low    => ("Poor",       "#FFDC4632"),
                 _                   => ("—",          "#FF808080")

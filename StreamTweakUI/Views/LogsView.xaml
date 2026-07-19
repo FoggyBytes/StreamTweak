@@ -209,8 +209,13 @@
                                                             CornerRadius="4"
                                                             Background="{StaticResource STBackground}"
                                                             ToolTipService.ToolTip="{x:Bind Name}">
+                                                        <!-- UniformToFill + centred: the tile is 2:3 but store art is not
+                                                             always (Epic covers in particular), and merely fitting it left
+                                                             visible empty bands above and below. Filling crops the overflow
+                                                             instead — the Border's CornerRadius clips it. Same as Library. -->
                                                         <Image Source="{x:Bind CoverPath, Converter={StaticResource CoverPathToBitmapConverter}}"
-                                                               Stretch="UniformToFill"/>
+                                                               Stretch="UniformToFill"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                                     </Border>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
@@ -331,6 +336,7 @@
                                                 ToolTipService.ToolTip="{x:Bind GameName}">
                                             <Grid>
                                                 <Image Source="{x:Bind CoverImage, Mode=OneWay}" Stretch="UniformToFill"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
                                                        Visibility="{x:Bind HasNoCover, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
                                                 <TextBlock Text="{x:Bind GameName}"
                                                            FontSize="7" TextWrapping="Wrap" TextAlignment="Center"
@@ -740,6 +746,7 @@
                                                     ToolTipService.ToolTip="{Binding GameName}">
                                                 <Grid>
                                                     <Image Source="{Binding CoverImage}" Stretch="UniformToFill"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Visibility="{Binding HasNoCover, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
                                                     <TextBlock Text="{Binding GameName}" FontSize="7" TextWrapping="Wrap" TextAlignment="Center"
                                                                Foreground="{StaticResource STTextDim}" Margin="2"
@@ -790,6 +797,7 @@
                                                     ToolTipService.ToolTip="{Binding GameName}">
                                                 <Grid>
                                                     <Image Source="{Binding CoverImage}" Stretch="UniformToFill"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
                                                            Visibility="{Binding HasNoCover, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
                                                     <TextBlock Text="{Binding GameName}" FontSize="7" TextWrapping="Wrap" TextAlignment="Center"
                                                                Foreground="{StaticResource STTextDim}" Margin="2"

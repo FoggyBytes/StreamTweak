@@ -6,651 +6,591 @@
     xmlns:ctrl="using:StreamTweak.Controls"
     Background="{StaticResource STBackground}">
 
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         8.0 Dashboard — ONE layout for both states.
+         Only the top-left "state box" swaps: idle it shows live host vitals,
+         streaming it shows the active session. The other three cards (Last
+         session, Performance, Host setup + Clients) are identical either way.
+    ════════════════════════════════════════════════════════════════════════ -->
+
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Spacing="10" Padding="28,20,28,20">
+        <StackPanel Spacing="16" Padding="28,20,28,20">
 
-            <!-- ═══════════════════════════════════════════════════════════════
-                 SESSION CARD — mostra stato live o ultima sessione
-            ════════════════════════════════════════════════════════════════ -->
-            <Border x:Name="SessionCard"
-                    Background="{StaticResource STCard}"
-                    BorderBrush="{StaticResource STBorder}"
-                    BorderThickness="1" CornerRadius="10" Padding="20,12,20,20">
-                <StackPanel Spacing="0">
+            <!-- ══════════ ROW 1 — state box | last session ══════════ -->
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.18*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
-                    <!-- ── Header row ────────────────────────────────────────── -->
-                    <Grid Margin="0,0,0,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
+                <!-- ───────── STATE BOX (the only state-dependent card) ───────── -->
+                <Border Grid.Column="0" Style="{StaticResource ST_Card}">
+                    <!-- MinHeight is what sets this row's height (it exceeds both cards'
+                         natural content), so it doubles as the knob that keeps the idle and
+                         live states from resizing the layout when a session starts/stops.
+                         Kept just above the idle content so the row stays compact at small
+                         window sizes; the live panel is slightly taller and sizes itself. -->
+                    <Grid MinHeight="156">
 
-                        <!-- Label + host inline -->
-                        <StackPanel Grid.Column="0" Orientation="Horizontal"
-                                    Spacing="8" VerticalAlignment="Center">
-                            <TextBlock Text="Streaming Session"
-                                       FontFamily="{StaticResource DMSansSemiBold}"
-                                       FontSize="11"
-                                       Foreground="{StaticResource STTextDim}"
-                                       CharacterSpacing="80"
-                                       VerticalAlignment="Center"/>
+                        <!-- ═══ IDLE — live host vitals ═══
+                             Replaces the old readiness score: objective, measured
+                             facts instead of grading optional automations. -->
+                        <StackPanel Spacing="14" VerticalAlignment="Center"
+                                    Visibility="{x:Bind ViewModel.IsSessionActive, Mode=OneWay,
+                                                 Converter={StaticResource InverseBoolToVisibilityConverter}}">
 
-                            <!-- Host separator + name (hidden when no host) -->
-                            <StackPanel Orientation="Horizontal" Spacing="6"
-                                        VerticalAlignment="Center"
-                                        Visibility="{x:Bind ViewModel.HasStreamHost, Mode=OneWay,
-                                                     Converter={StaticResource BoolToVisibilityConverter}}">
-                                <TextBlock Text="·"
-                                           FontSize="12"
-                                           Foreground="{StaticResource STBorderSubtle}"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Text="Host"
-                                           FontFamily="{StaticResource DMSans}"
-                                           FontSize="12"
-                                           Foreground="{StaticResource STTextDim}"
-                                           VerticalAlignment="Center"/>
-                                <Image Source="{x:Bind ViewModel.StreamHostIcon, Mode=OneWay}"
-                                       Width="14" Height="14"
-                                       VerticalAlignment="Center"
-                                       Visibility="{x:Bind ViewModel.HasStreamHostIcon, Mode=OneWay,
-                                                    Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                <FontIcon Glyph="&#xE774;" FontSize="13" Opacity="0.7"
-                                          VerticalAlignment="Center"
-                                          Visibility="{x:Bind ViewModel.HasStreamHostIcon, Mode=OneWay,
-                                                       Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                                <TextBlock Text="{x:Bind ViewModel.StreamHostName, Mode=OneWay}"
-                                           FontFamily="{StaticResource DMSans}"
-                                           FontSize="12"
-                                           Foreground="{StaticResource STTextSecondary}"
-                                           FontWeight="Medium"
-                                           VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Spacing="9">
+                                <Ellipse Width="8" Height="8" Fill="{StaticResource STSuccess}" VerticalAlignment="Center"/>
+                                <TextBlock Text="HOST · LIVE" Style="{StaticResource ST_SectionLabel}" VerticalAlignment="Center"/>
+                                <TextBlock Text="·" Foreground="{StaticResource STBorderSubtle}" VerticalAlignment="Center"/>
+                                <TextBlock Text="updating every second" Style="{StaticResource ST_BodySmall}" VerticalAlignment="Center"/>
                             </StackPanel>
-                        </StackPanel>
 
-                        <!-- Status dot + label (right side) -->
-                        <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                    Spacing="7" VerticalAlignment="Center">
-                            <!-- Pulse ring + dot (active only) -->
-                            <Grid Width="14" Height="14"
-                                  Visibility="{x:Bind ViewModel.IsSessionActive, Mode=OneWay,
-                                               Converter={StaticResource BoolToVisibilityConverter}}">
-                                <Ellipse x:Name="PulseRing"
-                                         Width="14" Height="14"
-                                         Fill="#5922c55e"
-                                         HorizontalAlignment="Center"
-                                         VerticalAlignment="Center">
-                                    <Ellipse.Resources>
-                                        <Storyboard x:Name="PulseStoryboard"
-                                                    RepeatBehavior="Forever" AutoReverse="True">
-                                            <DoubleAnimation Storyboard.TargetName="SessionDot"
-                                                             Storyboard.TargetProperty="Opacity"
-                                                             From="1.0" To="0.5"
-                                                             Duration="0:0:0.9"/>
-                                            <DoubleAnimation Storyboard.TargetName="PulseRing"
-                                                             Storyboard.TargetProperty="Opacity"
-                                                             From="0.5" To="0"
-                                                             Duration="0:0:0.9"/>
-                                        </Storyboard>
-                                    </Ellipse.Resources>
-                                </Ellipse>
-                                <Ellipse x:Name="SessionDot"
-                                         Width="7" Height="7"
-                                         Fill="#22c55e"
-                                         HorizontalAlignment="Center"
-                                         VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="{x:Bind ViewModel.HostHealthLabel, Mode=OneWay}"
+                                           FontFamily="{StaticResource DMSansSemiBold}" FontSize="21"
+                                           Foreground="{x:Bind ViewModel.HostHealthColorHex, Mode=OneWay,
+                                                        Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Text="{x:Bind ViewModel.HostHealthSub, Mode=OneWay}"
+                                           Style="{StaticResource ST_BodySmall}" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
+                            </StackPanel>
+
+                            <!-- 5 vitals -->
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- GPU temp -->
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{x:Bind ViewModel.HostGpuTempText, Mode=OneWay}"
+                                                   FontFamily="{StaticResource DMSansSemiBold}" FontSize="21"
+                                                   Foreground="{StaticResource STTextPrimary}"/>
+                                        <TextBlock Text="°C" FontSize="11" Foreground="{StaticResource STTextDim}"
+                                                   VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+                                    </StackPanel>
+                                    <TextBlock Text="GPU TEMP" Style="{StaticResource ST_SectionLabel}"/>
+                                    <ProgressBar Maximum="100" Height="4" Margin="0,5,0,0"
+                                                 Value="{x:Bind ViewModel.HostGpuTempBar, Mode=OneWay}"
+                                                 Background="#14FFFFFF"
+                                                 Foreground="{x:Bind ViewModel.HostGpuTempColorHex, Mode=OneWay,
+                                                              Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                </StackPanel>
+
+                                <!-- GPU load -->
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{x:Bind ViewModel.HostGpuLoadText, Mode=OneWay}"
+                                                   FontFamily="{StaticResource DMSansSemiBold}" FontSize="21"
+                                                   Foreground="{StaticResource STTextPrimary}"/>
+                                        <TextBlock Text="%" FontSize="11" Foreground="{StaticResource STTextDim}"
+                                                   VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+                                    </StackPanel>
+                                    <TextBlock Text="GPU LOAD" Style="{StaticResource ST_SectionLabel}"/>
+                                    <ProgressBar Maximum="100" Height="4" Margin="0,5,0,0"
+                                                 Value="{x:Bind ViewModel.HostGpuLoadBar, Mode=OneWay}"
+                                                 Background="#14FFFFFF"
+                                                 Foreground="{x:Bind ViewModel.HostGpuLoadColorHex, Mode=OneWay,
+                                                              Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                </StackPanel>
+
+                                <!-- VRAM -->
+                                <StackPanel Grid.Column="2" Spacing="2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{x:Bind ViewModel.HostVramText, Mode=OneWay}"
+                                                   FontFamily="{StaticResource DMSansSemiBold}" FontSize="21"
+                                                   Foreground="{StaticResource STTextPrimary}"/>
+                                        <TextBlock Text="GB" FontSize="11" Foreground="{StaticResource STTextDim}"
+                                                   VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+                                    </StackPanel>
+                                    <TextBlock Text="VRAM" Style="{StaticResource ST_SectionLabel}"/>
+                                    <ProgressBar Maximum="100" Height="4" Margin="0,5,0,0"
+                                                 Value="{x:Bind ViewModel.HostVramBar, Mode=OneWay}"
+                                                 Background="#14FFFFFF" Foreground="{StaticResource STSuccess}"/>
+                                </StackPanel>
+
+                                <!-- CPU -->
+                                <StackPanel Grid.Column="3" Spacing="2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{x:Bind ViewModel.HostCpuText, Mode=OneWay}"
+                                                   FontFamily="{StaticResource DMSansSemiBold}" FontSize="21"
+                                                   Foreground="{StaticResource STTextPrimary}"/>
+                                        <TextBlock Text="%" FontSize="11" Foreground="{StaticResource STTextDim}"
+                                                   VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+                                    </StackPanel>
+                                    <TextBlock Text="CPU" Style="{StaticResource ST_SectionLabel}"/>
+                                    <ProgressBar Maximum="100" Height="4" Margin="0,5,0,0"
+                                                 Value="{x:Bind ViewModel.HostCpuBar, Mode=OneWay}"
+                                                 Background="#14FFFFFF"
+                                                 Foreground="{x:Bind ViewModel.HostCpuColorHex, Mode=OneWay,
+                                                              Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                </StackPanel>
+
+                                <!-- Net TX -->
+                                <StackPanel Grid.Column="4" Spacing="2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{x:Bind ViewModel.HostNetText, Mode=OneWay}"
+                                                   FontFamily="{StaticResource DMSansSemiBold}" FontSize="21"
+                                                   Foreground="{StaticResource STTextPrimary}"/>
+                                        <TextBlock Text="Mbps" FontSize="11" Foreground="{StaticResource STTextDim}"
+                                                   VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+                                    </StackPanel>
+                                    <TextBlock Text="NET TX" Style="{StaticResource ST_SectionLabel}"/>
+                                    <ProgressBar Maximum="100" Height="4" Margin="0,5,0,0"
+                                                 Value="{x:Bind ViewModel.HostNetBar, Mode=OneWay}"
+                                                 Background="#14FFFFFF" Foreground="{StaticResource STSuccess}"/>
+                                </StackPanel>
                             </Grid>
-
-                            <!-- Inactive dot -->
-                            <Ellipse Width="7" Height="7" Fill="#444444"
-                                     VerticalAlignment="Center"
-                                     Visibility="{x:Bind ViewModel.IsSessionActive, Mode=OneWay,
-                                                  Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-
-                            <TextBlock x:Name="SessionStatusText"
-                                       Text="Inactive"
-                                       FontFamily="{StaticResource DMSans}"
-                                       FontSize="12"
-                                       Foreground="{StaticResource STTextDim}"
-                                       VerticalAlignment="Center"/>
                         </StackPanel>
-                    </Grid>
 
-                    <!-- ── Separator ──────────────────────────────────────────── -->
-                    <Border Style="{StaticResource ST_Separator}" Margin="0,0,0,14"/>
-
-                    <!-- ── BODY: stesso MinHeight in ogni stato (active/inactive/empty)
-                         così la card mantiene un'altezza verticale costante; i tre
-                         pannelli si sovrappongono nella stessa cella (uno solo visibile) -->
-                    <Grid MinHeight="200">
-
-                    <!-- ── EMPTY STATE: nessuna sessione registrata ──────────── -->
-                    <StackPanel Visibility="{x:Bind ViewModel.ShowEmptyState, Mode=OneWay,
-                                             Converter={StaticResource BoolToVisibilityConverter}}"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                Spacing="6"
-                                Padding="0,8">
-                        <FontIcon Glyph="&#xE9F9;" FontSize="22"
-                                  Foreground="{StaticResource STTextGhost}"
-                                  HorizontalAlignment="Center"/>
-                        <TextBlock Text="Real-time session data and your last completed stream will appear here."
-                                   FontFamily="{StaticResource DMSans}"
-                                   FontSize="12"
-                                   Foreground="{StaticResource STTextDim}"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap"
-                                   MaxWidth="420"/>
-                    </StackPanel>
-
-                    <!-- ── INACTIVE: ultima sessione ─────────────────────────── -->
-                    <Grid Visibility="{x:Bind ViewModel.ShowLastSession, Mode=OneWay,
-                                       Converter={StaticResource BoolToVisibilityConverter}}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Col 0: date + duration + stats + grade badge -->
-                        <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Text="Last Session"
-                                       FontFamily="{StaticResource DMSansSemiBold}"
-                                       FontSize="11"
-                                       Foreground="{StaticResource STTextDim}"
-                                       CharacterSpacing="60"/>
-                            <TextBlock Text="{x:Bind ViewModel.LastSessionDate, Mode=OneWay}"
-                                       Style="{StaticResource ST_MonoMedium}"/>
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <TextBlock Text="Duration"
-                                           Style="{StaticResource ST_BodySmall}"
-                                           VerticalAlignment="Center"/>
-                                <TextBlock Text="{x:Bind ViewModel.LastSessionDuration, Mode=OneWay}"
-                                           Style="{StaticResource ST_MonoValueSmall}"
-                                           VerticalAlignment="Center"/>
-                            </StackPanel>
-                            <TextBlock Text="{x:Bind ViewModel.LastSessionStats, Mode=OneWay}"
-                                       Style="{StaticResource ST_BodySmall}"
-                                       Margin="0,4,0,0"
-                                       Visibility="{x:Bind ViewModel.HasLastSessionStats, Mode=OneWay,
-                                                    Converter={StaticResource BoolToVisibilityConverter}}"/>
-                            <!-- Grade badge sotto le stats -->
-                            <Border CornerRadius="4" BorderThickness="1" Padding="8,2"
-                                    Margin="0,2,0,0"
-                                    HorizontalAlignment="Left"
-                                    Background="{x:Bind ViewModel.LastSessionGradeBgHex, Mode=OneWay,
-                                                 Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                    BorderBrush="{x:Bind ViewModel.LastSessionGradeBorderHex, Mode=OneWay,
-                                                  Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                    Visibility="{x:Bind ViewModel.LastSessionHasGrade, Mode=OneWay,
+                        <!-- ═══ LIVE — active session ═══ -->
+                        <StackPanel Spacing="14" VerticalAlignment="Center"
+                                    Visibility="{x:Bind ViewModel.IsSessionActive, Mode=OneWay,
                                                  Converter={StaticResource BoolToVisibilityConverter}}">
-                                <TextBlock Text="{x:Bind ViewModel.LastSessionGrade, Mode=OneWay}"
-                                           Style="{StaticResource ST_BadgeText}"
-                                           Foreground="{x:Bind ViewModel.LastSessionGradeColorHex, Mode=OneWay,
-                                                        Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                            </Border>
-                        </StackPanel>
 
-                        <!-- Col 1: label + cover art centrati -->
-                        <StackPanel Grid.Column="1"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    Spacing="8">
-
-                            <TextBlock Text="No games detected"
-                                       Style="{StaticResource ST_BodySmall}"
-                                       FontStyle="Italic"
-                                       HorizontalAlignment="Center"
-                                       Visibility="{x:Bind ViewModel.HasNoGamesDetected, Mode=OneWay,
-                                                    Converter={StaticResource BoolToVisibilityConverter}}"/>
-
-                            <TextBlock Text="Games played"
-                                       FontFamily="{StaticResource DMSansSemiBold}"
-                                       FontSize="11"
-                                       Foreground="{StaticResource STTextDim}"
-                                       CharacterSpacing="60"
-                                       HorizontalAlignment="Center"
-                                       Visibility="{x:Bind ViewModel.HasLastSessionCovers, Mode=OneWay,
-                                                    Converter={StaticResource BoolToVisibilityConverter}}"/>
-
-                            <ScrollViewer HorizontalScrollBarVisibility="Auto"
-                                          VerticalScrollBarVisibility="Disabled"
-                                          Visibility="{x:Bind ViewModel.HasLastSessionCovers, Mode=OneWay,
-                                                       Converter={StaticResource BoolToVisibilityConverter}}">
-                                <ItemsControl ItemsSource="{x:Bind ViewModel.LastSessionCovers, Mode=OneWay}">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <StackPanel Orientation="Horizontal" Spacing="6"/>
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:SessionGameCover">
-                                            <Border Width="100" Height="150" CornerRadius="5"
-                                                    Background="{StaticResource STInput}"
-                                                    BorderBrush="{StaticResource STBorder}"
-                                                    BorderThickness="1"
-                                                    ToolTipService.ToolTip="{x:Bind GameName}">
-                                                <Grid>
-                                                    <Image Source="{x:Bind CoverImage, Mode=OneWay}"
-                                                           Stretch="UniformToFill"
-                                                           HorizontalAlignment="Center"
-                                                           VerticalAlignment="Center"/>
-                                                    <TextBlock Text="{x:Bind GameName}"
-                                                               TextWrapping="Wrap"
-                                                               TextAlignment="Center"
-                                                               FontSize="9"
-                                                               Opacity="0.4"
-                                                               Margin="4"
-                                                               VerticalAlignment="Center"
-                                                               HorizontalAlignment="Center"
-                                                               Visibility="{x:Bind HasNoCover, Mode=OneWay,
-                                                                            Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </ScrollViewer>
-                        </StackPanel>
-                    </Grid>
-
-                    <!-- ── ACTIVE: live session panel ─────────────────────────── -->
-                    <StackPanel Visibility="{x:Bind ViewModel.IsSessionActive, Mode=OneWay,
-                                             Converter={StaticResource BoolToVisibilityConverter}}"
-                                Spacing="12">
-
-                        <!-- Timer + sparklines row -->
-                        <Grid ColumnSpacing="16" MinHeight="150">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Col 0: duration + drops + start time -->
-                            <StackPanel Grid.Column="0"
-                                        VerticalAlignment="Center"
-                                        Spacing="3"
-                                        MinWidth="110">
-                                <TextBlock Text="DURATION"
-                                           FontFamily="{StaticResource DMSansSemiBold}"
-                                           FontSize="10"
-                                           Foreground="{StaticResource STTextDim}"
-                                           CharacterSpacing="80"/>
-                                <TextBlock Text="{x:Bind ViewModel.LiveDuration, Mode=OneWay}"
-                                           FontFamily="{StaticResource DMSansSemiBold}"
-                                           FontSize="26"
-                                           Foreground="{StaticResource STTextPrimary}"/>
-                                <StackPanel Orientation="Horizontal" Spacing="5" Margin="0,2,0,0">
-                                    <TextBlock Text="DROPS"
-                                               FontFamily="{StaticResource DMSansSemiBold}"
-                                               FontSize="10"
-                                               Foreground="{StaticResource STTextDim}"
-                                               CharacterSpacing="80"
-                                               VerticalAlignment="Center"/>
-                                    <TextBlock Text="{x:Bind ViewModel.LiveDropPct, Mode=OneWay}"
-                                               FontFamily="{StaticResource DMSansSemiBold}"
-                                               FontSize="13"
-                                               Foreground="{StaticResource STSuccess}"
-                                               VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <TextBlock Text="{x:Bind ViewModel.LiveStartedAt, Mode=OneWay}"
-                                           FontFamily="{StaticResource DMSans}"
-                                           FontSize="11"
-                                           Foreground="{StaticResource STTextDim}"
-                                           Margin="0,2,0,0"/>
-                            </StackPanel>
-
-                            <!-- Col 1: RTT -->
-                            <Grid Grid.Column="1">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <StackPanel Grid.Row="0" Spacing="1" Margin="0,0,0,6">
-                                    <TextBlock Text="RTT"
-                                               FontFamily="{StaticResource DMSansSemiBold}"
-                                               FontSize="10"
-                                               Foreground="{StaticResource STTextDim}"
-                                               CharacterSpacing="80"/>
-                                    <TextBlock Text="{x:Bind ViewModel.LiveRttValue, Mode=OneWay}"
-                                               FontFamily="{StaticResource DMSansSemiBold}"
-                                               FontSize="20"
-                                               Foreground="{x:Bind ViewModel.LiveRttColorHex, Mode=OneWay,
-                                                            Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                                </StackPanel>
-                                <ctrl:SparklineControl Grid.Row="1"
-                                    Title=""
-                                    DurationLabel="30 s"
-                                    WindowSize="30"
-                                    ShowZeroLabel="False"
-                                    Data="{x:Bind ViewModel.LiveRttSeries, Mode=OneWay}"
-                                    LineColor="{x:Bind ViewModel.LiveRttLineColor, Mode=OneWay}"/>
-                            </Grid>
-
-                            <!-- Col 2: Bitrate -->
-                            <Grid Grid.Column="2">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <StackPanel Grid.Row="0" Spacing="1" Margin="0,0,0,6">
-                                    <TextBlock Text="BITRATE"
-                                               FontFamily="{StaticResource DMSansSemiBold}"
-                                               FontSize="10"
-                                               Foreground="{StaticResource STTextDim}"
-                                               CharacterSpacing="80"/>
-                                    <TextBlock Text="{x:Bind ViewModel.LiveBitrateValue, Mode=OneWay}"
-                                               FontFamily="{StaticResource DMSansSemiBold}"
-                                               FontSize="20"
-                                               Foreground="#FF00B4D8"/>
-                                </StackPanel>
-                                <ctrl:SparklineControl Grid.Row="1"
-                                    Title=""
-                                    DurationLabel="30 s"
-                                    WindowSize="30"
-                                    ShowZeroLabel="False"
-                                    Data="{x:Bind ViewModel.LiveBitrateSeries, Mode=OneWay}"
-                                    LineColor="#FF00B4D8"/>
-                            </Grid>
-
-                        </Grid>
-
-                        <!-- Bottom bar: status + action -->
-                        <Border Background="#0F22c55e"
-                                BorderBrush="#2622c55e"
-                                BorderThickness="1"
-                                CornerRadius="7"
-                                Padding="12,8">
+                            <!-- Header carries the "return to client" action on the right: the old
+                                 green footer bar said "streaming in progress" a fourth time (the
+                                 pulsing dot, the SESSION · LIVE label and the big green "Streaming"
+                                 headline already say it) and claimed "host optimisations active",
+                                 which the HOST SETUP card next to it states far more precisely.
+                                 Dropping it also makes the live panel the same height as the idle
+                                 one, so the row no longer grows when a session starts. -->
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
-                                    <FontIcon Glyph="&#xE701;" FontSize="13"
-                                              Foreground="{StaticResource STSuccess}"
-                                              VerticalAlignment="Center"/>
-                                    <TextBlock Text="Streaming session in progress"
-                                               FontFamily="{StaticResource DMSans}"
-                                               FontSize="12"
-                                               Foreground="{StaticResource STSuccess}"
-                                               VerticalAlignment="Center"/>
+
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="9" VerticalAlignment="Center">
+                                <Grid Width="10" Height="10" VerticalAlignment="Center">
+                                    <Ellipse x:Name="PulseRing" Width="10" Height="10" Fill="#594ade80">
+                                        <Ellipse.Resources>
+                                            <Storyboard x:Name="PulseStoryboard" RepeatBehavior="Forever" AutoReverse="True">
+                                                <DoubleAnimation Storyboard.TargetName="SessionDot"
+                                                                 Storyboard.TargetProperty="Opacity"
+                                                                 From="1.0" To="0.5" Duration="0:0:0.9"/>
+                                                <DoubleAnimation Storyboard.TargetName="PulseRing"
+                                                                 Storyboard.TargetProperty="Opacity"
+                                                                 From="0.5" To="0" Duration="0:0:0.9"/>
+                                            </Storyboard>
+                                        </Ellipse.Resources>
+                                    </Ellipse>
+                                    <Ellipse x:Name="SessionDot" Width="6" Height="6" Fill="#4ade80"/>
+                                </Grid>
+                                <TextBlock Text="SESSION · LIVE" Style="{StaticResource ST_SectionLabel}" VerticalAlignment="Center"/>
+                                <TextBlock Text="·" Foreground="{StaticResource STBorderSubtle}" VerticalAlignment="Center"/>
+                                <Image Source="{x:Bind ViewModel.StreamHostIcon, Mode=OneWay}" Width="14" Height="14" VerticalAlignment="Center"
+                                       Visibility="{x:Bind ViewModel.HasStreamHostIcon, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <TextBlock Text="{x:Bind ViewModel.StreamHostName, Mode=OneWay}" Style="{StaticResource ST_BodySmall}" VerticalAlignment="Center"
+                                           Visibility="{x:Bind ViewModel.HasStreamHost, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
                                 </StackPanel>
-                                <Button Grid.Column="1"
-                                        Content="Return to client"
-                                        Click="StopStreamButton_Click"
-                                        Style="{StaticResource ST_ButtonGhost}"
-                                        FontSize="11"
-                                        Padding="8,3"
-                                        VerticalAlignment="Center"/>
+
+                                <Button Grid.Column="1" Content="Return to client" Click="StopStreamButton_Click"
+                                        Style="{StaticResource ST8_ButtonAmber}" VerticalAlignment="Center"
+                                        ToolTipService.ToolTip="Ends the streaming session and hands control back to the client"/>
                             </Grid>
-                        </Border>
 
-                    </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="Streaming"
+                                           FontFamily="{StaticResource DMSansSemiBold}" FontSize="21"
+                                           Foreground="{StaticResource STSuccess}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{x:Bind ViewModel.LiveDuration, Mode=OneWay}"
+                                           FontFamily="{StaticResource DMSansMedium}" FontSize="15"
+                                           Foreground="{StaticResource STTextPrimary}"
+                                           VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                            </StackPanel>
 
+                            <!-- 5 session metrics — same grid as the idle vitals -->
+                            <Grid ColumnSpacing="14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/><ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Spacing="2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{x:Bind ViewModel.LiveRttNumber, Mode=OneWay}"
+                                                   FontFamily="{StaticResource DMSansSemiBold}" FontSize="21"
+                                                   Foreground="{x:Bind ViewModel.LiveRttColorHex, Mode=OneWay,
+                                                                Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                        <TextBlock Text="ms" FontSize="11" Foreground="{StaticResource STTextDim}"
+                                                   VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+                                    </StackPanel>
+                                    <TextBlock Text="RTT" Style="{StaticResource ST_SectionLabel}"/>
+                                    <TextBlock Text="{x:Bind ViewModel.LiveRttSub, Mode=OneWay}" Style="{StaticResource ST_BodySmall}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{x:Bind ViewModel.LiveHostLatNumber, Mode=OneWay}"
+                                                   FontFamily="{StaticResource DMSansSemiBold}" FontSize="21"
+                                                   Foreground="{StaticResource STTextPrimary}"/>
+                                        <TextBlock Text="ms" FontSize="11" Foreground="{StaticResource STTextDim}"
+                                                   VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+                                    </StackPanel>
+                                    <TextBlock Text="HOST LATENCY" Style="{StaticResource ST_SectionLabel}"/>
+                                    <TextBlock Text="capture + encode" Style="{StaticResource ST_BodySmall}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" Spacing="2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{x:Bind ViewModel.LiveBitrateNumber, Mode=OneWay}"
+                                                   FontFamily="{StaticResource DMSansSemiBold}" FontSize="21"
+                                                   Foreground="#FF00B4D8"/>
+                                        <TextBlock Text="Mbps" FontSize="11" Foreground="{StaticResource STTextDim}"
+                                                   VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+                                    </StackPanel>
+                                    <TextBlock Text="BITRATE" Style="{StaticResource ST_SectionLabel}"/>
+                                    <TextBlock Text="{x:Bind ViewModel.LiveBitrateSub, Mode=OneWay}" Style="{StaticResource ST_BodySmall}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="3" Spacing="2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{x:Bind ViewModel.LiveDropsNumber, Mode=OneWay}"
+                                                   FontFamily="{StaticResource DMSansSemiBold}" FontSize="21"
+                                                   Foreground="{StaticResource STTextPrimary}"/>
+                                        <TextBlock Text="%" FontSize="11" Foreground="{StaticResource STTextDim}"
+                                                   VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+                                    </StackPanel>
+                                    <TextBlock Text="DROPS" Style="{StaticResource ST_SectionLabel}"/>
+                                    <TextBlock Text="{x:Bind ViewModel.LiveDropsSub, Mode=OneWay}" Style="{StaticResource ST_BodySmall}"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="4" Spacing="2">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{x:Bind ViewModel.LiveFpsNumber, Mode=OneWay}"
+                                                   FontFamily="{StaticResource DMSansSemiBold}" FontSize="21"
+                                                   Foreground="{StaticResource STTextPrimary}"/>
+                                        <TextBlock Text="fps" FontSize="11" Foreground="{StaticResource STTextDim}"
+                                                   VerticalAlignment="Bottom" Margin="2,0,0,4"/>
+                                    </StackPanel>
+                                    <TextBlock Text="FRAME RATE" Style="{StaticResource ST_SectionLabel}"/>
+                                    <TextBlock Text="client decode" Style="{StaticResource ST_BodySmall}"/>
+                                </StackPanel>
+                            </Grid>
+
+                        </StackPanel>
                     </Grid>
+                </Border>
 
-                </StackPanel>
-            </Border>
+                <!-- ───────── LAST SESSION (identical in both states) ───────── -->
+                <Border Grid.Column="1" Style="{StaticResource ST_Card}">
+                    <Grid MinHeight="156">
+                        <!-- Empty state -->
+                        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="6"
+                                    Visibility="{x:Bind ViewModel.ShowEmptyState, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <FontIcon Glyph="&#xE9F9;" FontSize="22" Foreground="{StaticResource STTextGhost}" HorizontalAlignment="Center"/>
+                            <TextBlock Text="Your last completed stream will appear here."
+                                       Style="{StaticResource ST_BodySmall}" TextAlignment="Center" MaxWidth="240"/>
+                        </StackPanel>
 
-            <!-- ═══════════════════════════════════════════════════════════════
-                 QUICK STATS — 3×3 grid di tile cliccabili
-            ════════════════════════════════════════════════════════════════ -->
-            <Grid ColumnSpacing="10" RowSpacing="8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
+                        <StackPanel Spacing="12" VerticalAlignment="Center"
+                                    Visibility="{x:Bind ViewModel.ShowLastSession, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                                <TextBlock Text="LAST SESSION" Style="{StaticResource ST_SectionLabel}" VerticalAlignment="Center"/>
+                                <TextBlock Text="·" Foreground="{StaticResource STBorderSubtle}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{x:Bind ViewModel.LastSessionAgo, Mode=OneWay}" Style="{StaticResource ST_BodySmall}" VerticalAlignment="Center"/>
+                            </StackPanel>
 
-                <!-- NIC Speed → Network -->
-                <Button Grid.Row="0" Grid.Column="0"
-                        Style="{StaticResource ST_TileButton}"
-                        Click="NicSpeedTile_Click">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <FontIcon Glyph="&#xE701;" FontFamily="Segoe MDL2 Assets"
-                                      FontSize="11" Foreground="White"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="NIC SPEED" Style="{StaticResource ST_SectionLabel}"/>
-                        </StackPanel>
-                        <Border CornerRadius="4" Padding="8,2"
-                                Background="#1A22c55e"
-                                BorderBrush="#4022c55e"
-                                BorderThickness="1"
-                                HorizontalAlignment="Left">
-                            <TextBlock Text="{x:Bind ViewModel.NicSpeedText, Mode=OneWay}"
-                                       Style="{StaticResource ST_BadgeText}"
-                                       Foreground="{StaticResource STSuccess}"/>
-                        </Border>
-                        <TextBlock Text="{x:Bind ViewModel.NicAdapterName, Mode=OneWay}"
-                                   Style="{StaticResource ST_BodySmall}"/>
-                    </StackPanel>
-                </Button>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
 
-                <!-- Auto Streaming → Network -->
-                <Button Grid.Row="0" Grid.Column="1"
-                        Style="{StaticResource ST_TileButton}"
-                        Click="AutoStreamingTile_Click">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <FontIcon Glyph="&#xE701;" FontFamily="Segoe MDL2 Assets"
-                                      FontSize="11" Foreground="White"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="AUTO STREAMING MODE" Style="{StaticResource ST_SectionLabel}"/>
-                        </StackPanel>
-                        <Border CornerRadius="4" Padding="8,2"
-                                Background="{x:Bind ViewModel.AutoStreamingBgHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderBrush="{x:Bind ViewModel.AutoStreamingBorderHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderThickness="1"
-                                HorizontalAlignment="Left">
-                            <TextBlock Text="{x:Bind ViewModel.AutoStreamingText, Mode=OneWay}"
-                                       Style="{StaticResource ST_BadgeText}"
-                                       Foreground="{x:Bind ViewModel.AutoStreamingColorHex, Mode=OneWay,
-                                                    Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                        </Border>
-                        <TextBlock Opacity="0" Style="{StaticResource ST_BodySmall}" Text=" "/>
-                    </StackPanel>
-                </Button>
+                                <!-- Right margin is a guaranteed gutter before the cover strip: this
+                                     column is star-sized against an Auto cover column, so with three
+                                     covers it collapses to almost exactly its content width and the
+                                     Drops figure ends up flush against the first cover. -->
+                                <StackPanel Grid.Column="0" Spacing="12" Margin="0,0,18,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <Border CornerRadius="6" BorderThickness="1" Padding="10,4" VerticalAlignment="Center"
+                                                Background="{x:Bind ViewModel.LastSessionGradeBgHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                BorderBrush="{x:Bind ViewModel.LastSessionGradeBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                Visibility="{x:Bind ViewModel.LastSessionHasGrade, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <TextBlock Text="{x:Bind ViewModel.LastSessionGrade, Mode=OneWay}"
+                                                       FontFamily="{StaticResource DMSansSemiBold}" FontSize="13"
+                                                       Foreground="{x:Bind ViewModel.LastSessionGradeColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                        </Border>
+                                        <Border CornerRadius="6" Padding="10,4" VerticalAlignment="Center"
+                                                Background="{StaticResource STBadgeGrayBg}" BorderBrush="{StaticResource STBadgeGrayBdr}" BorderThickness="1">
+                                            <TextBlock Text="{x:Bind ViewModel.LastSessionDuration, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}"/>
+                                        </Border>
+                                    </StackPanel>
 
-                <!-- HDR → Display -->
-                <Button Grid.Row="0" Grid.Column="2"
-                        Style="{StaticResource ST_TileButton}"
-                        Click="HdrTile_Click">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe MDL2 Assets"
-                                      FontSize="11" Foreground="White"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="HDR" Style="{StaticResource ST_SectionLabel}"/>
-                        </StackPanel>
-                        <Border CornerRadius="4" Padding="8,2"
-                                Background="{x:Bind ViewModel.HdrBgHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderBrush="{x:Bind ViewModel.HdrBorderHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderThickness="1"
-                                HorizontalAlignment="Left">
-                            <TextBlock Text="{x:Bind ViewModel.HdrText, Mode=OneWay}"
-                                       Style="{StaticResource ST_BadgeText}"
-                                       Foreground="{x:Bind ViewModel.HdrColorHex, Mode=OneWay,
-                                                    Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                        </Border>
-                        <TextBlock Text="{x:Bind ViewModel.HdrDisplayName, Mode=OneWay}"
-                                   Style="{StaticResource ST_BodySmall}"/>
-                    </StackPanel>
-                </Button>
+                                    <StackPanel Orientation="Horizontal" Spacing="14">
+                                        <StackPanel Spacing="2">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{x:Bind ViewModel.LastSessionRttValue, Mode=OneWay}" FontFamily="{StaticResource DMSansSemiBold}" FontSize="26" Foreground="{StaticResource STTextPrimary}"/>
+                                                <TextBlock Text="ms" FontSize="12" Foreground="{StaticResource STTextDim}" VerticalAlignment="Bottom" Margin="1,0,0,4"/>
+                                            </StackPanel>
+                                            <TextBlock Text="{x:Bind ViewModel.LastSessionRttSub, Mode=OneWay}" Style="{StaticResource ST_BodySmall}"/>
+                                        </StackPanel>
+                                        <StackPanel Spacing="2">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{x:Bind ViewModel.LastSessionHostLatency, Mode=OneWay}" FontFamily="{StaticResource DMSansSemiBold}" FontSize="26" Foreground="{StaticResource STTextPrimary}"/>
+                                                <TextBlock Text="ms" FontSize="12" Foreground="{StaticResource STTextDim}" VerticalAlignment="Bottom" Margin="1,0,0,4"/>
+                                            </StackPanel>
+                                            <TextBlock Text="Host latency" Style="{StaticResource ST_BodySmall}"/>
+                                        </StackPanel>
+                                        <StackPanel Spacing="2">
+                                            <StackPanel Orientation="Horizontal">
+                                                <TextBlock Text="{x:Bind ViewModel.LastSessionDropsValue, Mode=OneWay}" FontFamily="{StaticResource DMSansSemiBold}" FontSize="26" Foreground="{StaticResource STTextPrimary}"/>
+                                                <TextBlock Text="%" FontSize="12" Foreground="{StaticResource STTextDim}" VerticalAlignment="Bottom" Margin="1,0,0,4"/>
+                                            </StackPanel>
+                                            <TextBlock Text="Drops" Style="{StaticResource ST_BodySmall}"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
 
-                <!-- Spatial Audio → Audio -->
-                <Button Grid.Row="1" Grid.Column="0"
-                        Style="{StaticResource ST_TileButton}"
-                        Click="SpatialAudioTile_Click">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <FontIcon Glyph="&#xE767;" FontFamily="Segoe MDL2 Assets"
-                                      FontSize="11" Foreground="White"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="AUTO SPATIAL AUDIO" Style="{StaticResource ST_SectionLabel}"/>
+                                <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center"
+                                            Visibility="{x:Bind ViewModel.HasLastSessionCovers, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <TextBlock Text="Games played" Style="{StaticResource ST_BodySmall}" HorizontalAlignment="Center"/>
+                                    <ItemsControl ItemsSource="{x:Bind ViewModel.LastSessionCovers, Mode=OneWay}">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:SessionGameCover">
+                                                <Border Width="60" Height="90" CornerRadius="5" Background="{StaticResource STInput}" BorderBrush="{StaticResource STBorder}" BorderThickness="1" ToolTipService.ToolTip="{x:Bind GameName}">
+                                                    <Grid>
+                                                        <!-- UniformToFill + centred: the tile is 2:3 but store art is not
+                                                             always (Epic covers in particular), and merely fitting it left
+                                                             visible empty bands above and below. Filling crops the overflow
+                                                             instead — the Border's CornerRadius clips it. Same as Library. -->
+                                                        <Image Source="{x:Bind CoverImage, Mode=OneWay}" Stretch="UniformToFill"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        <TextBlock Text="{x:Bind GameName}" TextWrapping="Wrap" TextAlignment="Center" FontSize="8" Opacity="0.4" Margin="3" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                                                   Visibility="{x:Bind HasNoCover, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Grid>
                         </StackPanel>
-                        <Border CornerRadius="4" Padding="8,2"
-                                Background="{x:Bind ViewModel.SpatialAudioBgHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderBrush="{x:Bind ViewModel.SpatialAudioBorderHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderThickness="1"
-                                HorizontalAlignment="Left">
-                            <TextBlock Text="{x:Bind ViewModel.SpatialAudioText, Mode=OneWay}"
-                                       Style="{StaticResource ST_BadgeText}"
-                                       Foreground="{x:Bind ViewModel.SpatialAudioColorHex, Mode=OneWay,
-                                                    Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                        </Border>
-                        <TextBlock Text="{x:Bind ViewModel.SpatialAudioDeviceName, Mode=OneWay}"
-                                   Style="{StaticResource ST_BodySmall}"/>
-                    </StackPanel>
-                </Button>
-
-                <!-- NVIDIA Sentinel → NvidiaProfile (centro, riga 1) -->
-                <Button Grid.Row="1" Grid.Column="1"
-                        Style="{StaticResource ST_TileButton}"
-                        Click="NvidiaSentinelTile_Click">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <Image Width="13" Height="13" VerticalAlignment="Center">
-                                <Image.Source>
-                                    <SvgImageSource UriSource="ms-appx:///Resources/nvidia-eye.svg"/>
-                                </Image.Source>
-                            </Image>
-                            <TextBlock Text="NVIDIA SENTINEL" Style="{StaticResource ST_SectionLabel}"/>
-                        </StackPanel>
-                        <Border CornerRadius="4" Padding="8,2"
-                                Background="{x:Bind ViewModel.NvSentinelAutoRestoreBgHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderBrush="{x:Bind ViewModel.NvSentinelAutoRestoreBorderHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderThickness="1"
-                                HorizontalAlignment="Left">
-                            <TextBlock Text="{x:Bind ViewModel.NvSentinelBadgeText, Mode=OneWay}"
-                                       Style="{StaticResource ST_BadgeText}"
-                                       Foreground="{x:Bind ViewModel.NvSentinelAutoRestoreColorHex, Mode=OneWay,
-                                                    Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                        </Border>
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="Last auto-restore"
-                                       Style="{StaticResource ST_BodySmall}"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Text="{x:Bind ViewModel.NvSentinelLastRestoreValue, Mode=OneWay}"
-                                       Style="{StaticResource ST_MonoValueSmall}"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Button>
-
-                <!-- Game Library → GameLibrary (centro, riga 2) -->
-                <Button Grid.Row="2" Grid.Column="1"
-                        Style="{StaticResource ST_TileButton}"
-                        Click="GameLibraryTile_Click">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <FontIcon Glyph="&#xE7FC;" FontFamily="Segoe MDL2 Assets"
-                                      FontSize="11" Foreground="White"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="GAME LIBRARY" Style="{StaticResource ST_SectionLabel}"/>
-                        </StackPanel>
-                        <TextBlock Text="{x:Bind ViewModel.GameLibraryText, Mode=OneWay}"
-                                   Style="{StaticResource ST_MonoMedium}"
-                                   Foreground="#22c55e"/>
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center"
-                                    Visibility="{x:Bind ViewModel.HasGameLibrarySyncText, Mode=OneWay,
-                                                 Converter={StaticResource BoolToVisibilityConverter}}">
-                            <TextBlock Text="{x:Bind ViewModel.GameLibrarySyncText, Mode=OneWay}"
-                                       Style="{StaticResource ST_BodySmall}"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Text="{x:Bind ViewModel.GameLibrarySyncValue, Mode=OneWay}"
-                                       Style="{StaticResource ST_MonoValueSmall}"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Button>
-
-                <!-- Auto HDR → Display -->
-                <Button Grid.Row="1" Grid.Column="2"
-                        Style="{StaticResource ST_TileButton}"
-                        Click="AutoHdrTile_Click">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe MDL2 Assets"
-                                      FontSize="11" Foreground="White"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="AUTO HDR" Style="{StaticResource ST_SectionLabel}"/>
-                        </StackPanel>
-                        <Border CornerRadius="4" Padding="8,2"
-                                Background="{x:Bind ViewModel.AutoHdrBgHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderBrush="{x:Bind ViewModel.AutoHdrBorderHex, Mode=OneWay,
-                                             Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderThickness="1"
-                                HorizontalAlignment="Left">
-                            <TextBlock Text="{x:Bind ViewModel.AutoHdrText, Mode=OneWay}"
-                                       Style="{StaticResource ST_BadgeText}"
-                                       Foreground="{x:Bind ViewModel.AutoHdrColorHex, Mode=OneWay,
-                                                    Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                        </Border>
-                        <TextBlock Opacity="0" Style="{StaticResource ST_BodySmall}" Text=" "/>
-                    </StackPanel>
-                </Button>
-
-                <!-- APPS → Apps -->
-                <Button Grid.Row="2" Grid.Column="0"
-                        Style="{StaticResource ST_TileButton}"
-                        Click="AppsTile_Click">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <FontIcon Glyph="&#xE71D;" FontFamily="Segoe MDL2 Assets"
-                                      FontSize="11" Foreground="White"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="MANAGED APPS" Style="{StaticResource ST_SectionLabel}"/>
-                        </StackPanel>
-                        <TextBlock Text="{x:Bind ViewModel.ManagedAppsText, Mode=OneWay}"
-                                   Style="{StaticResource ST_MonoMedium}"
-                                   Foreground="#22c55e"/>
-                        <TextBlock Opacity="0" Style="{StaticResource ST_BodySmall}" Text=" "/>
-                    </StackPanel>
-                </Button>
-
-                <!-- LOGS → Logs -->
-                <Button Grid.Row="2" Grid.Column="2"
-                        Style="{StaticResource ST_TileButton}"
-                        Click="LogsTile_Click">
-                    <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="5">
-                            <FontIcon Glyph="&#xE9F9;" FontFamily="Segoe MDL2 Assets"
-                                      FontSize="11" Foreground="White"
-                                      VerticalAlignment="Center"/>
-                            <TextBlock Text="LOGS" Style="{StaticResource ST_SectionLabel}"/>
-                        </StackPanel>
-                        <TextBlock Text="{x:Bind ViewModel.LogsSessionCount, Mode=OneWay}"
-                                   Style="{StaticResource ST_MonoMedium}"
-                                   Foreground="{x:Bind ViewModel.LogsSessionCountColorHex, Mode=OneWay,
-                                                Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="All session duration"
-                                       Style="{StaticResource ST_BodySmall}"
-                                       VerticalAlignment="Center"/>
-                            <TextBlock Text="{x:Bind ViewModel.LogsTotalDuration, Mode=OneWay}"
-                                       Style="{StaticResource ST_MonoValueSmall}"
-                                       VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </StackPanel>
-                </Button>
-
+                    </Grid>
+                </Border>
             </Grid>
 
+            <!-- ══════════ ROW 2 — performance | host setup + clients ══════════ -->
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.18*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- ───────── PERFORMANCE (this week) ───────── -->
+                <Border Grid.Column="0" Style="{StaticResource ST_Card}">
+                    <StackPanel Spacing="12">
+                        <!-- Header: label + period summary (left), period picker (right) -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                <TextBlock Text="PERFORMANCE" Style="{StaticResource ST_SectionLabel}" VerticalAlignment="Center"/>
+                                <TextBlock Text="·" Foreground="{StaticResource STBorderSubtle}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{x:Bind ViewModel.PerfPeriodLabel, Mode=OneWay}" Style="{StaticResource ST_BodySmall}" VerticalAlignment="Center"/>
+                                <TextBlock Text="·" Foreground="{StaticResource STBorderSubtle}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{x:Bind ViewModel.ThisWeekSummary, Mode=OneWay}" Style="{StaticResource ST_BodySmall}" VerticalAlignment="Center"/>
+                            </StackPanel>
+
+                            <ComboBox Grid.Column="1" MinWidth="132" VerticalAlignment="Center"
+                                      AutomationProperties.Name="Performance period"
+                                      ToolTipService.ToolTip="Period summarised by this card"
+                                      SelectedIndex="{x:Bind ViewModel.PerfPeriodIndex, Mode=TwoWay}">
+                                <ComboBoxItem Content="Last 7 days"/>
+                                <ComboBoxItem Content="Last 30 days"/>
+                                <ComboBoxItem Content="Last 90 days"/>
+                                <ComboBoxItem Content="Last 180 days"/>
+                                <ComboBoxItem Content="Last 365 days"/>
+                                <ComboBoxItem Content="All time"/>
+                            </ComboBox>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBlock Text="{x:Bind ViewModel.ThisWeekAvgLetter, Mode=OneWay}"
+                                       FontFamily="{StaticResource DMSansSemiBold}" FontSize="30"
+                                       Foreground="{StaticResource STTextPrimary}"/>
+                            <TextBlock Text="{x:Bind ViewModel.ThisWeekBreakdown, Mode=OneWay}"
+                                       Style="{StaticResource ST_BodySmall}" VerticalAlignment="Bottom" Margin="0,0,0,6"/>
+                        </StackPanel>
+
+                        <!-- Trend chart: RTT (+ host frame latency when recorded) per session -->
+                        <ctrl:SparklineControl Height="150" Title=""
+                                               DurationLabel="{x:Bind ViewModel.PerfPeriodAxisLabel, Mode=OneWay}"
+                                               LinesData="{x:Bind ViewModel.WeekPerfLines, Mode=OneWay}"
+                                               Visibility="{x:Bind ViewModel.HasWeekPerf, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                        <TextBlock Text="At least two graded sessions are needed to draw a trend."
+                                   Style="{StaticResource ST_BodySmall}"
+                                   Visibility="{x:Bind ViewModel.HasWeekPerf, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+
+                        <StackPanel Orientation="Horizontal" Spacing="22">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="Avg RTT" Style="{StaticResource ST_BodySmall}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{x:Bind ViewModel.ThisWeekRtt, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="Avg drops" Style="{StaticResource ST_BodySmall}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{x:Bind ViewModel.WeekPerfDrops, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="Streamed" Style="{StaticResource ST_BodySmall}" VerticalAlignment="Center"/>
+                                <TextBlock Text="{x:Bind ViewModel.WeekPerfStreamed, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ───────── HOST SETUP + PAIRED CLIENTS ───────── -->
+                <Border Grid.Column="1" Style="{StaticResource ST_Card}">
+                    <StackPanel Spacing="0">
+                        <TextBlock Text="HOST SETUP" Style="{StaticResource ST_SectionLabel}" Margin="0,0,0,6"/>
+
+                        <!-- Link speed + its auto-switch state on one row: the second badge is
+                             a qualifier of the first, not a separate setting, so pairing them
+                             reads better and buys back a row for the cards below. Same pattern
+                             for HDR / Auto HDR and NVIDIA Sentinel below. -->
+                        <Grid Padding="0,7">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Link speed" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <Border CornerRadius="4" BorderThickness="1" Padding="8,3"
+                                        Background="#1A4ade80" BorderBrush="#404ade80">
+                                    <TextBlock Text="{x:Bind ViewModel.NicSpeedText, Mode=OneWay}" Style="{StaticResource ST_BadgeText}" Foreground="{StaticResource STSuccess}"/>
+                                </Border>
+                                <Border CornerRadius="4" BorderThickness="1" Padding="8,3"
+                                        ToolTipService.ToolTip="Automatically switch the link speed when a stream starts and restore it afterwards"
+                                        Background="{x:Bind ViewModel.AutoStreamingBgHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                        BorderBrush="{x:Bind ViewModel.AutoStreamingBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="Auto" Style="{StaticResource ST_BadgeText}" Opacity="0.7"
+                                                   Foreground="{x:Bind ViewModel.AutoStreamingColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                        <TextBlock Text="{x:Bind ViewModel.AutoStreamingText, Mode=OneWay}" Style="{StaticResource ST_BadgeText}"
+                                                   Foreground="{x:Bind ViewModel.AutoStreamingColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- HDR + Auto HDR -->
+                        <Grid Padding="0,7">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="HDR" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <Border CornerRadius="4" BorderThickness="1" Padding="8,3"
+                                        Background="{x:Bind ViewModel.HdrBgHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                        BorderBrush="{x:Bind ViewModel.HdrBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                    <TextBlock Text="{x:Bind ViewModel.HdrText, Mode=OneWay}" Style="{StaticResource ST_BadgeText}"
+                                               Foreground="{x:Bind ViewModel.HdrColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                </Border>
+                                <Border CornerRadius="4" BorderThickness="1" Padding="8,3"
+                                        ToolTipService.ToolTip="Windows Auto HDR — expands supported SDR games to HDR"
+                                        Background="{x:Bind ViewModel.AutoHdrBgHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                        BorderBrush="{x:Bind ViewModel.AutoHdrBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="Auto" Style="{StaticResource ST_BadgeText}" Opacity="0.7"
+                                                   Foreground="{x:Bind ViewModel.AutoHdrColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                        <TextBlock Text="{x:Bind ViewModel.AutoHdrText, Mode=OneWay}" Style="{StaticResource ST_BadgeText}"
+                                                   Foreground="{x:Bind ViewModel.AutoHdrColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Spatial audio -->
+                        <Grid Padding="0,7">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Spatial audio" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
+                            <Border Grid.Column="1" CornerRadius="4" BorderThickness="1" Padding="8,3" VerticalAlignment="Center"
+                                    Background="{x:Bind ViewModel.SpatialAudioBgHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                    BorderBrush="{x:Bind ViewModel.SpatialAudioBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                <TextBlock Text="{x:Bind ViewModel.SpatialAudioText, Mode=OneWay}" Style="{StaticResource ST_BadgeText}"
+                                           Foreground="{x:Bind ViewModel.SpatialAudioColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- NVIDIA Sentinel (hidden on non-NVIDIA hosts) -->
+                        <Grid Padding="0,7"
+                              Visibility="{x:Bind ViewModel.IsNvSentinelAvailable, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="NVIDIA Sentinel" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                <!-- Snapshot size is a neutral fact, so it stays grey; the colour
+                                     belongs to the auto-restore badge, which is the actual state. -->
+                                <Border CornerRadius="4" BorderThickness="1" Padding="8,3"
+                                        ToolTipService.ToolTip="Driver settings captured in your saved profile"
+                                        Background="{StaticResource STBadgeGrayBg}" BorderBrush="{StaticResource STBadgeGrayBdr}">
+                                    <TextBlock Text="{x:Bind ViewModel.NvSentinelBadgeText, Mode=OneWay}" Style="{StaticResource ST_BadgeText}"
+                                               Foreground="{StaticResource STTextMuted}"/>
+                                </Border>
+                                <Border CornerRadius="4" BorderThickness="1" Padding="8,3"
+                                        ToolTipService.ToolTip="Re-applies your saved profile automatically if NVIDIA App resets it"
+                                        Background="{x:Bind ViewModel.NvSentinelAutoRestoreBgHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                        BorderBrush="{x:Bind ViewModel.NvSentinelAutoRestoreBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                    <StackPanel Orientation="Horizontal" Spacing="4">
+                                        <TextBlock Text="Auto" Style="{StaticResource ST_BadgeText}" Opacity="0.7"
+                                                   Foreground="{x:Bind ViewModel.NvSentinelAutoRestoreColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                        <TextBlock Text="{x:Bind ViewModel.NvSentinelAutoRestoreText, Mode=OneWay}" Style="{StaticResource ST_BadgeText}"
+                                                   Foreground="{x:Bind ViewModel.NvSentinelAutoRestoreColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+
+                        <!-- Managed apps -->
+                        <Grid Padding="0,7">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Managed apps" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
+                            <Border Grid.Column="1" CornerRadius="4" BorderThickness="1" Padding="8,3" VerticalAlignment="Center"
+                                    Background="{StaticResource STBadgeGrayBg}" BorderBrush="{StaticResource STBadgeGrayBdr}">
+                                <TextBlock Text="{x:Bind ViewModel.ManagedAppsText, Mode=OneWay}" Style="{StaticResource ST_BadgeText}" Foreground="{StaticResource STTextMuted}"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Paired clients -->
+                        <Border BorderBrush="{StaticResource STBorderSubtle}" BorderThickness="0,1,0,0" Margin="0,10,0,0" Padding="0,12,0,0">
+                            <StackPanel Spacing="8">
+                                <StackPanel Orientation="Horizontal" Spacing="7">
+                                    <TextBlock Text="PAIRED CLIENTS" Style="{StaticResource ST_SectionLabel}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="·" Foreground="{StaticResource STBorderSubtle}" VerticalAlignment="Center"/>
+                                    <TextBlock Text="{x:Bind ViewModel.PairedClientsSummary, Mode=OneWay}" Style="{StaticResource ST_BodySmall}" VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.PairedClients, Mode=OneWay}"
+                                              Visibility="{x:Bind ViewModel.HasPairedClients, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:HomeClientRow">
+                                            <Grid Padding="0,5">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Spacing="1">
+                                                    <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST_RowLabel}"/>
+                                                    <TextBlock Text="{x:Bind LastSeenText}" Style="{StaticResource ST_RowDescription}"/>
+                                                </StackPanel>
+                                                <Border Grid.Column="1" CornerRadius="4" BorderThickness="1" Padding="8,3" VerticalAlignment="Center"
+                                                        Background="{x:Bind StatusBgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                        BorderBrush="{x:Bind StatusBorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                                    <TextBlock Text="{x:Bind StatusText}" Style="{StaticResource ST_BadgeText}"
+                                                               Foreground="{x:Bind StatusColorHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                                </Border>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+
+                                <TextBlock Text="No approved clients yet. Approve a StreamLight client from the Clients page."
+                                           Style="{StaticResource ST_BodySmall}" TextWrapping="Wrap"
+                                           Visibility="{x:Bind ViewModel.HasPairedClients, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </Grid>
 
         </StackPanel>
     </ScrollViewer>

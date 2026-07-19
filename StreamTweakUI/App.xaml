@@ -9,6 +9,8 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <!-- StreamTweak design system (fonts, colors, styles, converters) -->
                 <ResourceDictionary Source="ms-appx:///Themes/StreamTweakStyles.xaml"/>
+                <!-- StreamTweak 8.0 additive layer (master-detail rail, 8.0 pages) -->
+                <ResourceDictionary Source="ms-appx:///Themes/StreamTweak8.xaml"/>
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

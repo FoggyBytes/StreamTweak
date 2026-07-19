@@ -798,21 +798,64 @@ begin
   end;
 end;
 
-procedure Dependency_AddWindowsAppRuntime18;
+function Dependency_HasWindowsAppRuntime2(const MinVersion: String): Boolean;
 var
-  PackageKey: String;
+  PackageKey, Prefix, Name, VerStr: String;
+  Names: TArrayOfString;
+  I, P: Integer;
+  FoundVer, NeededVer: Int64;
+begin
+  // Detection for the Windows App SDK 2.x framework package.
+  //
+  // NOTE: the package sub-keys are VERSIONED, e.g.
+  //   Microsoft.WindowsAppRuntime.2_2.3.1.0_x64__8wekyb3d8bbwe
+  // A bare family-name key (Microsoft.WindowsAppRuntime.2_8wekyb3d8bbwe) does NOT
+  // exist, and there is no "Families" sub-tree under PackageRepository — so a plain
+  // RegKeyExists on the family name always returns False and the runtime installer
+  // would be re-downloaded on every setup.
+  //
+  // Since 2.0 the family name tracks the MAJOR version only, so "Microsoft.WindowsAppRuntime.2"
+  // covers 2.0/2.1/2.2/2.3 alike: presence is not enough, the version must be compared.
+  Result := False;
+  PackageKey := 'SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\PackageRepository\Packages';
+  Prefix := 'Microsoft.WindowsAppRuntime.2_';
+
+  if not StrToVersion(MinVersion, NeededVer) then begin
+    Exit;
+  end;
+  if not RegGetSubkeyNames(HKLM, PackageKey, Names) then begin
+    Exit;
+  end;
+
+  for I := 0 to GetArrayLength(Names) - 1 do begin
+    Name := Names[I];
+    if (Pos(Prefix, Name) = 1) and (Pos('_x64__', Name) > 0) then begin
+      // Slice the version out of <prefix><version>_x64__<publisher>
+      VerStr := Copy(Name, Length(Prefix) + 1, MaxInt);
+      P := Pos('_', VerStr);
+      if P > 0 then begin
+        VerStr := Copy(VerStr, 1, P - 1);
+      end;
+      if StrToVersion(VerStr, FoundVer) and (ComparePackedVersion(FoundVer, NeededVer) >= 0) then begin
+        Result := True;
+        Exit;
+      end;
+    end;
+  end;
+end;
+
+procedure Dependency_AddWindowsAppRuntime23;
 begin
   // https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads
-  // Windows App SDK 1.8 (1.8.260209005) — required by WinUI 3 unpackaged apps.
-  // Detection: check for the DDLM framework package in the per-machine package registry.
+  // Windows App SDK 2.3 (2.3.1) — required by WinUI 3 unpackaged apps.
   // The installer handles idempotency itself (exits 0 if already present),
-  // so ForceSuccess=True is safe. x64-only: Windows App SDK 1.8+ has no x86 variant.
-  PackageKey := 'SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\PackageRepository\Packages';
-  if not RegKeyExists(HKLM, PackageKey + '\Microsoft.WindowsAppRuntime.1.8_8wekyb3d8bbwe') then begin
+  // so ForceSuccess=True is safe. We ship x64 only; 2.x also has x86/arm64 builds.
+  // Coexists side-by-side with the 1.x runtimes: nothing needs uninstalling.
+  if not Dependency_HasWindowsAppRuntime2('2.3.1.0') then begin
     Dependency_Add('WindowsAppRuntimeInstall-x64.exe',
       '--quiet',
-      'Windows App Runtime 1.8',
-      'https://aka.ms/windowsappsdk/1.8/latest/windowsappruntimeinstall-x64.exe',
+      'Windows App Runtime 2.3',
+      'https://aka.ms/windowsappsdk/2.3/2.3.1/windowsappruntimeinstall-x64.exe',
       '', True, False);
   end;
 end;

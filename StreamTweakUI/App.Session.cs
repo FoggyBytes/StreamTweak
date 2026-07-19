@@ -126,6 +126,7 @@ namespace StreamTweak
             {
                 _logMonitor = new StreamingLogMonitor();
                 _logMonitor.StreamingEventDetected += LogMonitor_StreamingEventDetected;
+                _logMonitor.GameLaunchDetected += OnGameLaunchDetected;
                 _logMonitor.StartMonitoring();
             }
             catch { }
@@ -149,6 +150,7 @@ namespace StreamTweak
             {
                 if (_logMonitor == null) return;
                 _logMonitor.StreamingEventDetected -= LogMonitor_StreamingEventDetected;
+                _logMonitor.GameLaunchDetected -= OnGameLaunchDetected;
                 _logMonitor.StopMonitoring();
                 _logMonitor.Dispose();
                 _logMonitor = null;
@@ -183,6 +185,56 @@ namespace StreamTweak
             catch { }
         }
 
+        // The server log names the exact executable it launched (~1 s before CLIENT CONNECTED),
+        // which is the authoritative game — more reliable than process scanning for launcher→game
+        // handoffs (Ubisoft/EA/Battle.net) the scanner misses. Resolve it to the app's display
+        // name via apps.json; the process monitor is seeded at session start, and if a session is
+        // already active (second game mid-session) it's credited immediately.
+        private string? _lastLaunchedGameName;
+        private DateTime _lastLaunchedGameAtUtc = DateTime.MinValue;
+
+        /// <summary>
+        /// How long a buffered launch stays eligible for seeding. The Executing: line normally
+        /// precedes CLIENT CONNECTED by about a second; anything older means the launch never
+        /// became a session (client failed to connect, user backed out) and must not be
+        /// credited to whatever session happens to start later.
+        /// </summary>
+        private const double LAUNCHED_GAME_MAX_AGE_SEC = 120;
+
+        private void OnGameLaunchDetected(string exePath)
+        {
+            try
+            {
+                string? name = SunshineSync.ResolveAppNameForExecutable(exePath);
+                if (string.IsNullOrEmpty(name)) return;
+                _dispatcher.TryEnqueue(() =>
+                {
+                    _lastLaunchedGameName  = name;
+                    _lastLaunchedGameAtUtc = DateTime.UtcNow;
+                    _sessionProcessMonitor?.AddDetectedByName(name);
+                });
+            }
+            catch (Exception ex) { DebugLogger.Log($"[Session] OnGameLaunchDetected failed: {ex}"); }
+        }
+
+        // Seed the just-launched game (buffered from the log) into a freshly-created process
+        // monitor — the Executing: line arrives before the session (and monitor) starts.
+        private void SeedLaunchedGameIntoMonitor()
+        {
+            // Consume-once: clear before using, so a launch can never be seeded into two
+            // sessions, and an unused one can't linger until the next unrelated session.
+            string? name = _lastLaunchedGameName;
+            _lastLaunchedGameName = null;
+            if (string.IsNullOrEmpty(name)) return;
+
+            if ((DateTime.UtcNow - _lastLaunchedGameAtUtc).TotalSeconds > LAUNCHED_GAME_MAX_AGE_SEC)
+            {
+                DebugLogger.Log($"[Session] Ignoring stale launched game '{name}' — logged more than {LAUNCHED_GAME_MAX_AGE_SEC}s ago");
+                return;
+            }
+            _sessionProcessMonitor?.AddDetectedByName(name);
+        }
+
         private async Task StartManualStreamingMode()
         {
             if (_isAutoStreamingActive || _sessionStartInProgress) return;
@@ -205,8 +257,8 @@ namespace StreamTweak
                     if (match) { capturedOriginalSpeed = kvp.Key; break; }
                 }
 
-                string? oneGbpsKey = Find1GbpsKey();
-                if (oneGbpsKey == null) return;
+                string? targetKey = FindStreamingTargetKey();
+                if (targetKey == null) return;
 
                 // Manual streaming mode: throttles NIC only.
                 // Managed apps are NOT touched here — app kill/relaunch is driven
@@ -214,15 +266,15 @@ namespace StreamTweak
                 // Session tracking (log, tray icon, home dot) starts only when the
                 // streaming client actually connects — detected via the log monitor.
                 _isAutoStreamingActive        = true;
-                _originalSpeedForAutoStreaming = capturedOriginalSpeed;
+                _originalSpeedForAutoStreaming = GetRestoreKey(capturedOriginalSpeed);
                 ConfigService.Set("StreamingMode", true);
                 ConfigService.Set("OriginalSpeed", capturedOriginalSpeed);
                 AppStateService.Instance.IsStreamingModeActive = true;
                 if (_trayStreamingModeItem != null)
-                    _trayStreamingModeItem.Text = "Stop Streaming Mode";
+                    _trayStreamingModeItem.Text = "Restore link speed";
 
-                await Task.Run(() => ApplySpeed(oneGbpsKey));
-                NotificationService.ShowSpeedApplied(_adapterName, "1 Gbps");
+                await Task.Run(() => ApplySpeed(targetKey));
+                NotificationService.ShowSpeedApplied(_adapterName, SpeedLabel(targetKey));
                 _ = PollForNicReconnectAsync();
             }
             catch (Exception ex) { DebugLogger.Log($"[Streaming] StartManualStreamingMode failed: {ex}"); }
@@ -247,7 +299,11 @@ namespace StreamTweak
                     if (ni != null && ni.OperationalStatus == OperationalStatus.Up)
                     {
                         long mbps = ni.Speed / 1_000_000;
-                        if (_isAutoStreamingEnabled && mbps >= 1200)
+                        string? targetKey = FindStreamingTargetKey();
+                        long targetMbps = targetKey != null ? KeyToMbps(targetKey) : 0;
+                        // Switch only when Auto is on, a target exists, and the NIC isn't already at it.
+                        if (_isAutoStreamingEnabled && targetKey != null
+                            && (targetMbps <= 0 || Math.Abs(mbps - targetMbps) > 50))
                         {
                             var speeds = NetworkManager.GetSupportedSpeeds(_adapterName);
                             foreach (var kvp in speeds)
@@ -259,10 +315,8 @@ namespace StreamTweak
                                 if (match) { capturedOriginalSpeed = kvp.Key; break; }
                             }
 
-                            string? oneGbpsKey = Find1GbpsKey();
-                            if (oneGbpsKey != null)
                             {
-                                NotificationService.ShowStreamingDetected(_adapterName, "1 Gbps");
+                                NotificationService.ShowStreamingDetected(_adapterName, SpeedLabel(targetKey));
 
                                 // Show topmost overlay: user sees feedback even when window is hidden.
                                 _adjustmentAlert = new StreamingAdjustmentWindow();
@@ -276,13 +330,13 @@ namespace StreamTweak
                                 if (_isAutoStreamingEnabled)
                                 {
                                     _isAutoStreamingActive = true;
-                                    _originalSpeedForAutoStreaming = capturedOriginalSpeed;
+                                    _originalSpeedForAutoStreaming = GetRestoreKey(capturedOriginalSpeed);
                                     ConfigService.Set("StreamingMode", true);
                                     ConfigService.Set("OriginalSpeed", capturedOriginalSpeed);
                                     AppStateService.Instance.IsStreamingModeActive = true;
 
-                                    await Task.Run(() => ApplySpeed(oneGbpsKey));
-                                    NotificationService.ShowSpeedApplied(_adapterName, "1 Gbps");
+                                    await Task.Run(() => ApplySpeed(targetKey));
+                                    NotificationService.ShowSpeedApplied(_adapterName, SpeedLabel(targetKey));
                                     _ = PollForNicReconnectAsync();
                                 }
                             }
@@ -308,6 +362,7 @@ namespace StreamTweak
                 var games = GameLibraryState.Current.Games;
                 _sessionProcessMonitor = new SessionProcessMonitor(games);
                 _sessionProcessMonitor.Start();
+                SeedLaunchedGameIntoMonitor();  // credit the game named in the server log
             }
             catch (Exception ex) { DebugLogger.Log($"[Streaming] HandleAutoStreamStart failed: {ex}"); }
             finally { _sessionStartInProgress = false; }
@@ -335,7 +390,7 @@ namespace StreamTweak
                     ConfigService.Set("OriginalSpeed", "");
                     AppStateService.Instance.IsStreamingModeActive = false;
                     if (_trayStreamingModeItem != null)
-                        _trayStreamingModeItem.Text = "Start Streaming Mode";
+                        _trayStreamingModeItem.Text = "Switch link speed now";
                     NotificationService.ShowStreamingEnded(endReason == "Disconnected");
                 }
 
@@ -357,6 +412,9 @@ namespace StreamTweak
                     //                                   [...] = games were detected
                     SessionLogger.EndSession(endReason, detectedGames);
                     _isAutoSessionActive = false;
+                    _lastLaunchedGameName = null;
+                    _lastSessionDataUtc   = DateTime.MinValue;   // disarm the client-heartbeat watchdog
+                    StopHeartbeatWatchdog();                     // …and release its timer
                     AppStateService.Instance.IsSessionActive = false;
                     UpdateTrayStreamingState(false);
                     // If both Auto Streaming and Auto Spatial Audio are disabled, the
@@ -468,6 +526,10 @@ namespace StreamTweak
                 _isAutoSessionActive = true;
                 AppStateService.Instance.IsSessionActive = true;
                 UpdateTrayStreamingState(true);
+
+                // Feed the live Dashboard cockpit with synthetic per-second samples so
+                // the stat cards + charts populate exactly as in a real session.
+                StartDebugLiveFeed();
             }
             catch { _isDebugModeActive = false; AppStateService.Instance.IsDebugModeActive = false; }
             finally { _sessionStartInProgress = false; }
@@ -478,6 +540,8 @@ namespace StreamTweak
             if (!_isDebugModeActive) return;
             try
             {
+                StopDebugLiveFeed();
+
                 if (_isAudioMonitorEnabled)
                     _dolbyMonitor.OnStreamingStopped();
 
@@ -489,6 +553,88 @@ namespace StreamTweak
                 UpdateTrayStreamingState(false);
             }
             catch { _isDebugModeActive = false; AppStateService.Instance.IsDebugModeActive = false; }
+        }
+
+        // ── Debug live feed (drives the Dashboard cockpit in debug mode) ────────
+
+        private Microsoft.UI.Dispatching.DispatcherQueueTimer? _debugLiveTimer;
+        private int _debugTick;
+
+        private void StartDebugLiveFeed()
+        {
+            _debugTick = 0;
+            _debugLiveTimer ??= _dispatcher.CreateTimer();
+            _debugLiveTimer.Interval    = TimeSpan.FromSeconds(1);
+            _debugLiveTimer.IsRepeating = true;
+            _debugLiveTimer.Tick -= OnDebugLiveTick;   // guard against double-subscribe
+            _debugLiveTimer.Tick += OnDebugLiveTick;
+            _debugLiveTimer.Start();
+            OnDebugLiveTick(_debugLiveTimer, null!);   // emit one immediately
+        }
+
+        private void StopDebugLiveFeed() => _debugLiveTimer?.Stop();
+
+        private void OnDebugLiveTick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
+        {
+            int t = _debugTick++;
+            float rtt     = 10f + 3.5f * (float)Math.Sin(t * 0.40) + Random.Shared.Next(0, 3);
+            float jitter  = 1.2f + Random.Shared.Next(0, 12) / 10f;
+            float bitrate = 146f + 5f * (float)Math.Sin(t * 0.20) + Random.Shared.Next(0, 4);
+            int   drops   = t % 23 == 0 ? 1 : 0;
+            float fps     = 60f;
+            float hostLat = 5.6f + 1.6f * (float)Math.Sin(t * 0.30);
+            int   gpu     = 60 + (int)(9 * Math.Sin(t * 0.25)) + Random.Shared.Next(0, 4);
+            int   enc     = 22 + (int)(5 * Math.Sin(t * 0.50)) + Random.Shared.Next(0, 3);
+            int   cpu     = 30 + (int)(6 * Math.Sin(t * 0.35)) + Random.Shared.Next(0, 3);
+
+            AppStateService.Instance.RaiseLiveSample(new AppStateService.LiveSample(
+                rtt, jitter, bitrate, drops, fps, hostLat, gpu, enc, cpu));
+        }
+
+        // ── Client-heartbeat watchdog ────────────────────────────────────────
+        // Fallback session-end that does NOT depend on the server log. StreamLight sends
+        // SESSIONDATA every second while streaming; its cessation is a reliable "client gone"
+        // signal even when the server hangs/crashes on teardown and never logs a disconnect
+        // (observed: Sunshine "Fatal: Hang detected! … Stuck waiting for: post-join cleanup",
+        // which left the session counter running for hours). Armed only once SESSIONDATA has been
+        // seen for the active session, so non-telemetry clients are never force-ended.
+        private Microsoft.UI.Dispatching.DispatcherQueueTimer? _heartbeatWatchdog;
+        private DateTime _lastSessionDataUtc = DateTime.MinValue;
+        private const int CLIENT_HEARTBEAT_TIMEOUT_MS = 60_000;
+
+        private void EnsureHeartbeatWatchdog()
+        {
+            if (_heartbeatWatchdog != null) return;
+            _heartbeatWatchdog = _dispatcher.CreateTimer();
+            _heartbeatWatchdog.Interval    = TimeSpan.FromSeconds(10);
+            _heartbeatWatchdog.IsRepeating = true;
+            _heartbeatWatchdog.Tick += (_, _) =>
+            {
+                if (_isDebugModeActive) return;                          // debug feed bypasses the bridge
+                if (!_isAutoSessionActive) return;                      // no session → nothing to end
+                if (_lastSessionDataUtc == DateTime.MinValue) return;   // no SESSIONDATA seen yet this session
+                if ((DateTime.UtcNow - _lastSessionDataUtc).TotalMilliseconds < CLIENT_HEARTBEAT_TIMEOUT_MS) return;
+
+                DebugLogger.Log($"[Session] Client telemetry silent for >{CLIENT_HEARTBEAT_TIMEOUT_MS / 1000}s — ending session (server logged no disconnect).");
+                _lastSessionDataUtc = DateTime.MinValue;                // disarm to avoid a double fire
+                _ = HandleAutoStreamStop("Client heartbeat lost");
+            };
+            _heartbeatWatchdog.Start();
+        }
+
+        /// <summary>
+        /// Stops and releases the heartbeat watchdog. Without this the timer created for the
+        /// first session kept ticking every 10 s for the rest of the process lifetime — the
+        /// guards made it harmless, but it is pure waste once no session is running.
+        /// Marshalled: the timer belongs to the UI thread, and callers may be elsewhere.
+        /// </summary>
+        private void StopHeartbeatWatchdog()
+        {
+            _dispatcher.TryEnqueue(() =>
+            {
+                _heartbeatWatchdog?.Stop();
+                _heartbeatWatchdog = null;
+            });
         }
 
         // ── Inactivity timer ─────────────────────────────────────────────────

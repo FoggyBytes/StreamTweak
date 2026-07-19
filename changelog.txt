@@ -4,6 +4,50 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+----------------------------------------------
+Version 8.0.0 - "The UI Redesign" (18/07/2026)
+----------------------------------------------
+
+🎨 UI REDESIGN:
+• The whole interface was rebuilt around what you're trying to do, not a flat list of features — the sidebar now groups everything under Dashboard, Insight (Sessions) and Host setup (Network, Display & audio, NVIDIA Sentinel, Managed apps, Library, Clients), with Settings and Glossary in the footer
+• New Dashboard — one layout that never rearranges itself: only the top-left box changes with what the host is doing. At rest it's a live host monitor (GPU temperature and load, VRAM, CPU, network, refreshed every second) that finally answers "is my host cool and idle before I start?"; while you're streaming the same box becomes the live session — RTT, host latency, bitrate, frame drops and frame rate
+• The rest of the Dashboard stays put in both states: your last session with its played games, a performance trend, and the full host setup alongside your paired StreamLight clients
+• The Dashboard performance card summarises the period you choose — last 7, 30, 90, 180 or 365 days, or all time — and remembers your choice between launches
+• The live bitrate is now shown against the target the client asked for ("of 100 Mbps target") instead of a bare number, so an undershoot is obvious at a glance — needs StreamLight 4.5.0, and falls back to the plain figure with older clients
+• Every settings section was decluttered — each option is now a clean row inside a card, with the long explanations moved to a hover ⓘ that links straight to the matching Glossary entry, so the pages read as controls instead of walls of text
+• Display and Audio were merged into one "Display & audio" section, bridge-client approvals moved out of Settings into their own "Clients" page, and Managed apps was reworked so its Add/Remove/End/Restart buttons live inside the list container
+• The Glossary was expanded with every new 8.0 term and is reachable in one click from any ⓘ, which scrolls to and highlights the term
+• Every green in the app was unified into a single palette, and every leftover Windows system-accent colour (the blue on list selection, dropdown selection, spinners, links) was replaced with green
+• The interface now uses one typeface throughout — the monospaced font that used to show up in badges, values and dates was retired everywhere except the Glossary, which keeps its terminal look on purpose
+
+🔀 LINK-SPEED SWITCH:
+• "Streaming Mode" is now "Link-speed switch" and you finally choose the speed — pick the streaming target (no longer hardwired to 1 Gbps) and pick what to restore to afterwards ("Previous", or a fixed speed). The choice applies to the automatic, manual, tray and client-triggered paths alike
+
+🎮 SESSIONS:
+• A session no longer runs forever when the streaming server hangs on teardown — if the client stops sending telemetry, StreamTweak now ends the session on its own instead of leaving the counter running until you close the app
+• Games launched through a store client (Ubisoft, EA, Battle.net…) are now captured reliably — StreamTweak reads the exact game the server launched from its log, so a session's played games no longer come up empty for launcher-based titles
+• Sessions shorter than a minute are no longer recorded — a connection test or a stream that failed to start carries no usable telemetry and only cluttered the history
+
+🩹 FIXES:
+• Settings no longer silently revert — a corrupted config file could make every setting write fail (the spatial-audio and NVIDIA auto-restore toggles appearing to reset); the config now self-heals instead of discarding changes
+• The "Excellent" quality-grade threshold for frame drops was relaxed from 0.5% to 1.0%, so a near-perfect session isn't marked down for a handful of drops
+• Remote Windows Update: a Defender platform/engine update is no longer misclassified as optional, so the "Security + Defender" scope installs it instead of reporting nothing to do
+• Game Library: scrolling the list no longer runs the covers flush against the Sync now / Add game buttons — the toolbar keeps a clear gap underneath it
+
+⚙️ PLATFORM:
+• StreamTweak now runs on the Windows App SDK 2.3, the current major release of the UI framework — the 1.8 line it used until now is heading out of servicing, so this keeps the app on the version that still receives fixes and performance work
+• The installer handles the switch for you — the 2.3 runtime is fetched only when it's missing, and it installs alongside any older runtime already present, so upgrading from 7.x requires no uninstall and leaves other apps on your machine untouched
+• The installer no longer re-downloads the Windows App SDK runtime on every single install — the check meant to detect an already-installed runtime never actually matched, so a full copy was pulled down each time even when the correct version was sitting right there
+• StreamTweak now opts into the new framework's interface optimisations — lighter icons, styles applied only when they actually do something, and less work at startup
+• Upgrading over an existing installation is more reliable — the background service is now stopped before files are replaced rather than after, instead of relying on Windows to notice it was in the way
+• The installer is now a 64-bit build with crisper artwork, and no longer copies its own wizard images into the installation folder — about 1 MB lighter overall
+
+🧹 UNDER THE HOOD:
+• Removed the pre-8.0 leftovers now that every section lives in the new layout — the five superseded settings pages, their dead navigation entries and the view-model code only they used are gone
+
+⚠️ COMPATIBILITY:
+• Pairs with StreamLight 3.3.0 on the client; host frame-latency reporting needs StreamLight 4.0.1, and the delivered-vs-target bitrate needs StreamLight 4.5.0
+
 -----------------------------------------------------
 Version 7.4.0 - "The Deeper Insight Update" (21/06/2026)
 -----------------------------------------------------

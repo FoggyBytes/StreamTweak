@@ -97,7 +97,7 @@ namespace StreamTweak.Views
             };
 
             // Selected dot in the app's green instead of the system accent color.
-            var green     = new SolidColorBrush(Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E));
+            var green     = new SolidColorBrush(Color.FromArgb(0xFF, 0x4a, 0xde, 0x80));
             var greenLite = new SolidColorBrush(Color.FromArgb(0xFF, 0x4A, 0xDE, 0x80));
             var greenDark = new SolidColorBrush(Color.FromArgb(0xFF, 0x16, 0xA3, 0x4A));
             radios.Resources["RadioButtonOuterEllipseCheckedFill"]              = green;

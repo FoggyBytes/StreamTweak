@@ -3,26 +3,28 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <Grid Margin="0,0,0,8">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="180"/>
-            <ColumnDefinition Width="*"/>
-        </Grid.ColumnDefinitions>
+    <Border x:Name="RootBorder" Margin="0,0,0,4" Padding="6,4" CornerRadius="6" Background="Transparent">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="180"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-        <TextBlock Grid.Column="0"
-                   x:Name="TermText"
-                   FontSize="13" FontWeight="Bold"
-                   FontFamily="Cascadia Code, Cascadia Mono, Consolas, Courier New"
-                   Foreground="#22c55e"
-                   TextWrapping="Wrap"/>
+            <TextBlock Grid.Column="0"
+                       x:Name="TermText"
+                       FontSize="13" FontWeight="Bold"
+                       FontFamily="Cascadia Code, Cascadia Mono, Consolas, Courier New"
+                       Foreground="#4ade80"
+                       TextWrapping="Wrap"/>
 
-        <TextBlock Grid.Column="1"
-                   x:Name="DefinitionText"
-                   FontSize="13"
-                   FontFamily="Cascadia Code, Cascadia Mono, Consolas, Courier New"
-                   Foreground="#c0bcb8"
-                   TextWrapping="Wrap"
-                   Margin="12,0,0,0"/>
-    </Grid>
+            <TextBlock Grid.Column="1"
+                       x:Name="DefinitionText"
+                       FontSize="13"
+                       FontFamily="Cascadia Code, Cascadia Mono, Consolas, Courier New"
+                       Foreground="#c0bcb8"
+                       TextWrapping="Wrap"
+                       Margin="12,0,0,0"/>
+        </Grid>
+    </Border>
 
 </UserControl>

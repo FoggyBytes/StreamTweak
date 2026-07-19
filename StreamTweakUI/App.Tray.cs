@@ -44,7 +44,7 @@ namespace StreamTweak
             flyout.Items.Add(new MenuFlyoutSeparator());
 
             // ── Start / Stop Streaming Mode ──────────────────────────────────
-            _trayStreamingModeItem = new MenuFlyoutItem { Text = "Start Streaming Mode", MinWidth = 240 };
+            _trayStreamingModeItem = new MenuFlyoutItem { Text = "Switch link speed now", MinWidth = 240 };
             _trayStreamingModeItem.Click += async (_, _) =>
             {
                 if (_isAutoStreamingActive || _isAutoSessionActive)
@@ -57,7 +57,7 @@ namespace StreamTweak
             // ── Auto Mode toggle ─────────────────────────────────────────────
             _trayAutoModeItem = new ToggleMenuFlyoutItem
             {
-                Text      = "Auto Streaming Mode",
+                Text      = "Auto-switch link speed",
                 IsChecked = _isAutoStreamingEnabled
             };
             _trayAutoModeItem.Click += (_, _) =>

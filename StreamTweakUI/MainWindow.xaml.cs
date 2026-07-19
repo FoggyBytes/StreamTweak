@@ -25,7 +25,7 @@ namespace StreamTweak
             var v = Assembly.GetExecutingAssembly().GetName().Version;
             SidebarVersionText.Text = v != null
                 ? $"v{v.Major}.{v.Minor}.{v.Build}"
-                : "v7.4.0";
+                : "v8.0.0";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -48,7 +48,7 @@ namespace StreamTweak
             // NavigationViewSelectionIndicatorForeground; default is AccentFillColorDefaultBrush
             // which may not match the exact SystemAccentColor used by button styles.
             NavView.Resources["NavigationViewSelectionIndicatorForeground"] =
-                new SolidColorBrush(Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E));
+                new SolidColorBrush(Color.FromArgb(0xFF, 0x4a, 0xde, 0x80));
 
             // Override the internal WinUI3 font used by NavigationViewItem labels.
             // FontFamily inheritance is ignored by the item template; the template
@@ -115,10 +115,11 @@ namespace StreamTweak
                     ShowWindow(WindowNative.GetWindowHandle(this), SW_HIDE);
             };
 
-            // Insert the "NVIDIA Sentinel" navigation entry at runtime, right after
-            // Display. On AMD/Intel (or no working NVAPI) the entry is shown greyed
-            // out and disabled rather than hidden.
-            InsertNvidiaProfileNavItem();
+            // 8.0: NVIDIA Sentinel is now a panel inside the Tuning master-detail,
+            // not a top-level nav entry — the runtime injection is disabled.
+            // NVIDIA Sentinel is NVIDIA-only: hide its Host-setup nav item on AMD/Intel.
+            if (AppStateService.Instance.NvidiaSentinel?.IsNvidiaAvailable != true)
+                NavTuneNv.Visibility = Visibility.Collapsed;
 
             // Navigate to Home on startup
             NavView.SelectedItem = NavHome;
@@ -240,7 +241,10 @@ namespace StreamTweak
                     content.Children.Add(new TextBlock
                     {
                         Text             = string.IsNullOrEmpty(client.Pin) ? "————" : client.Pin,
-                        FontFamily       = new FontFamily("Consolas"),
+                        // 8.0 font unification (was Consolas). The wide CharacterSpacing
+                        // below is what keeps the 4 digits readable for the out-of-band
+                        // comparison against the client's screen, not the typeface.
+                        FontFamily       = DmSans,
                         FontSize         = 34,
                         FontWeight       = Microsoft.UI.Text.FontWeights.Bold,
                         CharacterSpacing = 240,
@@ -303,7 +307,7 @@ namespace StreamTweak
         private static readonly Color DialogBodyText  = Color.FromArgb(0xFF, 0xC0, 0xBC, 0xB8);
         private static readonly Color DialogMutedText = Color.FromArgb(0xFF, 0x90, 0x8C, 0x88);
         private static readonly Color DangerColor     = Color.FromArgb(0xFF, 0xEF, 0x44, 0x44);
-        private static readonly Color GreenColor      = Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E);
+        private static readonly Color GreenColor      = Color.FromArgb(0xFF, 0x4a, 0xde, 0x80);
         private static readonly Color GreenText       = Color.FromArgb(0xFF, 0x4A, 0xDE, 0x80);
 
         /// <summary>Dark background, border, and DM Sans font shared by all dialogs.</summary>
@@ -338,15 +342,15 @@ namespace StreamTweak
         /// </summary>
         private static void ApplyGreenButtonPalette(ContentDialog dialog)
         {
-            dialog.Resources["ButtonBackground"]             = new SolidColorBrush(Color.FromArgb(0x1F, 0x22, 0xC5, 0x5E));
+            dialog.Resources["ButtonBackground"]             = new SolidColorBrush(Color.FromArgb(0x1F, 0x4a, 0xde, 0x80));
             dialog.Resources["ButtonForeground"]             = new SolidColorBrush(GreenText);
-            dialog.Resources["ButtonBorderBrush"]            = new SolidColorBrush(Color.FromArgb(0x4D, 0x22, 0xC5, 0x5E));
-            dialog.Resources["ButtonBackgroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0x2D, 0x22, 0xC5, 0x5E));
+            dialog.Resources["ButtonBorderBrush"]            = new SolidColorBrush(Color.FromArgb(0x4D, 0x4a, 0xde, 0x80));
+            dialog.Resources["ButtonBackgroundPointerOver"]  = new SolidColorBrush(Color.FromArgb(0x2D, 0x4a, 0xde, 0x80));
             dialog.Resources["ButtonForegroundPointerOver"]  = new SolidColorBrush(GreenText);
-            dialog.Resources["ButtonBorderBrushPointerOver"] = new SolidColorBrush(Color.FromArgb(0x66, 0x22, 0xC5, 0x5E));
-            dialog.Resources["ButtonBackgroundPressed"]      = new SolidColorBrush(Color.FromArgb(0x12, 0x22, 0xC5, 0x5E));
+            dialog.Resources["ButtonBorderBrushPointerOver"] = new SolidColorBrush(Color.FromArgb(0x66, 0x4a, 0xde, 0x80));
+            dialog.Resources["ButtonBackgroundPressed"]      = new SolidColorBrush(Color.FromArgb(0x12, 0x4a, 0xde, 0x80));
             dialog.Resources["ButtonForegroundPressed"]      = new SolidColorBrush(GreenColor);
-            dialog.Resources["ButtonBorderBrushPressed"]     = new SolidColorBrush(Color.FromArgb(0x44, 0x22, 0xC5, 0x5E));
+            dialog.Resources["ButtonBorderBrushPressed"]     = new SolidColorBrush(Color.FromArgb(0x44, 0x4a, 0xde, 0x80));
         }
 
         // ── Title bar ───────────────────────────────────────────────────────────
@@ -453,22 +457,18 @@ namespace StreamTweak
             if (args.SelectedItemContainer is not NavigationViewItem item) return;
             string? tag = item.Tag as string;
 
-            // The version badge in the bottom-right only belongs on the Home page;
-            // hide it on every other tab.
-            SidebarVersionText.Visibility = tag == "Home"
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-
             Type? pageType = tag switch
             {
                 "Home"          => typeof(Views.HomeView),
-                "Network"       => typeof(Views.NetworkView),
-                "Audio"         => typeof(Views.AudioView),
-                "Display"       => typeof(Views.DisplayView),
-                "NvidiaProfile" => typeof(Views.NvidiaProfileView),
-                "Apps"          => typeof(Views.AppsView),
                 "GameLibrary"   => typeof(Views.GameLibraryView),
                 "Logs"          => typeof(Views.LogsView),
+                // Host-setup subsections — all resolve to the parametric TuningView,
+                // which reads the tag to pick the panel (see TuningView.ShowSection).
+                "TuneNet"       => typeof(Views.TuningView),
+                "TuneAV"        => typeof(Views.TuningView),
+                "TuneNv"        => typeof(Views.TuningView),
+                "TuneApps"      => typeof(Views.TuningView),
+                "Clients"       => typeof(Views.ClientsView),
                 "Glossary"      => typeof(Views.GlossaryView),
                 "Settings"      => typeof(Views.SettingsView),
                 _               => null

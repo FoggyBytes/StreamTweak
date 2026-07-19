@@ -336,6 +336,21 @@ public sealed class WindowsUpdateManager
         if (isSecurity) return "security";
         if (isCritical) return "critical";
         if (isDefinition) return "defender";
+
+        // Defender platform/engine updates carry only the generic "Updates"
+        // classification (not "Definition Updates"), so they'd fall to "optional" and be
+        // skipped under the SEC ("Security + Defender") scope — the user then has to pick
+        // "All updates" to get them. Catch them by title so any Defender-related update
+        // lands in the "defender" bucket and installs under SEC as expected.
+        try
+        {
+            string title = ((string)update.Title).ToUpperInvariant();
+            if (title.Contains("DEFENDER") || title.Contains("ANTIMALWARE")
+                || title.Contains("SECURITY INTELLIGENCE"))
+                return "defender";
+        }
+        catch { }
+
         return "optional";
     }
 

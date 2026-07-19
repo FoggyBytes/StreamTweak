@@ -125,14 +125,45 @@ namespace StreamTweak.Services
         // ── Live session telemetry (1 sample/sec from StreamLight) ───────────
 
         /// <summary>
+        /// One second of live telemetry for the Dashboard live cockpit. Client-side
+        /// fields come from the SESSIONDATA sample; host compute (Gpu/Enc/Cpu) from the
+        /// host metrics collector. Unavailable host fields are -1.
+        /// </summary>
+        public readonly record struct LiveSample(
+            float RttMs, float JitterMs, float BitrateMbps, int Drops, float FpsAvg,
+            float HostLatencyMs, int Gpu, int Enc, int Cpu);
+
+        /// <summary>
         /// Fired every second while a session is active and StreamLight is sending data.
         /// Subscribers must marshal to the UI thread if needed.
-        /// Parameters: rttMs, bitrateMbps, drops (count in this second), fpsAvg.
         /// </summary>
-        public event Action<float, float, int, float>? LiveTelemetrySample;
+        public event Action<LiveSample>? LiveTelemetrySample;
 
-        public void RaiseLiveSample(float rttMs, float bitrateMbps, int drops, float fpsAvg)
-            => LiveTelemetrySample?.Invoke(rttMs, bitrateMbps, drops, fpsAvg);
+        public void RaiseLiveSample(LiveSample sample)
+            => LiveTelemetrySample?.Invoke(sample);
+
+        // ── Host metrics (idle vitals) ────────────────────────────────────────
+        //
+        // Exposes HostMetricsCollector.GetLatestSample() to the Dashboard so the
+        // idle "HOST · LIVE" box can show live GPU/encoder/VRAM/CPU/net even when
+        // no session is active. Set once by App.xaml.cs at boot. The collector
+        // runs from app start regardless of streaming, so this is available at all
+        // times. Read-only snapshot — no side effects.
+        public Func<HostMetricsSample>? HostMetricsProvider { get; set; }
+
+        /// <summary>
+        /// Bitrate ceiling configured on the client for the active session, in Mbps.
+        /// 0 when unknown (StreamLight older than 4.5.0, which doesn't report it) — the
+        /// Dashboard then shows the delivered rate without a target. Written on every
+        /// SESSIONDATA batch, so it self-corrects when a different client connects.
+        /// </summary>
+        public float CurrentTargetBitrateMbps { get; set; }
+
+        // ── Glossary deep-link ────────────────────────────────────────────────
+        // An ⓘ InfoHint sets this to the term it wants, then navigates to the Glossary;
+        // GlossaryView reads + clears it on navigation and scrolls to that row. Plain
+        // property (read once at navigation time) — no event needed.
+        public string? PendingGlossaryTerm { get; set; }
 
         // ── Settings changed notification ─────────────────────────────────────
 

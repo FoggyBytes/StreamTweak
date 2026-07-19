@@ -10,7 +10,9 @@
         <MicaBackdrop Kind="Base"/>
     </Window.SystemBackdrop>
 
-    <Grid>
+    <!-- Dark translucent veil over the Mica backdrop: keeps the Mica depth but
+         pulls the whole app toward a darker tone uniformly (sidebar + content). -->
+    <Grid Background="#59080809">
         <Grid.RowDefinitions>
             <RowDefinition Height="32"/>  <!-- custom title bar strip -->
             <RowDefinition Height="*"/>   <!-- sidebar + content -->
@@ -30,56 +32,69 @@
             FontFamily="{StaticResource DMSans}"
             SelectionChanged="NavView_SelectionChanged">
 
-            <!-- ── MAIN NAV ITEMS ─────────────────────────────────────────── -->
+            <!-- ── MAIN NAV ITEMS (8.0 grouped IA) ─────────────────────────── -->
             <NavigationView.MenuItems>
 
-                <NavigationViewItem x:Name="NavHome" Tag="Home" Content="Home">
+                <NavigationViewItem x:Name="NavHome" Tag="Home" Content="Dashboard">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE80F;" FontFamily="Segoe MDL2 Assets"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
-                <NavigationViewItem Tag="Network" Content="Network">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE701;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                <NavigationViewItemHeader Content="Insight"/>
 
-                <NavigationViewItem Tag="Display" Content="Display">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
-                <NavigationViewItem Tag="Audio" Content="Audio">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE767;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
-                <NavigationViewItem Tag="Apps" Content="Apps"
-                                   Margin="0,24,0,0">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE71D;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
-                <NavigationViewItem Tag="GameLibrary" Content="Game Library">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7FC;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-
-                <NavigationViewItem Tag="Logs" Content="Logs"
-                                   Margin="0,24,0,0">
+                <NavigationViewItem Tag="Logs" Content="Sessions">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE9F9;" FontFamily="Segoe MDL2 Assets"/>
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
 
+                <NavigationViewItemHeader Content="Host setup"/>
+
+                <!-- Host-setup subsections as flat items (all navigate to the parametric TuningView) -->
+                <NavigationViewItem Tag="TuneNet" Content="Network">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE701;" FontFamily="Segoe MDL2 Assets"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Tag="TuneAV" Content="Display &amp; audio">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe MDL2 Assets"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem x:Name="NavTuneNv" Tag="TuneNv" Content="NVIDIA Sentinel">
+                    <NavigationViewItem.Icon>
+                        <ImageIcon>
+                            <ImageIcon.Source>
+                                <SvgImageSource UriSource="ms-appx:///Resources/nvidia-eye.svg"/>
+                            </ImageIcon.Source>
+                        </ImageIcon>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Tag="TuneApps" Content="Managed apps">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE71D;" FontFamily="Segoe MDL2 Assets"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Tag="GameLibrary" Content="Library">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7FC;" FontFamily="Segoe MDL2 Assets"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
+                <NavigationViewItem Tag="Clients" Content="Clients">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE72E;" FontFamily="Segoe MDL2 Assets"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+
             </NavigationView.MenuItems>
 
-            <!-- ── FOOTER NAV ITEMS (Glossary + Settings) ────────────────── -->
+            <!-- ── FOOTER NAV ITEMS ──────────────────────────────────────── -->
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem Tag="Glossary" Content="Glossary">
                     <NavigationViewItem.Icon>
@@ -93,36 +108,26 @@
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
+            <!-- Version + update link at the very bottom of the pane (bottom-left) -->
+            <NavigationView.PaneFooter>
+                <StackPanel Margin="16,6,12,12" Spacing="2">
+                    <TextBlock x:Name="SidebarVersionText"
+                               Style="{StaticResource ST_FooterText}"/>
+                    <HyperlinkButton x:Name="SidebarUpdateLink"
+                                     Visibility="Collapsed"
+                                     Padding="0"
+                                     FontFamily="{StaticResource DMSans}"
+                                     FontSize="11"
+                                     Foreground="{StaticResource STWarning}"
+                                     Click="SidebarUpdateLink_Click"
+                                     ToolTipService.ToolTip="Open the GitHub releases page"/>
+                </StackPanel>
+            </NavigationView.PaneFooter>
+
             <!-- Content frame — Transparent so Mica bleeds through the page bg -->
             <Frame x:Name="ContentFrame" Background="Transparent"/>
 
         </NavigationView>
-
-        <!-- ── BOTTOM-RIGHT OVERLAY: version + update indicator ───────────────
-             Anchored at the bottom-right of the content area (Row 1 spans the
-             sidebar + content; HorizontalAlignment=Right keeps the badge over
-             the content frame, not the pane). MainWindow.xaml.cs subscribes to
-             AppStateService.UpdateAvailabilityChanged and toggles the update
-             link visibility / text when GitHub reports a newer release. -->
-        <StackPanel Grid.Row="1"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Bottom"
-                    Margin="0,0,20,14"
-                    Spacing="2"
-                    IsHitTestVisible="True">
-            <TextBlock x:Name="SidebarVersionText"
-                       Style="{StaticResource ST_FooterText}"
-                       HorizontalAlignment="Right"/>
-            <HyperlinkButton x:Name="SidebarUpdateLink"
-                             Visibility="Collapsed"
-                             Padding="0"
-                             FontFamily="{StaticResource DMSans}"
-                             FontSize="11"
-                             Foreground="{StaticResource STWarning}"
-                             HorizontalAlignment="Right"
-                             Click="SidebarUpdateLink_Click"
-                             ToolTipService.ToolTip="Open the GitHub releases page"/>
-        </StackPanel>
 
         <!-- ── ROW 0: custom title bar ───────────────────────────────────── -->
         <Grid x:Name="AppTitleBar"

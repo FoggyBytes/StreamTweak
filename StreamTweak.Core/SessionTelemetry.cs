@@ -40,6 +40,15 @@ namespace StreamTweak
         [JsonPropertyName("session_id")]  public string             SessionId { get; set; } = "";
         [JsonPropertyName("target_fps")]  public int                TargetFps { get; set; }
         [JsonPropertyName("samples")]     public List<ClientSample> Samples   { get; set; } = new();
+
+        /// <summary>
+        /// Configured bitrate ceiling for the session, in Mbps (same unit as the per-sample
+        /// bitrate). Sent by StreamLight 4.5.0+; stays 0 with older clients, which is how the
+        /// UI knows to fall back to showing the delivered rate alone. Comparing the two is the
+        /// point: neither side can do it on its own — the client sets the target, the host
+        /// measures what actually goes out.
+        /// </summary>
+        [JsonPropertyName("target_bitrate_mbps")] public float TargetBitrateMbps { get; set; }
     }
 
     // ── Statistiche aggregate (persistite in sessions.json) ──────────────────
@@ -343,7 +352,7 @@ namespace StreamTweak
             // FPS intentionally excluded: affected by static screens / loading screens,
             // which produce artificially low fps that doesn't reflect streaming quality.
 
-            var gradeDrop = stats.DropRatePct < 0.5f  ? QualityGrade.High
+            var gradeDrop = stats.DropRatePct < 1.0f  ? QualityGrade.High
                           : stats.DropRatePct <= 2.0f ? QualityGrade.Medium
                           :                             QualityGrade.Low;
 

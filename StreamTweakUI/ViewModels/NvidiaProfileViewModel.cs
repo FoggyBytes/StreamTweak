@@ -167,18 +167,11 @@ namespace StreamTweak.ViewModels
                 if (!SetProperty(ref _autoRestoreEnabled, value)) return;
                 _svc?.SetAutoRestoreEnabled(value);
                 ConfigService.Set("NvidiaAutoRestore", value);
-                OnPropertyChanged(nameof(ArmedBadgeText));
-                OnPropertyChanged(nameof(ArmedBadgeBgHex));
-                OnPropertyChanged(nameof(ArmedBadgeFgHex));
                 StatusMessage = value
                     ? "Auto-restore armed — your profile will be re-applied if NVIDIA App resets it."
                     : "Auto-restore disabled.";
             }
         }
-
-        public string ArmedBadgeText  => _autoRestoreEnabled ? "ARMED" : "DISABLED";
-        public string ArmedBadgeBgHex => _autoRestoreEnabled ? "#1F22c55e" : "#1A6e6b68";
-        public string ArmedBadgeFgHex => _autoRestoreEnabled ? "#22c55e" : "#888480";
 
         private string _lastRestoreText = "Never";
         public string LastRestoreText
@@ -222,9 +215,6 @@ namespace StreamTweak.ViewModels
         {
             if (_svc != null) _autoRestoreEnabled = _svc.AutoRestoreEnabled;
             OnPropertyChanged(nameof(AutoRestoreEnabled));
-            OnPropertyChanged(nameof(ArmedBadgeText));
-            OnPropertyChanged(nameof(ArmedBadgeBgHex));
-            OnPropertyChanged(nameof(ArmedBadgeFgHex));
             UpdateLastRestoreText();
             await LoadSnapshotAsync();
         }

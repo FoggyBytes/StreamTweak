@@ -25,6 +25,30 @@ namespace StreamTweak
 
         public event EventHandler<StreamingEventArgs>? StreamingEventDetected;
 
+        /// <summary>
+        /// Raised with the full path of the executable the streaming server launched, parsed
+        /// from the server log's `Info: Executing: ["…"]` line. This is the authoritative game
+        /// binary — more reliable than process scanning for launcher→game handoffs (Ubisoft/EA/…).
+        /// </summary>
+        public event Action<string>? GameLaunchDetected;
+
+        /// <summary>
+        /// Extracts the launched exe path from a Sunshine/Apollo `Info: Executing: ["path"] in […]`
+        /// line. Returns null for prep commands (`Executing Do Cmd: [...]`) and non-exe cmds
+        /// (e.g. `steam://…`). Matches on the `Executing: ["` prefix so `Do Cmd:` is excluded.
+        /// </summary>
+        private static string? TryParseLaunchedExecutable(string line)
+        {
+            const string marker = "Executing: [\"";
+            int idx = line.IndexOf(marker, StringComparison.Ordinal);
+            if (idx < 0) return null;
+            int start = idx + marker.Length;
+            int end = line.IndexOf('"', start);
+            if (end <= start) return null;
+            string path = line.Substring(start, end - start);
+            return path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? path : null;
+        }
+
         public class StreamingEventArgs : EventArgs
         {
             public LogParser.StreamingEvent Event { get; set; }
@@ -111,6 +135,14 @@ namespace StreamTweak
 
                     if (line != null)
                     {
+                        // Capture the launched game binary (authoritative game source).
+                        string? launchedExe = TryParseLaunchedExecutable(line);
+                        if (launchedExe != null)
+                        {
+                            DebugLog($"Game launch detected in log: {launchedExe}");
+                            GameLaunchDetected?.Invoke(launchedExe);
+                        }
+
                         LogParser.StreamingEvent streamingEvent = LogParser.ParseLogLine(line);
 
                         if (streamingEvent != LogParser.StreamingEvent.None)

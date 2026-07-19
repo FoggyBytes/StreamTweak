@@ -21,8 +21,8 @@
          Alpha ridotto (50–88%) per lasciare emergere l'effetto Mica Base. -->
     <SolidColorBrush x:Key="STBackground"     Color="Transparent"/>
     <SolidColorBrush x:Key="STSidebar"        Color="Transparent"/>
-    <SolidColorBrush x:Key="STCard"           Color="#99111010"/>
-    <SolidColorBrush x:Key="STInput"          Color="#CC242220"/>
+    <SolidColorBrush x:Key="STCard"           Color="#E60C0C0E"/>
+    <SolidColorBrush x:Key="STInput"          Color="#E6141416"/>
     <SolidColorBrush x:Key="STTitlebar"       Color="Transparent"/>
 
     <!-- Bordi -->
@@ -31,31 +31,54 @@
     <SolidColorBrush x:Key="STBorderActive"   Color="#59379957"/>
 
     <!-- Testo -->
-    <SolidColorBrush x:Key="STTextPrimary"    Color="#f0eeec"/>
-    <SolidColorBrush x:Key="STTextSecondary"  Color="#c0bcb8"/>
-    <SolidColorBrush x:Key="STTextMuted"      Color="#888480"/>
-    <SolidColorBrush x:Key="STTextDim"        Color="#6e6b68"/>
+    <SolidColorBrush x:Key="STTextPrimary"    Color="#FCFBFA"/>
+    <SolidColorBrush x:Key="STTextSecondary"  Color="#DEDAD6"/>
+    <SolidColorBrush x:Key="STTextMuted"      Color="#A8A49F"/>
+    <SolidColorBrush x:Key="STTextDim"        Color="#8C8884"/>
     <SolidColorBrush x:Key="STTextGhost"      Color="#3a3835"/>
 
-    <!-- Semantici -->
-    <SolidColorBrush x:Key="STSuccess"        Color="#22c55e"/>
-    <SolidColorBrush x:Key="STWarning"        Color="#f59e0b"/>
-    <SolidColorBrush x:Key="STDanger"         Color="#ef4444"/>
+    <!-- Semantici — versioni più brillanti per testo/icone ad alto contrasto -->
+    <SolidColorBrush x:Key="STSuccess"        Color="#4ade80"/>
+    <SolidColorBrush x:Key="STWarning"        Color="#fbbf24"/>
+    <SolidColorBrush x:Key="STDanger"         Color="#f87171"/>
 
     <!-- Accent puro (SystemAccentColor, non la variante Light2 usata da WinUI3 di default) -->
-    <SolidColorBrush x:Key="STAccent"         Color="{ThemeResource SystemAccentColor}"/>
+    <SolidColorBrush x:Key="STAccent"         Color="#4ade80"/>
+
+    <!-- Force the OS system accent to StreamTweak green, so built-in WinUI controls
+         that reference the accent IMPLICITLY (ListView selection indicator, ProgressRing
+         spinner, focus visuals, RadioButton/Slider, hyperlinks, …) never fall back to the
+         blue OS accent. App-authored controls use the ST_* brushes; these cover the rest. -->
+    <Color x:Key="SystemAccentColor">#FF4ade80</Color>
+    <SolidColorBrush x:Key="AccentFillColorDefaultBrush"          Color="#4ade80"/>
+    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush"        Color="#E64ade80"/>
+    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"         Color="#CC4ade80"/>
+    <SolidColorBrush x:Key="AccentFillColorDisabledBrush"         Color="#514ade80"/>
+    <SolidColorBrush x:Key="ListViewItemSelectionIndicatorBrush"  Color="#4ade80"/>
+    <!-- Selection indicators do NOT all share one key: each control family has its own.
+         Overriding SystemAccentColor / AccentFillColor* is not enough for these, so any
+         new control that shows a selection pill must be added here or it renders in the
+         OS accent (e.g. the ComboBox pill stayed orange until this key was added). -->
+    <SolidColorBrush x:Key="ComboBoxItemPillFillBrush"            Color="#4ade80"/>
+    <SolidColorBrush x:Key="TextControlSelectionHighlightColor"   Color="#4ade80"/>
+    <!-- Accent TEXT (HyperlinkButton, accent-coloured text) — lighter green for
+         readable link text on the dark surfaces. -->
+    <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush"      Color="#86efac"/>
+    <SolidColorBrush x:Key="AccentTextFillColorSecondaryBrush"    Color="#86efac"/>
+    <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush"     Color="#4ade80"/>
+    <SolidColorBrush x:Key="AccentTextFillColorDisabledBrush"     Color="#514ade80"/>
 
     <!-- Badge backgrounds (a bassa opacità) -->
-    <SolidColorBrush x:Key="STBadgeGreenBg"   Color="#2622c55e"/>
-    <SolidColorBrush x:Key="STBadgeGreenBdr"  Color="#4D22c55e"/>
+    <SolidColorBrush x:Key="STBadgeGreenBg"   Color="#264ade80"/>
+    <SolidColorBrush x:Key="STBadgeGreenBdr"  Color="#4D4ade80"/>
     <SolidColorBrush x:Key="STBadgeGrayBg"    Color="#0FFFFFFF"/>
     <SolidColorBrush x:Key="STBadgeGrayBdr"   Color="#1AFFFFFF"/>
     <SolidColorBrush x:Key="STBadgeRedBg"     Color="#26ef4444"/>
     <SolidColorBrush x:Key="STBadgeRedBdr"    Color="#4Def4444"/>
 
     <!-- Active session banner -->
-    <SolidColorBrush x:Key="STActiveSessionBg"  Color="#1022c55e"/>
-    <SolidColorBrush x:Key="STNicNoticeBg"       Color="#0F22c55e"/>
+    <SolidColorBrush x:Key="STActiveSessionBg"  Color="#104ade80"/>
+    <SolidColorBrush x:Key="STNicNoticeBg"       Color="#0F4ade80"/>
 
     <!-- ── TYPOGRAPHY ──────────────────────────────────────────────────────── -->
 
@@ -113,38 +136,47 @@
         <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
 
-    <!-- Mono value: JetBrains Mono 13px -->
+    <!-- ── Value styles ──────────────────────────────────────────────────────
+         8.0: these were JetBrains Mono. The app is now unified on a single
+         typeface (DM Sans) everywhere except the Glossary, which keeps its
+         deliberate terminal look via its own inline font. The x:Key names still
+         say "Mono" — they are referenced from 9 files, so renaming them would be
+         churn with no visual effect; treat the name as "value text", not a font.
+         The JetBrainsMono/JetBrainsMonoMedium FontFamily resources above are
+         deliberately kept so this is a one-line revert. -->
+
+    <!-- Value: 13px -->
     <Style x:Key="ST_MonoValue" TargetType="TextBlock">
-        <Setter Property="FontFamily"  Value="{StaticResource JetBrainsMono}"/>
+        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
         <Setter Property="FontSize"    Value="13"/>
         <Setter Property="Foreground"  Value="{StaticResource STTextSecondary}"/>
     </Style>
 
-    <!-- Mono value small: JetBrains Mono 12px -->
+    <!-- Value small: 12px -->
     <Style x:Key="ST_MonoValueSmall" TargetType="TextBlock">
-        <Setter Property="FontFamily"  Value="{StaticResource JetBrainsMono}"/>
+        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
         <Setter Property="FontSize"    Value="12"/>
         <Setter Property="Foreground"  Value="{StaticResource STTextSecondary}"/>
     </Style>
 
-    <!-- Secondary value (max / peak / frame count): same mono font, dimmer grey -->
+    <!-- Secondary value (max / peak / frame count): same font, dimmer grey -->
     <Style x:Key="ST_MonoValueDim" TargetType="TextBlock">
-        <Setter Property="FontFamily"  Value="{StaticResource JetBrainsMono}"/>
+        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
         <Setter Property="FontSize"    Value="12"/>
         <Setter Property="Foreground"  Value="{StaticResource STTextMuted}"/>
     </Style>
 
-    <!-- Mono medium: JetBrains Mono 18px — last session header -->
+    <!-- Medium value: 18px — last session header -->
     <Style x:Key="ST_MonoMedium" TargetType="TextBlock">
-        <Setter Property="FontFamily"        Value="{StaticResource JetBrainsMonoMedium}"/>
+        <Setter Property="FontFamily"        Value="{StaticResource DMSansMedium}"/>
         <Setter Property="FontSize"          Value="18"/>
         <Setter Property="Foreground"        Value="{StaticResource STTextPrimary}"/>
         <Setter Property="CharacterSpacing"  Value="-20"/>
     </Style>
 
-    <!-- Badge text: JetBrains Mono 12px Medium -->
+    <!-- Badge text: 12px Medium -->
     <Style x:Key="ST_BadgeText" TargetType="TextBlock">
-        <Setter Property="FontFamily"  Value="{StaticResource JetBrainsMonoMedium}"/>
+        <Setter Property="FontFamily"  Value="{StaticResource DMSansMedium}"/>
         <Setter Property="FontSize"    Value="12"/>
     </Style>
 
@@ -189,12 +221,12 @@
          Secondary and Ghost keep native states (neutral appearance, no color).  -->
 
     <!-- Shared accent-color hover brushes used by ST_ButtonPrimary's template -->
-    <SolidColorBrush x:Key="ST_AccentHoverBg"    Color="{ThemeResource SystemAccentColorLight1}" Opacity="0.18"/>
-    <SolidColorBrush x:Key="ST_AccentHoverFg"    Color="{ThemeResource SystemAccentColorLight1}"/>
-    <SolidColorBrush x:Key="ST_AccentHoverBdr"   Color="{ThemeResource SystemAccentColorLight1}"/>
-    <SolidColorBrush x:Key="ST_AccentPressedBg"  Color="{ThemeResource SystemAccentColorDark1}"  Opacity="0.12"/>
-    <SolidColorBrush x:Key="ST_AccentPressedFg"  Color="{ThemeResource SystemAccentColorDark1}"/>
-    <SolidColorBrush x:Key="ST_AccentPressedBdr" Color="{ThemeResource SystemAccentColorDark1}"/>
+    <SolidColorBrush x:Key="ST_AccentHoverBg"    Color="#86efac" Opacity="0.18"/>
+    <SolidColorBrush x:Key="ST_AccentHoverFg"    Color="#86efac"/>
+    <SolidColorBrush x:Key="ST_AccentHoverBdr"   Color="#86efac"/>
+    <SolidColorBrush x:Key="ST_AccentPressedBg"  Color="#16a34a"  Opacity="0.12"/>
+    <SolidColorBrush x:Key="ST_AccentPressedFg"  Color="#16a34a"/>
+    <SolidColorBrush x:Key="ST_AccentPressedBdr" Color="#16a34a"/>
 
     <!-- Reusable minimal ControlTemplate setter shared across colored styles.
          Each style provides its own Template setter with per-color inline values. -->
@@ -207,11 +239,11 @@
         <Setter Property="CornerRadius"     Value="6"/>
         <Setter Property="Background">
             <Setter.Value>
-                <SolidColorBrush Color="{ThemeResource SystemAccentColor}" Opacity="0.12"/>
+                <SolidColorBrush Color="#4ade80" Opacity="0.12"/>
             </Setter.Value>
         </Setter>
-        <Setter Property="Foreground"       Value="{ThemeResource SystemAccentColor}"/>
-        <Setter Property="BorderBrush"      Value="{ThemeResource SystemAccentColor}"/>
+        <Setter Property="Foreground"       Value="#4ade80"/>
+        <Setter Property="BorderBrush"      Value="#4ade80"/>
         <Setter Property="BorderThickness"  Value="1"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -380,9 +412,9 @@
         <Setter Property="FontSize"         Value="13"/>
         <Setter Property="Padding"          Value="14,6"/>
         <Setter Property="CornerRadius"     Value="6"/>
-        <Setter Property="Background"       Value="#1F22c55e"/>
-        <Setter Property="Foreground"       Value="#22c55e"/>
-        <Setter Property="BorderBrush"      Value="#4D22c55e"/>
+        <Setter Property="Background"       Value="#1F4ade80"/>
+        <Setter Property="Foreground"       Value="#4ade80"/>
+        <Setter Property="BorderBrush"      Value="#4D4ade80"/>
         <Setter Property="BorderThickness"  Value="1"/>
         <Setter Property="Template">
             <Setter.Value>
@@ -405,26 +437,26 @@
                                 <VisualState x:Name="PointerOver">
                                     <Storyboard>
                                         <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Background">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#2D22c55e"/>
+                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#2D4ade80"/>
                                         </ObjectAnimationUsingKeyFrames>
                                         <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="BorderBrush">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#6622c55e"/>
+                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#664ade80"/>
                                         </ObjectAnimationUsingKeyFrames>
                                         <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#4ade80"/>
+                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#86efac"/>
                                         </ObjectAnimationUsingKeyFrames>
                                     </Storyboard>
                                 </VisualState>
                                 <VisualState x:Name="Pressed">
                                     <Storyboard>
                                         <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Background">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#1222c55e"/>
+                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#124ade80"/>
                                         </ObjectAnimationUsingKeyFrames>
                                         <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="BorderBrush">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#4422c55e"/>
+                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#4D4ade80"/>
                                         </ObjectAnimationUsingKeyFrames>
                                         <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#22c55e"/>
+                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#4ade80"/>
                                         </ObjectAnimationUsingKeyFrames>
                                     </Storyboard>
                                 </VisualState>
@@ -518,10 +550,10 @@
     ────────────────────────────────────────────────────────────────────────── -->
     <x:Double x:Key="ToggleSwitchThemeMinWidth">0</x:Double>
 
-    <SolidColorBrush x:Key="ToggleSwitchFillOn"               Color="#22c55e"/>
+    <SolidColorBrush x:Key="ToggleSwitchFillOn"               Color="#4ade80"/>
     <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver"    Color="#4ade80"/>
     <SolidColorBrush x:Key="ToggleSwitchFillOnPressed"        Color="#16a34a"/>
-    <SolidColorBrush x:Key="ToggleSwitchStrokeOn"             Color="#22c55e"/>
+    <SolidColorBrush x:Key="ToggleSwitchStrokeOn"             Color="#4ade80"/>
     <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver"  Color="#4ade80"/>
     <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed"      Color="#16a34a"/>
 
@@ -541,14 +573,14 @@
          only — NOT CheckBoxBackground, which is the whole control's background
          and would paint the entire row green. Palette matches ST_ButtonGreen.
     ────────────────────────────────────────────────────────────────────────── -->
-    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked"               Color="#22c55e"/>
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked"               Color="#4ade80"/>
     <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver"    Color="#4ade80"/>
     <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed"        Color="#16a34a"/>
-    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedDisabled"       Color="#3322c55e"/>
-    <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked"             Color="#22c55e"/>
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedDisabled"       Color="#334ade80"/>
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked"             Color="#4ade80"/>
     <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPointerOver"  Color="#4ade80"/>
     <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedPressed"      Color="#16a34a"/>
-    <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedDisabled"     Color="#3322c55e"/>
+    <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeCheckedDisabled"     Color="#334ade80"/>
     <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundChecked"              Color="#111110"/>
     <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPointerOver"   Color="#111110"/>
     <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPressed"       Color="#111110"/>

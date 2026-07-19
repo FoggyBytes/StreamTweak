@@ -11,7 +11,7 @@
 
 ## ✅ Compatibility
 
-Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **7.4.0** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) on the client PC (host frame-latency reporting needs StreamLight 4.0.1).
+Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **8.0.0** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) on the client PC (host frame-latency reporting needs StreamLight 4.0.1).
 
 > 🔐 **Authenticated bridge (7.1.0+).** The host↔client bridge now only accepts commands from StreamLight devices you have explicitly approved (a one-time prompt shows a 4-digit PIN to confirm against the one on the device). **Authorization never affects streaming** — it only gates the StreamTweak↔StreamLight integration: host metrics overlay, NIC speed & one-click Streaming Mode, store badges on covers, session quality reports & live charts, Tailscale, and remote pause. Requires **StreamLight 3.1.0 or later**; update both apps together. You can turn it off in **Settings → Bridge security** to pair with older clients during the transition.
 
@@ -20,8 +20,8 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 ## 🔥 Features
 
 **🌐 Network**
-- **Auto Streaming Mode** — monitors Sunshine/Apollo/Vibeshine/Vibepollo logs and throttles the host NIC to 1 Gbps on client connect; restores the original speed on disconnect. Fixes the bufferbloat-induced latency spikes caused by host/client NICs negotiating at mismatched speeds (e.g. 2.5 Gbps vs 1 Gbps)
-- **Manual streaming control** — one-click throttle/restore without waiting for log events
+- **Link-speed switch** *(formerly "Streaming Mode")* — monitors Sunshine/Apollo/Vibeshine/Vibepollo logs and switches the host NIC to a speed **you choose** on client connect, then restores it (to the previous speed or a fixed one) on disconnect. Fixes the bufferbloat-induced latency spikes caused by host/client NICs negotiating at mismatched speeds (e.g. 2.5 Gbps vs 1 Gbps)
+- **Manual control** — flip the switch yourself with one click, without waiting for log events
 - **UAC-free** — a LocalSystem Windows Service handles all NIC speed changes (and host-assets writes) via Named Pipe; no prompts ever
 - **[Tailscale](https://tailscale.com) detection** — the Network tab shows the host's Tailscale IP with a copy button. Combined with StreamLight 3.3.0+ the client tracks the host's Tailscale address on a single unified tile for remote streaming with no port forwarding (see Paired Features below)
 
@@ -70,6 +70,18 @@ These features cross the bridge and require both apps. The version next to each 
 - **Remote host power-off** *(StreamLight 3.2.0+)* — an approved client can shut down the host PC (or this client, or both) from a *Power…* chooser, over the authenticated `SHUTDOWN` command. Destructive, so it only ever fires with a verified signature from an approved device
 - **Tailscale presence** *(StreamLight 3.0.0+; unified into a single tile in 3.3.0)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight records that address on the host's **single** tile (which now tracks both the LAN and Tailscale IPs, with a `TAILSCALE · AVAILABLE` badge) and offers a *Tailscale* option to open the host's apps over the `100.x` endpoint — so streaming from outside the LAN is one click away, no port forwarding. On the client side, StreamLight can also **auto-start Tailscale at launch**, completing the round-trip
 - **Remote Windows Update** *(StreamLight 3.3.0+, headline of this release pair)* — an approved client can scan and install Windows updates on the host and reboot it, or install pending updates as part of *Update and shut down* — all from the client, no keyboard on the host. The privileged Windows Update work runs in the LocalSystem service; see *What's New in 7.3.0* below
+
+## ✨ What's New in 8.0.0 — "The UI Redesign"
+
+- **A ground-up UI redesign** — the sidebar is now grouped by intent (Dashboard · Insight → Sessions · Host setup → Network, Display & audio, NVIDIA Sentinel, Managed apps, Library, Clients · Settings, Glossary), and every settings section is decluttered into clean rows inside cards, with the long explanations tucked behind a hover **ⓘ** that deep-links to the matching Glossary term
+- **New Dashboard** — one layout that never rearranges itself: only the top-left box changes with what the host is doing. At rest it's a **live host monitor** (GPU temperature and load, VRAM, CPU, network, refreshed every second) that answers *"is my host cool and idle before I start?"*; while streaming that same box becomes the **live session** (RTT, host latency, bitrate, drops, frame rate). Around it sit your last session with its played games, a **performance trend** you can summarise over the last 7 / 30 / 90 / 180 / 365 days or all time, and the full host setup alongside your paired StreamLight clients
+- **Choose your link speed** — *Streaming Mode* is now **Link-speed switch**: pick the speed to switch to while streaming (no longer forced to 1 Gbps) and what to restore to afterwards (*Previous*, or a fixed speed). The choice applies to the automatic, manual, tray and client-triggered paths
+- **Sturdier sessions** — a session no longer runs forever if the streaming server hangs on teardown (StreamTweak ends it when the client's telemetry goes silent), and games launched through a store client (Ubisoft, EA, Battle.net) are now captured reliably by reading the exact game the server launched from its log. Sessions shorter than a minute are no longer recorded at all, so connection tests stop cluttering the history
+- **Fixes** — settings no longer silently revert (a corrupted config file could make every write fail; it now self-heals); the *Excellent* frame-drop grade threshold was relaxed from 0.5% to 1.0%
+- **A consistent look** — every green in the app was unified into one palette and every leftover Windows system-accent colour (blue on list/dropdown selection, spinners and links) replaced with green; the interface also settled on a single typeface, retiring the monospaced font everywhere except the Glossary, which keeps its terminal look on purpose
+- **Delivered vs target bitrate** — while streaming, the live bitrate is shown against the target the client asked for ("of 100 Mbps target"), so an undershoot is obvious at a glance. Only the host can make that comparison: the client sets the target, the host measures what actually goes out *(needs StreamLight 4.5.0; falls back to the plain figure with older clients)*
+- **Rebuilt on the Windows App SDK 2.3** — StreamTweak moves from the 1.8 line, which is heading out of servicing, onto the current major of the UI framework, and opts into its new interface optimisations. The installer fetches the 2.3 runtime only if it's missing, and installs it alongside any older runtime already present — so upgrading from 7.x needs no uninstall and leaves other apps on your PC untouched. It also fixes a long-standing installer bug that re-downloaded the runtime on every single install, even when the right version was already there
+- Pairs with **StreamLight 3.3.0** (host frame-latency reporting needs StreamLight 4.0.1; delivered-vs-target bitrate needs StreamLight 4.5.0)
 
 ## ✨ What's New in 7.4.0 — "The Deeper Insight Update"
 
@@ -136,7 +148,7 @@ These features cross the bridge and require both apps. The version next to each 
 
 StreamTweak consists of three components:
 
-- **`StreamTweakUI.exe`** — WinUI 3 tray app (unprivileged), built on Windows App SDK 1.8
+- **`StreamTweakUI.exe`** — WinUI 3 tray app (unprivileged), built on Windows App SDK 2.3
 - **`StreamTweak.Core`** — shared business logic library (NIC control, audio, HDR, game library, telemetry, NVIDIA Sentinel / DRS layer, Tailscale detector, TCP bridge)
 - **`StreamTweakService.exe`** — Windows Service (LocalSystem), handles NIC speed changes, host-assets writes, and Windows Update (scan / install / reboot via the Windows Update Agent) via Named Pipe; no UAC ever appears in the tray app
 
@@ -157,9 +169,9 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
 ## 📝 Installation
 
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_7.4.0_Installer.exe` and run it.
+2. Download the latest `StreamTweak_8.0.0_Installer.exe` and run it.
 
-The installer registers `StreamTweakService` as a Windows Service (LocalSystem) so that NIC and host-assets operations require no UAC prompt. Windows App SDK 1.8 runtime is installed automatically if missing.
+The installer registers `StreamTweakService` as a Windows Service (LocalSystem) so that NIC and host-assets operations require no UAC prompt. The Windows App SDK 2.3 runtime is installed automatically if missing — it installs alongside any older 1.x runtime already on the machine, so nothing needs uninstalling when upgrading from StreamTweak 7.x.
 
 ## 🙏 Support the Project
 [![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)

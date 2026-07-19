@@ -1,0 +1,73 @@
+<Page
+    x:Class="StreamTweak.Views.ClientsView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:StreamTweak.ViewModels"
+    xmlns:ctrl="using:StreamTweak.Controls"
+    Background="{StaticResource STBackground}">
+
+    <Grid Margin="28,24,28,28">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel Style="{StaticResource ST8_PanelRoot}">
+
+                <StackPanel Spacing="3">
+                    <TextBlock Text="Clients" Style="{StaticResource ST8_PanelTitle}"/>
+                    <TextBlock Text="Approved StreamLight devices that may read metrics and drive the host."
+                               Style="{StaticResource ST_PageSubtitle}"/>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="7">
+                        <TextBlock Text="STREAMLIGHT DEVICES" Style="{StaticResource ST_SectionLabel}" VerticalAlignment="Center"/>
+                        <ctrl:InfoHint Term="Client approval" Tip="Only approved StreamLight devices can use the advanced integration (host metrics, link-speed switch, power-off, …); streaming itself is never affected. New devices request access on first connection — approve them once here. Requires StreamLight 3.2.0 or later."/>
+                    </StackPanel>
+
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.BridgeClients, Mode=OneWay}">
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:BridgeClientItem">
+                                <Border Style="{StaticResource ST8_GroupCard}" Padding="18,12" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Spacing="6" VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST_RowLabel}"/>
+                                            <Border HorizontalAlignment="Left" CornerRadius="4" BorderThickness="1" Padding="8,2"
+                                                    Background="{x:Bind StatusBgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                    BorderBrush="{x:Bind StatusBorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                                <TextBlock Text="{x:Bind StatusLabel}" FontFamily="{StaticResource DMSansSemiBold}" FontSize="11"
+                                                           Foreground="{x:Bind StatusColorHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                            </Border>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                            <Button Content="Approve" Style="{StaticResource ST_ButtonGreen}" Tag="{x:Bind UniqueId}" Click="ApproveClient_Click"
+                                                    Visibility="{x:Bind CanApprove, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            <Button Content="Revoke" Style="{StaticResource ST_ButtonDanger}" Tag="{x:Bind UniqueId}" Click="RevokeClient_Click"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Border Style="{StaticResource ST8_GroupCard}"
+                            Visibility="{x:Bind ViewModel.HasNoBridgeClients, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Border Style="{StaticResource ST8_Row}" BorderThickness="0">
+                            <TextBlock Text="No devices yet. Update StreamLight to 3.2.0 and open a paired host — it will request access here."
+                                       Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"/>
+                        </Border>
+                    </Border>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+
+</Page>

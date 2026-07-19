@@ -81,6 +81,60 @@ namespace StreamTweak
             return null;
         }
 
+        /// <summary>
+        /// Resolves a launched executable path (from the server log's "Executing:" line) to the
+        /// display name of the matching app in apps.json, matched by exe filename against each
+        /// app's "cmd". This is the ground-truth game name (StreamTweak-synced OR manually added
+        /// in the server UI), robust to launcher→game handoffs that process scanning misses.
+        /// Returns null if apps.json is unavailable or nothing matches.
+        /// </summary>
+        public static string? ResolveAppNameForExecutable(string exePath)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(exePath)) return null;
+                string exeFile = Path.GetFileName(exePath);
+                if (string.IsNullOrEmpty(exeFile)) return null;
+
+                string? appsJsonPath = FindAppsJsonPath();
+                if (string.IsNullOrEmpty(appsJsonPath) || !File.Exists(appsJsonPath)) return null;
+
+                if (JsonNode.Parse(File.ReadAllText(appsJsonPath)) is not JsonObject root) return null;
+                if (root["apps"] is not JsonArray apps) return null;
+
+                // Collect ALL matches instead of returning the first one. Several games can
+                // legitimately share a launch binary: every Battle.net title launches the
+                // Battle.net client, and Xbox/Game Pass titles all go through explorer.exe
+                // (see §9). Returning the first match would credit the wrong game — starting
+                // Overwatch would log "Diablo IV" purely because it comes first in apps.json.
+                // When the executable doesn't identify a single app we return null and leave
+                // the game to the process monitor: a missing game is recoverable, a wrong one
+                // silently corrupts the session history.
+                var matches = new List<string>();
+                foreach (var node in apps)
+                {
+                    if (node is not JsonObject app) continue;
+                    string name = app["name"]?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(name)) continue;
+                    string cmd = app["cmd"]?.ToString() ?? "";
+                    if (cmd.IndexOf(exeFile, StringComparison.OrdinalIgnoreCase) >= 0 &&
+                        !matches.Contains(name, StringComparer.OrdinalIgnoreCase))
+                    {
+                        matches.Add(name);
+                    }
+                }
+
+                if (matches.Count == 1) return matches[0];
+                if (matches.Count > 1)
+                {
+                    DebugLogger.Log($"SunshineSync: '{exeFile}' matches {matches.Count} apps " +
+                                    $"({string.Join(", ", matches)}) — ambiguous, leaving the game to the process monitor");
+                }
+            }
+            catch { /* apps.json unreadable/parse error — fall through to null */ }
+            return null;
+        }
+
         // ── Sync ─────────────────────────────────────────────────────────────
 
         /// <summary>

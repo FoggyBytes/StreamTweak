@@ -202,17 +202,17 @@ namespace StreamTweak
         public string GradeColorHex => IsDebugSession ? "#9E9E9E"
             : Grade switch
             {
-                QualityGrade.High   => "#22c55e",
-                QualityGrade.Medium => "#f59e0b",
-                QualityGrade.Low    => "#ef4444",
-                _                   => "#808080"
+                QualityGrade.High   => "#4ade80",
+                QualityGrade.Medium => "#fbbf24",
+                QualityGrade.Low    => "#f87171",
+                _                   => "#9a9691"
             };
 
         [JsonIgnore]
         public string GradeBgHex => IsDebugSession ? "#1A9E9E9E"
             : Grade switch
             {
-                QualityGrade.High   => "#1F22c55e",
+                QualityGrade.High   => "#1F4ade80",
                 QualityGrade.Medium => "#1Af59e0b",
                 QualityGrade.Low    => "#1Aef4444",
                 _                   => "#1A808080"
@@ -222,7 +222,7 @@ namespace StreamTweak
         public string GradeBorderHex => IsDebugSession ? "#409E9E9E"
             : Grade switch
             {
-                QualityGrade.High   => "#4D22c55e",
+                QualityGrade.High   => "#4D4ade80",
                 QualityGrade.Medium => "#40f59e0b",
                 QualityGrade.Low    => "#40ef4444",
                 _                   => "#40808080"
@@ -246,6 +246,16 @@ namespace StreamTweak
         private static readonly object _fileLock = new();
         private static string? _activeSessionId = null;
         private static DateTime _activeSessionStartTime;
+
+        /// <summary>
+        /// Sessions shorter than this are discarded instead of being written to history.
+        /// A stream that lasted seconds is a connection test, a mis-click or a failed
+        /// launch — it carries no usable telemetry (the grade needs samples to mean
+        /// anything) and only clutters the list. Applied when a session is closed, both
+        /// on the normal end path and when an interrupted one is recovered at startup.
+        /// Debug sessions are unaffected: they backdate their start by 30 minutes.
+        /// </summary>
+        private const double MinSessionSeconds = 60;
 
         public static string?  ActiveSessionId        => _activeSessionId;
         public static DateTime ActiveSessionStartTime => _activeSessionStartTime;
@@ -337,10 +347,15 @@ namespace StreamTweak
                 var sessions = Load();
                 bool changed = false;
                 bool usedCheckpoint = false;
+                // Ids closed by THIS pass — the short-session rule below must apply only to
+                // these. Filtering by EndReason=="Interrupted" instead would also match
+                // sessions closed by earlier runs and silently delete existing history.
+                var closedNow = new HashSet<string>(StringComparer.Ordinal);
 
                 foreach (var s in sessions.Where(s => s.EndTime == null && s.EndReason == null))
                 {
                     s.EndReason = "Interrupted";
+                    closedNow.Add(s.Id);
 
                     // Attempt to recover telemetry from the periodic checkpoint.
                     // The checkpoint holds aggregated stats up to the last flush
@@ -386,6 +401,19 @@ namespace StreamTweak
                     }
 
                     changed = true;
+                }
+
+                // Same rule as EndSession, applied ONLY to the sessions this pass just closed
+                // (tracked by id): an interrupted stream that lasted seconds is noise. History
+                // written by earlier runs is never touched — silently deleting the user's
+                // existing records at startup is not something a launch should do.
+                if (closedNow.Count > 0)
+                {
+                    int dropped = sessions.RemoveAll(s =>
+                        closedNow.Contains(s.Id) && s.EndTime != null &&
+                        (s.EndTime.Value - s.StartTime).TotalSeconds < MinSessionSeconds);
+                    if (dropped > 0)
+                        DebugLogger.Log($"SessionLogger: discarded {dropped} interrupted session(s) shorter than {MinSessionSeconds}s");
                 }
 
                 if (changed)
@@ -472,6 +500,17 @@ namespace StreamTweak
                     {
                         entry!.EndTime = DateTime.Now;
                         entry.EndReason = endReason;
+
+                        // Too short to be a real session — drop it from history entirely
+                        // rather than finalising it (see MinSessionSeconds).
+                        if ((entry.EndTime.Value - entry.StartTime).TotalSeconds < MinSessionSeconds)
+                        {
+                            sessions.Remove(entry);
+                            Save(sessions);
+                            DeleteCheckpoint();
+                            return;
+                        }
+
                         // Store even when empty: null means monitor never ran; [] means monitor ran but found nothing.
                         if (gamesDetected != null)
                         {

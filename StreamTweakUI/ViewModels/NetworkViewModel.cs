@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Net.NetworkInformation;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -32,10 +33,30 @@ namespace StreamTweak.ViewModels
         public ObservableCollection<string> Speeds { get; } = new();
 
         private string? _selectedSpeed;
+        /// <summary>The link speed the NIC is switched to while streaming (user's choice).
+        /// Persisted so the auto/manual/tray paths apply it instead of a hardcoded 1 Gbps.</summary>
         public string? SelectedSpeed
         {
             get => _selectedSpeed;
-            set => SetProperty(ref _selectedSpeed, value);
+            set
+            {
+                if (!SetProperty(ref _selectedSpeed, value) || value == null) return;
+                ConfigService.Set("StreamingLinkSpeed", value);
+            }
+        }
+
+        /// <summary>"Previous" (the speed captured before the switch) + every supported speed.</summary>
+        public ObservableCollection<string> RestoreOptions { get; } = new();
+
+        private string? _selectedRestoreSpeed = "Previous";
+        public string? SelectedRestoreSpeed
+        {
+            get => _selectedRestoreSpeed;
+            set
+            {
+                if (!SetProperty(ref _selectedRestoreSpeed, value) || value == null) return;
+                ConfigService.Set("RestoreLinkSpeed", value);
+            }
         }
 
         private string _currentSpeedText = "Detecting…";
@@ -71,7 +92,7 @@ namespace StreamTweak.ViewModels
             }
         }
 
-        public string StreamingButtonText => _isStreamingModeActive ? "Stop Streaming Mode" : "Start Streaming Mode";
+        public string StreamingButtonText => _isStreamingModeActive ? "Restore link speed" : "Switch link speed now";
 
         // ── UI state ──────────────────────────────────────────────────────────
 
@@ -211,18 +232,18 @@ namespace StreamTweak.ViewModels
             _speedRefreshTimer = null;
         }
 
-        public async Task ToggleStreamingAsync()
+        /// <summary>Manual "Switch now": apply the streaming target link speed (restored on stream end).</summary>
+        public async Task SwitchNowAsync()
         {
-            if (_isStreamingModeActive)
-                await (AppStateService.Instance.StopStreamingModeAction?.Invoke() ?? Task.CompletedTask);
-            else
-                await (AppStateService.Instance.StartStreamingModeAction?.Invoke() ?? Task.CompletedTask);
+            if (_isStreamingModeActive) return;
+            await (AppStateService.Instance.StartStreamingModeAction?.Invoke() ?? Task.CompletedTask);
         }
 
-        public async Task ApplySettingsAsync()
+        /// <summary>Manual "Restore link speed": undo the switch now.</summary>
+        public async Task RestoreNowAsync()
         {
-            if (SelectedAdapter == null || SelectedSpeed == null) return;
-            await (AppStateService.Instance.ApplyAdapterSpeedAction?.Invoke(SelectedAdapter, SelectedSpeed) ?? Task.CompletedTask);
+            if (!_isStreamingModeActive) return;
+            await (AppStateService.Instance.StopStreamingModeAction?.Invoke() ?? Task.CompletedTask);
         }
 
         /// <summary>Re-checks Tailscale presence. Call from the UI when re-navigating to the page.</summary>
@@ -278,12 +299,37 @@ namespace StreamTweak.ViewModels
             long currentMbps = (ni?.Speed ?? 0) / 1_000_000;
             string? bestMatch = FindBestSpeedMatch(displayKeys, currentMbps);
 
+            string savedTarget  = ConfigService.Get("StreamingLinkSpeed", "");
+            string savedRestore = ConfigService.Get("RestoreLinkSpeed", "Previous");
+
             _dispatcher.TryEnqueue(() =>
             {
                 _adapterSpeeds = speeds;
                 Speeds.Clear();
                 foreach (var k in displayKeys) Speeds.Add(k);
-                SelectedSpeed = bestMatch ?? (Speeds.Count > 0 ? Speeds[0] : null);
+
+                // Streaming target: saved choice → 1 Gbps default → best match → first.
+                SelectedSpeed = displayKeys.Contains(savedTarget) ? savedTarget
+                              : FindBestSpeedMatch(displayKeys, 1000)
+                              ?? bestMatch
+                              ?? (Speeds.Count > 0 ? Speeds[0] : null);
+
+                // Restore options: "Previous" (captured original) + every supported speed.
+                RestoreOptions.Clear();
+                RestoreOptions.Add("Previous");
+                foreach (var k in displayKeys) RestoreOptions.Add(k);
+
+                // Re-assert the selection through the backing field + an explicit notification,
+                // NOT through the property setter. Emptying ItemsSource makes the ComboBox null
+                // its SelectedItem, and the TwoWay binding writes that null straight back here;
+                // the box then stays blank because a plain assignment of the value it already
+                // held is swallowed by SetProperty's equality check, so no PropertyChanged is
+                // raised and the ComboBox is never told to re-select. This bites "Restore to"
+                // and not "Streaming speed" only because _selectedRestoreSpeed starts out at
+                // "Previous" while _selectedSpeed starts null. Assigning the field directly is
+                // also right on the load path: reading config should not write it back.
+                _selectedRestoreSpeed = RestoreOptions.Contains(savedRestore) ? savedRestore : "Previous";
+                OnPropertyChanged(nameof(SelectedRestoreSpeed));
             });
         }
 
@@ -295,8 +341,10 @@ namespace StreamTweak.ViewModels
             if (ni == null) { CurrentSpeedText = "Unknown"; return; }
 
             long mbps = ni.Speed / 1_000_000;
+            // Invariant so the badge reads "2.5 Gbps" (dot), matching the driver speed
+            // keys in the ComboBoxes — not the culture-local "2,5 Gbps".
             CurrentSpeedText = mbps <= 0    ? "Negotiating…"
-                             : mbps >= 1000 ? $"{mbps / 1000.0:0.##} Gbps"
+                             : mbps >= 1000 ? $"{(mbps / 1000.0).ToString("0.##", CultureInfo.InvariantCulture)} Gbps"
                              :                $"{mbps} Mbps";
         }
 

@@ -57,10 +57,22 @@ namespace StreamTweak.Services
 
         // ── Internal ──────────────────────────────────────────────────────────
 
+        // Returns null when the file is missing, empty, or unparseable (corrupt).
+        // Treating a corrupt/blank config as "empty" is load-bearing: it lets Patch
+        // fall back to a fresh JsonObject and REWRITE a valid file, healing corruption
+        // instead of throwing inside Patch (whose catch used to swallow the exception,
+        // silently aborting every write so NO setting could ever persist — the root
+        // cause of the "toggle reverts on restart" bugs when config.json got blanked).
         private static JsonObject? LoadNode()
         {
-            if (!File.Exists(ConfigPath)) return null;
-            return JsonNode.Parse(File.ReadAllText(ConfigPath)) as JsonObject;
+            try
+            {
+                if (!File.Exists(ConfigPath)) return null;
+                string text = File.ReadAllText(ConfigPath);
+                if (string.IsNullOrWhiteSpace(text)) return null;
+                return JsonNode.Parse(text) as JsonObject;
+            }
+            catch { return null; }
         }
 
         private static void Patch(Action<JsonObject> mutate)
@@ -77,7 +89,7 @@ namespace StreamTweak.Services
                     File.Move(tmp, ConfigPath, overwrite: true);
                 }
             }
-            catch { }
+            catch (Exception ex) { StreamTweak.DebugLogger.Log($"[Config] Set failed: {ex.Message}"); }
         }
     }
 }

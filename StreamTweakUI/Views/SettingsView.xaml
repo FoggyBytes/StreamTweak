@@ -21,7 +21,7 @@
                  IsClosable="True"
                  Closed="StatusInfoBar_Closed">
             <InfoBar.Resources>
-                <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#22c55e"/>
+                <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#4ade80"/>
             </InfoBar.Resources>
         </InfoBar>
 
@@ -42,7 +42,7 @@
                          IsOpen="{x:Bind ViewModel.IsUpdateAvailable, Mode=OneWay}"
                          Message="{x:Bind ViewModel.UpdateMessage, Mode=OneWay}">
                     <InfoBar.Resources>
-                        <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#22c55e"/>
+                        <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#4ade80"/>
                     </InfoBar.Resources>
                     <InfoBar.ActionButton>
                         <HyperlinkButton Content="Open releases page"
@@ -231,78 +231,7 @@
                     </StackPanel>
                 </Border>
 
-                <!-- ── Bridge security (7.2.0) ───────────────────────────── -->
-                <Border Style="{StaticResource ST_Card}">
-                    <StackPanel Spacing="14">
-                        <TextBlock Text="BRIDGE SECURITY" Style="{StaticResource ST_SectionLabel}"/>
-
-                        <Border Style="{StaticResource ST_Separator}"/>
-
-                        <!-- What bridge authentication is for (mandatory since 7.2.0) -->
-                        <TextBlock Style="{StaticResource ST_RowDescription}"
-                                   Text="Only approved StreamLight devices can use the advanced integration (host metrics, Streaming Mode, power-off, …); streaming itself is never affected. New devices request access on first connection — approve them once below. Requires StreamLight 3.2.0 or later."/>
-
-                        <Border Style="{StaticResource ST_Separator}"/>
-
-                        <TextBlock Text="STREAMLIGHT DEVICES"
-                                   Style="{StaticResource ST_SectionLabel}"/>
-
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.BridgeClients, Mode=OneWay}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:BridgeClientItem">
-                                    <Border Background="#0AFFFFFF"
-                                            CornerRadius="8"
-                                            Padding="14,10"
-                                            Margin="0,4,0,4">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="Auto"/>
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" Spacing="6" VerticalAlignment="Center" Margin="0,0,16,0">
-                                                <TextBlock Text="{x:Bind Name}"
-                                                           Style="{StaticResource ST_RowLabel}"/>
-                                                <!-- Status pill: green Authorized / amber Pending / red Denied -->
-                                                <Border HorizontalAlignment="Left"
-                                                        CornerRadius="4"
-                                                        BorderThickness="1"
-                                                        Padding="8,2"
-                                                        Background="{x:Bind StatusBgHex,
-                                                                     Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                                        BorderBrush="{x:Bind StatusBorderHex,
-                                                                     Converter={StaticResource HexToSolidColorBrushConverter}}">
-                                                    <TextBlock Text="{x:Bind StatusLabel}"
-                                                               FontFamily="{StaticResource DMSansSemiBold}"
-                                                               FontSize="11"
-                                                               Foreground="{x:Bind StatusColorHex,
-                                                                            Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                                                </Border>
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1" Orientation="Horizontal"
-                                                        Spacing="8" VerticalAlignment="Center">
-                                                <Button Content="Approve"
-                                                        Style="{StaticResource ST_ButtonGreen}"
-                                                        Tag="{x:Bind UniqueId}"
-                                                        Click="ApproveClient_Click"
-                                                        Visibility="{x:Bind CanApprove,
-                                                                     Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                                <Button Content="Revoke"
-                                                        Style="{StaticResource ST_ButtonDanger}"
-                                                        Tag="{x:Bind UniqueId}"
-                                                        Click="RevokeClient_Click"/>
-                                            </StackPanel>
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-
-                        <TextBlock Text="No devices yet. Update StreamLight to 3.2.0 and open a paired host — it will request access here."
-                                   Style="{StaticResource ST_RowDescription}"
-                                   Visibility="{x:Bind ViewModel.HasNoBridgeClients, Mode=OneWay,
-                                                Converter={StaticResource BoolToVisibilityConverter}}"/>
-                    </StackPanel>
-                </Border>
+                <!-- Bridge security moved to its own "Clients" section in 8.0. -->
 
                 <!-- ── Maintenance ───────────────────────────────────────── -->
                 <Border Style="{StaticResource ST_Card}">

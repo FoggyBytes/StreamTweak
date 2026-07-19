@@ -230,7 +230,7 @@ namespace StreamTweak.ViewModels
         private void UpdateLiveStatus(string status)
         {
             LiveStatusText = status;
-            LiveStatusColorHex = status.StartsWith("✓") ? "#FF4CAF50"
+            LiveStatusColorHex = status.StartsWith("✓") ? "#FF4ade80"
                 : status.Contains("error", StringComparison.OrdinalIgnoreCase)
                   || status.StartsWith("Failed")
                   || status.Contains("not available")
@@ -376,12 +376,12 @@ namespace StreamTweak.ViewModels
 
             DolbyStatusText     = dolby ? "Dolby Atmos for Headphones: available"
                                         : "Dolby Atmos for Headphones: unavailable";
-            DolbyStatusColorHex = dolby ? "#FF4CAF50" : "#FFDC4632";
+            DolbyStatusColorHex = dolby ? "#FF4ade80" : "#FFDC4632";
             IsDolbyAvailable    = dolby;
 
             SonicStatusText     = sonic ? "Windows Sonic for Headphones: available"
                                         : "Windows Sonic for Headphones: not available";
-            SonicStatusColorHex = sonic ? "#FF4CAF50" : "#FFDC4632";
+            SonicStatusColorHex = sonic ? "#FF4ade80" : "#FFDC4632";
             IsSonicAvailable    = sonic;
         }
     }

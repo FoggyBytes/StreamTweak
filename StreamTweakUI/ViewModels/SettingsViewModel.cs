@@ -24,7 +24,7 @@ namespace StreamTweak.ViewModels
         public string AppVersion { get; } =
             Assembly.GetExecutingAssembly().GetName().Version is { } v
                 ? $"{v.Major}.{v.Minor}.{v.Build}"
-                : "7.4.0";
+                : "8.0.0";
 
         // ── Update notice (mirrors AppStateService) ───────────────────────────
         // Rebroadcasts the centralized GitHub-release poll into properties the
@@ -185,7 +185,7 @@ namespace StreamTweak.ViewModels
                 {
                     (string status, string color, string bg, string border) = c.Status switch
                     {
-                        "approved" => ("Authorized",       "#22c55e", "#1F22c55e", "#4D22c55e"),
+                        "approved" => ("Authorized",       "#4ade80", "#1F4ade80", "#4D4ade80"),
                         "denied"   => ("Denied",           "#ef4444", "#1Aef4444", "#40ef4444"),
                         _          => ("Pending approval", "#f59e0b", "#1Af59e0b", "#40f59e0b"),
                     };

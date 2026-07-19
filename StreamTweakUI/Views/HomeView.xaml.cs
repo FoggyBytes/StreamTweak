@@ -14,7 +14,7 @@ namespace StreamTweak.Views
         public HomeViewModel ViewModel { get; } = new HomeViewModel();
 
         private static readonly SolidColorBrush ActiveBrush =
-            new(Color.FromArgb(0xFF, 0x22, 0xC5, 0x5E));  // #22c55e — design token STSuccess
+            new(Color.FromArgb(0xFF, 0x4a, 0xde, 0x80));  // #4ade80 — design token STSuccess
         private static readonly SolidColorBrush InactiveBrush =
             new(Color.FromArgb(0xFF, 0x44, 0x44, 0x44));  // #444 — design token dim
 
@@ -50,10 +50,10 @@ namespace StreamTweak.Views
 
         private void UpdateSessionDot(bool active)
         {
+            // The live cockpit (and its pulsing "Live" dot) only renders while active.
             if (active)
             {
                 SessionDot.Fill = ActiveBrush;
-                SessionStatusText.Text = "Active";
                 PulseStoryboard.Begin();
             }
             else
@@ -61,41 +61,8 @@ namespace StreamTweak.Views
                 PulseStoryboard.Stop();
                 SessionDot.Fill = InactiveBrush;
                 SessionDot.Opacity = 1.0;
-                SessionStatusText.Text = "Inactive";
             }
         }
-
-        // ── Status tile navigation ──────────────────────────────────────────────
-
-        private static void NavigateTo(string tag)
-            => App.MainWindow?.NavigateTo(tag);
-
-        private void NicSpeedTile_Click(object sender, RoutedEventArgs e)
-            => NavigateTo("Network");
-
-        private void AutoStreamingTile_Click(object sender, RoutedEventArgs e)
-            => NavigateTo("Network");
-
-        private void HdrTile_Click(object sender, RoutedEventArgs e)
-            => NavigateTo("Display");
-
-        private void SpatialAudioTile_Click(object sender, RoutedEventArgs e)
-            => NavigateTo("Audio");
-
-        private void GameLibraryTile_Click(object sender, RoutedEventArgs e)
-            => NavigateTo("GameLibrary");
-
-        private void AutoHdrTile_Click(object sender, RoutedEventArgs e)
-            => NavigateTo("Display");
-
-        private void AppsTile_Click(object sender, RoutedEventArgs e)
-            => NavigateTo("Apps");
-
-        private void NvidiaSentinelTile_Click(object sender, RoutedEventArgs e)
-            => NavigateTo("NvidiaProfile");
-
-        private void LogsTile_Click(object sender, RoutedEventArgs e)
-            => NavigateTo("Logs");
 
         private void StopStreamButton_Click(object sender, RoutedEventArgs e)
             => ViewModel.RequestStopStream();

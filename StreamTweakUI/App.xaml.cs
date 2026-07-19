@@ -215,6 +215,11 @@ namespace StreamTweak
             };
             _bridge.UpdateStateProvider = () => WindowsUpdateState.ToJson();
 
+            // Dashboard idle vitals — the collector already samples every second from
+            // boot (it feeds the STATS bridge command); this just lets the Dashboard
+            // read the same snapshot while no session is running. Display-only.
+            AppStateService.Instance.HostMetricsProvider = () => _metricsCollector.GetLatestSample();
+
             // Remote "Update host" — relay scan/install/poll to the LocalSystem service,
             // which drives Windows Update Agent. UPDATE_NOW reboots, so the bridge only
             // raises UpdateInstallRequested for a verified-authenticated command.
@@ -371,7 +376,7 @@ namespace StreamTweak
                 _trayStreamingStatusItem.Text = isActive ? "Streaming: Active  ●" : "Streaming: Inactive";
             if (_trayStreamingModeItem != null)
             {
-                _trayStreamingModeItem.Text      = isActive ? "Stop Streaming Mode" : "Start Streaming Mode";
+                _trayStreamingModeItem.Text      = isActive ? "Restore link speed" : "Switch link speed now";
                 _trayStreamingModeItem.IsEnabled = true; // always enabled — toggles between start and stop
             }
             SetTrayIcon(isActive);
@@ -414,6 +419,48 @@ namespace StreamTweak
             return null;
         }
 
+        /// <summary>The link-speed key to switch TO while streaming. Reads the user's chosen
+        /// "StreamingLinkSpeed" (Network section); falls back to 1 Gbps if unset or unsupported
+        /// by the current adapter. Replaces the old hardcoded-1 Gbps behaviour.</summary>
+        private string? FindStreamingTargetKey()
+        {
+            string target = ConfigService.Get("StreamingLinkSpeed", "");
+            if (!string.IsNullOrEmpty(target)
+                && NetworkManager.GetSupportedSpeeds(_adapterName).ContainsKey(target))
+                return target;
+            return Find1GbpsKey();
+        }
+
+        /// <summary>The key to restore to after streaming: the user's "RestoreLinkSpeed" choice,
+        /// or the captured previous speed when the choice is "Previous"/unset/unsupported.</summary>
+        private string GetRestoreKey(string capturedOriginal)
+        {
+            string choice = ConfigService.Get("RestoreLinkSpeed", "Previous");
+            if (string.IsNullOrEmpty(choice) || choice == "Previous") return capturedOriginal;
+            return NetworkManager.GetSupportedSpeeds(_adapterName).ContainsKey(choice)
+                ? choice : capturedOriginal;
+        }
+
+        /// <summary>Rough Mbps for a speed display key (used only to skip a redundant switch
+        /// when the NIC is already at the target).</summary>
+        private static long KeyToMbps(string key)
+        {
+            string k = key.ToLowerInvariant();
+            if (k.Contains("2.5") || k.Contains("2500")) return 2500;
+            if (k.Contains("10 gbps") || k.Contains("10gbps") || k.Contains("10000")) return 10000;
+            if (k.Contains("5 gbps") || k.Contains("5gbps") || k.Contains("5000")) return 5000;
+            if (k.Contains("gbps") || k.Contains("1000")) return 1000;
+            if (k.Contains("100")) return 100;
+            return 0;
+        }
+
+        /// <summary>Human label for a speed key, for notifications (e.g. "1 Gbps", "2.5 Gbps").</summary>
+        private static string SpeedLabel(string key)
+        {
+            long m = KeyToMbps(key);
+            return m <= 0 ? "target speed" : m >= 1000 ? $"{m / 1000.0:0.##} Gbps" : $"{m} Mbps";
+        }
+
         private void ApplySpeed(string speedKey)
         {
             var speeds = NetworkManager.GetSupportedSpeeds(_adapterName);
@@ -441,28 +488,30 @@ namespace StreamTweak
                 if (ni == null || ni.OperationalStatus != OperationalStatus.Up) return;
 
                 long mbps = ni.Speed / 1_000_000;
-                if (mbps < 1200) return; // already at or below 1 Gbps
+                string? targetKey = FindStreamingTargetKey();
+                if (targetKey == null) return;
+                long targetMbps = KeyToMbps(targetKey);
+                if (targetMbps > 0 && Math.Abs(mbps - targetMbps) <= 50) return; // already at the target
 
                 var speeds = NetworkManager.GetSupportedSpeeds(_adapterName);
+                string capturedOriginal = string.Empty;
                 foreach (var kvp in speeds)
                 {
                     string kl = kvp.Key.ToLower();
                     bool match = mbps >= 2000
                         ? kl.Contains("2.5") || kl.Contains("2500")
                         : kl.Contains(mbps.ToString());
-                    if (match) { _originalSpeedForAutoStreaming = kvp.Key; break; }
+                    if (match) { capturedOriginal = kvp.Key; break; }
                 }
-
-                string? oneGbpsKey = Find1GbpsKey();
-                if (oneGbpsKey == null) return;
+                _originalSpeedForAutoStreaming = GetRestoreKey(capturedOriginal);
 
                 _isAutoStreamingActive = true;
                 _isAutoSessionActive   = true;
                 _telemetryAccumulator.Reset();
                 ConfigService.Set("StreamingMode", true);
-                ConfigService.Set("OriginalSpeed", _originalSpeedForAutoStreaming ?? string.Empty);
+                ConfigService.Set("OriginalSpeed", capturedOriginal);
                 _appsToRelaunch = ManagedAppController.KillRunning();
-                SessionLogger.StartSession("Bridge", _originalSpeedForAutoStreaming ?? string.Empty);
+                SessionLogger.StartSession("Bridge", capturedOriginal);
                 StartCheckpointTimer();
                 StartInactivityTimer();
                 AppStateService.Instance.IsStreamingModeActive = true;
@@ -473,12 +522,13 @@ namespace StreamTweak
                 _sessionProcessMonitor?.Dispose();
                 _sessionProcessMonitor = new SessionProcessMonitor(GameLibraryState.Current.Games);
                 _sessionProcessMonitor.Start();
+                SeedLaunchedGameIntoMonitor();  // credit the game named in the server log
 
-                await Task.Run(() => ApplySpeed(oneGbpsKey));
+                await Task.Run(() => ApplySpeed(targetKey));
                 _ = PollForNicReconnectAsync();
 
                 NotificationService.Show("StreamTweak Ready",
-                    "Network set to 1 Gbps. Connect within 30 seconds or speed will be restored.");
+                    $"Network set to {SpeedLabel(targetKey)}. Connect within 30 seconds or speed will be restored.");
             }
             catch (Exception ex) { DebugLogger.Log($"[Bridge] HandleBridgePrepareAsync failed: {ex}"); }
         }
@@ -545,13 +595,34 @@ namespace StreamTweak
                     return;
                 }
 
+                // Client heartbeat: a session is active and the client is still sending data.
+                // Arms/refreshes the watchdog that ends the session if this telemetry goes
+                // silent (client gone) even when the server never logs a disconnect.
+                //
+                // This method runs on the bridge's TCP thread (see the TryEnqueue above), but a
+                // DispatcherQueueTimer must be created and started on its dispatcher thread —
+                // doing it here left the watchdog silently never ticking. The null check just
+                // avoids queueing work every second; EnsureHeartbeatWatchdog re-checks on the
+                // UI thread, where it is the only writer, so a racy read here is harmless.
+                _lastSessionDataUtc = DateTime.UtcNow;
+                if (_heartbeatWatchdog == null)
+                    _dispatcher.TryEnqueue(EnsureHeartbeatWatchdog);
+
                 var hostSample = _metricsCollector.GetLatestSample();
                 _telemetryAccumulator.AddBatch(batch, hostSample);
 
-                // Forward every sample to the live home-card charts (preserves
-                // chronological order even on the final flush batch).
+                // Session-constant, so it rides the batch rather than each sample.
+                // Assigned unconditionally: an older client reports 0 and the Dashboard
+                // falls back to showing the delivered rate alone.
+                AppStateService.Instance.CurrentTargetBitrateMbps = batch.TargetBitrateMbps;
+
+                // Forward every sample to the live Dashboard cockpit (preserves
+                // chronological order even on the final flush batch). Client fields
+                // come from the sample; host compute from the just-read host snapshot.
                 foreach (var s in batch.Samples)
-                    AppStateService.Instance.RaiseLiveSample(s.RttAvg, s.BitrateAvgMbps, s.Drops, s.FpsAvg);
+                    AppStateService.Instance.RaiseLiveSample(new AppStateService.LiveSample(
+                        s.RttAvg, s.JitterAvg, s.BitrateAvgMbps, s.Drops, s.FpsAvg,
+                        s.HostLatencyAvg, hostSample.Gpu, hostSample.GpuEnc, hostSample.Cpu));
             }
             catch (Exception ex) { DebugLogger.Log($"[Bridge] OnSessionDataReceived failed: {ex}"); }
         }

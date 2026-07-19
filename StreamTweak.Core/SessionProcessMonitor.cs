@@ -299,6 +299,15 @@ namespace StreamTweak
             catch { /* GetProcesses() failure — non-fatal */ }
         }
 
+        /// <summary>
+        /// Adds a game detected out-of-band (e.g. resolved from the server log's launch line),
+        /// merged into the same deduplicated list as the process-scan hits.
+        /// </summary>
+        public void AddDetectedByName(string gameName)
+        {
+            if (!string.IsNullOrWhiteSpace(gameName)) AddDetected(gameName);
+        }
+
         /// <summary>Thread-safe insert into the detected-games list. No-op if already present.</summary>
         private void AddDetected(string gameName)
         {
