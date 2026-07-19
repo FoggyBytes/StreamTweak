@@ -11,9 +11,9 @@
 
 ## ✅ Compatibility
 
-Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **8.0.0** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) on the client PC (host frame-latency reporting needs StreamLight 4.0.1).
+Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **8.0.0** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) or later on the client PC (host frame-latency reporting needs StreamLight 4.0.1; the delivered-vs-target bitrate on the Dashboard needs StreamLight 4.5.0).
 
-> 🔐 **Authenticated bridge (7.1.0+).** The host↔client bridge now only accepts commands from StreamLight devices you have explicitly approved (a one-time prompt shows a 4-digit PIN to confirm against the one on the device). **Authorization never affects streaming** — it only gates the StreamTweak↔StreamLight integration: host metrics overlay, NIC speed & one-click Streaming Mode, store badges on covers, session quality reports & live charts, Tailscale, and remote pause. Requires **StreamLight 3.1.0 or later**; update both apps together. You can turn it off in **Settings → Bridge security** to pair with older clients during the transition.
+> 🔐 **Authenticated bridge (7.1.0+).** The host↔client bridge now only accepts commands from StreamLight devices you have explicitly approved (a one-time prompt shows a 4-digit PIN to confirm against the one on the device). **Authorization never affects streaming** — it only gates the StreamTweak↔StreamLight integration: host metrics overlay, NIC speed & the Link-speed switch, store badges on covers, session quality reports & live charts, Tailscale, and remote pause. Requires **StreamLight 3.1.0 or later**; update both apps together. Since 7.2.0 authentication is **mandatory** and there is no way to turn it off — approve each client once under **Clients** in the sidebar.
 
 > ⚠️ **Installer warning:** Windows SmartScreen may flag the installer because it lacks a commercial code-signing certificate. Choose **Keep / Keep anyway**. Full source code is available in this repository.
 
@@ -53,9 +53,9 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 
 **📋 Session History & Telemetry**
 - **Full session log** — every session recorded with duration, RTT avg, frame drops %, detected games and covers (unlimited as of 6.3.0)
-- **Quality report** — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, four sparkline charts (RTT, drops, bitrate, decode latency), and a quality grade (Excellent / Good / Poor)
-- **Live session panel on Home** — while a stream is active, the Home card shows real-time RTT and Bitrate sparklines and a running drop-rate percentage
-- **Home dashboard** — 3×3 grid of status tiles for all managed settings at a glance, plus a Logs tile showing the cumulative streaming time across the full session history
+- **Quality report** — click any session row to open a telemetry overlay: CLIENT stats, HOST stats, charts for RTT, host frame latency, frame drops, bitrate, decode latency and host compute (GPU / encoder / CPU), and a quality grade (Excellent / Good / Poor)
+- **Compare two sessions** — put any two graded sessions side by side, with per-metric deltas and both runs overlaid on every chart
+- **Dashboard** — one layout in both states: at rest the top-left box is a live host monitor (GPU temperature and load, VRAM, CPU, network, refreshed every second); while streaming it becomes the live session (RTT, host latency, bitrate, drops, frame rate). Around it sit the last session with its played games, a performance trend over the period you choose (7 / 30 / 90 / 180 / 365 days or all time), and the full host setup alongside your paired clients
 
 ## 🔗 Paired Features (with StreamLight)
 
