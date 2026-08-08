@@ -228,6 +228,28 @@
                                           IsOn="{x:Bind ViewModel.StartWithWindows, Mode=TwoWay}"
                                           VerticalAlignment="Center"/>
                         </Grid>
+
+                        <Border Style="{StaticResource ST_Separator}"/>
+
+                        <!-- Only record sessions with a game -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3" Margin="0,0,16,0">
+                                <TextBlock Text="Only record sessions with a game"
+                                           Style="{StaticResource ST_RowLabel}"/>
+                                <TextBlock Text="Sessions that never launched a game are discarded."
+                                           Style="{StaticResource ST_RowDescription}"/>
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1"
+                                          Style="{StaticResource ST_Toggle}"
+                                          AutomationProperties.AutomationId="RecordOnlyGameSessionsToggle"
+                                          AutomationProperties.Name="Only record sessions with a game"
+                                          IsOn="{x:Bind ViewModel.RecordOnlyGameSessions, Mode=TwoWay}"
+                                          VerticalAlignment="Center"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
 

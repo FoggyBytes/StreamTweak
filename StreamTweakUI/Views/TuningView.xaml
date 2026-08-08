@@ -40,7 +40,7 @@
                                               IsEnabled="{x:Bind Net.HasAdapters, Mode=OneWay}"/>
                                 </Grid>
                             </Border>
-                            <Border Style="{StaticResource ST8_Row}" BorderThickness="0">
+                            <Border Style="{StaticResource ST8_Row}">
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
                                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="0,0,16,0">
@@ -54,6 +54,21 @@
                                     </Border>
                                 </Grid>
                             </Border>
+                            <Border Style="{StaticResource ST8_Row}" BorderThickness="0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <TextBlock Text="Speeds this adapter supports" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
+                                            <ctrl:InfoHint Term="Link-speed switch" Tip="Reported to clients so they can ask for a speed that matches their own wired connection."/>
+                                        </StackPanel>
+                                        <TextBlock Text="Reported to clients so they can ask for one that matches their own connection."
+                                                   Style="{StaticResource ST_RowDescription}"/>
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind Net.SupportedSpeedsText, Mode=OneWay}"
+                                               Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
                         </StackPanel>
                     </Border>
 
@@ -62,86 +77,93 @@
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <FontIcon Glyph="&#xE7BA;" FontSize="13" Foreground="{StaticResource STWarning}" VerticalAlignment="Top" Margin="0,1,0,0"/>
                             <StackPanel Spacing="2">
-                                <TextBlock Text="No physical adapters detected" Style="{StaticResource ST_RowLabel}"/>
-                                <TextBlock Text="Connect a physical Ethernet or Wi-Fi adapter and restart StreamTweak." Style="{StaticResource ST_RowDescription}"/>
+                                <TextBlock Text="No wired adapter found" Style="{StaticResource ST_RowLabel}"/>
+                                <TextBlock Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"
+                                           Text="StreamTweak manages Ethernet only: Wi-Fi has no fixed link speed to match, and the buffering this solves happens where a faster wired link meets a slower one. Connect this PC by cable to use the feature."/>
                             </StackPanel>
                         </StackPanel>
                     </Border>
                 </StackPanel>
 
-                <!-- LINK-SPEED SWITCH -->
+                <!-- CLIENT CONTROL -->
                 <StackPanel Spacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="7">
-                        <TextBlock Text="LINK-SPEED SWITCH" Style="{StaticResource ST_SectionLabel}" VerticalAlignment="Center"/>
-                        <ctrl:InfoHint Term="Link-speed switch" Tip="Matching the host link speed to the client kills bufferbloat and its latency spikes. A brief reconnect happens on switch — reconnect within 30 seconds or the previous speed is restored automatically."/>
+                        <TextBlock Text="CLIENT CONTROL" Style="{StaticResource ST_SectionLabel}" VerticalAlignment="Center"/>
+                        <ctrl:InfoHint Term="Link-speed switch" Tip="Matching the host link speed to the client kills bufferbloat and its latency spikes. The client asks before it connects, so the brief reconnect happens before the stream starts instead of interrupting it."/>
                     </StackPanel>
                     <Border Style="{StaticResource ST8_GroupCard}">
                         <StackPanel>
                             <Border Style="{StaticResource ST8_Row}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="0,0,16,0">
-                                        <TextBlock Text="Streaming speed" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
-                                        <ctrl:InfoHint Term="Link-speed switch" Tip="The speed the NIC switches to while a stream is running. You choose it — no longer forced to 1 Gbps."/>
-                                    </StackPanel>
-                                    <ComboBox Grid.Column="1" MinWidth="240" MaxWidth="300" ItemsSource="{x:Bind Net.Speeds}"
-                                              SelectedItem="{x:Bind Net.SelectedSpeed, Mode=TwoWay}" IsEnabled="{x:Bind Net.HasAdapters, Mode=OneWay}"/>
-                                </Grid>
-                            </Border>
-                            <Border Style="{StaticResource ST8_Row}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="0,0,16,0">
-                                        <TextBlock Text="Restore to" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
-                                        <ctrl:InfoHint Term="Link-speed switch" Tip="Speed to switch back to after the stream ends. &quot;Previous&quot; = whatever it was before the switch."/>
-                                    </StackPanel>
-                                    <ComboBox Grid.Column="1" MinWidth="240" MaxWidth="300" ItemsSource="{x:Bind Net.RestoreOptions}"
-                                              SelectedItem="{x:Bind Net.SelectedRestoreSpeed, Mode=TwoWay}" IsEnabled="{x:Bind Net.HasAdapters, Mode=OneWay}"/>
-                                </Grid>
-                            </Border>
-                            <Border Style="{StaticResource ST8_Row}">
-                                <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="0,0,16,0">
-                                        <TextBlock Text="Manual switch" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
-                                        <ctrl:InfoHint Term="Link-speed switch" Tip="Apply the streaming speed now and restore it when you switch back — handy for testing without a live stream."/>
-                                    </StackPanel>
-                                    <Button Grid.Column="1" Content="Switch now" Style="{StaticResource ST_ButtonGreen}" Click="SwitchNow_Click"
-                                            Visibility="{x:Bind Net.IsStreamingModeActive, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
-                                    <Button Grid.Column="1" Content="Restore link speed" Style="{StaticResource ST_ButtonDanger}" Click="RestoreNow_Click"
-                                            Visibility="{x:Bind Net.IsStreamingModeActive, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                </Grid>
-                            </Border>
-                            <Border Style="{StaticResource ST8_Row}" BorderThickness="0">
                                 <Grid ColumnSpacing="16">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                                        <TextBlock Text="Auto-switch on stream" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
-                                        <ctrl:InfoHint Term="Auto-switch" Tip="Detect stream start/end from the streaming-server log and switch the link speed automatically."/>
-                                    </StackPanel>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="How it works" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"/>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="9" VerticalAlignment="Center" HorizontalAlignment="Left">
                                         <Border Style="{StaticResource ST8_FlowChip}">
-                                            <TextBlock Text="stream detected" Style="{StaticResource ST8_FlowChipText}"/>
+                                            <TextBlock Text="client asks" Style="{StaticResource ST8_FlowChipText}"/>
                                         </Border>
                                         <FontIcon Glyph="&#xE72A;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource STTextDim}" VerticalAlignment="Center"/>
                                         <Border Style="{StaticResource ST8_FlowChip}" Background="#1A4ade80" BorderBrush="#4D4ade80">
-                                            <TextBlock Style="{StaticResource ST8_FlowChipText}" Foreground="{StaticResource STSuccess}">
-                                                <Run Text="switch to "/><Run Text="{x:Bind Net.SelectedSpeed, Mode=OneWay, Converter={StaticResource SpeedKeyToShortLabelConverter}}"/>
-                                            </TextBlock>
+                                            <TextBlock Text="switch" Style="{StaticResource ST8_FlowChipText}" Foreground="{StaticResource STSuccess}"/>
                                         </Border>
                                         <FontIcon Glyph="&#xE72A;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource STTextDim}" VerticalAlignment="Center"/>
                                         <Border Style="{StaticResource ST8_FlowChip}">
-                                            <TextBlock Text="stream ends" Style="{StaticResource ST8_FlowChipText}"/>
+                                            <TextBlock Text="stream starts" Style="{StaticResource ST8_FlowChipText}"/>
                                         </Border>
                                         <FontIcon Glyph="&#xE72A;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource STTextDim}" VerticalAlignment="Center"/>
                                         <Border Style="{StaticResource ST8_FlowChip}">
-                                            <TextBlock Style="{StaticResource ST8_FlowChipText}">
-                                                <Run Text="restore "/><Run Text="{x:Bind Net.SelectedRestoreSpeed, Mode=OneWay, Converter={StaticResource SpeedKeyToShortLabelConverter}}"/>
-                                            </TextBlock>
+                                            <TextBlock Text="restore" Style="{StaticResource ST8_FlowChipText}"/>
                                         </Border>
                                     </StackPanel>
-                                    <ToggleSwitch Grid.Column="2" Style="{StaticResource ST_Toggle}"
-                                                  IsOn="{x:Bind Net.AutoStreamingEnabled, Mode=TwoWay}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource ST8_Row}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <TextBlock Text="Let clients change the link speed" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
+                                            <ctrl:InfoHint Term="Link-speed switch" Tip="Permission, not configuration: the adapter is this PC's hardware. Turn it off while you need full speed for something else. Clients older than StreamLight 4.6.0 can't ask at all — they stream normally and leave the link alone."/>
+                                        </StackPanel>
+                                        <!-- One line: the version requirement is the part that
+                                             can't be guessed, the rest lives in the hint. -->
+                                        <TextBlock Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"
+                                                   Text="StreamLight 4.6.0 or later asks for the speed that matches its own wired connection."/>
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" Style="{StaticResource ST_Toggle}" VerticalAlignment="Center"
+                                                  IsOn="{x:Bind Net.AllowClientControl, Mode=TwoWay}"/>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource ST8_Row}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <TextBlock Text="Status" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
+                                            <ctrl:InfoHint Term="Link-speed switch" Tip="Who changed the link speed, from what, and when it goes back."/>
+                                        </StackPanel>
+                                        <TextBlock Text="{x:Bind Net.StatusDetailText, Mode=OneWay}" Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <Border Grid.Column="1" CornerRadius="6" Padding="10,3" VerticalAlignment="Center" BorderThickness="1"
+                                            Background="{x:Bind Net.StatusPillBgHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                            BorderBrush="{x:Bind Net.StatusPillBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                        <TextBlock Text="{x:Bind Net.StatusPillText, Mode=OneWay}" FontFamily="{StaticResource DMSansSemiBold}"
+                                                   FontSize="12" FontWeight="SemiBold"
+                                                   Foreground="{x:Bind Net.StatusPillFgHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource ST8_Row}" BorderThickness="0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <StackPanel Orientation="Horizontal" Spacing="7">
+                                            <TextBlock Text="Restore now" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
+                                            <ctrl:InfoHint Term="Link-speed switch" Tip="Puts back the adapter's original setting — so an adapter left on Auto Negotiation stays on it."/>
+                                        </StackPanel>
+                                        <TextBlock Text="{x:Bind Net.RestoreDetailText, Mode=OneWay}" Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="Restore now" Style="{StaticResource ST_ButtonGreen}" Click="RestoreNow_Click"
+                                            IsEnabled="{x:Bind Net.CanRestore, Mode=OneWay}"/>
                                 </Grid>
                             </Border>
                         </StackPanel>

@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using StreamTweak.Services;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage;
@@ -255,6 +256,15 @@ namespace StreamTweak.ViewModels
             _hostAssetsDir = HostAssetsManager.GetAssetsDirectory(hostInfo);
             HostAssetsAvailable = _hostAssetsDir != null;
             HostAssetsApplied   = _hostAssetsDir != null && HostAssetsManager.IsApplied(_hostAssetsDir);
+
+            // One-time migration: installs that swapped their tiles before the guard existed
+            // have no config key, so the guard would sit disabled on exactly the setups that
+            // need it. The backup files are the evidence that the swap happened.
+            if (HostAssetsApplied && !ConfigService.GetBool("HostTilesApplied"))
+            {
+                ConfigService.Set("HostTilesApplied", true);
+                AppStateService.Instance.HostAssetsGuard?.NudgeAfterUserAction();
+            }
             OnPropertyChanged(nameof(HostAssetsButtonText));
             OnPropertyChanged(nameof(HostAssetsHelpText));
 
@@ -278,6 +288,10 @@ namespace StreamTweak.ViewModels
                     bool ok = await HostAssetsManager.RestoreAsync(_hostAssetsDir);
                     if (ok)
                     {
+                        // Written before the guard is told, so it can never read a stale "on"
+                        // and put the tiles the user just removed straight back.
+                        ConfigService.Set("HostTilesApplied", false);
+                        AppStateService.Instance.HostAssetsGuard?.NudgeAfterUserAction();
                         HostAssetsApplied = HostAssetsManager.IsApplied(_hostAssetsDir);
                         ShowStatus($"Restored {DetectedServerName}'s original Desktop & Steam tiles.", isError: false);
                     }
@@ -301,6 +315,8 @@ namespace StreamTweak.ViewModels
                     bool ok = await HostAssetsManager.SwapAsync(_hostAssetsDir, desktopSrc, steamSrc);
                     if (ok)
                     {
+                        ConfigService.Set("HostTilesApplied", true);
+                        AppStateService.Instance.HostAssetsGuard?.NudgeAfterUserAction();
                         HostAssetsApplied = HostAssetsManager.IsApplied(_hostAssetsDir);
                         ShowStatus($"Replaced {DetectedServerName}'s Desktop & Steam tiles. Originals backed up.", isError: false);
                     }
@@ -433,7 +449,21 @@ namespace StreamTweak.ViewModels
                     return;
                 }
 
-                // All other stores (Ubisoft, Epic, GOG, EA App, Battle.net, Manual):
+                // Stores whose games have to be started by their own launcher — Epic today.
+                // Through the same helper the apps.json sync uses, so a game cannot launch
+                // correctly when streamed and fail when started from this window.
+                string? storeUri = SunshineSync.StoreLaunchUri(entry.Store, entry.LaunchId);
+                if (storeUri != null)
+                {
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName        = storeUri,
+                        UseShellExecute = true
+                    });
+                    return;
+                }
+
+                // All other stores (Ubisoft, GOG, EA App, Battle.net, Manual):
                 // ExePath is persisted from the scanner for auto-discovered games and
                 // from the user's file picker for manual games — use it directly.
                 if (!string.IsNullOrEmpty(entry.ExePath))
@@ -441,7 +471,13 @@ namespace StreamTweak.ViewModels
                     Process.Start(new ProcessStartInfo
                     {
                         FileName        = entry.ExePath,
-                        UseShellExecute = true
+                        UseShellExecute = true,
+                        // ⚠️ Without this the game inherits *StreamTweak's* working directory,
+                        // which is its install folder under Program Files. A game that resolves
+                        // its data relative to the current directory then looks for it there and
+                        // refuses to start — Alan Wake 2 reported exactly
+                        // "Could not find: 'C:/Program Files/StreamTweak/data'".
+                        WorkingDirectory = System.IO.Path.GetDirectoryName(entry.ExePath) ?? ""
                     });
                     return;
                 }

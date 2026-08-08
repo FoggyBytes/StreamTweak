@@ -33,7 +33,15 @@ namespace StreamTweak
             string lowerLine = logLine.ToLower();
 
             // Check StreamStopped FIRST (more specific patterns)
+            //
+            // "session ended" is load-bearing and was missing until 8.1.0: when the streamed app
+            // exits, the server tears the session down and logs *only* that line — there is no
+            // CLIENT DISCONNECTED, because the client never disconnected. Without it StreamTweak
+            // simply never learned the session was over, so the link stayed switched, the session
+            // kept running in the history, and a stream started shortly afterwards was merged into
+            // it. Verified present in src/stream.cpp of Sunshine, Apollo, Vibeshine and Vibepollo.
             if (lowerLine.Contains("client disconnected") ||
+                lowerLine.Contains("session ended") ||
                 lowerLine.Contains("stream ended") ||
                 lowerLine.Contains("stream stopped") ||
                 lowerLine.Contains("stopping stream"))
@@ -66,7 +74,7 @@ namespace StreamTweak
             log = FindLogViaProgramFilesScan();
             if (log != null) return log;
 
-            DebugLog("No streaming service log file found");
+            VerboseLog("No streaming service log file found");
             return null;
         }
 
@@ -110,7 +118,7 @@ namespace StreamTweak
                     string? val = key.GetValue(valueName) as string;
                     if (!string.IsNullOrEmpty(val) && Directory.Exists(val))
                     {
-                        DebugLog($"Registry: found {subKey} → {val}");
+                        VerboseLog($"Registry: found {subKey} → {val}");
                         return val;
                     }
                 }
@@ -149,7 +157,7 @@ namespace StreamTweak
                             string? installDir = subKey.GetValue("InstallLocation") as string;
                             if (!string.IsNullOrEmpty(installDir) && Directory.Exists(installDir))
                             {
-                                DebugLog($"Uninstall registry: found {appName} → {installDir}");
+                                VerboseLog($"Uninstall registry: found {appName} → {installDir}");
                                 return installDir;
                             }
                         }
@@ -167,7 +175,7 @@ namespace StreamTweak
 
         private static string? FindLogViaProgramFilesScan()
         {
-            DebugLog("Registry lookup failed — scanning Program Files...");
+            VerboseLog("Registry lookup failed — scanning Program Files...");
 
             // Collect all candidate Program Files directories
             var searchRoots = new List<string>();
@@ -234,7 +242,7 @@ namespace StreamTweak
                 string staticLog = Path.Combine(configDir, "sunshine.log");
                 if (File.Exists(staticLog))
                 {
-                    DebugLog($"Found static log for {appName}: {staticLog}");
+                    VerboseLog($"Found static log for {appName}: {staticLog}");
                     return staticLog;
                 }
             }
@@ -253,7 +261,7 @@ namespace StreamTweak
 
                 if (!string.IsNullOrEmpty(latest))
                 {
-                    DebugLog($"Found dynamic log file: {Path.GetFileName(latest)} in {logDirectory}");
+                    VerboseLog($"Found dynamic log file: {Path.GetFileName(latest)} in {logDirectory}");
                     return latest;
                 }
             }
@@ -406,6 +414,12 @@ namespace StreamTweak
         }
 
         private static void DebugLog(string message) => DebugLogger.Log(message);
+
+        // Discovery internals. FindStreamingServiceLogFile() is re-run every 10 s by
+        // StreamingLogMonitor to catch a rotated/late-appearing server log, so anything
+        // logged along the happy path repeats forever while saying nothing new. The caller
+        // logs the outcome — initial file, and every switch — which is the part worth keeping.
+        private static void VerboseLog(string message) => DebugLogger.Verbose(message);
 
         // ─── Streaming App Detection ─────────────────────────────────────────
 

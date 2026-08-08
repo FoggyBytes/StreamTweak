@@ -41,9 +41,10 @@
 
                             <StackPanel Orientation="Horizontal" Spacing="9">
                                 <Ellipse Width="8" Height="8" Fill="{StaticResource STSuccess}" VerticalAlignment="Center"/>
+                                <!-- "· updating every second" used to follow. The green dot and the
+                                     word LIVE already say it, and the numbers moving say it better
+                                     than either. -->
                                 <TextBlock Text="HOST · LIVE" Style="{StaticResource ST_SectionLabel}" VerticalAlignment="Center"/>
-                                <TextBlock Text="·" Foreground="{StaticResource STBorderSubtle}" VerticalAlignment="Center"/>
-                                <TextBlock Text="updating every second" Style="{StaticResource ST_BodySmall}" VerticalAlignment="Center"/>
                             </StackPanel>
 
                             <StackPanel Orientation="Horizontal" Spacing="12">
@@ -291,21 +292,29 @@
 
                         <StackPanel Spacing="12" VerticalAlignment="Center"
                                     Visibility="{x:Bind ViewModel.ShowLastSession, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                            <StackPanel Orientation="Horizontal" Spacing="7">
+                            <!-- Right-aligned with everything else on this side. The covers own the
+                                 left of the card now, so a caption anchored to the left edge sat on
+                                 top of the artwork it does not title — "Games played" does that. -->
+                            <StackPanel Orientation="Horizontal" Spacing="7" HorizontalAlignment="Right">
                                 <TextBlock Text="LAST SESSION" Style="{StaticResource ST_SectionLabel}" VerticalAlignment="Center"/>
                                 <TextBlock Text="·" Foreground="{StaticResource STBorderSubtle}" VerticalAlignment="Center"/>
                                 <TextBlock Text="{x:Bind ViewModel.LastSessionAgo, Mode=OneWay}" Style="{StaticResource ST_BodySmall}" VerticalAlignment="Center"/>
                             </StackPanel>
 
                             <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <!-- Covers first, figures after, the figures flush right. The strip
+                                     used to sit on the right with the numbers on the left, which put
+                                     the card's widest gap in its own middle; reading now runs from the
+                                     artwork into the numbers. Matches StreamLight's host card, which
+                                     shows the same session. -->
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
 
-                                <!-- Right margin is a guaranteed gutter before the cover strip: this
-                                     column is star-sized against an Auto cover column, so with three
-                                     covers it collapses to almost exactly its content width and the
-                                     Drops figure ends up flush against the first cover. -->
-                                <StackPanel Grid.Column="0" Spacing="12" Margin="0,0,18,0">
-                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                <!-- Left margin is a guaranteed gutter after the cover strip: the
+                                     figures' column is star-sized against an Auto cover column, so with
+                                     three covers it collapses to almost exactly its content width and
+                                     the RTT figure would end up flush against the last cover. -->
+                                <StackPanel Grid.Column="1" Spacing="12" Margin="18,0,0,0" HorizontalAlignment="Right">
+                                    <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
                                         <Border CornerRadius="6" BorderThickness="1" Padding="10,4" VerticalAlignment="Center"
                                                 Background="{x:Bind ViewModel.LastSessionGradeBgHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
                                                 BorderBrush="{x:Bind ViewModel.LastSessionGradeBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
@@ -320,7 +329,7 @@
                                         </Border>
                                     </StackPanel>
 
-                                    <StackPanel Orientation="Horizontal" Spacing="14">
+                                    <StackPanel Orientation="Horizontal" Spacing="14" HorizontalAlignment="Right">
                                         <StackPanel Spacing="2">
                                             <StackPanel Orientation="Horizontal">
                                                 <TextBlock Text="{x:Bind ViewModel.LastSessionRttValue, Mode=OneWay}" FontFamily="{StaticResource DMSansSemiBold}" FontSize="26" Foreground="{StaticResource STTextPrimary}"/>
@@ -345,9 +354,19 @@
                                     </StackPanel>
                                 </StackPanel>
 
-                                <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center"
+                                <!-- No caption. The strip sits under a card already titled LAST SESSION,
+                                     next to figures that are plainly about the same session — the label
+                                     was naming something the position already said, and it was also the
+                                     widest thing in this column, so a single cover ended up centred on
+                                     the text rather than in the space.
+                                     MinWidth is three covers plus their gaps (3*60 + 2*6) and the strip
+                                     inside is centred: one, two or three all sit in the middle of the
+                                     same reserved area, instead of the block changing width with the
+                                     session. It can still grow past it — a "+2" widens the group and the
+                                     Auto column follows. -->
+                                <StackPanel Grid.Column="0" MinWidth="192" VerticalAlignment="Center"
                                             Visibility="{x:Bind ViewModel.HasLastSessionCovers, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                                    <TextBlock Text="Games played" Style="{StaticResource ST_BodySmall}" HorizontalAlignment="Center"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
                                     <ItemsControl ItemsSource="{x:Bind ViewModel.LastSessionCovers, Mode=OneWay}">
                                         <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
@@ -367,6 +386,15 @@
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
+
+                                    <!-- "+2" when the session detected more games than the three
+                                         shown. Deliberately quiet and outside the tiles: it is a
+                                         footnote saying where to look, not a fourth game. The full
+                                         list is in Sessions. -->
+                                    <TextBlock Text="{x:Bind ViewModel.LastSessionCoversOverflow, Mode=OneWay}"
+                                               Style="{StaticResource ST_BodySmall}" VerticalAlignment="Center"
+                                               Visibility="{x:Bind ViewModel.HasLastSessionCoversOverflow, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    </StackPanel>
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
@@ -465,14 +493,14 @@
                                     <TextBlock Text="{x:Bind ViewModel.NicSpeedText, Mode=OneWay}" Style="{StaticResource ST_BadgeText}" Foreground="{StaticResource STSuccess}"/>
                                 </Border>
                                 <Border CornerRadius="4" BorderThickness="1" Padding="8,3"
-                                        ToolTipService.ToolTip="Automatically switch the link speed when a stream starts and restore it afterwards"
-                                        Background="{x:Bind ViewModel.AutoStreamingBgHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                        BorderBrush="{x:Bind ViewModel.AutoStreamingBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                        ToolTipService.ToolTip="Whether approved clients may ask this host to match its link speed before connecting"
+                                        Background="{x:Bind ViewModel.ClientControlBgHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                        BorderBrush="{x:Bind ViewModel.ClientControlBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
                                     <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <TextBlock Text="Auto" Style="{StaticResource ST_BadgeText}" Opacity="0.7"
-                                                   Foreground="{x:Bind ViewModel.AutoStreamingColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                                        <TextBlock Text="{x:Bind ViewModel.AutoStreamingText, Mode=OneWay}" Style="{StaticResource ST_BadgeText}"
-                                                   Foreground="{x:Bind ViewModel.AutoStreamingColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                        <TextBlock Text="Client control" Style="{StaticResource ST_BadgeText}" Opacity="0.7"
+                                                   Foreground="{x:Bind ViewModel.ClientControlColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                        <TextBlock Text="{x:Bind ViewModel.ClientControlText, Mode=OneWay}" Style="{StaticResource ST_BadgeText}"
+                                                   Foreground="{x:Bind ViewModel.ClientControlColorHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>

@@ -33,11 +33,30 @@ namespace StreamTweak
         public event Action<string>? GameLaunchDetected;
 
         /// <summary>
+        /// Raised for every app the server starts, including the ones
+        /// <see cref="GameLaunchDetected"/> deliberately ignores: protocol commands
+        /// (<c>steam://rungameid/…</c>) and the Desktop entry, which runs nothing at all.
+        /// Feeds <see cref="LaunchWatcher"/>, which needs to know about all three cases —
+        /// a launch it cannot classify has to be reported as such, not silently dropped.
+        /// </summary>
+        public event Action<AppLaunchInfo>? AppLaunchDetected;
+
+        /// <summary>
         /// Extracts the launched exe path from a Sunshine/Apollo `Info: Executing: ["path"] in […]`
         /// line. Returns null for prep commands (`Executing Do Cmd: [...]`) and non-exe cmds
         /// (e.g. `steam://…`). Matches on the `Executing: ["` prefix so `Do Cmd:` is excluded.
         /// </summary>
         private static string? TryParseLaunchedExecutable(string line)
+        {
+            string? cmd = TryParseLaunchedCommand(line);
+            return cmd != null && cmd.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? cmd : null;
+        }
+
+        /// <summary>
+        /// Extracts the raw command from the same line, whatever it is — an executable path or a
+        /// protocol URL. Same `Executing: ["` prefix, so `Executing Do Cmd:` stays excluded.
+        /// </summary>
+        private static string? TryParseLaunchedCommand(string line)
         {
             const string marker = "Executing: [\"";
             int idx = line.IndexOf(marker, StringComparison.Ordinal);
@@ -45,9 +64,55 @@ namespace StreamTweak
             int start = idx + marker.Length;
             int end = line.IndexOf('"', start);
             if (end <= start) return null;
-            string path = line.Substring(start, end - start);
-            return path.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? path : null;
+            return line.Substring(start, end - start);
         }
+
+        /// <summary>
+        /// Extracts the command from a <c>Spawning [cmd] in [dir]</c> line — the server's
+        /// <i>detached</i> launch path, and the only one Steam and Xbox titles ever take.
+        /// <para>This matters more than it looks: StreamTweak writes Steam apps with an empty
+        /// <c>cmd</c> and <c>detached: ["steam://rungameid/…"]</c>, and Xbox ones with
+        /// <c>detached: ["explorer.exe shell:appsFolder\…"]</c>. Those launches never produce an
+        /// <c>Executing: ["…"]</c> line at all, so anything watching only that line is blind to
+        /// the two largest stores.</para>
+        /// Format verified identical in all four supported servers' <c>process.cpp</c>.
+        /// </summary>
+        private static string? TryParseSpawnedCommand(string line)
+        {
+            const string marker = "Spawning [";
+            int idx = line.IndexOf(marker, StringComparison.Ordinal);
+            if (idx < 0) return null;
+            int start = idx + marker.Length;
+            int end = line.IndexOf("] in [", start, StringComparison.Ordinal);
+            if (end <= start) return null;
+            string cmd = line.Substring(start, end - start).Trim();
+            return cmd.Length > 0 ? cmd : null;
+        }
+
+        /// <summary>
+        /// True for the line a server writes when the launched app has no direct command.
+        /// <b>The wording differs between forks and both must be matched:</b> Sunshine,
+        /// Vibeshine and Vibepollo write <c>Executing [Desktop]</c>, while Apollo writes
+        /// <c>No commands configured, showing desktop...</c>. Verified in each fork's
+        /// <c>process.cpp</c> — the same class of mistake that once made a launcher's
+        /// "App exited with code" look like a game exit.
+        /// <para><b>It does not mean "Desktop" on its own.</b> The server reaches it whenever
+        /// <c>cmd</c> is empty, which is also true of every Steam and Xbox app — those run from
+        /// <c>detached</c> and log a <c>Spawning</c> line microseconds earlier. Only a Desktop
+        /// line with no launch line just before it is really the Desktop entry.</para>
+        /// </summary>
+        private static bool IsDesktopLaunchLine(string line) =>
+            line.IndexOf("Executing [Desktop]", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            line.IndexOf("No commands configured", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        /// <summary>
+        /// How recently a launch line must have been seen for a following "no command" line to be
+        /// discounted. The two are written in the same block, microseconds apart; three seconds is
+        /// generous enough for a busy log and short enough that a genuine Desktop session started
+        /// right after a game is still recognised.
+        /// </summary>
+        private const double DESKTOP_LINE_SUPPRESSION_SEC = 3.0;
+        private DateTime lastLaunchLineUtc = DateTime.MinValue;
 
         public class StreamingEventArgs : EventArgs
         {
@@ -141,6 +206,30 @@ namespace StreamTweak
                         {
                             DebugLog($"Game launch detected in log: {launchedExe}");
                             GameLaunchDetected?.Invoke(launchedExe);
+                        }
+
+                        // Wider net for the launch curtain: it also needs the launches the line
+                        // above skips — protocol commands (Steam, Xbox) and the Desktop entry.
+                        string? launchedCmd = TryParseLaunchedCommand(line) ?? TryParseSpawnedCommand(line);
+                        if (launchedCmd != null)
+                        {
+                            lastLaunchLineUtc = DateTime.UtcNow;
+                            DebugLog($"App launch detected in log: {launchedCmd}");
+                            AppLaunchDetected?.Invoke(new AppLaunchInfo
+                            {
+                                Command = launchedCmd,
+                                IsExecutable = launchedCmd.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                            });
+                        }
+                        else if (IsDesktopLaunchLine(line))
+                        {
+                            // Only a real Desktop session if nothing was launched a moment ago —
+                            // Steam and Xbox reach this same line right after their Spawning one.
+                            if ((DateTime.UtcNow - lastLaunchLineUtc).TotalSeconds >= DESKTOP_LINE_SUPPRESSION_SEC)
+                            {
+                                DebugLog("Desktop session detected in log (no command to run)");
+                                AppLaunchDetected?.Invoke(new AppLaunchInfo { IsDesktop = true });
+                            }
                         }
 
                         LogParser.StreamingEvent streamingEvent = LogParser.ParseLogLine(line);

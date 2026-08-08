@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -13,10 +14,15 @@ namespace StreamTweak
     /// Listens on TCP port 47998 for commands from the StreamTweak Moonlight fork.
     /// 
     /// Protocol (plain text, one command per connection):
-    ///   PREPARE  — client is about to launch a stream; set NIC to 1 Gbps now,
-    ///              before the stream starts, so no disconnect occurs mid-session.
-    ///   RESTORE  — client has ended the stream; restore original NIC speed.
-    ///              Acts as an explicit fallback alongside the log monitor.
+    ///   NETINFO  — client queries the managed wired adapter: current speed, the speeds it
+    ///              supports (in Mbps, with the driver's display string as an opaque key),
+    ///              whether client control is permitted, and whether a session is running.
+    ///   SETSPEED <mbps> — client asks the host to run at that speed before it connects.
+    ///              Replies OK / ERR_NOT_ALLOWED / ERR_UNSUPPORTED / ERR_BUSY / ERR_NOT_LAN.
+    ///              Requires a verified AUTH1 signature. The change runs in the background;
+    ///              the client polls NETINFO until `state` is idle at the requested speed.
+    ///   RESTORE  — client has ended the stream; ends the session, after which the host
+    ///              restores the captured speed on its own (after a grace period).
     ///   STATUS   — client queries the current NIC link speed.
     ///              Server replies with the speed in Mbps (e.g. "1000") or "UNKNOWN".
     ///   SHUTDOWN — client asks the host to power off. Requires a verified AUTH1
@@ -87,6 +93,20 @@ namespace StreamTweak
         public Func<string>? StatsProvider { get; set; }
 
         /// <summary>
+        /// Optional delegate that returns the launch state of the app the streaming server
+        /// started, as JSON — see <see cref="LaunchWatcher.ToJson"/>. Called when a GAMESTATE
+        /// command arrives. Set this in App.xaml.cs after creating the bridge.
+        /// </summary>
+        public Func<string>? GameStateProvider { get; set; }
+
+        /// <summary>
+        /// Optional delegate that returns the host's most recent finished session as JSON —
+        /// see <see cref="LastSessionReport.BuildJson"/>. Called when a LASTSESSION command
+        /// arrives. Set this in App.xaml.cs after creating the bridge.
+        /// </summary>
+        public Func<string>? LastSessionProvider { get; set; }
+
+        /// <summary>
         /// Optional delegate that returns a JSON object {"Game Name": "Store", ...}
         /// for all games currently synced to Sunshine by the Game Library feature.
         /// Called when an APPSTORES command arrives. Returns "{}" if no games are synced.
@@ -110,6 +130,26 @@ namespace StreamTweak
         public Func<string>? UpdateStateProvider { get; set; }
 
         /// <summary>
+        /// Optional delegate that returns whether the host is sitting at a lock or logon
+        /// screen, as JSON ({"v":1,"locked":true|false}). Called when a LOCKSTATE command
+        /// arrives. Set this in App.xaml.cs after creating the bridge.
+        /// </summary>
+        public Func<string>? LockStateProvider { get; set; }
+
+        /// <summary>
+        /// Raised when UNLOCKBEGIN (true) or UNLOCKEND (false) arrives from an authenticated
+        /// client, around a remote PIN-unlock attempt.
+        ///
+        /// <para>The client is about to open a streaming session purely to type a PIN into the
+        /// host's logon screen. That session is plumbing, not something the user did: it must
+        /// not reach the session history, spatial audio, managed apps or game capture. The host
+        /// cannot tell such a session apart from a real one by looking at it — only the client
+        /// knows why it opened — so the client says so, and the host obeys. Same split as the
+        /// 8.1.0 link-speed inversion: the client owns intent, the host owns policy.</para>
+        /// </summary>
+        public event Action<bool>? UnlockSessionMarked;
+
+        /// <summary>
         /// Raised when a SESSIONDATA command is received from StreamLight.
         /// The argument is the deserialized ClientBatch for the current session.
         /// Subscribe in App.xaml.cs to feed the TelemetryAccumulator.
@@ -121,8 +161,14 @@ namespace StreamTweak
         private Task? _listenTask;
         private bool _disposed;
 
-        public event Action? PrepareRequested;
         public event Action? RestoreRequested;
+
+        /// <summary>
+        /// The host's link-speed state machine: serves NETINFO and executes SETSPEED.
+        /// Null when no manageable wired adapter exists, in which case NETINFO reports
+        /// an empty adapter and clients skip the whole flow.
+        /// </summary>
+        public LinkSpeedManager? LinkSpeed { get; set; }
 
         /// <summary>
         /// Raised when a SHUTDOWN / SHUTDOWN_UPDATE command is received from an
@@ -233,6 +279,10 @@ namespace StreamTweak
                     }
                     first = first.Trim();
                     var remote = client.Client.RemoteEndPoint as IPEndPoint;
+                    // The local endpoint tells which of our NICs the client reached us on, so a
+                    // SETSPEED arriving over Tailscale or Wi-Fi can be refused rather than
+                    // renegotiating a LAN link the requester isn't even using.
+                    var local  = client.Client.LocalEndPoint as IPEndPoint;
 
                     // ── CAPS: capability negotiation (always unauthenticated) ──────
                     if (first.Equals("CAPS", StringComparison.OrdinalIgnoreCase))
@@ -286,7 +336,7 @@ namespace StreamTweak
                         // (RequireAuth off) a forged AUTH1 line falls through here with
                         // ok=false; destructive commands (SHUTDOWN) gate on this flag, so
                         // they never fire on an unverified signature regardless of RequireAuth.
-                        await ProcessCommandAsync(commandRaw.ToUpperInvariant(), reader, writer, remote, ok, token);
+                        await ProcessCommandAsync(commandRaw.ToUpperInvariant(), reader, writer, remote, local, parts[1], ok, token);
                         return;
                     }
 
@@ -297,7 +347,7 @@ namespace StreamTweak
                         await writer.WriteLineAsync("ERR_UNAUTHORIZED");
                         return;
                     }
-                    await ProcessCommandAsync(first.ToUpperInvariant(), reader, writer, remote, authenticated: false, token);
+                    await ProcessCommandAsync(first.ToUpperInvariant(), reader, writer, remote, local, clientId: null, authenticated: false, token);
                 }
             }
             catch (OperationCanceledException)
@@ -323,9 +373,14 @@ namespace StreamTweak
         // `authenticated` is true only when the command arrived with a verified AUTH1
         // signature; destructive commands (SHUTDOWN) require it regardless of RequireAuth.
         private async Task ProcessCommandAsync(
-            string command, StreamReader reader, StreamWriter writer, IPEndPoint? remote, bool authenticated, CancellationToken token)
+            string command, StreamReader reader, StreamWriter writer,
+            IPEndPoint? remote, IPEndPoint? local, string? clientId, bool authenticated, CancellationToken token)
         {
-            DebugLog($"StreamTweakBridge received: {command} from {remote}");
+            // Routine traffic: STATUS/STATS poll at ~1 Hz whenever a client has the host list
+            // open, and SESSIONDATA arrives every second for the whole session. Logging every
+            // expected packet said nothing and drowned the anomalies. Rejections, unknown
+            // verbs and parse failures below stay unconditional.
+            DebugLogger.Verbose($"StreamTweakBridge received: {command} from {remote}");
 
             // Split off an optional argument (only UPDATE_NOW carries one). For every other
             // command verb == command, so the existing exact-match cases are unaffected.
@@ -335,10 +390,50 @@ namespace StreamTweak
 
             switch (verb)
             {
-                case "PREPARE":
-                    PrepareRequested?.Invoke();
-                    await writer.WriteLineAsync("OK");
+                // PREPARE was removed in 8.1.0. It meant "apply the target you have configured",
+                // and the host no longer configures one — the client picks the speed and names it
+                // in SETSPEED. A pre-4.6.0 client therefore gets no automatic switch, which is the
+                // documented compatibility cost of dropping the log-triggered path.
+
+                case "NETINFO":
+                    await writer.WriteLineAsync(LinkSpeed?.ToNetInfoJson() ?? "{\"v\":1,\"adapter\":\"\",\"current_mbps\":0,\"state\":\"idle\",\"allow_client_control\":false,\"session_active\":false,\"switched\":false,\"supported\":[]}");
                     break;
+
+                case "SETSPEED":
+                {
+                    // Changes host system state and briefly drops its connectivity: gate on the
+                    // verified-signature flag, like UPDATECHECK, not merely on RequireAuth.
+                    if (!authenticated)
+                    {
+                        DebugLog($"StreamTweakBridge: rejected unauthenticated SETSPEED from {remote}");
+                        await writer.WriteLineAsync("ERR_UNAUTHORIZED");
+                        break;
+                    }
+                    if (LinkSpeed == null)
+                    {
+                        await writer.WriteLineAsync("ERR");
+                        break;
+                    }
+                    if (!long.TryParse(arg, NumberStyles.Integer, CultureInfo.InvariantCulture, out long wanted) || wanted <= 0)
+                    {
+                        DebugLog($"StreamTweakBridge: malformed SETSPEED argument '{arg}' from {remote}");
+                        await writer.WriteLineAsync("ERR");
+                        break;
+                    }
+
+                    string who = ResolveClientLabel(clientId, remote);
+                    var result = LinkSpeed.RequestSpeed(wanted, who, local?.Address);
+                    await writer.WriteLineAsync(result switch
+                    {
+                        SpeedRequestResult.Accepted    => "OK",
+                        SpeedRequestResult.NotAllowed  => "ERR_NOT_ALLOWED",
+                        SpeedRequestResult.Unsupported => "ERR_UNSUPPORTED",
+                        SpeedRequestResult.Busy        => "ERR_BUSY",
+                        SpeedRequestResult.NotLan      => "ERR_NOT_LAN",
+                        _                              => "ERR_NO_ADAPTER"
+                    });
+                    break;
+                }
 
                 case "RESTORE":
                     RestoreRequested?.Invoke();
@@ -363,6 +458,31 @@ namespace StreamTweak
                 case "UPDATESTATE":
                     string updateState = UpdateStateProvider?.Invoke() ?? "{\"pending\":false}";
                     await writer.WriteLineAsync(updateState);
+                    break;
+
+                case "LOCKSTATE":
+                    // Whether a lock/logon screen is up, so the client knows whether to offer
+                    // its PIN pad and whether a PIN it sent worked. Read-only, so gated like
+                    // STATS rather than like SETSPEED. A host that predates the verb answers
+                    // ERR, which the client reads as "no unlock flow available".
+                    string lockState = LockStateProvider?.Invoke()
+                                       ?? "{\"v\":1,\"locked\":false}";
+                    await writer.WriteLineAsync(lockState);
+                    break;
+
+                case "UNLOCKBEGIN":
+                case "UNLOCKEND":
+                    // Changes how the host treats the next session, so it takes a verified
+                    // signature: an unauthenticated peer must not be able to make sessions
+                    // vanish from the history.
+                    if (!authenticated)
+                    {
+                        DebugLog($"StreamTweakBridge: rejected unauthenticated {command} from {remote}");
+                        await writer.WriteLineAsync("ERR");
+                        break;
+                    }
+                    UnlockSessionMarked?.Invoke(command == "UNLOCKBEGIN");
+                    await writer.WriteLineAsync("OK");
                     break;
 
                 case "UPDATECHECK":
@@ -405,6 +525,26 @@ namespace StreamTweak
                 case "STATS":
                     string stats = StatsProvider?.Invoke() ?? "STATS_UNAVAILABLE";
                     await writer.WriteLineAsync(stats);
+                    break;
+
+                case "GAMESTATE":
+                    // How far along the launch is, so the client can keep its curtain up until the
+                    // game is actually on screen. Read-only and non-destructive, so it is gated
+                    // like STATS rather than like SETSPEED. A host that doesn't know answers
+                    // "idle" and the client simply shows no curtain.
+                    string gameState = GameStateProvider?.Invoke()
+                                       ?? "{\"v\":1,\"phase\":\"idle\"}";
+                    await writer.WriteLineAsync(gameState);
+                    break;
+
+                case "LASTSESSION":
+                    // The host's last finished session, so the client can show it on its own
+                    // home screen. Read-only, so it is gated like STATS: an approved client
+                    // may read it, and a host that predates the verb answers ERR — which the
+                    // client reads as "nothing to show", never as an error worth reporting.
+                    string lastSession = LastSessionProvider?.Invoke()
+                                         ?? "{\"v\":1,\"has\":false}";
+                    await writer.WriteLineAsync(lastSession);
                     break;
 
                 case "APPSTORES":
@@ -455,6 +595,16 @@ namespace StreamTweak
         // label (the bare device name, e.g. "Foggy-Ally"). Falls back to the remote IP for
         // older clients that don't send a name. Newlines stripped and length capped so a
         // hostile peer cannot inject control characters or an oversized label.
+        // Label shown in the host UI ("switched by …"). Prefers the approved client's friendly
+        // name over its IP, which is what the user recognises.
+        private string ResolveClientLabel(string? clientId, IPEndPoint? remote)
+        {
+            string? name = clientId != null ? AuthService?.GetClientName(clientId) : null;
+            return !string.IsNullOrWhiteSpace(name)
+                ? name!
+                : remote?.Address.ToString() ?? "a client";
+        }
+
         private static string DecodeClientName(string base64Name, IPEndPoint? remote)
         {
             if (!string.IsNullOrEmpty(base64Name))

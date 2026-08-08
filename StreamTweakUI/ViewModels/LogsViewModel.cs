@@ -352,20 +352,9 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _hasDetailGameCovers, value);
         }
 
-        private bool _hasNoDetailGames;
-        public bool HasNoDetailGames
-        {
-            get => _hasNoDetailGames;
-            private set => SetProperty(ref _hasNoDetailGames, value);
-        }
-
-        /// <summary>True when GamesDetected != null (monitor ran) — shows the Games box.</summary>
-        private bool _hasDetailGamesSection;
-        public bool HasDetailGamesSection
-        {
-            get => _hasDetailGamesSection;
-            private set => SetProperty(ref _hasDetailGamesSection, value);
-        }
+        // (HasNoDetailGames / HasDetailGamesSection lived here to drive the detail overlay's
+        //  GAMES box. That box went away in 7.4.0 when the covers moved into the header, and
+        //  the two properties have been written but never read since.)
 
         // ── Public API ────────────────────────────────────────────────────────
 
@@ -418,24 +407,18 @@ namespace StreamTweak.ViewModels
             SelectedSession = null;
             DetailGameCovers.Clear();
             HasDetailGameCovers  = false;
-            HasNoDetailGames     = false;
-            HasDetailGamesSection = false;
         }
 
         public async Task LoadDetailCoversAsync()
         {
             DetailGameCovers.Clear();
             HasDetailGameCovers   = false;
-            HasNoDetailGames      = false;
 
             var s = _selectedSession;
-            if (s?.GamesDetected == null) return; // pre-feature session — section already hidden
+            if (s?.GamesDetected == null) return; // pre-feature session — nothing to show
 
             if (s.GamesDetected.Count == 0)
-            {
-                HasNoDetailGames = true;
                 return;
-            }
 
             HasDetailGameCovers = true;
             await LoadCoversForAsync(s, DetailGameCovers);
@@ -835,8 +818,6 @@ namespace StreamTweak.ViewModels
             HasChartData  = _rttSeries != null || _dropsSeries != null
                          || _bitrateSeries != null || _decodeSeries != null
                          || _hostLatencySeries != null || _hasHostComputeChart;
-
-            HasDetailGamesSection = s.GamesDetected != null;
         }
 
         private void ClearClientStats()

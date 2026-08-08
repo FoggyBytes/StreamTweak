@@ -28,36 +28,10 @@ namespace StreamTweak.ViewModels
             }
         }
 
-        // ── Speeds ────────────────────────────────────────────────────────────
-
-        public ObservableCollection<string> Speeds { get; } = new();
-
-        private string? _selectedSpeed;
-        /// <summary>The link speed the NIC is switched to while streaming (user's choice).
-        /// Persisted so the auto/manual/tray paths apply it instead of a hardcoded 1 Gbps.</summary>
-        public string? SelectedSpeed
-        {
-            get => _selectedSpeed;
-            set
-            {
-                if (!SetProperty(ref _selectedSpeed, value) || value == null) return;
-                ConfigService.Set("StreamingLinkSpeed", value);
-            }
-        }
-
-        /// <summary>"Previous" (the speed captured before the switch) + every supported speed.</summary>
-        public ObservableCollection<string> RestoreOptions { get; } = new();
-
-        private string? _selectedRestoreSpeed = "Previous";
-        public string? SelectedRestoreSpeed
-        {
-            get => _selectedRestoreSpeed;
-            set
-            {
-                if (!SetProperty(ref _selectedRestoreSpeed, value) || value == null) return;
-                ConfigService.Set("RestoreLinkSpeed", value);
-            }
-        }
+        // ── Speed (read-only status) ──────────────────────────────────────────
+        // 8.1.0 moved the choice of speed to the client, which is the only side that knows
+        // what its own link can do. The host publishes what the adapter supports, grants or
+        // withholds permission, and can force a restore. Nothing here configures a target.
 
         private string _currentSpeedText = "Detecting…";
         public string CurrentSpeedText
@@ -66,33 +40,90 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _currentSpeedText, value);
         }
 
-        // ── Auto Streaming ────────────────────────────────────────────────────
-
-        private bool _autoStreamingEnabled;
-        public bool AutoStreamingEnabled
+        private string _supportedSpeedsText = "—";
+        /// <summary>What the adapter can do, e.g. "2.5 Gbps · 1 Gbps · 100 Mbps".
+        /// This is the list clients read to pick a speed that matches their own link.</summary>
+        public string SupportedSpeedsText
         {
-            get => _autoStreamingEnabled;
+            get => _supportedSpeedsText;
+            private set => SetProperty(ref _supportedSpeedsText, value);
+        }
+
+        // ── Client control ────────────────────────────────────────────────────
+
+        /// <summary>Permission, not configuration: the adapter is the host's hardware, and the
+        /// user needs to be able to withhold it (e.g. while a big download is running).</summary>
+        public bool AllowClientControl
+        {
+            get => AppStateService.Instance.LinkSpeed?.AllowClientControl ?? false;
             set
             {
-                if (!SetProperty(ref _autoStreamingEnabled, value)) return;
-                ConfigService.Set("AutoStreamingEnabled", value);
+                var mgr = AppStateService.Instance.LinkSpeed;
+                if (mgr == null || mgr.AllowClientControl == value) return;
+                mgr.AllowClientControl = value;
+                OnPropertyChanged();
+                RefreshLinkState();
             }
         }
 
-        // ── Manual streaming mode ─────────────────────────────────────────────
-
-        private bool _isStreamingModeActive;
-        public bool IsStreamingModeActive
+        private string _statusPillText = "Idle";
+        public string StatusPillText
         {
-            get => _isStreamingModeActive;
-            private set
-            {
-                if (!SetProperty(ref _isStreamingModeActive, value)) return;
-                OnPropertyChanged(nameof(StreamingButtonText));
-            }
+            get => _statusPillText;
+            private set => SetProperty(ref _statusPillText, value);
         }
 
-        public string StreamingButtonText => _isStreamingModeActive ? "Restore link speed" : "Switch link speed now";
+        // Pill colours follow the app-wide badge pattern (tinted bg + border + coloured text,
+        // bound through HexToSolidColorBrushConverter) rather than a bespoke converter.
+        private string _statusPillBgHex = GreyBg, _statusPillBorderHex = GreyBorder, _statusPillFgHex = GreyFg;
+
+        public string StatusPillBgHex
+        {
+            get => _statusPillBgHex;
+            private set => SetProperty(ref _statusPillBgHex, value);
+        }
+        public string StatusPillBorderHex
+        {
+            get => _statusPillBorderHex;
+            private set => SetProperty(ref _statusPillBorderHex, value);
+        }
+        public string StatusPillFgHex
+        {
+            get => _statusPillFgHex;
+            private set => SetProperty(ref _statusPillFgHex, value);
+        }
+
+        private const string GreyBg = "#17A8A49F", GreyBorder = "#3DA8A49F", GreyFg = "#A8A49F";
+        private const string AmberBg = "#1Ffbbf24", AmberBorder = "#52fbbf24", AmberFg = "#fbbf24";
+
+        private void SetPill(string text, bool amber)
+        {
+            StatusPillText = text;
+            StatusPillBgHex     = amber ? AmberBg     : GreyBg;
+            StatusPillBorderHex = amber ? AmberBorder : GreyBorder;
+            StatusPillFgHex     = amber ? AmberFg     : GreyFg;
+        }
+
+        private string _statusDetailText = "No client has changed this adapter.";
+        public string StatusDetailText
+        {
+            get => _statusDetailText;
+            private set => SetProperty(ref _statusDetailText, value);
+        }
+
+        private string _restoreDetailText = "The adapter is at its normal setting — nothing to restore.";
+        public string RestoreDetailText
+        {
+            get => _restoreDetailText;
+            private set => SetProperty(ref _restoreDetailText, value);
+        }
+
+        private bool _canRestore;
+        public bool CanRestore
+        {
+            get => _canRestore;
+            private set => SetProperty(ref _canRestore, value);
+        }
 
         // ── UI state ──────────────────────────────────────────────────────────
 
@@ -150,9 +181,6 @@ namespace StreamTweak.ViewModels
 
         // ── Registry values / timers ──────────────────────────────────────────
 
-        // Registry values for the currently loaded adapter (key = display name, value = registry value)
-        private Dictionary<string, string> _adapterSpeeds = new();
-
         // Live speed refresh timer
         private DispatcherQueueTimer? _speedRefreshTimer;
 
@@ -162,11 +190,9 @@ namespace StreamTweak.ViewModels
         {
             // Capture UI thread dispatcher before any async operations
             _dispatcher = DispatcherQueue.GetForCurrentThread();
-            _autoStreamingEnabled = ConfigService.GetBool("AutoStreamingEnabled", false);
-            _isStreamingModeActive = AppStateService.Instance.IsStreamingModeActive;
 
-            AppStateService.Instance.StreamingModeChanged += (_, isActive) =>
-                _dispatcher.TryEnqueue(() => IsStreamingModeActive = isActive);
+            AppStateService.Instance.LinkSpeedChanged += OnLinkSpeedChanged;
+            RefreshLinkState();
 
             // Tailscale detection is synchronous (just iterates NetworkInterface).
             // Run once at construction and expose the result; the user can refresh
@@ -183,7 +209,10 @@ namespace StreamTweak.ViewModels
             {
                 // Run CIM query off-thread; ConfigureAwait(false) avoids relying on
                 // SynchronizationContext (not guaranteed in WinUI 3 unpackaged).
-                var adapters = await Task.Run(NetworkManager.GetPhysicalAdapterNames)
+                // Manageable = wired *and* exposing *SpeedDuplex. Listing anything else would
+                // offer a control that silently does nothing, which is what Wi-Fi adapters did
+                // before 8.1.0.
+                var adapters = await Task.Run(NetworkManager.GetManageableAdapterNames)
                     .ConfigureAwait(false);
                 string savedAdapter = ConfigService.Get("NetworkAdapterName");
 
@@ -196,7 +225,8 @@ namespace StreamTweak.ViewModels
                     if (Adapters.Count == 0)
                     {
                         HasAdapters = false;
-                        CurrentSpeedText = "No adapters found";
+                        CurrentSpeedText = "—";
+                        SupportedSpeedsText = "—";
                         IsLoading = false;
                         return;
                     }
@@ -222,6 +252,8 @@ namespace StreamTweak.ViewModels
             {
                 if (_selectedAdapter != null)
                     UpdateCurrentSpeed(_selectedAdapter);
+                // Also drives the "in N s" countdown while a restore is pending.
+                RefreshLinkState();
             };
             _speedRefreshTimer.Start();
         }
@@ -232,18 +264,60 @@ namespace StreamTweak.ViewModels
             _speedRefreshTimer = null;
         }
 
-        /// <summary>Manual "Switch now": apply the streaming target link speed (restored on stream end).</summary>
-        public async Task SwitchNowAsync()
-        {
-            if (_isStreamingModeActive) return;
-            await (AppStateService.Instance.StartStreamingModeAction?.Invoke() ?? Task.CompletedTask);
-        }
+        /// <summary>Unsubscribes from the shared manager. The NavigationView recreates this page
+        /// on every visit, so without this the handlers pile up.</summary>
+        public void Unsubscribe()
+            => AppStateService.Instance.LinkSpeedChanged -= OnLinkSpeedChanged;
 
-        /// <summary>Manual "Restore link speed": undo the switch now.</summary>
-        public async Task RestoreNowAsync()
+        private void OnLinkSpeedChanged() => _dispatcher.TryEnqueue(RefreshLinkState);
+
+        /// <summary>Escape hatch: put the adapter back now, without waiting out the grace period.
+        /// Needed when a client vanishes mid-session and leaves the link switched.</summary>
+        public void RestoreNow() => AppStateService.Instance.LinkSpeed?.RestoreNow("Network page");
+
+        /// <summary>Recomputes the status/restore rows from the manager. Cheap; called on every
+        /// state change and once a second while a restore is pending, for the countdown.</summary>
+        public void RefreshLinkState()
         {
-            if (!_isStreamingModeActive) return;
-            await (AppStateService.Instance.StopStreamingModeAction?.Invoke() ?? Task.CompletedTask);
+            var mgr = AppStateService.Instance.LinkSpeed;
+            if (mgr == null) return;
+
+            OnPropertyChanged(nameof(AllowClientControl));
+            CanRestore = mgr.IsSwitched;
+
+            string back = NetworkManager.FormatMbps(mgr.OriginalMbps);
+            RestoreDetailText = mgr.IsSwitched && mgr.OriginalMbps > 0
+                ? $"Put the adapter back to {back} immediately, without waiting."
+                : "The adapter is at its normal setting — nothing to restore.";
+
+            if (!mgr.AllowClientControl)
+            {
+                SetPill("Off", amber: false);
+                StatusDetailText = "Clients can see the speed but can't change it.";
+                return;
+            }
+
+            if (!mgr.IsSwitched)
+            {
+                SetPill("Idle", amber: false);
+                StatusDetailText = "No client has changed this adapter.";
+                return;
+            }
+
+            string who = string.IsNullOrEmpty(mgr.SwitchedBy) ? "A client" : mgr.SwitchedBy!;
+
+            if (mgr.RestoreAtUtc is { } due)
+            {
+                int secs = Math.Max(0, (int)Math.Round((due - DateTime.UtcNow).TotalSeconds));
+                SetPill("Restoring", amber: true);
+                StatusDetailText = $"Session ended. Going back to {back} in {secs} s — cancelled if a client reconnects.";
+            }
+            else
+            {
+                SetPill("Switched", amber: true);
+                StatusDetailText = $"{who} asked for {NetworkManager.FormatMbps(mgr.CurrentMbps)} · was {back}. "
+                                 + "Restores when the session ends.";
+            }
         }
 
         /// <summary>Re-checks Tailscale presence. Call from the UI when re-navigating to the page.</summary>
@@ -280,57 +354,24 @@ namespace StreamTweak.ViewModels
 
         private void OnAdapterSelected(string adapterName)
         {
-            ConfigService.Set("NetworkAdapterName", adapterName);
+            AppStateService.Instance.LinkSpeed?.SetAdapter(adapterName);
             UpdateCurrentSpeed(adapterName);
-            _ = Task.Run(() => LoadAdapterSpeeds(adapterName));
+            _ = Task.Run(() => LoadSupportedSpeeds(adapterName));
         }
 
-        private void LoadAdapterSpeeds(string adapterName)
+        private void LoadSupportedSpeeds(string adapterName)
         {
-            var speeds = NetworkManager.GetSupportedSpeeds(adapterName);
-
-            var displayKeys = speeds.Keys
-                .Where(k => !IsSpeedAtOrBelow100Mbps(k))
-                .ToList();
-
-            // Pre-select the entry that matches the current link speed
-            var ni = NetworkInterface.GetAllNetworkInterfaces()
-                .FirstOrDefault(n => n.Name.Equals(adapterName, StringComparison.OrdinalIgnoreCase));
-            long currentMbps = (ni?.Speed ?? 0) / 1_000_000;
-            string? bestMatch = FindBestSpeedMatch(displayKeys, currentMbps);
-
-            string savedTarget  = ConfigService.Get("StreamingLinkSpeed", "");
-            string savedRestore = ConfigService.Get("RestoreLinkSpeed", "Previous");
+            // Auto Negotiation (Mbps 0) is a valid setting to restore but not a speed a client
+            // can request, so it never appears in this list.
+            var text = string.Join(" · ", NetworkManager.GetSupportedSpeedOptions(adapterName)
+                .Where(o => o.Mbps > 0)
+                .Select(o => o.Mbps)
+                .Distinct()
+                .OrderByDescending(m => m)
+                .Select(NetworkManager.FormatMbps));
 
             _dispatcher.TryEnqueue(() =>
-            {
-                _adapterSpeeds = speeds;
-                Speeds.Clear();
-                foreach (var k in displayKeys) Speeds.Add(k);
-
-                // Streaming target: saved choice → 1 Gbps default → best match → first.
-                SelectedSpeed = displayKeys.Contains(savedTarget) ? savedTarget
-                              : FindBestSpeedMatch(displayKeys, 1000)
-                              ?? bestMatch
-                              ?? (Speeds.Count > 0 ? Speeds[0] : null);
-
-                // Restore options: "Previous" (captured original) + every supported speed.
-                RestoreOptions.Clear();
-                RestoreOptions.Add("Previous");
-                foreach (var k in displayKeys) RestoreOptions.Add(k);
-
-                // Re-assert the selection through the backing field + an explicit notification,
-                // NOT through the property setter. Emptying ItemsSource makes the ComboBox null
-                // its SelectedItem, and the TwoWay binding writes that null straight back here;
-                // the box then stays blank because a plain assignment of the value it already
-                // held is swallowed by SetProperty's equality check, so no PropertyChanged is
-                // raised and the ComboBox is never told to re-select. This bites "Restore to"
-                // and not "Streaming speed" only because _selectedRestoreSpeed starts out at
-                // "Previous" while _selectedSpeed starts null. Assigning the field directly is
-                // also right on the load path: reading config should not write it back.
-                _selectedRestoreSpeed = RestoreOptions.Contains(savedRestore) ? savedRestore : "Previous";
-                OnPropertyChanged(nameof(SelectedRestoreSpeed));
-            });
+                SupportedSpeedsText = string.IsNullOrEmpty(text) ? "—" : text);
         }
 
         private void UpdateCurrentSpeed(string adapterName)
@@ -346,29 +387,6 @@ namespace StreamTweak.ViewModels
             CurrentSpeedText = mbps <= 0    ? "Negotiating…"
                              : mbps >= 1000 ? $"{(mbps / 1000.0).ToString("0.##", CultureInfo.InvariantCulture)} Gbps"
                              :                $"{mbps} Mbps";
-        }
-
-        private static bool IsSpeedAtOrBelow100Mbps(string key)
-        {
-            // Filter out 10/100 Mbps options — they're not useful for streaming scenarios
-            string k = key.ToLowerInvariant();
-            return (k.StartsWith("10 ") || k.StartsWith("100 "))
-                && !k.Contains("gbps");
-        }
-
-        private static string? FindBestSpeedMatch(List<string> keys, long mbps)
-        {
-            foreach (var key in keys)
-            {
-                string k = key.ToLowerInvariant();
-                bool match = mbps >= 2000
-                    ? k.Contains("2.5") || k.Contains("2500")
-                    : mbps >= 900 && mbps <= 1100
-                        ? k.Contains("1") && k.Contains("gbps") && k.Contains("full")
-                        : k.Contains(mbps.ToString());
-                if (match) return key;
-            }
-            return null;
         }
 
         private static string? FindTailscaleExePath()

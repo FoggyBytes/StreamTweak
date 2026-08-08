@@ -39,6 +39,11 @@ namespace StreamTweak
         // processName (OrdinalIgnoreCase) → display name — Xbox / UWP only
         private readonly Dictionary<string, string> _processNameToGame;
 
+        // Process names already reported as having no readable exe path. The diagnostic value
+        // of that line is discovering the ProcessName once; without this set the same handful
+        // of protected processes was re-logged on every 5 s tick for the whole session.
+        private readonly HashSet<string> _loggedNoExePath = new(StringComparer.OrdinalIgnoreCase);
+
         // Per-store denylist of support-exe filenames (no extension, case-insensitive).
         // A process whose filename matches here is NOT credited to the store's game via
         // Strategy 2 even if it sits under the game's install directory.
@@ -83,8 +88,14 @@ namespace StreamTweak
                 },
             };
 
-        // Returns the support-exe denylist for the given store, or an empty set if none defined.
-        private static HashSet<string> SupportExesFor(string store) =>
+        /// <summary>
+        /// Returns the support-exe denylist for the given store, or an empty set if none defined.
+        /// <para>Shared with <see cref="LaunchWatcher"/>, which needs the same list read the other
+        /// way round: here these names mean "not the game, don't credit it as played", there they
+        /// mean "the store's own client, so a window of its is the launch asking for something".
+        /// One curated list, two questions — better than a second copy that drifts.</para>
+        /// </summary>
+        internal static HashSet<string> SupportExesFor(string store) =>
             _supportExesByStore.TryGetValue(store, out var set)
                 ? set
                 : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -227,6 +238,21 @@ namespace StreamTweak
 
         // ── Polling tick ──────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// True for processes hosted in session 0 (services). Cheap: ProcessIdToSessionId
+        /// needs only PROCESS_QUERY_LIMITED_INFORMATION, unlike MainModule which enumerates
+        /// the module list and throws on anything protected. Returns false when the session
+        /// can't be read, so an unknown process is still probed normally.
+        /// <para>Shared with <see cref="LaunchWatcher"/>, which scans processes for a different
+        /// question but pays the same price for getting this wrong — see the note below about
+        /// the ~70 thrown exceptions per tick this avoids.</para>
+        /// </summary>
+        internal static bool IsServiceSessionProcess(Process p)
+        {
+            try { return p.SessionId == 0; }
+            catch { return false; }
+        }
+
         private void Tick(object? _)
         {
             if (_disposed || (_exeToGame.Count == 0 && _installDirToGame.Count == 0 && _processNameToGame.Count == 0))
@@ -242,12 +268,26 @@ namespace StreamTweak
                         // Attempt to read the full exe path.
                         // This will throw for UWP / WindowsApps processes — caught silently below.
                         string? fullPath = null;
-                        try { fullPath = p.MainModule?.FileName; }
-                        catch
+
+                        // Session 0 is the service session: a game never runs there, and every
+                        // one of those processes (≈45 svchost instances alone) fails MainModule.
+                        // Skipping the probe avoids ~70 thrown Win32Exceptions per tick during
+                        // gameplay. Downstream behaviour is identical — MainModule would have
+                        // thrown anyway, leaving fullPath null and falling through to the
+                        // ProcessName-based strategies below.
+                        if (!IsServiceSessionProcess(p))
                         {
-                            // Access denied (UWP/WindowsApps) — log for diagnostics so callers
-                            // can discover the correct ProcessName to populate GameLibraryEntry.
-                            DebugLog($"UWP process (no fullPath): ProcessName='{p.ProcessName}' PID={p.Id}");
+                            try { fullPath = p.MainModule?.FileName; }
+                            catch
+                            {
+                                // Access denied (UWP/WindowsApps) — log for diagnostics so callers
+                                // can discover the correct ProcessName to populate GameLibraryEntry.
+                                // Once per process name: repeating it every tick buried the log.
+                                bool firstSighting;
+                                lock (_lock) { firstSighting = _loggedNoExePath.Add(p.ProcessName); }
+                                if (firstSighting)
+                                    DebugLog($"No exe path for ProcessName='{p.ProcessName}' (protected process)");
+                            }
                         }
 
                         string exeName = string.IsNullOrEmpty(fullPath)

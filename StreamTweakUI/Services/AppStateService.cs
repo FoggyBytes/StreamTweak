@@ -28,37 +28,29 @@ namespace StreamTweak.Services
         }
         public event EventHandler<bool>? SessionStateChanged;
 
-        // ── Streaming mode active (NIC throttled) ─────────────────────────────
-
-        private bool _isStreamingModeActive;
-        public bool IsStreamingModeActive
-        {
-            get => _isStreamingModeActive;
-            set
-            {
-                if (_isStreamingModeActive == value) return;
-                _isStreamingModeActive = value;
-                StreamingModeChanged?.Invoke(this, value);
-            }
-        }
-        public event EventHandler<bool>? StreamingModeChanged;
+        // "Streaming mode active" (IsStreamingModeActive + StreamingModeChanged) was removed in
+        // 8.1.0: whether the link is switched now lives on LinkSpeedManager, which raises
+        // LinkSpeedChanged below. Nothing read the old pair once the Network page stopped
+        // owning the switch.
 
         // ── Actions wired by App.xaml.cs ──────────────────────────────────────
 
-        /// <summary>Start manual streaming mode (throttle NIC to 1 Gbps).</summary>
-        public Func<Task>? StartStreamingModeAction { get; set; }
+        // ── Link speed ────────────────────────────────────────────────────────
+        // The state machine itself, shared with the Network page. Clients drive it over
+        // the bridge; the host only grants permission and can force a restore.
 
-        /// <summary>Stop streaming mode and restore NIC speed.</summary>
-        public Func<Task>? StopStreamingModeAction { get; set; }
+        public LinkSpeedManager? LinkSpeed { get; set; }
+
+        /// <summary>Raised whenever the link-speed state changes, on the UI thread.</summary>
+        public event Action? LinkSpeedChanged;
+
+        public void RaiseLinkSpeedChanged() => LinkSpeedChanged?.Invoke();
 
         /// <summary>
         /// Signal StreamLight to stop the active streaming session via the next STATS response.
         /// Sets a one-shot flag consumed by the StatsProvider lambda in App.xaml.cs.
         /// </summary>
         public Action? RequestStopStreamAction { get; set; }
-
-        /// <summary>Apply a specific speed key on a specific adapter immediately.</summary>
-        public Func<string, string, Task>? ApplyAdapterSpeedAction { get; set; }
 
         /// <summary>Start a synthetic debug session (no NIC throttle, no real stream).</summary>
         public Func<Task>? StartDebugModeAction { get; set; }
@@ -150,6 +142,13 @@ namespace StreamTweak.Services
         // runs from app start regardless of streaming, so this is available at all
         // times. Read-only snapshot — no side effects.
         public Func<HostMetricsSample>? HostMetricsProvider { get; set; }
+
+        /// <summary>
+        /// The tile guard, so the Library page can tell it the user just changed their mind —
+        /// otherwise a manual restore would look exactly like the server overwriting us, and
+        /// get "repaired" within the minute.
+        /// </summary>
+        public HostAssetsGuard? HostAssetsGuard { get; set; }
 
         /// <summary>
         /// Bitrate ceiling configured on the client for the active session, in Mbps.

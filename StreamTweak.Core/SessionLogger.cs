@@ -257,6 +257,18 @@ namespace StreamTweak
         /// </summary>
         private const double MinSessionSeconds = 60;
 
+        /// <summary>
+        /// When true, a session that never launched a game is discarded instead of being
+        /// written to history — the user's opt-in "only record sessions with a game"
+        /// (config key <c>RecordOnlyGameSessions</c>, Settings → Behavior). Set once at
+        /// startup from config and again whenever the toggle changes; the Core has no
+        /// config access of its own, same arrangement as <see cref="DebugLogger.VerboseEnabled"/>.
+        ///
+        /// Applied on both close paths (normal end + interrupted-session recovery) and
+        /// never to debug sessions, which have no game by construction.
+        /// </summary>
+        public static bool RecordOnlyGameSessions { get; set; }
+
         public static string?  ActiveSessionId        => _activeSessionId;
         public static DateTime ActiveSessionStartTime => _activeSessionStartTime;
 
@@ -414,6 +426,19 @@ namespace StreamTweak
                         (s.EndTime.Value - s.StartTime).TotalSeconds < MinSessionSeconds);
                     if (dropped > 0)
                         DebugLogger.Log($"SessionLogger: discarded {dropped} interrupted session(s) shorter than {MinSessionSeconds}s");
+
+                    // Same opt-in rule as EndSession, on the same closed-by-this-pass set.
+                    // The recovered GamesDetected comes from the 30 s checkpoint, so a game
+                    // launched in the last half-minute before the interruption is lost and
+                    // the session is dropped — the price of not having an end-of-session list.
+                    if (RecordOnlyGameSessions)
+                    {
+                        int noGame = sessions.RemoveAll(s =>
+                            closedNow.Contains(s.Id) && !s.IsDebugSession &&
+                            (s.GamesDetected == null || s.GamesDetected.Count == 0));
+                        if (noGame > 0)
+                            DebugLogger.Log($"SessionLogger: discarded {noGame} interrupted session(s) with no game launched (RecordOnlyGameSessions)");
+                    }
                 }
 
                 if (changed)
@@ -508,6 +533,20 @@ namespace StreamTweak
                             sessions.Remove(entry);
                             Save(sessions);
                             DeleteCheckpoint();
+                            return;
+                        }
+
+                        // Opt-in: keep only sessions that actually launched a game.
+                        // A null list means the process monitor never ran, which is
+                        // indistinguishable from "no game" here — both are dropped.
+                        // Debug sessions are exempt: they never have a game.
+                        if (RecordOnlyGameSessions && !entry.IsDebugSession &&
+                            (gamesDetected == null || gamesDetected.Count == 0))
+                        {
+                            sessions.Remove(entry);
+                            Save(sessions);
+                            DeleteCheckpoint();
+                            DebugLogger.Log("SessionLogger: discarded session with no game launched (RecordOnlyGameSessions)");
                             return;
                         }
 

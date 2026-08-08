@@ -182,6 +182,21 @@ namespace StreamTweak.ViewModels
 
         public ObservableCollection<SessionGameCover> LastSessionCovers { get; } = new();
 
+        /// <summary>"+2" when the session detected more games than the strip shows, else empty.</summary>
+        private string _lastSessionCoversOverflow = string.Empty;
+        public string LastSessionCoversOverflow
+        {
+            get => _lastSessionCoversOverflow;
+            private set => SetProperty(ref _lastSessionCoversOverflow, value);
+        }
+
+        private bool _hasLastSessionCoversOverflow;
+        public bool HasLastSessionCoversOverflow
+        {
+            get => _hasLastSessionCoversOverflow;
+            private set => SetProperty(ref _hasLastSessionCoversOverflow, value);
+        }
+
         private bool _hasLastSessionCovers;
         public bool HasLastSessionCovers
         {
@@ -337,24 +352,27 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _nicSpeedText, value);
         }
 
-        private string _autoStreamingText = "Off";
-        public string AutoStreamingText
+        // Was "Auto" (the log-triggered auto-switch, removed in 8.1.0 — the badge was left
+        // reading an orphaned config key and stuck on "Off" forever). Now it reports the one
+        // thing the host still decides about the link: whether clients may change it.
+        private string _clientControlText = "Off";
+        public string ClientControlText
         {
-            get => _autoStreamingText;
+            get => _clientControlText;
             private set
             {
-                if (SetProperty(ref _autoStreamingText, value))
+                if (SetProperty(ref _clientControlText, value))
                 {
-                    OnPropertyChanged(nameof(AutoStreamingColorHex));
-                    OnPropertyChanged(nameof(AutoStreamingBgHex));
-                    OnPropertyChanged(nameof(AutoStreamingBorderHex));
+                    OnPropertyChanged(nameof(ClientControlColorHex));
+                    OnPropertyChanged(nameof(ClientControlBgHex));
+                    OnPropertyChanged(nameof(ClientControlBorderHex));
                 }
             }
         }
 
-        public string AutoStreamingColorHex  => _autoStreamingText == "On" ? "#4ade80"   : "#f87171";
-        public string AutoStreamingBgHex     => _autoStreamingText == "On" ? "#1F4ade80" : "#1Aef4444";
-        public string AutoStreamingBorderHex => _autoStreamingText == "On" ? "#4D4ade80" : "#40ef4444";
+        public string ClientControlColorHex  => _clientControlText == "On" ? "#4ade80"   : "#f87171";
+        public string ClientControlBgHex     => _clientControlText == "On" ? "#1F4ade80" : "#1Aef4444";
+        public string ClientControlBorderHex => _clientControlText == "On" ? "#4D4ade80" : "#40ef4444";
 
         private string _hdrText = "—";
         public string HdrText
@@ -371,9 +389,11 @@ namespace StreamTweak.ViewModels
             }
         }
 
-        public string HdrColorHex  => _hdrText == "On" ? "#4ade80"   : "#f87171";
-        public string HdrBgHex     => _hdrText == "On" ? "#1F4ade80" : "#1Aef4444";
-        public string HdrBorderHex => _hdrText == "On" ? "#4D4ade80" : "#40ef4444";
+        // "—" means the state couldn't be read, not that it is off — so it must not borrow the
+        // red of a disabled feature. Grey is the only honest colour for "don't know".
+        public string HdrColorHex  => _hdrText == "—" ? "#A8A49F"   : _hdrText == "On" ? "#4ade80"   : "#f87171";
+        public string HdrBgHex     => _hdrText == "—" ? "#1A808080" : _hdrText == "On" ? "#1F4ade80" : "#1Aef4444";
+        public string HdrBorderHex => _hdrText == "—" ? "#40808080" : _hdrText == "On" ? "#4D4ade80" : "#40ef4444";
 
         private bool _isSpatialAudioActivated;
         private string _spatialAudioText = "Off";
@@ -441,9 +461,9 @@ namespace StreamTweak.ViewModels
             }
         }
 
-        public string AutoHdrColorHex  => _autoHdrText == "On" ? "#4ade80"   : "#f87171";
-        public string AutoHdrBgHex     => _autoHdrText == "On" ? "#1F4ade80" : "#1Aef4444";
-        public string AutoHdrBorderHex => _autoHdrText == "On" ? "#4D4ade80" : "#40ef4444";
+        public string AutoHdrColorHex  => _autoHdrText == "—" ? "#A8A49F"   : _autoHdrText == "On" ? "#4ade80"   : "#f87171";
+        public string AutoHdrBgHex     => _autoHdrText == "—" ? "#1A808080" : _autoHdrText == "On" ? "#1F4ade80" : "#1Aef4444";
+        public string AutoHdrBorderHex => _autoHdrText == "—" ? "#40808080" : _autoHdrText == "On" ? "#4D4ade80" : "#40ef4444";
 
         // ── Tile subtitle text ────────────────────────────────────────────────
 
@@ -1108,17 +1128,36 @@ namespace StreamTweak.ViewModels
             LastSessionCovers.Clear();
             HasLastSessionCovers  = false;
             HasNoGamesDetected    = false;
+            LastSessionCoversOverflow    = string.Empty;
+            HasLastSessionCoversOverflow = false;
 
             if (detectedGameCovers != null)
             {
+                // Three covers, and a "+N" for the rest.
+                //
+                // There was no limit here at all: a session accumulates every game it
+                // recognises and survives one game closing and the next starting, so an
+                // afternoon with four titles produced four covers. The strip is a plain
+                // horizontal StackPanel with no scrolling and no wrapping, sharing the row
+                // with a star-sized column, so each extra cover came straight out of the
+                // width the figures had to draw in. Capping keeps the card the same shape
+                // whatever the session did; nothing is lost, because Sessions still lists
+                // every game the session detected.
+                const int MaxCovers = 3;
+                int overflow = Math.Max(0, detectedGameCovers.Count - MaxCovers);
+                LastSessionCoversOverflow = overflow > 0 ? $"+{overflow}" : string.Empty;
+                HasLastSessionCoversOverflow = overflow > 0;
+
                 if (detectedGameCovers.Count > 0)
                 {
-                    foreach (var (name, _) in detectedGameCovers)
-                        LastSessionCovers.Add(new SessionGameCover(name));
+                    int shown = Math.Min(MaxCovers, detectedGameCovers.Count);
+
+                    for (int i = 0; i < shown; i++)
+                        LastSessionCovers.Add(new SessionGameCover(detectedGameCovers[i].Name));
                     HasLastSessionCovers = true;
 
                     // Load cover bitmaps via StorageFile (same pattern as GameLibraryViewModel)
-                    for (int i = 0; i < detectedGameCovers.Count; i++)
+                    for (int i = 0; i < shown; i++)
                     {
                         string? path = detectedGameCovers[i].CoverPath;
                         if (path == null) continue;
@@ -1151,7 +1190,9 @@ namespace StreamTweak.ViewModels
             }
 
             // Config reads are fast — do on UI thread
-            AutoStreamingText = ConfigService.GetBool("AutoStreamingEnabled", false) ? "On" : "Off";
+            // Read through the manager, not the raw key: it owns the default (on) and is the
+            // same value the Network page and the bridge act on.
+            ClientControlText = (AppStateService.Instance.LinkSpeed?.AllowClientControl ?? false) ? "On" : "Off";
 
             NicAdapterName = ConfigService.Get("NetworkAdapterName", "Ethernet");
 
@@ -1183,10 +1224,27 @@ namespace StreamTweak.ViewModels
             try
             {
                 var monitors = await HdrService.GetMonitorsAsync();
-                HdrText = monitors.Any(m => m.HdrEnabled && m.HdrSupported) ? "On" : "Off";
-                HdrDisplayName = monitors.FirstOrDefault(m => m.HdrSupported)?.FriendlyName
-                                 ?? monitors.FirstOrDefault()?.FriendlyName
-                                 ?? "Primary display";
+
+                // No monitors means the query couldn't be completed — the display topology was
+                // changing under it, which is routine while a session starts or ends. Say so
+                // instead of claiming Off: a wrong badge is worse than an honest dash.
+                if (monitors.Count == 0)
+                {
+                    // ⚠️ Keep the last figure we actually read rather than falling back to a
+                    // dash. On a host with a virtual display the topology is unreadable for
+                    // stretches at a time — the retries inside HdrService can still come back
+                    // empty — and a dash every time the Dashboard is opened is no more honest
+                    // than a stale value: HDR does not turn itself off while nobody is looking.
+                    // The dash is for the case where we have never managed to read it at all.
+                    if (_hdrText != "On" && _hdrText != "Off") HdrText = "—";
+                }
+                else
+                {
+                    HdrText = monitors.Any(m => m.HdrEnabled && m.HdrSupported) ? "On" : "Off";
+                    HdrDisplayName = monitors.FirstOrDefault(m => m.HdrSupported)?.FriendlyName
+                                     ?? monitors.FirstOrDefault()?.FriendlyName
+                                     ?? "Primary display";
+                }
             }
             catch { HdrText = "—"; HdrDisplayName = "Primary display"; }
 
@@ -1536,8 +1594,8 @@ namespace StreamTweak.ViewModels
                 HostHealthColorHex = "#4ade80";
             }
 
-            HostHealthSub = AutoStreamingText == "On"
-                ? "Armed — waiting for a client"
+            HostHealthSub = ClientControlText == "On"
+                ? "Ready — clients may match the link"
                 : "Waiting for a client";
         }
 

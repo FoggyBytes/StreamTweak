@@ -24,6 +24,15 @@ namespace StreamTweak
         [STAThread]
         static void Main(string[] args)
         {
+            // Before anything logs: opt into the high-frequency detail (process scan, bridge
+            // traffic, log rediscovery). Off by default — with it on, those paths accounted
+            // for ~99% of debug.log and buried the events actually worth reading.
+            DebugLogger.VerboseEnabled = Services.ConfigService.GetBool("VerboseLogging");
+
+            // Read before SessionLogger.Initialize() runs (App ctor): the interrupted-session
+            // recovery there applies this rule too.
+            SessionLogger.RecordOnlyGameSessions = Services.ConfigService.GetBool("RecordOnlyGameSessions");
+
             ApplyXamlPerformanceOptIns();
 
             global::WinRT.ComWrappersSupport.InitializeComWrappers();

@@ -24,7 +24,7 @@ namespace StreamTweak.ViewModels
         public string AppVersion { get; } =
             Assembly.GetExecutingAssembly().GetName().Version is { } v
                 ? $"{v.Major}.{v.Minor}.{v.Build}"
-                : "8.0.0";
+                : "8.1.0";
 
         // ── Update notice (mirrors AppStateService) ───────────────────────────
         // Rebroadcasts the centralized GitHub-release poll into properties the
@@ -124,6 +124,22 @@ namespace StreamTweak.ViewModels
                 {
                     ShowStatus($"Could not update startup setting: {ex.Message}", isError: true);
                 }
+                OnPropertyChanged();
+            }
+        }
+
+        // ── Session history ───────────────────────────────────────────────────
+
+        // The static on SessionLogger is the single source of truth (it is what the
+        // close paths read); this property only mirrors it and persists the choice.
+        public bool RecordOnlyGameSessions
+        {
+            get => SessionLogger.RecordOnlyGameSessions;
+            set
+            {
+                if (SessionLogger.RecordOnlyGameSessions == value) return;
+                SessionLogger.RecordOnlyGameSessions = value;
+                ConfigService.Set("RecordOnlyGameSessions", value);
                 OnPropertyChanged();
             }
         }
@@ -263,6 +279,7 @@ namespace StreamTweak.ViewModels
             }
 
             OnPropertyChanged(nameof(StartWithWindows));
+            OnPropertyChanged(nameof(RecordOnlyGameSessions));
 
             // Fetch StreamLight latest release from GitHub (fire-and-forget)
             _ = LoadStreamLightVersionAsync();

@@ -62,6 +62,7 @@ namespace StreamTweak.Views
             base.OnNavigatedFrom(e);
 
             Net.StopSpeedRefresh();
+            Net.Unsubscribe();
             Aud.PropertyChanged -= OnAudioPropertyChanged;
             Aud.Unsubscribe();
             Nv.Cleanup();
@@ -77,11 +78,7 @@ namespace StreamTweak.Views
         }
 
         // ── Network ────────────────────────────────────────────────────────────
-        private async void SwitchNow_Click(object sender, RoutedEventArgs e)
-            => await Net.SwitchNowAsync();
-
-        private async void RestoreNow_Click(object sender, RoutedEventArgs e)
-            => await Net.RestoreNowAsync();
+        private void RestoreNow_Click(object sender, RoutedEventArgs e) => Net.RestoreNow();
 
         private async void CopyTailscaleIp_Click(object sender, RoutedEventArgs e)
             => await Net.CopyTailscaleIpAsync();

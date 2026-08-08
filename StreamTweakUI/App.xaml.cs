@@ -22,7 +22,7 @@ namespace StreamTweak
         private MenuFlyoutItem?       _traySpeedItem;
         private MenuFlyoutItem?       _trayStreamingStatusItem;
         private MenuFlyoutItem?       _trayStreamingModeItem;
-        private ToggleMenuFlyoutItem? _trayAutoModeItem;
+        private LinkSpeedManager?     _linkSpeed;
         private ToggleMenuFlyoutItem? _traySpatialAudioItem;
         private ToggleMenuFlyoutItem? _trayHdrItem;
         private MonitorInfo?          _trayHdrMonitor;   // first HDR-capable monitor cached at startup
@@ -39,10 +39,7 @@ namespace StreamTweak
 
         // ── NIC / streaming state ────────────────────────────────────────────
         private string _adapterName = "Ethernet";
-        private bool _isAutoStreamingEnabled = false;
-        private bool _isAutoStreamingActive = false;   // NIC has been throttled
         private bool _isAutoSessionActive = false;     // session is being tracked
-        private string? _originalSpeedForAutoStreaming = null;
         private bool _sessionStartInProgress = false;
         private bool _bridgeRetrospectiveArmed = true; // one-shot for mid-session restart
         private List<string> _appsToRelaunch = new();
@@ -56,12 +53,18 @@ namespace StreamTweak
         // ── Stop-stream one-shot flag (set by Home button, consumed by StatsProvider) ──
         private volatile bool _stopStreamRequested;
 
-        // ── NIC renegotiation alert window ───────────────────────────────────
-        private StreamingAdjustmentWindow? _adjustmentAlert;
 
         // ── Backend services ─────────────────────────────────────────────────
         private readonly StreamTweakBridge _bridge = new();
         private readonly HostMetricsCollector _metricsCollector = new();
+
+        // Watches for the launched game's window so the client can hold its launch curtain up
+        // until the game is on screen instead of dropping the user into a reconfiguring desktop.
+        private readonly LaunchWatcher _launchWatcher = new();
+
+        // Puts our Desktop/Steam tiles back when the streaming server's own updater reinstalls
+        // its defaults over them. Without it the setting stayed on and stopped doing anything.
+        private HostAssetsGuard? _hostAssetsGuard;
         private readonly TelemetryAccumulator _telemetryAccumulator = new();
         private StreamingLogMonitor? _logMonitor = null;
         private SessionProcessMonitor? _sessionProcessMonitor;
@@ -178,8 +181,25 @@ namespace StreamTweak
             // Log monitor (auto-streaming detection)
             StartAutoStreamingMonitor();
 
+            // Link speed. Everything that touches the adapter lives here; the client drives it
+            // over SETSPEED before connecting, because the server log reports a session only
+            // once it already exists — far too late to renegotiate a link.
+            _linkSpeed = new LinkSpeedManager(new ConfigLinkSpeedStore());
+            // Independent of the log-derived SessionActive flag, which a server that never logs a
+            // disconnect leaves stuck at false while it is still streaming.
+            _linkSpeed.LiveSessionProbe = LogParser.HasActiveMoonlightSession;
+            _linkSpeed.Notify  += (title, body) => _dispatcher.TryEnqueue(() => NotificationService.Show(title, body));
+            _linkSpeed.Changed += () => _dispatcher.TryEnqueue(() =>
+            {
+                AppStateService.Instance.RaiseLinkSpeedChanged();
+                // The tray's "Speed: …" label would otherwise sit stale until its 4 s timer.
+                _ = PollForNicReconnectAsync();
+            });
+            AppStateService.Instance.LinkSpeed = _linkSpeed;
+            _linkSpeed.RecoverAtStartup();
+
             // TCP bridge (StreamLight → StreamTweak commands)
-            _bridge.PrepareRequested    += OnBridgePrepareRequested;
+            _bridge.LinkSpeed            = _linkSpeed;
             _bridge.RestoreRequested    += OnBridgeRestoreRequested;
             _bridge.ShutdownRequested   += OnBridgeShutdownRequested;
             _bridge.SessionDataReceived += OnSessionDataReceived;
@@ -207,6 +227,8 @@ namespace StreamTweak
                 }
                 return json;
             };
+            _bridge.GameStateProvider  = () => _launchWatcher.ToJson();
+            _bridge.LastSessionProvider = () => LastSessionReport.BuildJson();
             _bridge.AppStoresProvider  = () => GameLibraryState.Current.ToAppStoresJson();
             _bridge.TailscaleProvider  = () =>
             {
@@ -214,6 +236,21 @@ namespace StreamTweak
                 return detected && !string.IsNullOrEmpty(ip) && ip != "IP unknown" ? ip : "NOT_DETECTED";
             };
             _bridge.UpdateStateProvider = () => WindowsUpdateState.ToJson();
+            _bridge.LockStateProvider   = () => LockState.ToJson();
+
+            // The tile guard. Enabled state comes from config rather than from the backup files
+            // still sitting in the assets folder: an updater that wipes the folder would take
+            // those with it, and the guard would then quietly stop guarding.
+            _hostAssetsGuard = new HostAssetsGuard(
+                Path.Combine(AppContext.BaseDirectory, "Resources"),
+                () => HostAssetsManager.GetAssetsDirectory(LogParser.FindStreamingAppInfo()),
+                (dir, desktopSrc, steamSrc) => HostAssetsManager.SwapAsync(dir, desktopSrc, steamSrc))
+            {
+                EnabledProvider = () => ConfigService.GetBool("HostTilesApplied")
+            };
+            AppStateService.Instance.HostAssetsGuard = _hostAssetsGuard;
+            _hostAssetsGuard.Start();
+            _bridge.UnlockSessionMarked += OnBridgeUnlockSessionMarked;
 
             // Dashboard idle vitals — the collector already samples every second from
             // boot (it feeds the STATS bridge command); this just lets the Dashboard
@@ -228,17 +265,9 @@ namespace StreamTweak
             _bridge.UpdateProgressProvider  = () => SpeedChanger.GetUpdateProgress();
 
             // Wire AppStateService action delegates
-            AppStateService.Instance.StartStreamingModeAction  = StartManualStreamingMode;
-            AppStateService.Instance.StopStreamingModeAction   = () => HandleAutoStreamStop("User");
             AppStateService.Instance.RequestStopStreamAction   = () => _stopStreamRequested = true;
             AppStateService.Instance.StartDebugModeAction      = StartDebugSession;
             AppStateService.Instance.StopDebugModeAction       = () => { StopDebugSession(); return Task.CompletedTask; };
-            AppStateService.Instance.ApplyAdapterSpeedAction  = (adapter, speedKey) =>
-            {
-                _adapterName = adapter;
-                ConfigService.Set("NetworkAdapterName", adapter);
-                return Task.Run(() => ApplySpeed(speedKey));
-            };
 
             // Audio live-update actions: called by AudioViewModel when the user
             // changes device/format/enabled in the Audio tab — no restart required.
@@ -253,7 +282,6 @@ namespace StreamTweak
                 else
                 {
                     _dolbyMonitor.Disable();
-                    StopAutoStreamingMonitor();
                 }
                 if (_traySpatialAudioItem != null)
                     _traySpatialAudioItem.IsChecked = enabled;
@@ -336,7 +364,6 @@ namespace StreamTweak
         private void LoadConfig()
         {
             _adapterName            = ConfigService.Get("NetworkAdapterName", "Ethernet");
-            _isAutoStreamingEnabled = ConfigService.GetBool("AutoStreamingEnabled", false);
             _isAudioMonitorEnabled  = ConfigService.GetBool("AudioMonitorEnabled", false);
             _audioOutputDevice      = ConfigService.Get("AudioOutputDevice", "Steam Streaming Speakers");
             string fmt              = ConfigService.Get("AudioSpatialFormat", "DolbyAtmos");
@@ -406,139 +433,20 @@ namespace StreamTweak
                 : (0, false);
         }
 
-        private string? Find1GbpsKey()
-        {
-            var speeds = NetworkManager.GetSupportedSpeeds(_adapterName);
-            foreach (var kvp in speeds)
-            {
-                string kl = kvp.Key.ToLower();
-                if (((kl.Contains("1 gbps") || kl.Contains("1gbps") || kl.Contains("1000")) && kl.Contains("full"))
-                    || kvp.Value == "6")
-                    return kvp.Key;
-            }
-            return null;
-        }
-
-        /// <summary>The link-speed key to switch TO while streaming. Reads the user's chosen
-        /// "StreamingLinkSpeed" (Network section); falls back to 1 Gbps if unset or unsupported
-        /// by the current adapter. Replaces the old hardcoded-1 Gbps behaviour.</summary>
-        private string? FindStreamingTargetKey()
-        {
-            string target = ConfigService.Get("StreamingLinkSpeed", "");
-            if (!string.IsNullOrEmpty(target)
-                && NetworkManager.GetSupportedSpeeds(_adapterName).ContainsKey(target))
-                return target;
-            return Find1GbpsKey();
-        }
-
-        /// <summary>The key to restore to after streaming: the user's "RestoreLinkSpeed" choice,
-        /// or the captured previous speed when the choice is "Previous"/unset/unsupported.</summary>
-        private string GetRestoreKey(string capturedOriginal)
-        {
-            string choice = ConfigService.Get("RestoreLinkSpeed", "Previous");
-            if (string.IsNullOrEmpty(choice) || choice == "Previous") return capturedOriginal;
-            return NetworkManager.GetSupportedSpeeds(_adapterName).ContainsKey(choice)
-                ? choice : capturedOriginal;
-        }
-
-        /// <summary>Rough Mbps for a speed display key (used only to skip a redundant switch
-        /// when the NIC is already at the target).</summary>
-        private static long KeyToMbps(string key)
-        {
-            string k = key.ToLowerInvariant();
-            if (k.Contains("2.5") || k.Contains("2500")) return 2500;
-            if (k.Contains("10 gbps") || k.Contains("10gbps") || k.Contains("10000")) return 10000;
-            if (k.Contains("5 gbps") || k.Contains("5gbps") || k.Contains("5000")) return 5000;
-            if (k.Contains("gbps") || k.Contains("1000")) return 1000;
-            if (k.Contains("100")) return 100;
-            return 0;
-        }
-
-        /// <summary>Human label for a speed key, for notifications (e.g. "1 Gbps", "2.5 Gbps").</summary>
-        private static string SpeedLabel(string key)
-        {
-            long m = KeyToMbps(key);
-            return m <= 0 ? "target speed" : m >= 1000 ? $"{m / 1000.0:0.##} Gbps" : $"{m} Mbps";
-        }
-
-        private void ApplySpeed(string speedKey)
-        {
-            var speeds = NetworkManager.GetSupportedSpeeds(_adapterName);
-            if (!speeds.TryGetValue(speedKey, out string? regValue)) return;
-            if (!SpeedChanger.Apply(_adapterName, regValue))
-                SpeedChanger.ApplyWithUac(_adapterName, regValue);
-        }
-
         // ── TCP Bridge handlers ───────────────────────────────────────────────
 
-        private void OnBridgePrepareRequested()
-        {
-            // Bridge fires on a thread-pool thread — marshal to UI thread.
-            _dispatcher.TryEnqueue(() => _ = HandleBridgePrepareAsync());
-        }
-
-        private async Task HandleBridgePrepareAsync()
-        {
-            try
-            {
-                if (_isAutoStreamingActive) return;
-
-                var ni = NetworkInterface.GetAllNetworkInterfaces()
-                    .FirstOrDefault(n => n.Name.Equals(_adapterName, StringComparison.OrdinalIgnoreCase));
-                if (ni == null || ni.OperationalStatus != OperationalStatus.Up) return;
-
-                long mbps = ni.Speed / 1_000_000;
-                string? targetKey = FindStreamingTargetKey();
-                if (targetKey == null) return;
-                long targetMbps = KeyToMbps(targetKey);
-                if (targetMbps > 0 && Math.Abs(mbps - targetMbps) <= 50) return; // already at the target
-
-                var speeds = NetworkManager.GetSupportedSpeeds(_adapterName);
-                string capturedOriginal = string.Empty;
-                foreach (var kvp in speeds)
-                {
-                    string kl = kvp.Key.ToLower();
-                    bool match = mbps >= 2000
-                        ? kl.Contains("2.5") || kl.Contains("2500")
-                        : kl.Contains(mbps.ToString());
-                    if (match) { capturedOriginal = kvp.Key; break; }
-                }
-                _originalSpeedForAutoStreaming = GetRestoreKey(capturedOriginal);
-
-                _isAutoStreamingActive = true;
-                _isAutoSessionActive   = true;
-                _telemetryAccumulator.Reset();
-                ConfigService.Set("StreamingMode", true);
-                ConfigService.Set("OriginalSpeed", capturedOriginal);
-                _appsToRelaunch = ManagedAppController.KillRunning();
-                SessionLogger.StartSession("Bridge", capturedOriginal);
-                StartCheckpointTimer();
-                StartInactivityTimer();
-                AppStateService.Instance.IsStreamingModeActive = true;
-                AppStateService.Instance.IsSessionActive = true;
-                UpdateTrayStreamingState(true);
-
-                // Start process monitor so Bridge-initiated sessions also detect games.
-                _sessionProcessMonitor?.Dispose();
-                _sessionProcessMonitor = new SessionProcessMonitor(GameLibraryState.Current.Games);
-                _sessionProcessMonitor.Start();
-                SeedLaunchedGameIntoMonitor();  // credit the game named in the server log
-
-                await Task.Run(() => ApplySpeed(targetKey));
-                _ = PollForNicReconnectAsync();
-
-                NotificationService.Show("StreamTweak Ready",
-                    $"Network set to {SpeedLabel(targetKey)}. Connect within 30 seconds or speed will be restored.");
-            }
-            catch (Exception ex) { DebugLogger.Log($"[Bridge] HandleBridgePrepareAsync failed: {ex}"); }
-        }
-
+        // The client stopped the session deliberately (quit the app / the Desktop tile), as opposed
+        // to merely disconnecting. That is the one case where the host can be certain the user has
+        // finished, so the link goes back immediately instead of parking — and it is the only way
+        // to know it for a Desktop session, which has no process to watch.
         private void OnBridgeRestoreRequested()
         {
             _dispatcher.TryEnqueue(() =>
             {
-                if (_isAutoStreamingActive || _isAutoSessionActive)
+                if (_isAutoSessionActive)
                     _ = HandleAutoStreamStop("User");
+
+                _linkSpeed?.RestoreNow("the client stopped the session");
             });
         }
 
@@ -589,7 +497,7 @@ namespace StreamTweak
                         {
                             _bridgeRetrospectiveArmed = false; // one-shot, safe on UI thread
                             _dolbyMonitor.OnStreamingStarted(isRetrospective: true);
-                            _ = HandleAutoStreamStart(skipNicThrottle: true);
+                            _ = HandleAutoStreamStart(retrospective: true);
                         }
                     });
                     return;
@@ -649,16 +557,27 @@ namespace StreamTweak
         {
             if (_isAutoSessionActive)
             {
+                // Collect detected games BEFORE ending the session — mirrors OnSystemSessionEnding.
+                // Closing StreamTweak mid-session used to record GamesDetected=null even with the
+                // monitor running all along, which also made the session look game-less to the
+                // "only record sessions with a game" rule.
+                List<string>? detectedGames = null;
+                if (_sessionProcessMonitor != null)
+                {
+                    detectedGames = _sessionProcessMonitor.GetDetectedGames();
+                    _sessionProcessMonitor.Dispose();
+                    _sessionProcessMonitor = null;
+                }
                 FinalizeSessionTelemetry();
                 StopCheckpointTimer();
-                SessionLogger.EndSession("App Closed");
+                SessionLogger.EndSession("App Closed", detectedGames);
             }
             try
             {
-                _bridge.PrepareRequested    -= OnBridgePrepareRequested;
-                _bridge.RestoreRequested    -= OnBridgeRestoreRequested;
-                _bridge.ShutdownRequested   -= OnBridgeShutdownRequested;
-                _bridge.SessionDataReceived -= OnSessionDataReceived;
+                _bridge.RestoreRequested     -= OnBridgeRestoreRequested;
+                _bridge.ShutdownRequested    -= OnBridgeShutdownRequested;
+                _bridge.SessionDataReceived  -= OnSessionDataReceived;
+                _bridge.UnlockSessionMarked  -= OnBridgeUnlockSessionMarked;
                 _bridge.Dispose();
             }
             catch { }

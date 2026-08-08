@@ -53,6 +53,14 @@ namespace StreamTweak
         /// </summary>
         public string? InstallDir { get; set; }
 
+        /// <summary>
+        /// Store-specific launch id, when the store's own launcher has to do the launching.
+        /// Epic uses "&lt;namespace&gt;:&lt;catalogItemId&gt;:&lt;appName&gt;" — its games cannot be started
+        /// by running their exe, whatever else is running, because the entitlement and Epic
+        /// Online Services tokens arrive on the command line from the launcher.
+        /// </summary>
+        public string? LaunchId { get; set; }
+
         // ── UI helpers (not persisted) ────────────────────────────────────────
 
         private static readonly string CoverCacheDir = Path.Combine(

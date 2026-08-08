@@ -43,34 +43,18 @@ namespace StreamTweak
 
             flyout.Items.Add(new MenuFlyoutSeparator());
 
-            // ── Start / Stop Streaming Mode ──────────────────────────────────
-            _trayStreamingModeItem = new MenuFlyoutItem { Text = "Switch link speed now", MinWidth = 240 };
-            _trayStreamingModeItem.Click += async (_, _) =>
-            {
-                if (_isAutoStreamingActive || _isAutoSessionActive)
-                    await HandleAutoStreamStop("User");
-                else
-                    await StartManualStreamingMode();
-            };
+            // ── Restore link speed ───────────────────────────────────────────
+            // The switch itself is client-driven now, so there is nothing to start from here.
+            // What remains is the escape hatch: put the adapter back when a client vanished
+            // mid-session and left it switched.
+            _trayStreamingModeItem = new MenuFlyoutItem { Text = "Restore link speed", MinWidth = 240 };
+            _trayStreamingModeItem.Click += (_, _) =>
+                AppStateService.Instance.LinkSpeed?.RestoreNow("tray");
             flyout.Items.Add(_trayStreamingModeItem);
 
-            // ── Auto Mode toggle ─────────────────────────────────────────────
-            _trayAutoModeItem = new ToggleMenuFlyoutItem
-            {
-                Text      = "Auto-switch link speed",
-                IsChecked = _isAutoStreamingEnabled
-            };
-            _trayAutoModeItem.Click += (_, _) =>
-            {
-                _isAutoStreamingEnabled = _trayAutoModeItem.IsChecked;
-                ConfigService.Set("AutoStreamingEnabled", _isAutoStreamingEnabled);
-                if (_isAutoStreamingEnabled)
-                    StartAutoStreamingMonitor();
-                else
-                    StopAutoStreamingMonitor();
-                AppStateService.Instance.RaiseSettingsChanged();
-            };
-            flyout.Items.Add(_trayAutoModeItem);
+            // "Auto-switch link speed" was removed in 8.1.0 along with the log-triggered
+            // switch it controlled. The client decides now; the host only grants permission,
+            // on the Network page.
 
             // ── Spatial Audio toggle ─────────────────────────────────────────
             _traySpatialAudioItem = new ToggleMenuFlyoutItem
@@ -86,11 +70,6 @@ namespace StreamTweak
                     StartDolbyMonitor();
                 else
                     _dolbyMonitor.Disable();
-                // Re-evaluate whether the log monitor should run
-                if (_isAudioMonitorEnabled)
-                    StartAutoStreamingMonitor();
-                else
-                    StopAutoStreamingMonitor();
                 AppStateService.Instance.RaiseSettingsChanged();
             };
             flyout.Items.Add(_traySpatialAudioItem);

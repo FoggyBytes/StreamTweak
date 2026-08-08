@@ -26,7 +26,10 @@ namespace StreamTweak
         string? StoreId = null,
         string? CoverUrl = null,
         string? InstallDir = null,
-        string? ProcessName = null);
+        string? ProcessName = null,
+        // Store-specific launch id, when the store's own launcher has to do the launching.
+        // Epic: "<namespace>:<catalogItemId>:<appName>", the triple its protocol expects.
+        string? LaunchId = null);
 
     /// <summary>
     /// Scans installed game libraries on the local machine.
@@ -253,10 +256,28 @@ namespace StreamTweak
                     string? catalogItemId = root.TryGetProperty("CatalogItemId", out var cidEl)
                         ? cidEl.GetString() : null;
 
+                    // The three ids the launcher protocol wants. Running the game's exe cannot
+                    // work for most Epic titles however the launcher is started: the entitlement
+                    // and Epic Online Services tokens are handed over on the command line, so a
+                    // direct launch runs the intro and then exits — which is exactly what
+                    // Alan Wake 2 does. Only the launcher can start it properly.
+                    string? appName   = root.TryGetProperty("AppName", out var anEl) ? anEl.GetString() : null;
+                    string? nameSpace = root.TryGetProperty("CatalogNamespace", out var nsEl) ? nsEl.GetString() : null;
+
+                    string? launchId = null;
+                    if (!string.IsNullOrWhiteSpace(appName))
+                    {
+                        // The triple form disambiguates editions and DLC that share a name; the
+                        // bare app name is the documented fallback when a manifest lacks the rest.
+                        launchId = (!string.IsNullOrWhiteSpace(nameSpace) && !string.IsNullOrWhiteSpace(catalogItemId))
+                            ? $"{nameSpace}:{catalogItemId}:{appName}"
+                            : appName;
+                    }
+
                     string installLocation = locEl.GetString() ?? "";
                     string exePath = Path.Combine(installLocation, exeEl.GetString() ?? "");
                     game = new DiscoveredGame(name, "Epic Games", null, exePath, catalogItemId,
-                                              InstallDir: installLocation);
+                                              InstallDir: installLocation, LaunchId: launchId);
                 }
                 catch { }
 

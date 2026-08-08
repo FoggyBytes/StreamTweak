@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -17,14 +17,22 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <ApplicationIcon>Resources\streamtweak.ico</ApplicationIcon>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- The file name stays StreamTweakUI: the LocalSystem service only accepts pipe clients
+         called StreamTweakUI.exe from its own install directory (§22), so renaming the binary
+         would silently break every NIC change. What the taskbar, Alt-Tab and Task Manager show
+         is FileDescription, which .NET fills from AssemblyName unless told otherwise — hence
+         these two, which change the name without touching the file. -->
     <AssemblyName>StreamTweakUI</AssemblyName>
+    <AssemblyTitle>StreamTweak</AssemblyTitle>
+    <Product>StreamTweak</Product>
+    <Company>FoggyBytes</Company>
     <!-- Keeps the compiler-generated Main (renamed to XamlGeneratedProgram.XamlGeneratedMain)
          but stops it being the entry point, so Program.cs can opt into the WinAppSDK 2.3
          XAML performance changes before Application.Start. See Program.cs. -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
-    <Version>8.0.0</Version>
-    <AssemblyVersion>8.0.0.0</AssemblyVersion>
-    <FileVersion>8.0.0.0</FileVersion>
+    <Version>8.1.0</Version>
+    <AssemblyVersion>8.1.0.0</AssemblyVersion>
+    <FileVersion>8.1.0.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

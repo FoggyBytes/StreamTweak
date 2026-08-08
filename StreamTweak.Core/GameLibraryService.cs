@@ -124,6 +124,7 @@ namespace StreamTweak
                         existing.StoreId    = g.StoreId;
                         existing.ExePath    = g.ExePath;      // refresh path from latest scan
                         existing.InstallDir = g.InstallDir;   // refresh install dir (used by Strategy 2 process detection)
+                        existing.LaunchId   = g.LaunchId;     // refresh the store's own launch id (Epic)
                         // Refresh ProcessName from scanner when available (Xbox/UWP) — don't
                         // clobber user-set values: only overwrite when the scanner provides one.
                         if (!string.IsNullOrEmpty(g.ProcessName))
@@ -139,6 +140,7 @@ namespace StreamTweak
                         StoreId     = g.StoreId,
                         ExePath     = g.ExePath,               // persist path from scanner
                         InstallDir  = g.InstallDir,            // persist install dir (used by Strategy 2 process detection)
+                        LaunchId    = g.LaunchId,              // the store's own launch id, when its launcher must start the game
                         ProcessName = g.ProcessName,           // persist runtime process name (Xbox/UWP)
                         Enabled     = true,
                     };

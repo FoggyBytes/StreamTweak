@@ -4,6 +4,76 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+---------------------------------------------------
+Version 8.1.0 - "The Handshake Update" (08/08/2026)
+---------------------------------------------------
+
+🎬 LAUNCH WATCH:
+• StreamTweak now watches what happens after the streaming server is told to open a game, and tells the client when the game is really on screen. The client uses it to hold its launch screen up instead of handing you a desktop that is still rearranging itself — windows moving, a launcher opening, the resolution changing — for the several seconds before anything of the game exists. Nothing is asked for unless the client wants it: in StreamLight this is the "Wait for the game to appear" switch, off by default
+• A game asked for through a store still gets watched: Steam and Xbox launches are recognised from the streaming server's own log even though they carry no command of their own, and a game reached through a launcher protocol is matched back to its install directory
+• When something on the host is waiting for a click — a store client asking for a login, a game's own launcher wanting to update — that is reported too, and the client stops covering it up. A window that was already open before the launch is never mistaken for one of these: it has to be the store's own client, or a window that appeared after the launch began and then kept the screen
+• The Desktop entry, and anything else that opens no window of its own, is reported as having nothing to wait for, so it is shown immediately
+• A launcher that is doing its job no longer counts as one asking for a click: before saying the host needs you, StreamTweak checks whether the game's own process has started. Ubisoft Connect opens a window, starts the game and steps aside, while Battle.net opens a window and waits — watching windows cannot tell those apart, and no amount of waiting longer separates them, because one is helped by exactly as much as the other is hurt
+• Battle.net titles get no launch screen at all: those launches open the client itself and the Play button you have to press is the very thing a launch screen would be covering, so there is nothing to wait for — the same answer the Desktop entry gets
+• Ninety seconds is the cap: past it the host says so rather than leaving the client waiting on an answer that isn't coming
+
+🔓 REMOTE UNLOCK:
+• StreamTweak now tells an approved client whether the host is sitting at a lock or logon screen, which is what lets StreamLight offer a PIN pad after waking it instead of leaving you with a host that answers pings and does nothing else
+• The brief session the client opens to type that PIN is kept out of the way entirely: it is not recorded in Sessions, it does not switch on spatial audio, it does not close and reopen your managed apps, and it credits no game. The client declares what that session is for before opening it — from the host's side one session looks like any other, and only the client knows why it opened
+• The declaration is used once and expires by itself, so a client that gives up half way cannot make the next real session vanish from the history
+• Nothing here types anything or unlocks anything on its own: the PIN travels on the streaming connection, the same path as the keystrokes you would send by hand, and it is the client that sends it
+• Once the client is in, it closes that session properly rather than just disconnecting, so this host goes straight back to reporting itself as online — a plain disconnect is treated as a pause you might resume, which would have left it looking busy with a session nobody was watching
+
+🖼️ HOST TILES:
+• The Desktop and Steam tiles you replaced from the Library page are now put back automatically when the streaming server's own updater reinstalls its defaults over them — until now the setting stayed switched on while the tiles had quietly gone back to the server's, which is the worst of the three states it could be in
+• Both a watcher and a periodic check, because an update can replace the whole assets folder rather than write into it, and a watcher on a folder that gets deleted stops watching
+• Nothing is copied unless the tile on disk actually differs from ours: an installer rewrites timestamps whether or not it changed anything, and re-copying on every touch would mean writing into Program Files for nothing
+
+🔀 LINK-SPEED SWITCH:
+• The client now picks the speed and asks for it before connecting — StreamLight reads its own wired link, requests a match, and starts the stream only once the host confirms the change. Until now the switch fired when the streaming server reported a connection, which is after the session already exists: renegotiating the adapter there drops the link for several seconds and kills the very stream it was meant to help, sometimes into a connect/disconnect loop
+• The host no longer configures a target speed at all — the right speed depends on the client's connection, and only the client knows what that is. The Network page becomes a status page: the adapter, its current speed, the speeds it supports, one permission switch and a manual restore
+• New "Let clients change the link speed" switch — permission, not configuration. Turn it off while you need full speed for something else and clients can still read the speed but not touch it
+• After the link comes back the host waits a few more seconds before telling the client it is ready — the adapter reports the new speed the moment it is up, but the streaming server's network sockets take longer than that to recover, and a stream started too early completes its handshake and then receives no video or audio at all
+• The link is never renegotiated while a stream is running, even when the streaming server never reported the previous session ending — a leftover session used to leave the host believing it was idle, and the change would then break the stream actually in progress
+• A restore that comes due while a stream is live is postponed instead of forced, including when StreamTweak itself is restarted mid-session
+• The host no longer decides when to put the link back — it holds the streaming speed after a session ends and restores only when a client asks. StreamLight puts the question to you when you leave a host, so the speed survives the gap between two games instead of costing a renegotiation on the way out and another on the way back in
+• Nothing is undone behind your back: a session ending, a game exiting on the host, a change no session ever used — none of them move the adapter on their own any more. The one thing that still acts by itself is the check at startup, which puts back a link left switched by a previous run
+• Wi-Fi adapters are no longer listed — Wi-Fi has no fixed link speed to match, and the buffering this feature solves happens where a faster wired link meets a slower one. Previously a wireless adapter could be selected and would silently do nothing
+• Restoring puts back the adapter's original setting, so one left on Auto Negotiation stays on it instead of being pinned to a fixed speed — while the page shows you the speed you get back, not the setting's name
+• A request arriving over Tailscale, Wi-Fi or any other interface is refused: a remote client has no business renegotiating a LAN link it isn't even using
+
+📊 SESSION REPORT:
+• The last session is now shared with the client — grade, how long ago, how long it ran, round-trip time and its peak, host frame latency, frame drops and the cover art of what was played, all served to an approved StreamLight so it can show them on its own home screen. The host's Dashboard has always known this, but the host is not the machine you are sitting at when deciding whether to stream again
+• Cover art travels as a thumbnail, resized on the host and cached, so a 600x900 picture is not sent for something drawn a hundred pixels wide
+• The Dashboard's last-session card now shows the cover art first and the figures after it, and caps the covers at three with a "+2" for the rest — a session keeps running across one game closing and the next starting, so an afternoon with four titles used to add a fourth cover by taking the width away from the numbers beside it. Every game the session detected is still listed in Sessions
+
+🗂️ SESSION HISTORY:
+• New "Only record sessions with a game" switch in Settings — with it on, a session that never launched a game is discarded instead of being written to the history, so a connection test, a look at the desktop or a launch that went nowhere leaves nothing behind. Off by default, and it only ever applies to sessions ending from now on: nothing already recorded is touched
+• It applies when a session closes, including one recovered after a crash or a host shutdown — there the played-game list comes from the checkpoint written every 30 seconds, so a game launched in the last half-minute before the interruption isn't seen and that session goes with the rest
+
+🎨 APPEARANCE:
+• New application icon, in the window, the taskbar and the installer. The two tray icons that show whether the link is on its streaming speed have been redrawn to match
+
+🩹 FIXES:
+• Closing StreamTweak during a session now records what was played — the detected games were collected on every other way a session can end but not on this one, so the session was filed as though nothing had been launched
+• The Dashboard's HDR badge no longer falls back to a dash once it has read the real state. Reading the display configuration fails for stretches at a time on a host with a virtual display — the retries were also too short, and missed the error this actually returns — and HDR does not turn itself off while nobody is looking, so the last figure actually read is kept
+• Epic Games titles now launch through the Epic launcher instead of by running their executable, which most of them cannot be started by at all — the entitlement and Epic Online Services tokens arrive on the command line from the launcher, so a direct launch plays the intro and drops back to the client, whether or not the launcher is already open. This applies both to streaming and to the Library page's own Play button, which are now the same decision rather than two. Re-sync the library once to rewrite the commands
+• The Library page's Play button no longer starts a game in StreamTweak's own folder — it set no working directory, so the game inherited StreamTweak's and any title that looks for its data next to where it was started refused to run, reporting a missing folder under Program Files. Games launched by the streaming server were never affected
+• A session that ends because the game itself exits is now recognised — until now StreamTweak only noticed a session ending when the client disconnected, so quitting a game left the session running in the history until something else ended it, a stream started shortly afterwards was merged into it, and the link speed was never put back
+• The Dashboard no longer reports HDR as off when it is on — reading the display configuration can fail while Windows is rearranging monitors, which happens around every session on a host with a virtual display, and the failure was being shown as a confident "Off". It is now retried, and when the state genuinely can't be read the badge shows a neutral dash instead of claiming the feature is disabled
+• Sessions are always recorded now — session history, telemetry, spatial audio and played-game detection all hang off the streaming-server log watcher, which used to be switched off together with the automatic link-speed switch
+• The installer no longer opens filling the whole screen with its contents still laid out for a small window, the artwork stranded in a corner — Windows was maximising a wizard that is not meant to be resized in the first place, which showed up on handhelds
+
+🧹 UNDER THE HOOD:
+• The diagnostic log is now capped — it rolls over at 5 MB keeping a single previous copy, so it can no longer creep up to the hundreds of megabytes that long-running installs were quietly accumulating
+• Routine chatter no longer reaches the log — the process scan, the bridge traffic and the streaming-server log discovery together accounted for over 99% of every line written and buried the handful of entries that actually explain a problem; all of it is still available on demand by setting "VerboseLogging" to true in config.json
+• Every link-speed change is now recorded: what it was, what it became, which client asked and when it goes back. None of it was logged before, which made a misbehaving switch impossible to reconstruct afterwards
+• Less work while you stream — the game detector no longer probes Windows service processes whose executable path it can never read, removing roughly seventy failed lookups every five seconds for the whole length of a session
+
+⚠️ COMPATIBILITY:
+• The automatic link-speed switch, the launch watch and the shared session report all need StreamLight 5.0.0 or later — with an older client no speed change happens at all, the host simply stays where it is, and nothing asks for the launch state or the last session
+• Everything else is unchanged: pairs with StreamLight 3.3.0 for the rest of the integration, host frame-latency reporting needs StreamLight 4.0.1, and the delivered-vs-target bitrate needs StreamLight 4.5.0
+
 ----------------------------------------------
 Version 8.0.0 - "The UI Redesign" (18/07/2026)
 ----------------------------------------------
@@ -48,9 +118,9 @@ Version 8.0.0 - "The UI Redesign" (18/07/2026)
 ⚠️ COMPATIBILITY:
 • Pairs with StreamLight 3.3.0 on the client; host frame-latency reporting needs StreamLight 4.0.1, and the delivered-vs-target bitrate needs StreamLight 4.5.0
 
------------------------------------------------------
+--------------------------------------------------------
 Version 7.4.0 - "The Deeper Insight Update" (21/06/2026)
------------------------------------------------------
+--------------------------------------------------------
 
 📊 SESSION QUALITY:
 • The quality grade now considers host frame latency — how long the host actually took to capture and encode each frame. This is a far more direct signal of "did the host keep up?" than encoder load %: a high latency means a late frame regardless of how busy the encoder looked. Reported by the client (StreamLight 4.x), shown in the session detail HOST panel and as a new "Host frame latency" chart. Sessions from older clients are unaffected
@@ -69,9 +139,9 @@ Version 7.4.0 - "The Deeper Insight Update" (21/06/2026)
 • "Clear history" now opens a browser-style chooser — delete sessions from the last hour, 24 hours, 7 days, 4 weeks, or all time — with a red Delete confirm and a Cancel button, instead of wiping everything immediately
 • New "Compare" button — pick two sessions from two dropdowns and see them side by side: every CLIENT/HOST metric with a per-value delta that highlights which session was better, every chart drawn with both sessions overlaid (each in its own colour, with a legend), and each session's detected games. The whole view stacks in a single scrollable column so it stays readable at any window size
 
------------------------------------------------------
+----------------------------------------------------
 Version 7.3.3 - "The Fresh Look Update" (20/06/2026)
------------------------------------------------------
+----------------------------------------------------
 
 🎨 UI:
 • Refreshed application icons
@@ -110,9 +180,9 @@ Version 7.3.1 - "The Housekeeping Update" (10/06/2026)
 🧹 UNDER THE HOOD:
 • Internal cleanup with no change in behaviour: the large main app file was split into smaller focused parts, and the tray "Speed" readout no longer reaches into the notify-icon library's internals to stay current
 
---------------------------------------------------------
+-------------------------------------------------------
 Version 7.3.0 - "The Patch Tuesday Update" (06/06/2026)
---------------------------------------------------------
+-------------------------------------------------------
 
 ✨ NEW FEATURES:
 • Remote Windows Update: an approved StreamLight client (3.3.0 or later) can now check for, and install, Windows updates on the host and restart it — all from the client, no keyboard needed on the host. Ideal for a headless gaming PC. The client shows the updates it found, classified (security & critical, Defender, optional), and you choose "Security + Defender" or "All updates". Feature/version upgrades (e.g. a new Windows version) are shown but never installed remotely — run those on the host directly
@@ -124,9 +194,9 @@ Version 7.3.0 - "The Patch Tuesday Update" (06/06/2026)
 • Home dashboard: the "Managed Apps" and "Game Library" tile counts are now green, matching the Logs tile
 • Status banners (info notices) across Settings, Apps and Game Library now use the same green accent as NVIDIA Sentinel for their information icon, for a consistent look
 
-------------------------------------------------
+-----------------------------------------------
 Version 7.2.0 - "The Power Update" (05/06/2026)
-------------------------------------------------
+-----------------------------------------------
 
 ✨ NEW FEATURES:
 • Remote host power-off: an approved StreamLight client (3.2.0 or later) can shut the host PC down over the authenticated bridge — straight from the host's Options menu on the client, no need to touch the host. Useful for powering the gaming PC down after a couch session ends. The shutdown command is destructive, so it is only ever accepted with a verified signature from an approved device — never unauthenticated, even in the old open mode
@@ -143,9 +213,9 @@ Version 7.2.0 - "The Power Update" (05/06/2026)
 ⚠️ COMPATIBILITY:
 • Requires StreamLight 3.2.0 or later for the new power-off feature and for the advanced integration in general. Update both apps together
 
------------------------------------------------------
+----------------------------------------------------
 Version 7.1.1 - "The Refinement Update" (04/06/2026)
------------------------------------------------------
+----------------------------------------------------
 
 ⚡ PERFORMANCE:
 • Game Library list virtualized: the list now renders only the rows currently on screen instead of building every entry (and loading every cover) at once. Large libraries with hundreds of titles open instantly and use far less memory
@@ -160,9 +230,9 @@ Version 7.1.1 - "The Refinement Update" (04/06/2026)
 • Diagnostics: failures in the session / NIC / telemetry pipeline (speed change, checkpoint write, session start/stop, bridge prepare, live telemetry) are now recorded to debug.log instead of being silently swallowed — making rare issues like a failed NIC speed change or lost game detection traceable. No change to on-screen behaviour
 • Dialog styling consolidated into shared helpers; the only visible effect is the Quit confirmation button now using the same danger-red hover/pressed shades as every other red button in the app
 
---------------------------------------------------------
+-------------------------------------------------------
 Version 7.1.0 - "The Secure Bridge Update" (04/06/2026)
---------------------------------------------------------
+-------------------------------------------------------
 
 ✨ NEW FEATURES:
 • Authenticated bridge: the TCP bridge (port 47998) that StreamLight uses to control the NIC, read host metrics and the game list now requires authenticated clients. Each StreamLight device proves its identity by signing every command with its Moonlight certificate; the first time a new device connects, StreamTweak shows a one-time "Allow StreamLight client?" prompt (showing the device name and a 4-digit PIN to confirm against the one on the device) so you decide who is trusted. This closes the previously open bridge — a stranger on your LAN/VPN can no longer command your host or read its metrics
@@ -177,26 +247,26 @@ Version 7.1.0 - "The Secure Bridge Update" (04/06/2026)
 
 ⚠️ REQUIRES: StreamLight 3.1.0 or later on the client for those integration features. With "Require authenticated clients" ON (the default), older StreamLight versions can no longer use the bridge — update both apps together. You can temporarily turn the requirement off in Settings → Bridge security if you need to pair with an older client during the transition.
 
-----------------------------------------------
+---------------------------------------------
 Version 7.0.2 - "The Fit Update" (02/06/2026)
-----------------------------------------------
+---------------------------------------------
 
 🎨 UI / UX:
 • Home tile grid reorganized into a clean 3×3: NVIDIA Sentinel now sits in the visual center of the dashboard (row 1, column 1, replacing Game Library); Game Library has moved one row down (row 2, column 1, replacing the previous NVIDIA Sentinel position). The Store tile has been removed from the Home grid — Store remains accessible via the sidebar navigation entry as before. The fourth grid row introduced in 7.0.1 is gone
 • Home scrollbar fix at minimum window size (1280×720): four surgical spacing adjustments tightened the layout to reclaim ~34 px and keep everything visible without a scrollbar — page padding from 28,24,28,28 to 28,20,28,20, the outer StackPanel Spacing from 14 to 10, the tile grid RowSpacing from 10 to 8, and the ST_TileButton inner Padding from 16,14 to 16,12
 
-----------------------------------------------------
+---------------------------------------------------
 Version 7.0.1 - "The Dashboard Update" (01/06/2026)
-----------------------------------------------------
+---------------------------------------------------
 
 🎨 UI / UX:
 • Home — NVIDIA Sentinel tile: a new tile surfaces NVIDIA Sentinel status on the home dashboard. The badge shows "{N} settings saved" in green when Auto-restore is armed, or "Off" in red when disabled; below it a "Last auto-restore — dd/MM/yyyy HH:mm" line uses the same JetBrains Mono style as the LOGS tile total-duration value. Clicking the tile navigates to the NVIDIA Sentinel page. The tile updates live via the AutoRestorePerformed event, no tab refresh needed
 • Home — 3×4 grid: the tile grid grows to a fourth row to host the new Sentinel tile; the STORE tile moves to row 4, centered. NVIDIA Sentinel sits in row 3 between MANAGED APPS and LOGS
 • Version footer relocated: the version label and "↑ Update to vX.Y.Z" indicator (when a newer release is available) have been moved from the sidebar pane footer to the bottom-right corner of the window, freeing the sidebar of footer text while keeping the indicator visible across all pages
 
----------------------------------------------------
+--------------------------------------------------
 Version 7.0.0 - "The Sentinel Update" (30/05/2026)
----------------------------------------------------
+--------------------------------------------------
 
 ✨ NEW FEATURES:
 • NVIDIA Sentinel: a dedicated sidebar page (NVIDIA GPUs only — greyed out on AMD/Intel) that protects the NVIDIA global driver profile from being silently reset by NVIDIA App. "Save current as my profile" snapshots the global profile to a .nip file (the same format NVIDIA Profile Inspector uses), "Restore my profile" re-applies it, "Clear my profile" discards it. The header shows the driver package (Game Ready / Studio), version and release date
@@ -207,9 +277,9 @@ Version 7.0.0 - "The Sentinel Update" (30/05/2026)
 • Built on a native port of NVIDIA Profile Inspector's DRS layer (MIT, © Orbmu2k), including its setting decrypter — so encrypted "internal" settings (DLSS overrides, Shader Cache) are read and restored correctly, with no external runtime dependency
 • Scope: covers the global driver profile (NVIDIA App's "Global settings"); per-application profiles are not snapshotted. After a restore NVIDIA App's UI may still display stale values (it caches them separately), but the driver uses the restored values for actual rendering
 
-----------------------------------------------------
+---------------------------------------------------
 Version 6.3.0 - "The Tailscale Update" (27/05/2026)
-----------------------------------------------------
+---------------------------------------------------
 
 ✨ NEW FEATURES:
 • Tailscale dual-tile (requires StreamLight 3.0.0+): a new TAILSCALE bridge command lets StreamLight, after pairing over the LAN, offer a one-time popup to add a second host tile pinned to the host's 100.x.y.z Tailscale address — one-click streaming from outside the LAN, no port forwarding. Dismissible permanently per-host
@@ -226,9 +296,9 @@ Version 6.3.0 - "The Tailscale Update" (27/05/2026)
 🎨 UI POLISH:
 • Transparent NavigationView seam (uniform Mica across the window), proper page titles on Apps and Game Library, and a consistent 20px title-to-card gap everywhere
 
-----------------------------------------------------
+---------------------------------------------------
 Version 6.2.7 - "The Stability Update" (13/05/2026)
-----------------------------------------------------
+---------------------------------------------------
 
 🐛 BUG FIXES:
 • Session logs — games missing on host shutdown: games played during a session that ended via host PC shutdown or power loss were not recorded in the session log. Two separate root causes fixed: (1) WriteCheckpoint() had an early-return guard (SampleCount < 2) that skipped the entire method including the games snapshot — this affected all sessions started without StreamLight and any session interrupted before the first 30-second checkpoint; the guard now checks telemetry and games independently and only skips when both are absent. (2) OnSystemSessionEnding() was not collecting the detected game list from SessionProcessMonitor before calling SessionLogger.EndSession() — fixed to match the existing pattern in HandleAutoStreamStop
@@ -244,9 +314,9 @@ Version 6.2.7 - "The Stability Update" (13/05/2026)
 • Removed stale comment in NetworkViewModel referencing the WPF SettingsWindow.GetTailscaleInfo() method
 • Updated CoverArtFetcher.cs class doc to reflect its current role as the shared cache-layer primitive used by GameLibraryService, StoreCoverFetcher, and SunshineSync
 
-------------------------------------------------
+-----------------------------------------------
 Version 6.2.6 - "The Steam Update" (09/05/2026)
-------------------------------------------------
+-----------------------------------------------
 
 🔧 IMPROVEMENTS:
 • Game metadata — developer and release date now fetched exclusively from the Steam Store API for all games, regardless of source store. For games without a known AppId, a name search against the Steam Store Search endpoint resolves it automatically. RAWG.io and PCGamingWiki have been removed entirely — no API key required
@@ -254,26 +324,26 @@ Version 6.2.6 - "The Steam Update" (09/05/2026)
 🐛 BUG FIXES:
 • Logs — Xbox game covers: cover art for Xbox library games was not detected at all in the session list and session detail overlay. Cover lookup now correctly resolves Xbox titles alongside all other stores
 
--------------------------------------------------
+------------------------------------------------
 Version 6.2.5 - "The Covers Update" (07/05/2026)
--------------------------------------------------
+------------------------------------------------
 
 🐛 BUG FIXES:
 • Logs — game covers for uninstalled games: cover art no longer disappears from the session table row or the session detail overlay when a game has been uninstalled or removed from the library. Logs now use the same snapshot-first lookup already used by Home and Game Library — cover paths snapshotted in GamesDetectedCoverPaths at session-end time are checked first; the live game library is only consulted as a fallback for sessions that predate the snapshot feature. Cover files are never deleted from the cache directory, so the fix is always effective regardless of when the game was removed
 • App exit — fixed ObjectDisposedException in WatchActivationRequests: when the app exited while the single-instance activation watcher thread was blocked on WaitOne(), Cleanup() could dispose the EventWaitHandle between the null check and the WaitOne() call, raising an unhandled ObjectDisposedException. Fixed by capturing the handle reference in a local variable before each wait (eliminates the NullReferenceException window) and catching ObjectDisposedException for a clean thread exit on shutdown
 
--------------------------------------------------
+------------------------------------------------
 Version 6.2.4 - "The Detail Update" (30/04/2026)
--------------------------------------------------
+------------------------------------------------
 
 🎨 UI / UX:
 • Home — last session card: "Duration" label added to the left of the duration value for clarity
 • Home tile Logs — "All session duration" label and cumulative time now displayed inline on the same row instead of stacked vertically
 • Game Library — sync toggle tooltip now reflects the actual detected streaming server (Apollo, Vibeshine, Vibepollo…) instead of the hardcoded "Sunshine"
 
------------------------------------------------
+----------------------------------------------
 Version 6.2.3 - "The Glow Update" (29/04/2026)
------------------------------------------------
+----------------------------------------------
 
 🎨 UI / UX:
 • Home tiles — interactive: all 9 tiles are now Buttons; hovering reveals a subtle background glow and a navigation arrow (↗) that fade in at the top-right corner; hover and pressed states are handled natively via a shared ST_TileButton ControlTemplate
@@ -286,9 +356,9 @@ Version 6.2.3 - "The Glow Update" (29/04/2026)
 🔧 IMPROVEMENTS:
 • Minimum window size enforcement upgraded from reactive AppWindow.Changed snap-back to WM_GETMINMAXINFO Win32 subclassing — the OS now prevents the window from being dragged below 1280×720 entirely, with full DPI-awareness via GetDpiForWindow
 
------------------------------------------------
+----------------------------------------------
 Version 6.2.2 - "The Tile Update" (29/04/2026)
------------------------------------------------
+----------------------------------------------
 
 🎨 UI / UX:
 • Home tiles — contextual subtitles: each tile now shows a secondary line below its main value — the active network adapter name under NIC Speed, the display FriendlyName under HDR, and the current audio output device under Auto Spatial Audio
@@ -303,9 +373,9 @@ Version 6.2.2 - "The Tile Update" (29/04/2026)
 🐛 BUG FIXES:
 • Auto Spatial Audio tile showed "Default device" instead of the configured audio device at startup — fixed by exposing the device name through AppStateService at boot time (before the Audio page ViewModel is ever loaded)
 
--------------------------------------------------
+------------------------------------------------
 Version 6.2.1 - "The Polish Update" (29/04/2026)
--------------------------------------------------
+------------------------------------------------
 
 🐛 BUG FIXES:
 • Store tab (WebView2): the embedded browser failed to load when launched from the installer-built exe — the WebView2 runtime was trying to write its user data folder inside Program Files (read-only). Fixed by providing a custom environment via CreateWithOptionsAsync pointing to %LocalAppData%\StreamTweak\WebView2; a dismissible error bar is shown if initialization still fails for any reason
@@ -323,9 +393,9 @@ Version 6.2.1 - "The Polish Update" (29/04/2026)
 • Removed 4 unused XAML styles from the design system: ST_ActiveBanner, ST_StatTile, ST_MonoHero, ST_CardActive
 • Removed unused System.Globalization import from StoreViewModel
 
-------------------------------------------------
+-----------------------------------------------
 Version 6.2.0 - "The Store Update" (26/04/2026)
-------------------------------------------------
+-----------------------------------------------
 
 ✨ NEW FEATURES:
 • Store tab: a new Store entry in the sidebar opens Instant Gaming directly inside StreamTweak via an embedded browser, with a minimal toolbar (back, forward, home, open-in-system-browser) and the FoggyBytes affiliate link preserved on every navigation
@@ -348,9 +418,9 @@ Version 6.2.0 - "The Store Update" (26/04/2026)
 • Store tab — info banner: a one-time dismissible banner explains that Facebook / Google / Apple sign-in does not work inside embedded browsers (a server-side restriction enforced by those providers since 2021) and directs users to the open-in-browser button to sign in via the system browser; once dismissed, the banner never reappears
 • Store tab — clean login modal: the Facebook, Google, and Apple sign-in buttons are hidden from the Instant Gaming login modal, removing dead options that would only lead to a provider-side error message
 
--------------------------------------------------------
+------------------------------------------------------
 Version 6.1.0 - "The Live Session Update" (25/04/2026)
--------------------------------------------------------
+------------------------------------------------------
 
 ✨ NEW FEATURES:
 • Live session panel: while a stream is active, the Home card replaces the Last Session summary with a real-time view — duration timer, RTT and Bitrate sparkline charts (30-second scrolling window), and drop percentage updated every second
@@ -366,32 +436,32 @@ Version 6.1.0 - "The Live Session Update" (25/04/2026)
 
 ⚠️ REQUIRES: StreamLight 2.3.1 or later on the client PC for the live session charts to display correctly.
 
-----------------------------------------------------
+---------------------------------------------------
 Version 6.0.3 - "The Game Info Update" (19/04/2026)
-----------------------------------------------------
+---------------------------------------------------
 
 🎮 GAME LIBRARY:
 • Developer and release date now displayed for every game — Steam games are fetched via the official Steam Store API; non-Steam games via PCGamingWiki
 
--------------------------------------------------
+------------------------------------------------
 Version 6.0.2 - "The Layout Update" (18/04/2026)
--------------------------------------------------
+------------------------------------------------
 
 🎨 UI:
 • Stream Host label and icon moved inline into the Streaming Session card — the dedicated card below the tile grid has been removed
 • Status tiles top row (NIC Speed, Auto Streaming, HDR) now match the height of the bottom row (Spatial Audio, Game Library, Auto HDR)
 
----------------------------------------------------
+--------------------------------------------------
 Version 6.0.1 - "The Snapshot Update" (18/04/2026)
----------------------------------------------------
+--------------------------------------------------
 
 🐛 BUG FIXES:
 • Last session card in Home now updates automatically when a streaming session ends — previously required switching tab and back
 • Game covers in the Last session card remain visible even after the game is uninstalled or removed from the library — cover paths are now snapshotted in sessions.json at session-end time
 
--------------------------------------------------
+------------------------------------------------
 Version 6.0.0 - "The WinUI3 Update" (18/04/2026)
--------------------------------------------------
+------------------------------------------------
 
 🏗 REWRITE — WPF → WinUI3:
 • StreamTweak's UI has been fully rewritten in WinUI3 (Windows App SDK 1.8), bringing it in line with the modern Windows 11 design system
@@ -405,9 +475,9 @@ Version 6.0.0 - "The WinUI3 Update" (18/04/2026)
 • Close button (✕) shows a native WinUI3 confirmation dialog
 • Window size is remembered across restarts, DPI-aware
 
----------------------------
+--------------------------
 Version 5.4.4 (08/04/2026)
----------------------------
+--------------------------
 
 🐛 BUG FIXES:
 • Sessions ending due to host shutdown or manual app exit now correctly save telemetry and quality grade — previously the App Closed / Host Shutdown paths bypassed the accumulator finalisation, leaving those sessions with no grade
@@ -415,17 +485,17 @@ Version 5.4.4 (08/04/2026)
 🎨 UI:
 • Home panel emoji icons resized to 18×18 (from 14×14) to match the sidebar
 
----------------------------
+--------------------------
 Version 5.4.3 (06/04/2026)
----------------------------
+--------------------------
 
 🐛 BUG FIXES:
 • Retrospective session detection via SESSIONDATA now fires at most once per app instance — a one-shot flag prevents session-end races from re-triggering a fake active session when the last SESSIONDATA batch arrived after EndSession cleared ActiveSessionId
 • Audio panel description text simplified: removed the "When a streaming session is detected…" preamble
 
----------------------------
+--------------------------
 Version 5.4.2 (04/04/2026)
----------------------------
+--------------------------
 
 🐛 BUG FIXES:
 • Dolby Atmos / Windows Sonic activation now verified against Windows after calling SetDefaultSpatialAudioFormatAsync — previously StreamTweak showed "✓ enabled" even when Windows had not applied the format change
@@ -434,16 +504,16 @@ Version 5.4.2 (04/04/2026)
 • Retrospective session detection now works for long sessions: when verbose logging pushed CLIENT CONNECTED outside the tail-scan window (60 KB), the active session was not detected; a head-of-file scan now catches this case
 • Retrospective session detection: if StreamLight sends SESSIONDATA with no active session (StreamTweak restarted mid-stream), the incoming batch is now used as the retrospective signal — triggers Dolby activation and session tracking within 1 second of startup; more reliable than TCP or log checks since StreamLight sends data every second regardless
 
----------------------------
+--------------------------
 Version 5.4.1 (04/04/2026)
----------------------------
+--------------------------
 
 🐛 BUG FIXES:
 • Minimize button now hides the window to the system tray instead of leaving it in the taskbar — click the tray icon to restore
 
-----------------------------------------------
+---------------------------------------------
 Version 5.4.0 - The "UI Refresh" (04/04/2026)
-----------------------------------------------
+---------------------------------------------
 
 🎨 UI — HOME PANEL OVERHAUL:
 • Window size increased from 760×580 to 920×692 to better accommodate the Home dashboard and Games cover grid
@@ -460,16 +530,16 @@ Version 5.4.0 - The "UI Refresh" (04/04/2026)
 • Custom exit dialog: clicking ✕ now shows a themed WPF dialog (dark background, Windows 11 native rounded corners via DwmSetWindowAttribute) instead of the legacy grey Win32 MessageBox
 • SessionLogger.Load() called once per Home tab refresh instead of twice — eliminates a redundant sessions.json read on every tab activation and at startup
 
----------------------------
+--------------------------
 Version 5.3.1 (30/03/2026)
----------------------------
+--------------------------
 
 ✨ NEW FEATURES:
 • Network tab — Tailscale detection: if Tailscale is active, the Network tab shows the host's Tailscale IP (100.x.x.x range) with a one-click copy-to-clipboard button and fade-in/out "Copied" feedback
 
-----------------------------------------------------
+---------------------------------------------------
 Version 5.3.0 - The "Cover Art Update" (29/03/2026)
-----------------------------------------------------
+---------------------------------------------------
 
 🎨 UI — GAMES TAB:
 • Game Library tab redesigned: the text-based DataGrid has been replaced with a 4-column cover art grid; each card shows the game's cover image, a store badge overlay (bottom-right), a sync toggle, and a Remove button
@@ -482,9 +552,9 @@ Version 5.3.0 - The "Cover Art Update" (29/03/2026)
 • Sparkline duration display — sessions longer than 10 minutes showed "10m 00s" on the X-axis of all four charts and in the session header, regardless of actual duration. Root cause: the time series are downsampled to 600 points before persistence; SparklineControl interpreted the point count (always ≤600) as seconds, capping every session at 10 minutes. Fixed by adding a DurationSeconds dependency property to SparklineControl; the real duration (EndTime − StartTime) is now passed via binding for charts in the session overlay and directly in ChartDetailWindow for the fullscreen chart view. TelemetryDurationDisplay in SessionEntry updated to use the same source. The underlying data was never affected — all 600 bucket-averaged points already represented the full session.
 • Game Library — removed games re-added on startup sync: when a game was removed via the Remove button, the next auto-sync at startup would re-discover it from the store scanner and add it back. Removed games are now blacklisted in a persisted ExcludedGames list (gamelibrarystate.json); auto-sync silently skips any game whose key appears in the list. Clicking "Sync Now" manually clears the exclusion list and restores full discovery, so the user can intentionally re-add a previously removed game by doing an explicit sync.
 
-----------------------------------------------------------------
+---------------------------------------------------------------
 Version 5.2.2 - The "Telemetry & Game Library Fix" (28/03/2026)
-----------------------------------------------------------------
+---------------------------------------------------------------
 
 🐛 BUG FIXES — SESSION TELEMETRY:
 • Session telemetry — drop rate denominator: the drop rate was previously calculated against the target FPS per second rather than actual frames received. It now uses rendered + dropped frames as the denominator, giving an accurate rate even when the decoder runs below target (VRR, throttling, static screens)
@@ -504,9 +574,9 @@ Version 5.2.2 - The "Telemetry & Game Library Fix" (28/03/2026)
 • SunshineSync.AddApp — incomplete deduplication: the duplicate check only matched entries marked _streamtweak_managed, so adding a manual game whose name matched an existing Sunshine-native app produced a duplicate entry in apps.json. The check now matches any entry regardless of the managed flag
 • GameLibraryService — inverted sync fail-safe: the ?? true fallback in the gamesToSync filter included any game that could not be matched in the merged list, which is a dead code path under normal operation but would incorrectly sync disabled games if the merge logic were ever extended. Changed to ?? false for correct fail-safe semantics
 
-------------------------------------------------
+-----------------------------------------------
 Version 5.2.1 - The "Chart Update" (28/03/2026)
-------------------------------------------------
+-----------------------------------------------
 
 🔧 IMPROVEMENTS:
 • Session telemetry — charts revised: the four sparklines now show RTT (ms), Frame Drops, Bitrate (Mbps), and Decode Latency (ms). FPS has been replaced by Decode Latency because FPS drops to near-zero on static screens and loading screens regardless of actual streaming quality, making it an unreliable indicator. The four retained metrics jointly cover the full quality picture: RTT measures network latency; Frame Drops quantify packet loss at the transport layer; Bitrate reflects encoder output and available bandwidth headroom; Decode Latency captures client-side hardware load.
@@ -516,9 +586,9 @@ Version 5.2.1 - The "Chart Update" (28/03/2026)
 
 ⚠️ REQUIRES: StreamLight 2.1.1 or later for jitter data to appear in session stats.
 
-----------------------------------------------------------
+---------------------------------------------------------
 Version 5.2.0 - The "Session Quality Update" (27/03/2026)
-----------------------------------------------------------
+---------------------------------------------------------
 
 ✨ NEW FEATURES:
 • Session quality report: clicking the chart button on any session row in the Logs tab opens a full-panel telemetry overlay — CLIENT stats (FPS, Drops, RTT, Decode, Bitrate) and HOST stats (GPU, Encoder, GPU Temp, CPU, Net TX) side by side, four sparkline charts, and a quality grade badge, all in a single animated popup that covers the Logs panel
@@ -529,17 +599,17 @@ Version 5.2.0 - The "Session Quality Update" (27/03/2026)
 • Telemetry overlay opens and closes with a smooth animation (CubicEase, 200 ms open / 150 ms close) and covers the full Logs panel with an opaque background — no content visible behind it
 • Telemetry button: the row-level trigger is a styled button with a monochrome chart icon, hidden for sessions with no telemetry data
 
--------------------------------------------------------
+------------------------------------------------------
 Version 5.1.1 - The "Code Quality Update" (25/03/2026)
--------------------------------------------------------
+------------------------------------------------------
 
 🔧 IMPROVEMENTS:
 • Code quality: removed dead code (unused IsDolbyAtmosAvailableAsync method, orphan variables and comments)
 • Minor hardening: fixed several low-risk bugs (resource leaks, thread-safety issues, sync reentrancy guards, injection prevention in WQL/PowerShell commands, atomic file writes for cover art cache)
 
-----------------------------------------------------
+---------------------------------------------------
 Version 5.1.0 - The "Dashboard Update" (25/03/2026)
-----------------------------------------------------
+---------------------------------------------------
 
 🎨 UI IMPROVEMENTS:
 • Home panel: new dashboard section with real-time status tiles for Auto Streaming Mode, NIC Speed, Spatial Audio, Spatial Format, HDR/Auto HDR, and Game Library Sync — all six settings visible at a glance without switching tabs
@@ -554,17 +624,17 @@ Version 5.1.0 - The "Dashboard Update" (25/03/2026)
 🐛 BUG FIXES:
 • Session duration missing on host shutdown: StreamTweak now intercepts the Windows shutdown and logoff signal (WM_ENDSESSION) and saves the current session's end time before the process exits — sessions are no longer recorded with a blank duration when the PC is shut down during a stream
 
-------------------------------------------------------
+-----------------------------------------------------
 Version 5.0.1 - The "Reliability Update" (21/03/2026)
-------------------------------------------------------
+-----------------------------------------------------
 
 🔧 IMPROVEMENTS:
 • Session detection at startup: when StreamTweak opens while a streaming session is already in progress, the sidebar now correctly shows "Streaming" and spatial audio activates as expected
 • Sidebar sync on window open: opening the settings window during an active session now reflects the real session state immediately, without requiring a reconnect
 
--------------------------------------------------------
+------------------------------------------------------
 Version 5.0.0 - The "Game Library Update" (21/03/2026)
--------------------------------------------------------
+------------------------------------------------------
 
 ✨ NEW FEATURES:
 • New FoggyBytes icon: StreamTweak now sports a new icon that visually unifies the FoggyBytes suite — the same icon is shared with StreamLight for a consistent identity across both apps
@@ -581,9 +651,9 @@ Version 5.0.0 - The "Game Library Update" (21/03/2026)
 
 ⚠️ REQUIRES: StreamLight 2.0.0 or later for store badge display in the client.
 
-----------------------------------------------------
+---------------------------------------------------
 Version 4.5.0 - The "Interface Update" (20/03/2026)
-----------------------------------------------------
+---------------------------------------------------
 
 🎨 UI OVERHAUL:
 • Solid dark background: removed the Mica system backdrop (which was not rendering correctly on all systems) and replaced it with a reliable solid #202020 background throughout the window
@@ -608,9 +678,9 @@ Version 4.5.0 - The "Interface Update" (20/03/2026)
 • Format-agnostic toggle: the "Auto Dolby Atmos" toggle is now "Auto spatial audio" — it activates whichever format is selected (Dolby or Windows Sonic) on whichever output device is chosen
 • Tray menu entry renamed from "Dolby Atmos" to "Spatial Audio" to reflect the broader scope
 
-----------------------------------------------------
+---------------------------------------------------
 Version 4.4.0 - The "Telemetry Update" (20/03/2026)
-----------------------------------------------------
+---------------------------------------------------
 
 ✨ NEW FEATURES:
 • Host metrics collection: StreamTweak now collects real-time host PC metrics — GPU usage %, GPU encoder usage %, GPU temperature (°C, NVIDIA only via NVML), VRAM used (MB), VRAM total (MB, NVIDIA only), CPU usage %, and network TX (Mbps) — and serves them to StreamLight via a new STATS command on the TCP bridge (port 47998)
@@ -626,9 +696,9 @@ Version 4.4.0 - The "Telemetry Update" (20/03/2026)
 
 ⚠️ REQUIRES: StreamLight 1.2.0 or later for the host metrics overlay feature.
 
-------------------------------------------------------
+-----------------------------------------------------
 Version 4.3.0 - The "App Manager Update" (19/03/2026)
-------------------------------------------------------
+-----------------------------------------------------
 
 ✨ NEW FEATURES:
 • Streaming App Manager: a user-configurable list of executables that StreamTweak automatically terminates when a streaming session starts and relaunches when it ends — ideal for apps like Hue Sync that conflict when running on both host and client simultaneously; each entry has an independent AutoManage toggle so individual apps can be excluded from automation while staying in the list
@@ -639,9 +709,9 @@ Version 4.3.0 - The "App Manager Update" (19/03/2026)
 • Session date format now includes the year (dd/MM/yyyy) for unambiguous historical records
 • Dolby Atmos retry loop: after the initial 30-second wait, DolbyAudioMonitor now retries device discovery every 5 seconds for up to 3 minutes — handles the case where the Windows Audio service is still initializing when StreamTweak starts on an early auto-login
 
----------------------------------------------------------
+--------------------------------------------------------
 Version 4.2.4 - The "Under the Hood Update" (18/03/2026)
----------------------------------------------------------
+--------------------------------------------------------
 
 🐛 STABILITY & FIXES:
 • Fixed AutoHdrToggle_Changed reverting with the wrong guard flag on error: _hdrToggleBusy was set/cleared instead of _autoHdrBusy, which silently suppressed all subsequent Auto HDR toggle events and could incorrectly block HDR monitor toggles
@@ -653,9 +723,9 @@ Version 4.2.4 - The "Under the Hood Update" (18/03/2026)
 • Extracted shared DebugLogger class: the identical DebugLog implementation previously duplicated across App, StreamTweakBridge, LogParser, and StreamingLogMonitor is now consolidated in a single StreamTweak.DebugLogger.Log entry point
 • Centralized config persistence with PatchConfig helper: the repeated JSON read/patch/write pattern previously spread across seven SaveXxx methods in App.xaml.cs and SettingsWindow.xaml.cs is now unified behind a single PatchConfig(Action<Dictionary>) helper in each class
 
---------------------------------------------------------------------
+-------------------------------------------------------------------
 Version 4.2.3 - The "Display & Logs Refinement Update" (16/03/2026)
---------------------------------------------------------------------
+-------------------------------------------------------------------
 
 🔧 IMPROVEMENTS:
 • Display tab — simplified context label: removed ambiguous "Physical" / "Virtual" detection logic and replaced it with a straightforward display of the detected streaming app name (Apollo, Vibeshine, Vibepollo, or Sunshine) — the tab shows all active monitors regardless, keeping the interface simple and reliable
@@ -668,17 +738,17 @@ Version 4.2.3 - The "Display & Logs Refinement Update" (16/03/2026)
 • Fixed lightning icon appearing incorrectly for normally closed streaming sessions
 • Fixed occasional double-close of sessions when both the log monitor and TCP bridge tried to end the same session
 
--------------------------------------------------------------
+------------------------------------------------------------
 Version 4.2.2 - The "Bridge Reliability Update" (15/03/2026)
--------------------------------------------------------------
+------------------------------------------------------------
 
 🐛 STABILITY & FIXES:
 • Fixed PREPARE command from StreamLight being silently ignored when Auto Streaming Mode was disabled: the TCP bridge handler now works independently from the Auto Mode toggle — PREPARE correctly triggers the NIC speed change regardless of whether Auto Mode is on or off
 • Fixed UI thread blocking during PREPARE handling: the handler was using Dispatcher.Invoke with an async lambda, which resolved to async void and ran the named-pipe call to StreamTweakService synchronously on the UI thread (up to 5 seconds freeze); switched to Dispatcher.InvokeAsync and Task.Run so the blocking pipe roundtrip no longer stalls the interface
 
-------------------------------------------------------
+-----------------------------------------------------
 Version 4.2.1 - The "Reliability Update" (15/03/2026)
-------------------------------------------------------
+-----------------------------------------------------
 
 🐛 STABILITY & FIXES:
 • Fixed Auto Streaming Mode toggle being ignored on new client connections: when the toggle was disabled, the TCP bridge handler (PREPARE command from the StreamLight client) still triggered a NIC speed change because it did not check the Auto Mode state; the speed change is now fully blocked when Auto Mode is off
@@ -688,23 +758,23 @@ Version 4.2.1 - The "Reliability Update" (15/03/2026)
 🔧 IMPROVEMENTS:
 • Display tab: removed placeholder cards for disconnected monitors (Display 2, Display 3); the panel now only shows monitors that are actually connected, keeping the Display section clean on single-monitor setups
 
-------------------------------------------------------
+-----------------------------------------------------
 Version 4.2.0 - The "StreamLight Update" (13/03/2026)
-------------------------------------------------------
+-----------------------------------------------------
 
 🔧 IMPROVEMENTS:
 - StreamLight integration promoted to stable: TCP listener and NIC speed command handling are now production-ready and fully tested in combination with StreamLight on the client side
 
-----------------------------------------------------------
+---------------------------------------------------------
 Version 4.1.0-pre - The "StreamLight Update" (13/03/2026)
-----------------------------------------------------------
+---------------------------------------------------------
 
 ✨ NEW FEATURES:
 • StreamLight integration (experimental): StreamTweak now includes early support for StreamLight, an upcoming Moonlight fork developed by FoggyBytes; when used in combination with StreamLight on the client side, StreamTweak will be able to receive NIC speed adjustment commands directly from the client — allowing the host network to be configured before the streaming session even starts
 
------------------------------------------------------
+----------------------------------------------------
 Version 4.0.0 - The "Foundation Update" (10/03/2026)
------------------------------------------------------
+----------------------------------------------------
 New starting point — with this release the visual identity of StreamTweak is consolidated and the interface is ready to grow.
 
 ✨ NEW FEATURES:
@@ -714,18 +784,18 @@ New starting point — with this release the visual identity of StreamTweak is c
 • Unified dark theme: the StreamingAdjustmentAlert notification window now fully matches the main Settings window dark palette, ensuring visual consistency across all application surfaces
 • Visual identity: the accent #BE5438 — a warm rust tone — is established as the defining color of the StreamTweak interface, consistently applied across all interactive states, panel highlights, and active controls
 
---------------------------------------------------
+-------------------------------------------------
 Version 3.2.0 - The "Display Update" (09/03/2026)
---------------------------------------------------
+-------------------------------------------------
 ✨ NEW FEATURES:
 • Display tab — HDR monitor control: the new Display tab shows all active monitors with resolution, refresh rate, and current HDR state; HDR can be toggled on or off directly from StreamTweak without opening Windows Settings, with full compatibility across Windows 10 and Windows 11 (including 24H2 and later)
 • Display tab — Auto HDR toggle: enables or disables Windows Auto HDR for supported SDR games directly from the app; the change is applied immediately via registry and broadcast to all running applications
 • Display tab — virtual display awareness: when Apollo or Vibepollo is detected, the Display tab automatically highlights the virtual display (SudoVDA / IDD) used for remote streaming, keeping the view focused on what matters during a session
 • Tray right-click — HDR toggles: HDR and Auto HDR can also be toggled directly from the system tray context menu, in sync with the Display tab
 
-------------------------------------------------------------
+-----------------------------------------------------------
 Version 3.1.1 - The "Session Integrity Update" (08/03/2026)
-------------------------------------------------------------
+-----------------------------------------------------------
 ✨ NEW FEATURES:
 • Logs tab — Clear Session History button: a dedicated button in the Logs tab now allows clearing the session history with a single click; any currently active session is preserved and still tracked correctly
 
@@ -740,9 +810,9 @@ Version 3.1.1 - The "Session Integrity Update" (08/03/2026)
 • Fixed StreamStopped events being silently discarded during the first 30 seconds of a session, even when the client had truly disconnected
 • Reconnect detection: a StreamStarted event received while a session is active now correctly cancels the pending disconnect timeout, keeping the session alive without logging a duplicate entry
 
-------------------------------------------------
+-----------------------------------------------
 Version 3.1.0 - The "Atmos Update" (06/03/2026)
-------------------------------------------------
+-----------------------------------------------
 ✨ NEW FEATURES:
 • Audio tab — Auto Dolby Atmos for Headphones: when a streaming session is detected and stays active for at least 30 seconds, StreamTweak automatically enables Dolby Atmos for Headphones on Steam Streaming Speakers, provided Dolby Access is installed and the format is available
 • Audio tab — Dolby Access detection indicator: a live status indicator shows whether Dolby Atmos for Headphones is detected on the host PC, checked via the Windows Spatial Audio API at startup and each time the Audio tab is opened
@@ -752,9 +822,9 @@ Version 3.1.0 - The "Atmos Update" (06/03/2026)
 🔧 IMPROVEMENTS:
 • About tab — version check: the current version of StreamTweak is now compared against the latest GitHub release; if a newer version is available, a download link is shown automatically
 
-----------------------------------------------------
+---------------------------------------------------
 Version 3.0.0 - The "Awareness Update" (06/03/2026)
-----------------------------------------------------
+---------------------------------------------------
 ✨ NEW FEATURES:
 • Logs tab: browse the last 10 speed-change sessions at a glance, including trigger mode (Auto/Manual), duration, and original speed
 • Streaming app detection in Logs tab: StreamTweak shows whether it has correctly located the log folder of the streaming server installed on the host PC (Sunshine, Apollo, Vibeshine or Vibepollo); click the path to open the folder in Explorer
@@ -766,9 +836,9 @@ Version 3.0.0 - The "Awareness Update" (06/03/2026)
 🔧 IMPROVEMENTS:
 • Full UI revision: centered layout across all panels, redesigned tab bar with Dark/Light Mode button integrated, improved spacing and visual balance throughout the Settings window
 
------------------------------------------------
+----------------------------------------------
 Version 2.5.2 - The "Vibe Update" (06/03/2026)
------------------------------------------------
+----------------------------------------------
 ✨ NEW FEATURES:
 • Vibepollo and Vibeshine support: Auto Streaming Mode now works with all major Sunshine forks
 • Dynamic log discovery: streaming server location is auto-detected via registry lookup, with Program Files scan as fallback — custom installation paths fully supported
@@ -782,9 +852,9 @@ Version 2.5.2 - The "Vibe Update" (06/03/2026)
 • Fixed monitor not switching to dynamic log files when they appear after StreamTweak has already started
 • Fixed FileStream disposed too early in StreamingLogMonitor
 
--------------------------------------------------------
+------------------------------------------------------
 Version 2.5.1 - The "Silent Power Update" (04/03/2026)
--------------------------------------------------------
+------------------------------------------------------
 ✨ NEW FEATURES:
 • StreamTweakService: Windows Service (LocalSystem) handling all network speed changes with elevated privileges -- no UAC prompts, ever
 • Named Pipe IPC: secure communication between app and service, keeping the privilege boundary clean and UX uninterrupted
@@ -797,9 +867,9 @@ Version 2.5.1 - The "Silent Power Update" (04/03/2026)
 🐛 STABILITY & FIXES:
 • Minor bug fixes
 
-----------------------------------------------------------
+---------------------------------------------------------
 Version 2.5.0 - The "Smart Streaming Update" (04/03/2026)
-----------------------------------------------------------
+---------------------------------------------------------
 ✨ NEW FEATURES:
 • Auto Streaming Mode: Monitor Sunshine/Apollo logs and automatically adjust network speed to 1Gbps when Moonlight connects
 • Smart Toggle Control: Enable/disable Auto Streaming Mode with an elegant toggle switch
@@ -817,9 +887,9 @@ Version 2.5.0 - The "Smart Streaming Update" (04/03/2026)
 • Graceful fallback when streaming service is unavailable
 • Proper cleanup of monitoring resources
 
-------------------------------------------------
+-----------------------------------------------
 Version 2.0 - The "ReBrand Update" (02/03/2026)
-------------------------------------------------
+-----------------------------------------------
 ✨ NEW FEATURES:
 • Streaming Mode: Automatically throttles network to 1.0 Gbps on activation and restores previous speed when disabled
 • Displays current monitor resolution and refresh rate of the Host PC
@@ -830,23 +900,23 @@ Version 2.0 - The "ReBrand Update" (02/03/2026)
 • New modern app icon capturing the project's fresh spirit
 • Modern Windows 11 UI with rounded corners and professional design
 
-------------------------------------------------------
+-----------------------------------------------------
 Version 1.2.2 - The "Lightweight" Update (02/03/2026)
-------------------------------------------------------
+-----------------------------------------------------
 🔧 IMPROVEMENTS:
 • Framework-dependent build: installer reduced from ~50MB to ~3MB
 • Auto-installs .NET 8 runtime silently if not present on target machine
 
------------------------------------------------------------
+----------------------------------------------------------
 Version 1.2.1 - The "No Prerequisites" Update (01/03/2026)
------------------------------------------------------------
+----------------------------------------------------------
 🔧 IMPROVEMENTS:
 • Switched to .NET 8 LTS for improved stability and compatibility
 • Self-contained build: .NET 8 runtime bundled, no external prerequisites
 
--------------------------------------------
+------------------------------------------
 Version 1.2 - The "UI Update" (01/03/2026)
--------------------------------------------
+------------------------------------------
 ✨ NEW FEATURES:
 • Real-time current speed indicator
 • Modern Windows 11 UI with rounded corners
@@ -857,9 +927,9 @@ Version 1.2 - The "UI Update" (01/03/2026)
 • Physical adapters only (no filters, VPNs)
 • Persistent config (remembers adapter + theme)
 
-----------------------------------------------
+---------------------------------------------
 Version 1.1 - The "Smart Update" (28/02/2026)
-----------------------------------------------
+---------------------------------------------
 ✨ NEW FEATURES:
 • Full Graphic Settings UI (double-click or tray menu)
 • Automatic physical Ethernet adapter detection
@@ -872,9 +942,9 @@ Version 1.1 - The "Smart Update" (28/02/2026)
 • Replaced double-click toggle with Settings panel
 • Filters out virtual adapters, Wi-Fi, Bluetooth
 
--------------------------------------------
+------------------------------------------
 Version 1.0 - Initial Release (28/02/2026)
--------------------------------------------
+------------------------------------------
 ✨ CORE FEATURES:
 • Switch between 1.0 Gbps ↔ 2.5 Gbps
 • System Tray icons (1G/2.5G indicators)

@@ -29,24 +29,9 @@ namespace StreamTweak.Services
             ToastHelper.Initialize("StreamTweak", iconPath);
         }
 
-        // ── Toast presets matching the WPF version's call sites ──────────────
-
-        public static void ShowStreamingDetected(string adapterName, string speed)
-            => ToastHelper.Show(
-                "Streaming Detected",
-                $"{adapterName} set to {speed}. Reconnect within 30 seconds.");
-
-        public static void ShowSpeedApplied(string adapterName, string speed)
-            => ToastHelper.Show(
-                "Speed Applied",
-                $"{adapterName} is now at {speed}.");
-
-        public static void ShowStreamingEnded(bool connectionLost = false)
-            => ToastHelper.Show(
-                "Streaming Ended",
-                connectionLost
-                    ? "Connection lost. Network speed restored."
-                    : "Network speed restored to original.");
+        // The three link-speed toast presets (Streaming Detected / Speed Applied / Streaming
+        // Ended) went away with the log-triggered switch in 8.1.0. LinkSpeedManager raises its
+        // own Notify event for the only case still worth a toast: a change that failed.
 
         public static void ShowDolbyEnabled(string deviceName)
             => ToastHelper.Show(

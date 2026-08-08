@@ -118,6 +118,9 @@ namespace StreamTweak
         // ── Constants ────────────────────────────────────────────────────────────
 
         private const uint QDC_ONLY_ACTIVE_PATHS = 0x00000002;
+        private const int  ERROR_INSUFFICIENT_BUFFER = 122;
+        private const int  ERROR_INVALID_PARAMETER   = 87;
+        private const int  ERROR_NOT_SUPPORTED       = 50;
         private const int  ENUM_CURRENT_SETTINGS = -1;
 
         private const uint GET_TARGET_NAME           = 2;
@@ -274,17 +277,70 @@ namespace StreamTweak
         {
             var result = new List<MonitorInfo>();
 
-            // Step 1: ask Windows how many path/mode entries are needed
-            int err = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out uint pathCount, out uint modeCount);
-            if (err != 0) return result;
+            uint pathCount = 0, modeCount = 0;
+            DISPLAYCONFIG_PATH_INFO[] paths = Array.Empty<DISPLAYCONFIG_PATH_INFO>();
+            bool queried = false;
 
-            var paths = new DISPLAYCONFIG_PATH_INFO[pathCount];
-            var modes = new DISPLAYCONFIG_MODE_INFO[modeCount];
+            // The display set can change between sizing the buffers and filling them. Windows
+            // reports that either as ERROR_INSUFFICIENT_BUFFER or — as it does on a headless host
+            // whose virtual display comes and goes with every session, measured here — as
+            // ERROR_INVALID_PARAMETER, because the counts it was handed no longer describe the
+            // topology. Both mean "re-measure and try again"; neither means "no HDR". The previous
+            // code turned them into an empty list with no exception, which the Dashboard then
+            // rendered as a confident "HDR: Off".
+            //
+            // The wait matters as much as the retry: without it five attempts land inside the same
+            // millisecond, i.e. inside the same unstable window, and all five fail.
+            int lastErr = 0;
+            // Eight spread over ~a second. Five at 80 ms covered 320 ms, and the log shows that
+            // window closing with the topology still moving, over and over.
+            for (int attempt = 0; attempt < 8 && !queried; attempt++)
+            {
+                if (attempt > 0) System.Threading.Thread.Sleep(120);
 
-            // Step 2: retrieve active display topology
-            err = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS,
-                ref pathCount, paths, ref modeCount, modes, IntPtr.Zero);
-            if (err != 0) return result;
+                // ⚠️ The sizing call gets the same treatment as the query below. It used to
+                // `return` on any failure — from *inside* the retry loop — so a topology that
+                // was unstable at this step was never retried at all, and the whole loop was
+                // decorative. Both calls read the same live topology and both fail the same way
+                // while it moves.
+                int sizeErr = GetDisplayConfigBufferSizes(QDC_ONLY_ACTIVE_PATHS, out pathCount, out modeCount);
+                if (sizeErr != 0)
+                {
+                    // ⚠️ ERROR_NOT_SUPPORTED (50) belongs here too, and it is the one this host
+                    // actually returns — measured in debug.log, alongside the 87 the query gives.
+                    // It comes back while the virtual display is being torn down and there is
+                    // momentarily no active path to size at all. Transient, like the others.
+                    lastErr = sizeErr;
+                    if (sizeErr != ERROR_INSUFFICIENT_BUFFER && sizeErr != ERROR_INVALID_PARAMETER
+                        && sizeErr != ERROR_NOT_SUPPORTED)
+                    {
+                        DebugLogger.Log($"[HDR] GetDisplayConfigBufferSizes failed: {sizeErr}");
+                        return result;
+                    }
+                    continue;
+                }
+
+                paths = new DISPLAYCONFIG_PATH_INFO[pathCount];
+                var modes = new DISPLAYCONFIG_MODE_INFO[modeCount];
+
+                lastErr = QueryDisplayConfig(QDC_ONLY_ACTIVE_PATHS,
+                    ref pathCount, paths, ref modeCount, modes, IntPtr.Zero);
+                if (lastErr == 0) { queried = true; break; }
+
+                if (lastErr != ERROR_INSUFFICIENT_BUFFER && lastErr != ERROR_INVALID_PARAMETER)
+                {
+                    DebugLogger.Log($"[HDR] QueryDisplayConfig failed: {lastErr}");
+                    return result;
+                }
+            }
+
+            if (!queried)
+            {
+                // Still unstable after five spread-out attempts. Returning empty is honest — the
+                // caller must treat it as "couldn't tell", never as "no HDR".
+                DebugLogger.Log($"[HDR] display topology kept changing (last error {lastErr}); giving up this round");
+                return result;
+            }
 
             // Key: (AdapterId.LowPart, AdapterId.HighPart, TargetId) — two monitors on different
             // adapters can share the same TargetId, so TargetId alone is not sufficient.

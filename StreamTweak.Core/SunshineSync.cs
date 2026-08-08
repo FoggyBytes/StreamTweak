@@ -135,6 +135,85 @@ namespace StreamTweak
             return null;
         }
 
+        /// <summary>
+        /// Resolves a launch command to the display name of the app that carries it, matching the
+        /// whole command exactly. This is the counterpart of
+        /// <see cref="ResolveAppNameForExecutable"/> for commands that are not executable paths —
+        /// Steam titles reach the log as <c>steam://rungameid/…</c> and Xbox ones as
+        /// <c>explorer.exe shell:appsFolder\…</c>, where there is no filename to match.
+        /// <para><b>Both <c>cmd</c> and <c>detached</c> are searched.</b> Steam and Xbox apps are
+        /// written with an empty <c>cmd</c> and the real launch in <c>detached</c> (see
+        /// <c>BuildLaunchCommand</c>), so looking only at <c>cmd</c> would never match the two
+        /// biggest stores.</para>
+        /// <para>The exact match still can't be assumed unique: when the Battle.net scanner fails
+        /// to resolve a game's own binary it falls back to the Battle.net client, and every game
+        /// that fell back then carries the identical command. Same rule as the executable lookup —
+        /// more than one match means we don't know, and a missing name is recoverable while a wrong
+        /// one silently corrupts what the user is told.</para>
+        /// </summary>
+        public static string? ResolveAppNameForCommand(string command)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(command)) return null;
+                string wanted = NormalizeCommand(command);
+                if (wanted.Length == 0) return null;
+
+                string? appsJsonPath = FindAppsJsonPath();
+                if (string.IsNullOrEmpty(appsJsonPath) || !File.Exists(appsJsonPath)) return null;
+
+                if (JsonNode.Parse(File.ReadAllText(appsJsonPath)) is not JsonObject root) return null;
+                if (root["apps"] is not JsonArray apps) return null;
+
+                var matches = new List<string>();
+                foreach (var node in apps)
+                {
+                    if (node is not JsonObject app) continue;
+                    string name = app["name"]?.ToString() ?? "";
+                    if (string.IsNullOrEmpty(name)) continue;
+                    if (matches.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
+
+                    bool hit = string.Equals(NormalizeCommand(app["cmd"]?.ToString() ?? ""), wanted,
+                                             StringComparison.OrdinalIgnoreCase) && wanted.Length > 0;
+
+                    if (!hit && app["detached"] is JsonArray detached)
+                    {
+                        foreach (var d in detached)
+                        {
+                            if (string.Equals(NormalizeCommand(d?.ToString() ?? ""), wanted,
+                                              StringComparison.OrdinalIgnoreCase))
+                            {
+                                hit = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (hit) matches.Add(name);
+                }
+
+                if (matches.Count == 1) return matches[0];
+                if (matches.Count > 1)
+                {
+                    DebugLogger.Log($"SunshineSync: command '{wanted}' matches {matches.Count} apps " +
+                                    $"({string.Join(", ", matches)}) — ambiguous, no name resolved");
+                }
+            }
+            catch { /* apps.json unreadable/parse error — fall through to null */ }
+            return null;
+        }
+
+        /// <summary>
+        /// apps.json stores executable commands quoted (<c>"C:\games\x.exe"</c>) while the server
+        /// log prints them unquoted, so the two never compare equal without this.
+        /// </summary>
+        private static string NormalizeCommand(string s)
+        {
+            s = s.Trim();
+            if (s.Length >= 2 && s[0] == '"' && s[^1] == '"') s = s[1..^1].Trim();
+            return s;
+        }
+
         // ── Sync ─────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -574,6 +653,29 @@ namespace StreamTweak
 
         // ── Launch command helpers ────────────────────────────────────────────
 
+        /// <summary>
+        /// The URI a store's own launcher needs to start a game, or <c>null</c> when the game is
+        /// started by running its executable.
+        /// </summary>
+        /// <remarks>
+        /// Shared on purpose. There are two places that launch a game — the apps.json the
+        /// streaming server runs, and the Play button in the Library page — and when only the
+        /// first one knew about this, an Epic title streamed correctly and failed when started
+        /// from StreamTweak's own window. A rule that lives in one of two launchers is a rule
+        /// that will disagree with itself.
+        /// </remarks>
+        public static string? StoreLaunchUri(string? store, string? launchId)
+        {
+            if (string.Equals(store, "Epic Games", StringComparison.Ordinal) &&
+                !string.IsNullOrEmpty(launchId))
+            {
+                // Verbatim, no Uri.EscapeDataString — see the note in BuildLaunchCommand.
+                return $"com.epicgames.launcher://apps/{launchId}?action=launch&silent=true";
+            }
+
+            return null;
+        }
+
         private static void BuildLaunchCommand(DiscoveredGame game, out string cmd, out string detached)
         {
             switch (game.Store)
@@ -584,9 +686,30 @@ namespace StreamTweak
                     detached = $"steam://rungameid/{game.SteamAppId}";
                     break;
 
+                case "Epic Games" when !string.IsNullOrEmpty(game.LaunchId):
+                    // Through the launcher's own protocol, and it has to be. Most Epic titles
+                    // cannot be started by running their exe at all — the entitlement and Epic
+                    // Online Services tokens come in on the command line from the launcher, so a
+                    // direct launch plays the intro and then quits. Having the launcher already
+                    // running changes nothing; the game has to be started *by* it.
+                    //
+                    // This is what the comment here always claimed the code did. It didn't:
+                    // it ran the exe, and Alan Wake 2 quit to the client every time.
+                    //
+                    // ⚠️ The id goes in verbatim — no Uri.EscapeDataString. It is built only
+                    // from the manifest's own ids (namespace, catalog item, app name), which
+                    // are hex, so the only thing escaping would touch is the two colons *we*
+                    // put between them, turning them into %3A. Plain colons are the form Epic
+                    // writes into its own desktop shortcuts, so that is the form with evidence
+                    // behind it; %3A may well work too, and that is precisely the difference
+                    // between an untested launch and a tested one.
+                    cmd      = "";
+                    detached = StoreLaunchUri(game.Store, game.LaunchId)!;
+                    break;
+
                 case "Epic Games":
-                    // Launch via Epic Games Launcher protocol to ensure EOS authentication
-                    // game.ExePath is the full path to the game exe (direct launch fallback)
+                    // No launch id in the manifest: nothing better to try than the exe, which is
+                    // what every version up to now did for all Epic titles.
                     cmd      = $"\"{game.ExePath}\"";
                     detached = "";
                     break;

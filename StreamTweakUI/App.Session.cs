@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.NetworkInformation;
 using Microsoft.UI.Dispatching;
 using StreamTweak.Services;
@@ -118,31 +119,31 @@ namespace StreamTweak
 
         // ── Auto streaming monitor (log watcher) ─────────────────────────────
 
+        /// <summary>
+        /// Starts the streaming-server log watcher. Unconditional since 8.1.0.
+        /// <para>It used to be gated on "Auto Streaming" (the link-speed auto-switch) or spatial
+        /// audio, which made sense when those were the only things it fed. It is now the app's
+        /// only way to know a session exists at all — sessions, telemetry, spatial audio and
+        /// played-game capture all hang off it — so gating it on a link-speed setting that no
+        /// longer exists would have silently switched off session history for anyone who had
+        /// that toggle off.</para>
+        /// </summary>
         private void StartAutoStreamingMonitor()
         {
             if (_logMonitor != null) return;
-            if (!_isAutoStreamingEnabled && !_isAudioMonitorEnabled) return;
             try
             {
                 _logMonitor = new StreamingLogMonitor();
                 _logMonitor.StreamingEventDetected += LogMonitor_StreamingEventDetected;
                 _logMonitor.GameLaunchDetected += OnGameLaunchDetected;
+                _logMonitor.AppLaunchDetected += _launchWatcher.OnAppLaunched;
                 _logMonitor.StartMonitoring();
             }
             catch { }
         }
 
-        private void StopAutoStreamingMonitor()
-        {
-            if (_isAutoStreamingEnabled || _isAudioMonitorEnabled) return;
-            // Never kill the log monitor while a session is in progress.
-            // If the user disables both Auto Streaming and Auto Spatial Audio mid-session,
-            // the monitor must keep running so CLIENT DISCONNECTED can be detected.
-            // HandleAutoStreamStop will call StopAutoStreamingMonitor again after
-            // _isAutoSessionActive becomes false, giving it a clean opportunity to stop.
-            if (_isAutoSessionActive) return;
-            StopLogMonitorForced();
-        }
+        // The monitor is infrastructure now and only stops when the app does —
+        // see StopLogMonitorForced, called from the shutdown path.
 
         private void StopLogMonitorForced()
         {
@@ -151,6 +152,7 @@ namespace StreamTweak
                 if (_logMonitor == null) return;
                 _logMonitor.StreamingEventDetected -= LogMonitor_StreamingEventDetected;
                 _logMonitor.GameLaunchDetected -= OnGameLaunchDetected;
+                _logMonitor.AppLaunchDetected -= _launchWatcher.OnAppLaunched;
                 _logMonitor.StopMonitoring();
                 _logMonitor.Dispose();
                 _logMonitor = null;
@@ -166,19 +168,52 @@ namespace StreamTweak
                 {
                     if (e.Event == LogParser.StreamingEvent.StreamStarted)
                     {
+                        // A client-declared unlock session: plumbing, not something the user
+                        // did. Bail out above everything — spatial audio, managed apps, the
+                        // history row, game capture, the tray. The 60 s minimum length (§35)
+                        // would not cover this: a mistyped PIN makes the session longer than
+                        // that, and the side effects fire the moment it starts either way.
+                        if (ConsumeUnlockSessionMark())
+                        {
+                            DebugLogger.Log("[Unlock] session start suppressed (client declared an unlock session)");
+                            return;
+                        }
+
+                        // A start that was NOT declared closes the book on any previous unlock,
+                        // whether or not its stop was ever logged. Without this the flag is
+                        // sticky: a client killed mid-unlock would leave it set, and the next
+                        // real session would have its stop swallowed instead.
+                        _unlockSessionActive = false;
+
                         _dolbyMonitor.OnStreamingStarted(e.IsRetrospective);
                         // Allow session tracking to start even when NIC is already throttled
                         // by manual streaming mode — just skip the NIC change in that case.
                         if (!_isAutoSessionActive && !_sessionStartInProgress)
-                            _ = HandleAutoStreamStart(skipNicThrottle: e.IsRetrospective || _isAutoStreamingActive);
+                            _ = HandleAutoStreamStart(retrospective: e.IsRetrospective);
                         else
                             StopInactivityTimer(); // reconnected within grace period
                     }
                     else if (e.Event == LogParser.StreamingEvent.StreamStopped)
                     {
+                        // The other half of a suppressed session. Without this the stop would
+                        // still run the spatial-audio teardown for a session that, as far as
+                        // everything else here is concerned, never happened.
+                        if (_unlockSessionActive)
+                        {
+                            _unlockSessionActive = false;
+                            DebugLogger.Log("[Unlock] session end suppressed");
+                            return;
+                        }
+
                         _dolbyMonitor.OnStreamingStopped();
-                        if (_isAutoStreamingActive || _isAutoSessionActive)
+                        if (_isAutoSessionActive)
+                        {
+                            // Remember *when* we saw the disconnect, not when the grace period
+                            // eventually winds the session up: a launch armed in between belongs
+                            // to the next session and must survive the cleanup.
+                            _lastStopDetectedUtc = DateTime.UtcNow;
                             StartInactivityTimer();
+                        }
                     }
                 });
             }
@@ -200,6 +235,65 @@ namespace StreamTweak
         /// credited to whatever session happens to start later.
         /// </summary>
         private const double LAUNCHED_GAME_MAX_AGE_SEC = 120;
+
+        // When the client's disconnect was seen. The session is only wound up a grace period
+        // later, and anything armed in between belongs to whatever comes next.
+        private DateTime _lastStopDetectedUtc = DateTime.MinValue;
+
+        // ── Client-declared unlock sessions ─────────────────────────────────────────────
+        // A remote PIN unlock opens a real streaming session for a few seconds purely to type
+        // into the logon screen. Nothing about it is worth recording, and its side effects are
+        // actively unwanted. The host cannot recognise such a session by looking at it, so the
+        // client declares it over UNLOCKBEGIN and the mark is consumed by the next start.
+
+        // Deadline rather than a plain flag: if the client dies or the user backs out between
+        // the declaration and the session, the mark must expire on its own rather than swallow
+        // whatever session happens to start next.
+        private DateTime _unlockMarkUntilUtc = DateTime.MinValue;
+
+        // Set once a start has actually been suppressed, so the matching stop is too.
+        private bool _unlockSessionActive;
+
+        /// <summary>
+        /// How long a declared unlock stays eligible. Generous next to the few seconds a PIN
+        /// takes, because the client may still be waiting for the host to finish booting — and
+        /// far shorter than a session anyone would care about losing.
+        /// </summary>
+        private const double UNLOCK_MARK_MAX_AGE_SEC = 180;
+
+        private void OnBridgeUnlockSessionMarked(bool begin)
+        {
+            _dispatcher.TryEnqueue(() =>
+            {
+                if (begin)
+                {
+                    _unlockMarkUntilUtc = DateTime.UtcNow.AddSeconds(UNLOCK_MARK_MAX_AGE_SEC);
+                    DebugLogger.Log("[Unlock] client declared an unlock session");
+                }
+                else
+                {
+                    // Only the pending mark. _unlockSessionActive is deliberately left alone:
+                    // if the session has already started it was suppressed, and its stop has
+                    // to be suppressed too — otherwise clearing up after a successful unlock
+                    // would resurrect the teardown for a session nothing else knows about.
+                    _unlockMarkUntilUtc = DateTime.MinValue;
+                    DebugLogger.Log("[Unlock] client cleared the pending unlock declaration");
+                }
+            });
+        }
+
+        /// <summary>
+        /// True once, for the first session start after a declaration. One-shot on purpose:
+        /// an unlock is followed almost immediately by the real session the user wanted, and
+        /// that one must be recorded normally.
+        /// </summary>
+        private bool ConsumeUnlockSessionMark()
+        {
+            if (DateTime.UtcNow >= _unlockMarkUntilUtc) return false;
+            _unlockMarkUntilUtc  = DateTime.MinValue;
+            _unlockSessionActive = true;
+            return true;
+        }
 
         private void OnGameLaunchDetected(string exePath)
         {
@@ -235,126 +329,29 @@ namespace StreamTweak
             _sessionProcessMonitor?.AddDetectedByName(name);
         }
 
-        private async Task StartManualStreamingMode()
-        {
-            if (_isAutoStreamingActive || _sessionStartInProgress) return;
-            _sessionStartInProgress = true;
-            try
-            {
-                var ni = NetworkInterface.GetAllNetworkInterfaces()
-                    .FirstOrDefault(n => n.Name.Equals(_adapterName, StringComparison.OrdinalIgnoreCase));
-                if (ni == null || ni.OperationalStatus != OperationalStatus.Up) return;
-
-                long mbps = ni.Speed / 1_000_000;
-                var speeds = NetworkManager.GetSupportedSpeeds(_adapterName);
-                string capturedOriginalSpeed = string.Empty;
-                foreach (var kvp in speeds)
-                {
-                    string kl = kvp.Key.ToLower();
-                    bool match = mbps >= 2000
-                        ? kl.Contains("2.5") || kl.Contains("2500")
-                        : kl.Contains(mbps.ToString());
-                    if (match) { capturedOriginalSpeed = kvp.Key; break; }
-                }
-
-                string? targetKey = FindStreamingTargetKey();
-                if (targetKey == null) return;
-
-                // Manual streaming mode: throttles NIC only.
-                // Managed apps are NOT touched here — app kill/relaunch is driven
-                // exclusively by the log monitor (auto session) or StreamLight bridge.
-                // Session tracking (log, tray icon, home dot) starts only when the
-                // streaming client actually connects — detected via the log monitor.
-                _isAutoStreamingActive        = true;
-                _originalSpeedForAutoStreaming = GetRestoreKey(capturedOriginalSpeed);
-                ConfigService.Set("StreamingMode", true);
-                ConfigService.Set("OriginalSpeed", capturedOriginalSpeed);
-                AppStateService.Instance.IsStreamingModeActive = true;
-                if (_trayStreamingModeItem != null)
-                    _trayStreamingModeItem.Text = "Restore link speed";
-
-                await Task.Run(() => ApplySpeed(targetKey));
-                NotificationService.ShowSpeedApplied(_adapterName, SpeedLabel(targetKey));
-                _ = PollForNicReconnectAsync();
-            }
-            catch (Exception ex) { DebugLogger.Log($"[Streaming] StartManualStreamingMode failed: {ex}"); }
-            finally { _sessionStartInProgress = false; }
-        }
-
-        private async Task HandleAutoStreamStart(bool skipNicThrottle = false)
+        /// <summary>
+        /// Starts session tracking when the streaming server logs a client connection.
+        /// <para>Since 8.1.0 this no longer touches the link speed. The server log reports a
+        /// connection only *after* the session exists, so renegotiating the adapter here killed
+        /// the very stream it was meant to help — the client asks beforehand instead, over
+        /// SETSPEED. All this method does now is tell <see cref="LinkSpeedManager"/> a session is
+        /// live, which suppresses any change while it lasts.</para>
+        /// </summary>
+        /// <param name="retrospective">True when the session was already running at startup.</param>
+        private async Task HandleAutoStreamStart(bool retrospective = false)
         {
             if (_sessionStartInProgress) return;
             _sessionStartInProgress = true;
             try
             {
-                string capturedOriginalSpeed = string.Empty;
+                _linkSpeed?.OnSessionStarted();
 
-                if (!skipNicThrottle)
-                {
-                    // NIC throttle is attempted but never blocks session tracking.
-                    // If the adapter is absent or down we skip only the speed-change block.
-                    var ni = NetworkInterface.GetAllNetworkInterfaces()
-                        .FirstOrDefault(n => n.Name.Equals(_adapterName, StringComparison.OrdinalIgnoreCase));
-
-                    if (ni != null && ni.OperationalStatus == OperationalStatus.Up)
-                    {
-                        long mbps = ni.Speed / 1_000_000;
-                        string? targetKey = FindStreamingTargetKey();
-                        long targetMbps = targetKey != null ? KeyToMbps(targetKey) : 0;
-                        // Switch only when Auto is on, a target exists, and the NIC isn't already at it.
-                        if (_isAutoStreamingEnabled && targetKey != null
-                            && (targetMbps <= 0 || Math.Abs(mbps - targetMbps) > 50))
-                        {
-                            var speeds = NetworkManager.GetSupportedSpeeds(_adapterName);
-                            foreach (var kvp in speeds)
-                            {
-                                string kl = kvp.Key.ToLower();
-                                bool match = mbps >= 2000
-                                    ? kl.Contains("2.5") || kl.Contains("2500")
-                                    : kl.Contains(mbps.ToString());
-                                if (match) { capturedOriginalSpeed = kvp.Key; break; }
-                            }
-
-                            {
-                                NotificationService.ShowStreamingDetected(_adapterName, SpeedLabel(targetKey));
-
-                                // Show topmost overlay: user sees feedback even when window is hidden.
-                                _adjustmentAlert = new StreamingAdjustmentWindow();
-                                _adjustmentAlert.Activate();
-
-                                await Task.Delay(7900);
-
-                                try { _adjustmentAlert?.Close(); } catch { }
-                                _adjustmentAlert = null;
-
-                                if (_isAutoStreamingEnabled)
-                                {
-                                    _isAutoStreamingActive = true;
-                                    _originalSpeedForAutoStreaming = GetRestoreKey(capturedOriginalSpeed);
-                                    ConfigService.Set("StreamingMode", true);
-                                    ConfigService.Set("OriginalSpeed", capturedOriginalSpeed);
-                                    AppStateService.Instance.IsStreamingModeActive = true;
-
-                                    await Task.Run(() => ApplySpeed(targetKey));
-                                    NotificationService.ShowSpeedApplied(_adapterName, SpeedLabel(targetKey));
-                                    _ = PollForNicReconnectAsync();
-                                }
-                            }
-                        }
-                    }
-                    // NIC unreachable or no speed change needed — still track session below.
-                }
-                // else: retrospective detection — session already in progress, skip NIC entirely.
-
-                // Always track session and update UI regardless of NIC throttle outcome.
                 _telemetryAccumulator.Reset();
-                // Kill managed apps only if not already done by manual streaming mode.
-                if (!_isAutoStreamingActive)
-                    _appsToRelaunch = ManagedAppController.KillRunning();
+                _appsToRelaunch = ManagedAppController.KillRunning();
                 _isAutoSessionActive = true;
                 AppStateService.Instance.IsSessionActive = true;
                 UpdateTrayStreamingState(true);  // updates tray text + icon
-                SessionLogger.StartSession(skipNicThrottle ? "Retrospective" : "Auto", capturedOriginalSpeed);
+                SessionLogger.StartSession(retrospective ? "Retrospective" : "Auto", string.Empty);
                 StartCheckpointTimer();
 
                 // Start process monitor to detect which games run during this session
@@ -373,26 +370,17 @@ namespace StreamTweak
             try
             {
                 if (_isDebugModeActive) return;
-                if (!_isAutoStreamingActive && !_isAutoSessionActive) return;
-                StopInactivityTimer();
+                if (!_isAutoSessionActive) return;
 
-                if (_isAutoStreamingActive)
-                {
-                    if (!string.IsNullOrEmpty(_originalSpeedForAutoStreaming))
-                    {
-                        await Task.Run(() => ApplySpeed(_originalSpeedForAutoStreaming!));
-                        _ = PollForNicReconnectAsync();
-                    }
+                // The link goes back on its own: LinkSpeedManager arms a grace period so a
+                // client reconnecting within a minute doesn't pay for a second renegotiation.
+                _linkSpeed?.OnSessionEnded();
 
-                    _isAutoStreamingActive = false;
-                    _originalSpeedForAutoStreaming = null;
-                    ConfigService.Set("StreamingMode", false);
-                    ConfigService.Set("OriginalSpeed", "");
-                    AppStateService.Instance.IsStreamingModeActive = false;
-                    if (_trayStreamingModeItem != null)
-                        _trayStreamingModeItem.Text = "Switch link speed now";
-                    NotificationService.ShowStreamingEnded(endReason == "Disconnected");
-                }
+                // Forget the launch we were watching: a stale phase would tell the next client's
+                // curtain that a game is already on screen before anything has been launched.
+                // Passing when the disconnect was seen keeps a launch that started during the
+                // grace period — that one belongs to the session about to begin, not this one.
+                _launchWatcher.OnSessionEnded(_lastStopDetectedUtc);
 
                 if (_isAutoSessionActive)
                 {
@@ -417,11 +405,6 @@ namespace StreamTweak
                     StopHeartbeatWatchdog();                     // …and release its timer
                     AppStateService.Instance.IsSessionActive = false;
                     UpdateTrayStreamingState(false);
-                    // If both Auto Streaming and Auto Spatial Audio are disabled, the
-                    // StopAutoStreamingMonitor() call that ran mid-session returned early
-                    // (guarded by _isAutoSessionActive). Now that the session is over,
-                    // give it another chance to stop the monitor if appropriate.
-                    StopAutoStreamingMonitor();
                 }
 
                 // Relaunch managed apps after any session end, regardless of whether
@@ -649,7 +632,7 @@ namespace StreamTweak
                 _inactivityTimer.Tick += (_, _) =>
                 {
                     StopInactivityTimer();
-                    if (_isAutoStreamingActive || _isAutoSessionActive)
+                    if (_isAutoSessionActive)
                         _ = HandleAutoStreamStop("Disconnected");
                 };
             }

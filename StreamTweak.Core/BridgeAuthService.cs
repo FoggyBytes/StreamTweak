@@ -236,6 +236,17 @@ namespace StreamTweak
 
         // ── Management (UI) ──────────────────────────────────────────────────
 
+        /// <summary>Friendly label of an approved client, for host-side status text.
+        /// Null when the id is unknown.</summary>
+        public string? GetClientName(string uniqueId)
+        {
+            lock (_lock)
+            {
+                return _clients.FirstOrDefault(c =>
+                    string.Equals(c.UniqueId, uniqueId, StringComparison.OrdinalIgnoreCase))?.Name;
+            }
+        }
+
         public IReadOnlyList<BridgeClient> GetClients()
         {
             lock (_lock) return _clients.Select(Clone).ToList();

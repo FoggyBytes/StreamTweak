@@ -163,6 +163,5 @@
     </Style>
 
     <!-- Converters (8.0 additions) -->
-    <converters:SpeedKeyToShortLabelConverter x:Key="SpeedKeyToShortLabelConverter"/>
 
 </ResourceDictionary>
