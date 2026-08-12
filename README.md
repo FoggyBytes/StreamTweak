@@ -11,7 +11,7 @@
 
 ## ✅ Compatibility
 
-Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **8.1.0** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) or later on the client PC (host frame-latency reporting needs StreamLight 4.0.1; the delivered-vs-target bitrate on the Dashboard needs StreamLight 4.5.0; NIC control from the client and the seamless launch need StreamLight 5.0.0).
+Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine), and [Vibepollo](https://github.com/Nonary/Vibepollo) on Windows 10 21H2 and later. For full integration (remote Windows Update, Tailscale, live charts, store badges, host metrics, NIC control from the client) pair StreamTweak **8.1.1** with [**StreamLight 3.3.0**](https://github.com/FoggyBytes/StreamLight) or later on the client PC (host frame-latency reporting needs StreamLight 4.0.1; the delivered-vs-target bitrate on the Dashboard needs StreamLight 4.5.0; NIC control from the client and the seamless launch need StreamLight 5.0.0).
 
 > 🔐 **Authenticated bridge (7.1.0+).** The host↔client bridge now only accepts commands from StreamLight devices you have explicitly approved (a one-time prompt shows a 4-digit PIN to confirm against the one on the device). **Authorization never affects streaming** — it only gates the StreamTweak↔StreamLight integration: host metrics overlay, NIC speed & the Link-speed switch, store badges on covers, session quality reports & live charts, Tailscale, and remote pause. Requires **StreamLight 3.1.0 or later**; update both apps together. Since 7.2.0 authentication is **mandatory** and there is no way to turn it off — approve each client once under **Clients** in the sidebar.
 
@@ -56,6 +56,7 @@ Works with [Moonlight](https://github.com/moonlight-stream/moonlight-qt), [Sunsh
 **🎮 Game Library Sync**
 - **Multi-store discovery** — Steam, Epic Games, GOG, Ubisoft Connect, Xbox / Game Pass, EA App, Battle.net
 - **Native cover art** — fetched from each store's CDN and cached locally as PNG
+- **A cover has to be full size to be accepted** *(new in 8.1.1)* — a launcher keeps the thumbnail it draws in its own grid, not the store's cover, and the search used to stop on whichever it found first. It now carries on until it has the real thing, GOG games get the same Steam Store lookup every other store already had, and a cover already downloaded is never replaced by a smaller one
 - **Each store launched the way it expects** *(Epic fixed in 8.1.0)* — Steam and Epic titles go through their launcher's own protocol, Xbox through the UWP shell, Battle.net through its client. Most Epic games cannot be started by running their executable at all: the entitlement and Epic Online Services tokens arrive on the command line from the launcher, so a direct launch plays the intro and quits
 - **Safe sync** — manually created Sunshine entries are never touched; uninstalled games removed on next sync
 - **Manual game management** — Add any executable not auto-detected; remove individual entries with the Remove button
@@ -84,6 +85,13 @@ These features cross the bridge and require both apps. The version next to each 
 - **Remote host power-off** *(StreamLight 3.2.0+)* — an approved client can shut down the host PC (or this client, or both) from a *Power…* chooser, over the authenticated `SHUTDOWN` command. Destructive, so it only ever fires with a verified signature from an approved device
 - **Tailscale presence** *(StreamLight 3.0.0+; unified into a single tile in 3.3.0)* — after the client pairs with the host via its LAN IP, it queries the new `TAILSCALE` command. If StreamTweak detects a Tailscale adapter in the CGNAT `100.x.y.z` range, StreamLight records that address on the host's **single** tile (which now tracks both the LAN and Tailscale IPs, with a `TAILSCALE · AVAILABLE` badge) and offers a *Tailscale* option to open the host's apps over the `100.x` endpoint — so streaming from outside the LAN is one click away, no port forwarding. On the client side, StreamLight can also **auto-start Tailscale at launch**, completing the round-trip
 - **Remote Windows Update** *(StreamLight 3.3.0+, headline of this release pair)* — an approved client can scan and install Windows updates on the host and reboot it, or install pending updates as part of *Update and shut down* — all from the client, no keyboard on the host. The privileged Windows Update work runs in the LocalSystem service; see *What's New in 7.3.0* below
+
+## ✨ What's New in 8.1.1 — "The Cover Art Update"
+
+- **Covers stop being whatever was nearest** — a game's cover now has to be full size before the search ends, so it carries on to the store's own artwork instead of settling for the small thumbnail a launcher keeps for its own grid. GOG games get the same Steam Store lookup every other store already had — it was the one store without that rescue, and its covers were the smallest in the library because of it: Cyberpunk 2077 came out of GOG Galaxy at 342×482 while the same cover sits on Steam at 600×900
+- **The Steam address was wrong, quietly** — the file named for 600×900 is in fact 300×450, so any game that fell through to that fallback was getting a quarter of the pixels and no error to show for it
+- **Best wins, not last** — the sources are tried fastest-first rather than best-first, so a cover already downloaded is never replaced by a smaller one that happened to arrive later
+- Covers already in the cache are not re-downloaded on their own: use **Clear Sync** on the Game Library page to fetch them again at the new sizes
 
 ## ✨ What's New in 8.1.0 — "The Handshake Update"
 
@@ -205,7 +213,7 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
 ## 📝 Installation
 
 1. Go to the **Releases** page of this repository.
-2. Download the latest `StreamTweak_8.1.0_Installer.exe` and run it.
+2. Download the latest `StreamTweak_8.1.1_Installer.exe` and run it.
 
 The installer registers `StreamTweakService` as a Windows Service (LocalSystem) so that NIC and host-assets operations require no UAC prompt. The Windows App SDK 2.3 runtime is installed automatically if missing — it installs alongside any older 1.x runtime already on the machine, so nothing needs uninstalling when upgrading from StreamTweak 7.x.
 

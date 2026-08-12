@@ -5,6 +5,19 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 ---------------------------------------------------
+Version 8.1.1 - "The Cover Art Update" (12/08/2026)
+---------------------------------------------------
+
+🖼️ COVER ART:
+• Game covers no longer stop at whatever a launcher happens to keep on disk — a cover has to be full size before the search ends, so it carries on to the store's own artwork instead of settling for the small thumbnail a launcher holds for its own grid
+• GOG games now get a Steam Store lookup when their local artwork is too small, which every other store already had — it was the one store without that rescue, and its covers were the smallest in the library because of it: Cyberpunk 2077 came out of GOG Galaxy at 342x482 while the same cover sits on Steam at 600x900
+• Fixed the Steam address used when the store API has no cover to offer — the file named for 600x900 is in fact 300x450, so a game that fell through to it was quietly getting a quarter of the pixels
+• A cover already downloaded is never replaced by a smaller one: the sources are tried fastest-first rather than best-first, so which of two you ended up with came down to which finished first
+
+⚠️ COMPATIBILITY:
+• Covers already in the cache are not re-downloaded on their own — use "Clear Sync" on the Game Library page to fetch them again at the new sizes
+
+---------------------------------------------------
 Version 8.1.0 - "The Handshake Update" (08/08/2026)
 ---------------------------------------------------
 

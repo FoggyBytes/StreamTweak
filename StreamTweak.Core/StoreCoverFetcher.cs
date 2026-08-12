@@ -36,6 +36,21 @@ namespace StreamTweak
         private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(15) };
 
         /// <summary>
+        /// How tall a cover has to be before it is allowed to end the search.
+        ///
+        /// A shorter one is still written — some art beats none — but the chain keeps
+        /// looking, because a launcher's own cache holds the thumbnail it draws in its
+        /// grid, not the store's cover. GOG Galaxy keeps Cyberpunk 2077 at 342x482 while
+        /// Steam publishes the same cover at 600x900, and the old "any non-empty bytes
+        /// wins" rule stopped on the thumbnail every time.
+        ///
+        /// 600 is the height of the smallest asset the good sources return (Steam's
+        /// library capsule is 600x900), so this accepts every one of them and rejects
+        /// only what is genuinely a thumbnail.
+        /// </summary>
+        private const int GoodCoverHeight = 600;
+
+        /// <summary>
         /// For every non-Steam game whose cover is not yet cached, attempts to download
         /// a cover. Resolution order: Steam CDN (AppId from metadata cache) →
         /// store-native source → GOG remote API as last resort.
@@ -121,14 +136,17 @@ namespace StreamTweak
                 string? coverUrl = await GetSteamCoverUrlAsync(appIdInt);
                 if (!string.IsNullOrEmpty(coverUrl))
                 {
-                    await DownloadAsPngAsync(coverUrl, cachePath);
-                    return true;
+                    if (await DownloadAsPngAsync(coverUrl, cachePath) > 0) return true;
                 }
 
-                // Deterministic CDN fallback — no API call needed
-                string fallbackUrl = $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900.jpg";
-                await DownloadAsPngAsync(fallbackUrl, cachePath);
-                return true;
+                // Deterministic CDN fallback — no API call needed.
+                //
+                // ⚠️ _2x, not the plainly-named file. Despite being called library_600x900.jpg,
+                // that one is 300x450; the "_2x" variant is the actual 600x900. Measured on
+                // appid 1091500 (12/08/2026), and it is why a game that fell through to this
+                // fallback ended up with a quarter of the pixels of one that did not.
+                string fallbackUrl = $"https://cdn.cloudflare.steamstatic.com/steam/apps/{appId}/library_600x900_2x.jpg";
+                return await DownloadAsPngAsync(fallbackUrl, cachePath) > 0;
             }
             catch { return false; }
         }
@@ -158,7 +176,14 @@ namespace StreamTweak
                         return false;
 
                     case "GOG":
-                        return await TryFetchGogLocalAsync(game, cachePath);
+                        // Tier 1: Galaxy's local data — free, offline, and the right shape, so
+                        // it still goes first. But it only ends the search when it is big
+                        // enough: what Galaxy caches is the thumbnail for its own grid.
+                        if (await TryFetchGogLocalAsync(game, cachePath)) return true;
+                        // Tier 2: Steam Store search by name. GOG was the one store with no
+                        // Steam rescue at all — which is why its covers were the smallest in
+                        // the library while Battle.net's, which has one, were 600x900.
+                        return await TryFetchViaSteamSearchAsync(game, cachePath);
 
                     case "Ubisoft Connect":
                         // Tier 1: Steam Store search by name (portrait 600×900 — preferred over
@@ -333,8 +358,10 @@ namespace StreamTweak
                                 byte[] bytes = await File.ReadAllBytesAsync(localPath);
                                 if (bytes.Length > 0)
                                 {
-                                    await SaveBytesAsPngAsync(bytes, cachePath);
-                                    return true;
+                                    // Written either way — it is the floor if nothing better
+                                    // turns up — but only good enough to stop here at full size.
+                                    if (await SaveBytesAsPngAsync(bytes, cachePath) >= GoodCoverHeight)
+                                        return true;
                                 }
                             }
                         }
@@ -357,8 +384,8 @@ namespace StreamTweak
                                 string? url = vc.GetString();
                                 if (!string.IsNullOrEmpty(url))
                                 {
-                                    await DownloadAsPngAsync(url, cachePath);
-                                    return true;
+                                    if (await DownloadAsPngAsync(url, cachePath) >= GoodCoverHeight)
+                                        return true;
                                 }
                             }
                         }
@@ -381,8 +408,8 @@ namespace StreamTweak
                                 string? url = logo2x.GetString();
                                 if (!string.IsNullOrEmpty(url))
                                 {
-                                    await DownloadAsPngAsync(url, cachePath);
-                                    return true;
+                                    if (await DownloadAsPngAsync(url, cachePath) >= GoodCoverHeight)
+                                        return true;
                                 }
                             }
                         }
@@ -563,13 +590,12 @@ namespace StreamTweak
                 string? coverUrl = await GetSteamCoverUrlAsync(matchAppId);
                 if (!string.IsNullOrEmpty(coverUrl))
                 {
-                    await DownloadAsPngAsync(coverUrl, cachePath);
-                    return true;
+                    if (await DownloadAsPngAsync(coverUrl, cachePath) > 0) return true;
                 }
 
-                string fallbackUrl = $"https://cdn.cloudflare.steamstatic.com/steam/apps/{matchAppId}/library_600x900.jpg";
-                await DownloadAsPngAsync(fallbackUrl, cachePath);
-                return true;
+                // _2x — see the note in TryFetchSteamCoverByAppIdAsync.
+                string fallbackUrl = $"https://cdn.cloudflare.steamstatic.com/steam/apps/{matchAppId}/library_600x900_2x.jpg";
+                return await DownloadAsPngAsync(fallbackUrl, cachePath) > 0;
             }
             catch { return false; }
         }
@@ -699,21 +725,53 @@ namespace StreamTweak
             // run-collapse a stray symbol leaves a double space and breaks both exact and Contains.
             Regex.Replace(name.ToLowerInvariant(), @"[^a-z0-9]+", " ").Trim();
 
-        private static async Task DownloadAsPngAsync(string url, string cachePath)
+        /// <summary>
+        /// Downloads and stores a cover. Returns the pixel height written, or 0 if nothing
+        /// was written — so a caller can tell "got a good one" from "got a thumbnail" from
+        /// "got nothing", which the old void signature could not.
+        /// </summary>
+        private static async Task<int> DownloadAsPngAsync(string url, string cachePath)
         {
             byte[] bytes = await _http.GetByteArrayAsync(url);
-            if (bytes.Length == 0) return;
-            await SaveBytesAsPngAsync(bytes, cachePath);
+            if (bytes.Length == 0) return 0;
+            return await SaveBytesAsPngAsync(bytes, cachePath);
+        }
+
+        /// <summary>
+        /// Pixel height of the cover already in the cache, or 0 if there isn't one.
+        /// Reads the PNG IHDR header instead of decoding the image: everything in this
+        /// cache is written as PNG by the method below, so 24 bytes are enough and exact.
+        /// </summary>
+        private static int CachedCoverHeight(string path)
+        {
+            try
+            {
+                using var fs = File.OpenRead(path);
+                byte[] head = new byte[24];
+                if (fs.Read(head, 0, head.Length) < head.Length) return 0;
+                if (head[0] != 0x89 || head[1] != 'P' || head[2] != 'N' || head[3] != 'G') return 0;
+                // 8-byte signature, chunk length, "IHDR", width, then height — big-endian.
+                return (head[20] << 24) | (head[21] << 16) | (head[22] << 8) | head[23];
+            }
+            catch { return 0; }
         }
 
         /// <summary>
         /// Decodes any image format supported by Windows.Graphics.Imaging (JPEG, PNG, BMP, WebP)
         /// and re-encodes it as PNG. Required because Sunshine only accepts PNG for image-path.
         /// Writes to a temp file first so a failed conversion never leaves a corrupt PNG in cache.
+        ///
+        /// Returns the pixel height written, or 0 if nothing was.
+        ///
+        /// ⚠️ It refuses to replace a taller cover that is already cached. The tiers below run
+        /// in order of convenience — local files before network calls — not in order of quality,
+        /// so without this a later, worse source silently overwrites a better one that ran
+        /// first, and which of the two you end up with depends on the order they finish in.
         /// </summary>
-        private static async Task SaveBytesAsPngAsync(byte[] bytes, string path)
+        private static async Task<int> SaveBytesAsPngAsync(byte[] bytes, string path)
         {
             string tempPath = path + ".tmp";
+            int height;
             try
             {
                 using var inRas = new InMemoryRandomAccessStream();
@@ -721,6 +779,9 @@ namespace StreamTweak
                 inRas.Seek(0);
 
                 var decoder = await BitmapDecoder.CreateAsync(inRas);
+                height = (int)decoder.PixelHeight;
+                if (height <= CachedCoverHeight(path)) return 0;
+
                 var softBitmap = await decoder.GetSoftwareBitmapAsync();
 
                 using var outFile = File.Create(tempPath);
@@ -735,6 +796,7 @@ namespace StreamTweak
                 throw;
             }
             File.Move(tempPath, path, overwrite: true);
+            return height;
         }
     }
 }

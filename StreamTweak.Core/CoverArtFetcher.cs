@@ -117,11 +117,15 @@ namespace StreamTweak
             if (!string.IsNullOrEmpty(game.CoverUrl))
                 return game.CoverUrl;
 
-            // Legacy CDN fallback for Steam games without an API-provided URL
+            // Legacy CDN fallback for Steam games without an API-provided URL.
+            //
+            // ⚠️ _2x, not the plainly-named file: library_600x900.jpg is actually 300x450,
+            // and the "_2x" variant is the real 600x900. Measured on appid 1091500
+            // (12/08/2026). See the matching note in StoreCoverFetcher.
             return game.Store switch
             {
                 "Steam" when game.SteamAppId != null =>
-                    $"https://cdn.cloudflare.steamstatic.com/steam/apps/{game.SteamAppId}/library_600x900.jpg",
+                    $"https://cdn.cloudflare.steamstatic.com/steam/apps/{game.SteamAppId}/library_600x900_2x.jpg",
                 _ => null
             };
         }
