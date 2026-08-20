@@ -19,15 +19,10 @@ namespace StreamTweak
 
         // ── Tray icon ────────────────────────────────────────────────────────
         private TaskbarIcon? _trayIcon;
-        private MenuFlyoutItem?       _traySpeedItem;
-        private MenuFlyoutItem?       _trayStreamingStatusItem;
-        private MenuFlyoutItem?       _trayStreamingModeItem;
         private LinkSpeedManager?     _linkSpeed;
-        private ToggleMenuFlyoutItem? _traySpatialAudioItem;
-        private ToggleMenuFlyoutItem? _trayHdrItem;
-        private MonitorInfo?          _trayHdrMonitor;   // first HDR-capable monitor cached at startup
-        // Keeps the tray "Speed: …" label current without reflecting into H.NotifyIcon's
-        // internal flyout to hook its Opening event (see App.Tray.cs). Low-frequency.
+        // Mirrors the session state the icon already shows, so the tooltip can name it too.
+        private bool                  _trayStreamingActive;
+        // Keeps the tray tooltip's speed line current (see App.Tray.cs). Low-frequency.
         private DispatcherQueueTimer? _traySpeedTimer;
         private const int TRAY_SPEED_REFRESH_MS = 4_000;
 
@@ -283,8 +278,6 @@ namespace StreamTweak
                 {
                     _dolbyMonitor.Disable();
                 }
-                if (_traySpatialAudioItem != null)
-                    _traySpatialAudioItem.IsChecked = enabled;
                 AppStateService.Instance.RaiseSettingsChanged();
             };
             AppStateService.Instance.SetAudioDeviceAction = device =>
@@ -396,16 +389,11 @@ namespace StreamTweak
             Environment.Exit(0);
         }
 
-        /// <summary>Updates tray status text, Start/Stop button label, and tray icon.</summary>
+        /// <summary>Updates the tray icon and the tooltip's session line.</summary>
         public void UpdateTrayStreamingState(bool isActive)
         {
-            if (_trayStreamingStatusItem != null)
-                _trayStreamingStatusItem.Text = isActive ? "Streaming: Active  ●" : "Streaming: Inactive";
-            if (_trayStreamingModeItem != null)
-            {
-                _trayStreamingModeItem.Text      = isActive ? "Restore link speed" : "Switch link speed now";
-                _trayStreamingModeItem.IsEnabled = true; // always enabled — toggles between start and stop
-            }
+            _trayStreamingActive = isActive;
+            RefreshTrayTooltip();
             SetTrayIcon(isActive);
         }
 

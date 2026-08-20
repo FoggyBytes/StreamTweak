@@ -125,6 +125,13 @@ namespace StreamTweak
         /// <summary>When the deferred restore fires, or null when none is scheduled.</summary>
         public DateTime? RestoreAtUtc { get; private set; }
 
+        /// <summary>
+        /// True while a stream is live, from the server logging the client's connect to it logging
+        /// the disconnect. ⚠️ NOT the same span as App's session, which stays open for a grace
+        /// period afterwards so a reconnect rejoins the same history row — see
+        /// <see cref="OnStreamDisconnected"/>. This is what NETINFO reports as session_active, and
+        /// the client uses it to know whether asking for a speed is worth announcing.
+        /// </summary>
         public bool SessionActive { get; private set; }
 
         public bool AllowClientControl
@@ -259,8 +266,15 @@ namespace StreamTweak
                 }
                 if (SessionActive)
                 {
-                    // The guard that makes the 8.0.0 reconnect loop impossible.
-                    DebugLogger.Log($"[Link] SETSPEED refused: session active (asked {mbps} by {clientName})");
+                    // Half of what makes the 8.0.0 reconnect loop impossible; the other half, and
+                    // the one that does not depend on the server having logged anything, is the
+                    // LiveSessionProbe check further down.
+                    //
+                    // ⚠️ True only while a stream is actually live. It used to stay set for the
+                    // whole of App's thirty-second grace period after the disconnect, which turned
+                    // this into a blanket refusal of the link match for half a minute after every
+                    // session — see OnStreamDisconnected().
+                    DebugLogger.Log($"[Link] SETSPEED refused: a stream is live (asked {mbps} by {clientName})");
                     return SpeedRequestResult.Busy;
                 }
                 if (State == LinkSpeedState.Changing)
@@ -331,6 +345,41 @@ namespace StreamTweak
             {
                 SessionActive = true;
                 CancelScheduledRestore("a session started");
+            }
+            Changed?.Invoke();
+        }
+
+        /// <summary>
+        /// The server logged the client's disconnect. The stream is over as far as the adapter is
+        /// concerned, even though App keeps the session open for another half a minute so that a
+        /// reconnect rejoins the same history row.
+        /// </summary>
+        /// <remarks>
+        /// ⚠️ This exists because <see cref="SessionActive"/> used to stay true for that whole
+        /// grace period, and <see cref="RequestSpeed"/> turns a client away while it is set. So a
+        /// client that finished a game and started another within thirty seconds was refused the
+        /// link match — silently, and in exactly the window where relaunching is most likely.
+        /// The flag now means "a stream is live", which is the only thing that has ever made it
+        /// worth refusing, and it is what NETINFO reports so the client can predict the answer.
+        ///
+        /// ⚠️ Deliberately NOT the same as <see cref="OnSessionEnded"/>: a restore the client
+        /// asked for during a live stream is still held until the grace period is up, so that a
+        /// reconnect inside it resumes on the streaming speed rather than on a link put back
+        /// underneath it. Splitting the two is the whole point.
+        ///
+        /// Safety is unchanged either way. <see cref="LiveSessionProbe"/> is the hard guard
+        /// against renegotiating under a running stream, and it answers from established TCP
+        /// connections rather than from the log — so a server that never logged its disconnect
+        /// still blocks, which is the case that flag could never see.
+        /// </remarks>
+        public void OnStreamDisconnected()
+        {
+            lock (_lock)
+            {
+                if (!SessionActive) return;
+                SessionActive = false;
+                DebugLogger.Log("[Link] client disconnected: no stream is live "
+                              + "(the session stays open for its grace period)");
             }
             Changed?.Invoke();
         }

@@ -384,6 +384,81 @@ Scenario("S15  end-of-session log lines are recognised (real lines, all four ser
          LogParser.StreamingEvent.None);
 }
 
+// ── Scenario 16 ──────────────────────────────────────────────────────────────
+// App keeps its session open for 30 s after the disconnect so that a reconnect rejoins the
+// same history row, and SessionActive used to stay set for all of it — so RequestSpeed
+// turned every client away for half a minute after each session, which is exactly the
+// window in which someone starts another game. The manager now hears about the disconnect
+// when it happens; the session still closes later.
+Scenario("S16  the link match works inside App's post-session grace period");
+{
+    var (env, mgr) = Build(linkMbps: 2500);
+    mgr.RequestSpeed(1000, "Foggy-Ally", null);
+    env.AdvanceUntilIdle(mgr);
+    mgr.OnSessionStarted();
+    env.Advance(TimeSpan.FromSeconds(120));
+
+    // The invariant this must not cost us.
+    Check("S16", "refused while the stream is live",
+          mgr.RequestSpeed(100, "Foggy-Ally", null) == SpeedRequestResult.Busy);
+
+    // CLIENT DISCONNECTED. App starts its 30 s timer and tells the manager now.
+    mgr.OnStreamDisconnected();
+    Check("S16", "session_active clears at the disconnect, not at the timeout",
+          !mgr.SessionActive && mgr.ToNetInfoJson().Contains("\"session_active\":false"),
+          mgr.SessionActive ? "still set" : "cleared");
+
+    // Five seconds later the user launches again. The client sends SETSPEED on every launch
+    // even when the link already matches (§38), so this is the ordinary case, not an edge one.
+    env.Advance(TimeSpan.FromSeconds(5));
+    Check("S16", "a relaunch inside the window is accepted",
+          mgr.RequestSpeed(1000, "Foggy-Ally", null) == SpeedRequestResult.Accepted);
+
+    // …and so is the half that actually renegotiates.
+    int applies = env.ApplyCount;
+    Check("S16", "and so is a request that really renegotiates",
+          mgr.RequestSpeed(100, "Foggy-Ally", null) == SpeedRequestResult.Accepted);
+    env.AdvanceUntilIdle(mgr);
+    Check("S16", "which was applied", env.ApplyCount > applies && mgr.CurrentMbps == 100,
+          $"{mgr.CurrentMbps} Mbps");
+    Check("S16", "and sends are usable when it reports idle",
+          mgr.State == LinkSpeedState.Idle && !env.SendsBrokenAt(env.UtcNow),
+          mgr.State.ToString());
+}
+
+// ── Scenario 17 ──────────────────────────────────────────────────────────────
+// The two ways that window must still say no. Clearing the flag earlier is only safe if
+// neither of these regresses.
+Scenario("S17  the grace window is not a hole in the guard");
+{
+    var (env, mgr) = Build(linkMbps: 2500);
+    mgr.RequestSpeed(1000, "Foggy-Ally", null);
+    env.AdvanceUntilIdle(mgr);
+    mgr.OnSessionStarted();
+    env.Advance(TimeSpan.FromSeconds(60));
+
+    // (a) A reconnect inside the window resumes the same session. App skips its start path
+    // there — that is what "reconnected within grace period" means — so the manager has to be
+    // told separately, or it would believe no stream is live for the whole resumed session.
+    mgr.OnStreamDisconnected();
+    env.Advance(TimeSpan.FromSeconds(3));
+    mgr.OnSessionStarted();
+    Check("S17", "a resume inside the window counts as live again", mgr.SessionActive);
+    Check("S17", "and is refused",
+          mgr.RequestSpeed(100, "Foggy-Ally", null) == SpeedRequestResult.Busy);
+
+    // (b) The server is still streaming but never logged its disconnect. The flag cannot see
+    // that — it is log-derived — and the probe is the guard that does not depend on the log.
+    mgr.OnStreamDisconnected();
+    env.StreamLive = true;
+    int applies = env.ApplyCount;
+    Check("S17", "the probe still blocks with the flag clear",
+          mgr.RequestSpeed(100, "Foggy-Ally", null) == SpeedRequestResult.Busy);
+    env.Advance(TimeSpan.FromSeconds(30));
+    Check("S17", "and nothing was applied", env.ApplyCount == applies && mgr.CurrentMbps == 1000,
+          $"{mgr.CurrentMbps} Mbps");
+}
+
 // ── Report ───────────────────────────────────────────────────────────────────
 Console.WriteLine();
 Console.WriteLine("LinkSpeedManager simulation — virtual time, production code");

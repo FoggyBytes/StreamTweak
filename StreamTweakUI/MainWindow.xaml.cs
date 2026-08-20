@@ -25,7 +25,7 @@ namespace StreamTweak
             var v = Assembly.GetExecutingAssembly().GetName().Version;
             SidebarVersionText.Text = v != null
                 ? $"v{v.Major}.{v.Minor}.{v.Build}"
-                : "v8.1.1";
+                : "v8.1.2";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;

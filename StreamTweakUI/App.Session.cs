@@ -191,7 +191,18 @@ namespace StreamTweak
                         if (!_isAutoSessionActive && !_sessionStartInProgress)
                             _ = HandleAutoStreamStart(retrospective: e.IsRetrospective);
                         else
+                        {
                             StopInactivityTimer(); // reconnected within grace period
+
+                            // ⚠️ Load-bearing since the link flag started clearing on disconnect.
+                            // This branch is the resume path, and HandleAutoStreamStart — which is
+                            // where OnSessionStarted() otherwise runs — is deliberately skipped on
+                            // it. Without this the manager would go on believing no stream is live
+                            // for the whole resumed session and let a client renegotiate under it.
+                            // (LiveSessionProbe would still catch it, but relying on the backstop
+                            // when the primary is one line away is not a trade worth making.)
+                            _linkSpeed?.OnSessionStarted();
+                        }
                     }
                     else if (e.Event == LogParser.StreamingEvent.StreamStopped)
                     {
@@ -212,6 +223,14 @@ namespace StreamTweak
                             // eventually winds the session up: a launch armed in between belongs
                             // to the next session and must survive the cleanup.
                             _lastStopDetectedUtc = DateTime.UtcNow;
+
+                            // The link manager is told now, not when the grace period is up. Its
+                            // flag governs whether a client may renegotiate the adapter, and no
+                            // stream is live from here on — holding it for another thirty seconds
+                            // turned down the link match for exactly as long, in the window where
+                            // starting another game is most likely. The session itself stays open.
+                            _linkSpeed?.OnStreamDisconnected();
+
                             StartInactivityTimer();
                         }
                     }

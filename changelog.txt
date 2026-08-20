@@ -4,6 +4,25 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+----------------------------------------------
+Version 8.1.2 - "The Tray Update" (20/08/2026)
+----------------------------------------------
+
+🧰 SYSTEM TRAY:
+• The tray menu is down to Open and Exit — everything else it held either repeated what the tooltip and the icon already say, or was a second copy of a control that has a proper home on one of the app's own pages
+• Fixed "Restore link speed", which managed to disagree with itself three ways — with no session running it relabelled itself "Switch link speed now", a command that stopped existing in 8.1.0, while clicking it ran a restore regardless of the label, and that restore did nothing at all unless the adapter had actually been switched. The Network page has always done this properly: the button greys out and says why
+• The tooltip now names the session state alongside the adapter speed, so the two status rows that used to sit in the menu are still there — hover instead of right-click
+• Removed the HDR toggle — it was read once when the app started and never refreshed afterwards, so it drifted out of step with the truth: HDR gets changed from the Display & audio page, with Win+Alt+B, and by the streaming server itself on every session
+• Removed the Auto Spatial Audio toggle — the Display & audio page owns that setting and keeps it correct
+
+
+🔀 LINK SPEED:
+• Starting another game within half a minute of the last one now gets the link matched — a session stays open for a grace period after the client disconnects, so that reconnecting rejoins the same entry in the history, and for that whole window the host was turning down every request to change the adapter. It was the one window in which starting another game is most likely, and the client had no way to know: it announced the change and then nothing happened
+• A session now counts as running only while a stream really is, instead of for the grace period as well, so StreamLight can tell in advance whether a change is worth announcing and stays quiet when it is not
+• The prompt that offers to put the link back when you return to the host list now appears — the same window was swallowing it, and returning to the host list is almost always inside it
+🧹 UNDER THE HOOD:
+• The tray menu is a plain Windows menu again instead of a hidden window drawing WinUI controls, which takes with it a first-open sizing bug that could leave the menu with a scrollbar at 125% scaling and above, along with the workarounds carried for it
+
 ---------------------------------------------------
 Version 8.1.1 - "The Cover Art Update" (12/08/2026)
 ---------------------------------------------------
