@@ -24,7 +24,11 @@ namespace StreamTweak
         private bool                  _trayStreamingActive;
         // Keeps the tray tooltip's speed line current (see App.Tray.cs). Low-frequency.
         private DispatcherQueueTimer? _traySpeedTimer;
-        private const int TRAY_SPEED_REFRESH_MS = 4_000;
+        // Each refresh walks every network interface (~7 ms), and this is the last thing
+        // still ticking with the window hidden. The tooltip only exists while the pointer
+        // rests on the tray icon, and a stream-driven speed change refreshes it directly
+        // via PollForNicReconnectAsync, so a slow cadence loses nothing. Issue #7.
+        private const int TRAY_SPEED_REFRESH_MS = 15_000;
 
         // ── Single-instance guard ────────────────────────────────────────────
         private static Mutex?      _singleInstanceMutex;
@@ -160,6 +164,10 @@ namespace StreamTweak
                 .Any(a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase));
 
             MainWindow = new MainWindow();
+            // Set before Activate(): the pages are constructed and navigated by the window's
+            // own ctor, so their timers consult this on the way up. Under --minimized the
+            // window is never shown, and nothing on it should be polling.
+            AppStateService.Instance.SetMainWindowVisible(!startMinimized);
             if (!startMinimized)
                 MainWindow.Activate();
             SetupTrayIcon();

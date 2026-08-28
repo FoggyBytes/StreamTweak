@@ -4,6 +4,26 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-----------------------------------------------
+Version 8.2.0 - "The Quiet Update" (28/08/2026)
+-----------------------------------------------
+
+⚡ IDLE CPU:
+• StreamTweak used a steady slice of a CPU core while doing nothing at all — sitting in the tray, no client connected, no session running. With nothing to report it now measures nothing (reported in issue #7)
+• The host metrics behind the client's overlay were most of that cost: they were read by asking one performance counter per process per GPU engine, one at a time, which re-read the whole set hundreds of times a second. One pass now gets the same numbers for a fraction of the cost, and that cost no longer grows with how busy the machine is
+• Those metrics are collected only while something is actually asking for them — a connected client, or the Dashboard open in front of you
+• The Dashboard's live tiles stop refreshing when the window is closed to the tray, and never start when StreamTweak launches minimised with Windows
+• The watch for a new streaming-server log no longer rescans the log folder ten times a second — it looks only when the folder has actually changed, and notices a new log just as quickly as before
+
+🟩 NVIDIA SENTINEL:
+• Auto-restore now tells you in the app when it cannot put your profile back, instead of failing silently — the Dashboard badge reads "Stuck" and the Tuning page says what happened. A profile saved on a different driver version is the usual cause, and saving it again is the usual fix
+• A restore that keeps failing now backs off instead of retrying every few seconds indefinitely — it could fail well over a thousand times in a day without anything in the app ever saying so
+• A failed restore is no longer recorded as though it had worked, so "Last auto-restore" means what it says
+• The safety-net poll runs every 30 seconds instead of every 5 — it was costing 2.5% of a CPU core around the clock, while the watch on the driver's settings database is what actually catches a reset, in milliseconds
+
+⚠️ COMPATIBILITY:
+• Host metrics take about a second to appear once a client starts asking, rather than being there instantly — they are rates, and a rate means nothing until it has been measured twice
+
 ----------------------------------------------
 Version 8.1.2 - "The Tray Update" (20/08/2026)
 ----------------------------------------------

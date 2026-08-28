@@ -42,8 +42,27 @@ namespace StreamTweak.Nvidia
         private bool _disposed;
 
         private const int DebounceMs = 800;
-        private const int PollMs = 5000;
+
+        // Safety net only — the FileSystemWatcher on nvdrsdb*.bin is what actually catches a
+        // reset, within a couple of hundred milliseconds. This poll exists for the cases the
+        // watcher cannot see (it failed to start, or the whole Drs folder was replaced rather
+        // than written into). At 5 s it was costing ~125 ms every 5 s = 2.5% of a CPU core
+        // around the clock, four times everything else the app does at rest.
+        private const int PollMs = 30_000;
+
         private const int SuppressSeconds = 2;
+
+        // ── Backoff for a restore that cannot succeed ─────────────────────────
+        //
+        // A restore can fail permanently and for reasons outside the app: a snapshot captured
+        // on a different driver, or a setting the driver refuses to let a non-elevated process
+        // write. Retrying that on every poll achieves nothing, burns CPU and buries the log —
+        // it ran 1594 times in one day before this existed, all failing, in silence.
+        private const int StuckAfterFailures = 3;
+        private const int MaxBackoffMinutes  = 30;
+
+        private int      _consecutiveFailures;
+        private DateTime _retryNotBefore = DateTime.MinValue;
 
         public bool IsNvidiaAvailable { get; }
 
@@ -67,8 +86,29 @@ namespace StreamTweak.Nvidia
         /// <summary>Set by the UI host to persist LastRestoreAt across app restarts.</summary>
         public Action<DateTime?> PersistLastRestoreCallback { get; set; }
 
-        /// <summary>Raised after an automatic restore. Handlers must marshal to the UI thread.</summary>
+        /// <summary>Raised after an automatic restore that SUCCEEDED. Handlers must marshal to
+        /// the UI thread. A failed restore raises <see cref="AutoRestoreStateChanged"/> instead —
+        /// this event used to fire either way, so the UI reported a restore that never happened.</summary>
         public event EventHandler AutoRestorePerformed;
+
+        /// <summary>
+        /// True when auto-restore has failed <see cref="StuckAfterFailures"/> times in a row and
+        /// is therefore backing off. The profile is NOT being protected while this is true, which
+        /// is the whole reason it is surfaced rather than left in the log.
+        /// </summary>
+        public bool IsStuck { get; private set; }
+
+        /// <summary>The driver's own words for the last failure, for the UI to show verbatim.</summary>
+        public string StuckReason { get; private set; } = "";
+
+        /// <summary>When the run of failures began, null when not stuck.</summary>
+        public DateTime? StuckSince { get; private set; }
+
+        /// <summary>When the next retry is due while stuck, null when not stuck.</summary>
+        public DateTime? NextRetryAt => IsStuck && _retryNotBefore > DateTime.Now ? _retryNotBefore : null;
+
+        /// <summary>Raised when <see cref="IsStuck"/> changes. Handlers must marshal to the UI thread.</summary>
+        public event EventHandler AutoRestoreStateChanged;
 
         public NvidiaSentinelService()
         {
@@ -114,6 +154,9 @@ namespace StreamTweak.Nvidia
                 Directory.CreateDirectory(Path.GetDirectoryName(SnapshotPath)!);
                 _import.ExportGlobalProfile(SnapshotPath);
             }
+            // A fresh capture is the usual cure for a stuck sentinel — a snapshot taken on a
+            // different driver is exactly what the driver refuses to write back.
+            ResetFailureState();
         }
 
         /// <summary>Captures the current global profile (diff-from-default) to an explicit path.</summary>
@@ -222,6 +265,9 @@ namespace StreamTweak.Nvidia
             AutoRestoreEnabled = enabled;
             if (enabled)
             {
+                // Re-arming is the user saying "try again": start from a clean slate rather
+                // than inheriting a backoff from before.
+                ResetFailureState();
                 StartMonitoring();
                 // Initial check off the caller's (UI) thread.
                 Task.Run(() => SafeCheck("arm"));
@@ -298,19 +344,80 @@ namespace StreamTweak.Nvidia
             catch (Exception ex) { NvidiaRestoreLogger.LogError($"auto-restore check failed ({reason}): {ex.Message}"); }
         }
 
+        /// <summary>
+        /// Records a failed restore and pushes the next attempt further out: 1, 2, 4, 8, 16 then
+        /// 30 minutes. After <see cref="StuckAfterFailures"/> in a row the feature declares itself
+        /// stuck, because at that point it is not protecting anything and the user is the only one
+        /// who can act — the causes are all outside the app (a snapshot from another driver, or a
+        /// setting the driver will not let an unelevated process write).
+        /// </summary>
+        private void NoteRestoreFailed(string reason)
+        {
+            _consecutiveFailures++;
+
+            int minutes = Math.Min(1 << Math.Min(_consecutiveFailures - 1, 5), MaxBackoffMinutes);
+            _retryNotBefore = DateTime.Now.AddMinutes(minutes);
+
+            bool becameStuck = !IsStuck && _consecutiveFailures >= StuckAfterFailures;
+            if (becameStuck)
+            {
+                IsStuck    = true;
+                StuckSince = DateTime.Now;
+                NvidiaRestoreLogger.LogError(
+                    $"auto-restore stuck: {_consecutiveFailures} consecutive failures, retrying every {minutes} min at most");
+            }
+
+            if (IsStuck)
+            {
+                StuckReason = reason;
+                AutoRestoreStateChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        /// <summary>Clears the failure run. Also called when there is simply no drift left to
+        /// undo, which is how a stuck sentinel recovers once the user re-captures the profile.</summary>
+        private void NoteRestoreSucceeded()
+        {
+            _consecutiveFailures = 0;
+            _retryNotBefore      = DateTime.MinValue;
+
+            if (!IsStuck) return;
+
+            IsStuck     = false;
+            StuckReason = "";
+            StuckSince  = null;
+            NvidiaRestoreLogger.LogInfo("auto-restore recovered — the profile is being protected again");
+            AutoRestoreStateChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Forgets a failure run so the next check starts clean. Called when the user changes
+        /// something that plausibly fixes it — re-capturing the profile, or re-arming auto-restore.
+        /// </summary>
+        public void ResetFailureState() => NoteRestoreSucceeded();
+
         private void CheckDriftAndRestore(string reason)
         {
             if (!AutoRestoreEnabled || _restoring || _disposed) return;
             if (DateTime.Now < _suppressUntil) return;
             if (!HasSnapshot) return;
+            // Backing off after repeated failures. Checked before the lock and before the drift
+            // read, which is itself the expensive part — while stuck there is no point paying it.
+            if (DateTime.Now < _retryNotBefore) return;
 
             lock (_drsLock)
             {
                 if (!AutoRestoreEnabled || _restoring || _disposed) return;
                 if (DateTime.Now < _suppressUntil) return;
+                if (DateTime.Now < _retryNotBefore) return;
 
                 var changed = ComputeDriftDescriptors(SnapshotPath);
-                if (changed.Count == 0) return;
+                if (changed.Count == 0)
+                {
+                    // Nothing to put back: whatever was wrong is no longer showing.
+                    NoteRestoreSucceeded();
+                    return;
+                }
 
                 _restoring = true;
                 string report;
@@ -325,16 +432,25 @@ namespace StreamTweak.Nvidia
                     _suppressUntil = DateTime.Now.AddSeconds(SuppressSeconds);
                 }
 
-                LastRestoreAt = DateTime.Now;
-                PersistLastRestoreCallback?.Invoke(LastRestoreAt);
-
                 NvidiaRestoreLogger.LogRestore(
                     reason,
                     changed.Count,
                     string.Join(",", changed.Take(40)));
 
+                // A non-empty report means the driver refused part of the import, so the
+                // settings are NOT back. Recording it as a restore — which is what used to
+                // happen — made a permanent failure look like a working feature.
                 if (!string.IsNullOrWhiteSpace(report))
+                {
                     NvidiaRestoreLogger.LogError($"restore reported issues: {report.Trim()}");
+                    NoteRestoreFailed(report.Trim());
+                    return;
+                }
+
+                NoteRestoreSucceeded();
+
+                LastRestoreAt = DateTime.Now;
+                PersistLastRestoreCallback?.Invoke(LastRestoreAt);
 
                 AutoRestorePerformed?.Invoke(this, EventArgs.Empty);
             }

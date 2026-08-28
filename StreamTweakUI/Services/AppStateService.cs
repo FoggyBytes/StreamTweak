@@ -175,6 +175,27 @@ namespace StreamTweak.Services
 
         public void RaiseSettingsChanged() => SettingsChanged?.Invoke(this, EventArgs.Empty);
 
+        // ── Main window visibility ────────────────────────────────────────────
+
+        /// <summary>
+        /// Whether the main window is actually on screen. Minimising hides the window rather
+        /// than shrinking it (and <c>--minimized</c> autostart never shows it at all), but the
+        /// pages stay constructed and navigated, so <c>OnNavigatedFrom</c> never fires and any
+        /// per-second refresh a page started keeps running against nothing. Pages with polling
+        /// timers watch this and suspend while it is false (issue #7).
+        /// </summary>
+        public bool IsMainWindowVisible { get; private set; }
+
+        /// <summary>Raised when <see cref="IsMainWindowVisible"/> changes.</summary>
+        public event EventHandler<bool>? MainWindowVisibilityChanged;
+
+        public void SetMainWindowVisible(bool visible)
+        {
+            if (IsMainWindowVisible == visible) return;
+            IsMainWindowVisible = visible;
+            MainWindowVisibilityChanged?.Invoke(this, visible);
+        }
+
         // ── NVIDIA Sentinel ───────────────────────────────────────────────────
         //
         // Singleton NvidiaSentinelService (ported NVIDIA Profile Inspector DRS layer).

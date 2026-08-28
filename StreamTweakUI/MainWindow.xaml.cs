@@ -25,7 +25,7 @@ namespace StreamTweak
             var v = Assembly.GetExecutingAssembly().GetName().Version;
             SidebarVersionText.Text = v != null
                 ? $"v{v.Major}.{v.Minor}.{v.Build}"
-                : "v8.1.2";
+                : "v8.2.0";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -112,7 +112,12 @@ namespace StreamTweak
             {
                 if (AppWindow.Presenter is OverlappedPresenter op &&
                     op.State == OverlappedPresenterState.Minimized)
+                {
                     ShowWindow(WindowNative.GetWindowHandle(this), SW_HIDE);
+                    // Pages keep their timers running unless they are told the window is
+                    // gone — navigation events never fire for a hide. See issue #7.
+                    AppStateService.Instance.SetMainWindowVisible(false);
+                }
             };
 
             // 8.0: NVIDIA Sentinel is now a panel inside the Tuning master-detail,
@@ -496,6 +501,7 @@ namespace StreamTweak
             var hwnd = WindowNative.GetWindowHandle(this);
             ShowWindow(hwnd, SW_RESTORE);   // un-hide if window was hidden via minimize
             SetForegroundWindow(hwnd);
+            AppStateService.Instance.SetMainWindowVisible(true);
         }
 
         private const int SW_HIDE    = 0;

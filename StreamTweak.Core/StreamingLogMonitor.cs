@@ -23,6 +23,11 @@ namespace StreamTweak
         private const int REDISCOVERY_INTERVAL_MS = 10000;
         private DateTime lastRediscoveryTime = DateTime.MinValue;
 
+        // Write time of monitoredDirectory as of the last rotation scan. A new file in the
+        // directory moves it; appends to the log we are already reading do not. See
+        // CheckForLogRotation().
+        private DateTime lastDirWriteTimeUtc = DateTime.MinValue;
+
         public event EventHandler<StreamingEventArgs>? StreamingEventDetected;
 
         /// <summary>
@@ -132,7 +137,8 @@ namespace StreamTweak
 
             if (!string.IsNullOrEmpty(currentLogFilePath))
             {
-                monitoredDirectory = Path.GetDirectoryName(currentLogFilePath);
+                monitoredDirectory  = Path.GetDirectoryName(currentLogFilePath);
+                lastDirWriteTimeUtc = DateTime.MinValue;   // force the first rotation scan
                 DebugLog($"Starting log monitoring in directory: {monitoredDirectory}");
                 DebugLog($"Initial log file: {Path.GetFileName(currentLogFilePath)}");
             }
@@ -302,8 +308,9 @@ namespace StreamTweak
                     !string.Equals(discovered, currentLogFilePath, StringComparison.OrdinalIgnoreCase))
                 {
                     DebugLog($"Rediscovery: switching from '{Path.GetFileName(currentLogFilePath ?? "none")}' to '{Path.GetFileName(discovered)}'");
-                    currentLogFilePath = discovered;
-                    monitoredDirectory = Path.GetDirectoryName(discovered);
+                    currentLogFilePath  = discovered;
+                    monitoredDirectory  = Path.GetDirectoryName(discovered);
+                    lastDirWriteTimeUtc = DateTime.MinValue;   // force the first rotation scan
                     OpenStreamReader(discovered);
                 }
             }
@@ -316,6 +323,16 @@ namespace StreamTweak
         /// <summary>
         /// Checks if a newer dynamic log file has appeared in the same directory (log rotation).
         /// Only relevant for directories that contain sunshine-*.log files.
+        ///
+        /// Runs on every idle pass of the monitoring loop — ten times a second — because
+        /// <see cref="OpenStreamReader"/> seeks to the end of the file it opens: any line
+        /// written to the new log before we notice it is lost, so the cadence must not be
+        /// relaxed.
+        ///
+        /// Instead the check itself was made cheap (issue #7). A rotation means a *new file* in
+        /// the directory, which bumps the directory's own write time; appends to the log already
+        /// being read do not. So the steady state is one stat of the directory, and the actual
+        /// scan only runs on the pass where something appeared.
         /// </summary>
         private void CheckForLogRotation()
         {
@@ -323,7 +340,19 @@ namespace StreamTweak
 
             try
             {
+                DateTime dirStamp;
+                try { dirStamp = Directory.GetLastWriteTimeUtc(monitoredDirectory); }
+                catch { dirStamp = DateTime.MinValue; }
+
+                if (dirStamp != DateTime.MinValue && dirStamp == lastDirWriteTimeUtc) return;
+                lastDirWriteTimeUtc = dirStamp;
+
                 string? latestLog = FindMostRecentLogFileInDir(monitoredDirectory);
+
+                // Enumeration failed (transient sharing/permission error). Forget the stamp
+                // so the next pass scans again instead of waiting for another directory
+                // change that may never come.
+                if (latestLog == null) lastDirWriteTimeUtc = DateTime.MinValue;
 
                 if (latestLog != null &&
                     !string.Equals(latestLog, currentLogFilePath, StringComparison.OrdinalIgnoreCase))
@@ -341,12 +370,17 @@ namespace StreamTweak
 
         private string? FindMostRecentLogFileInDir(string directory)
         {
-            if (!Directory.Exists(directory)) return null;
             try
             {
-                return Directory.GetFiles(directory, "sunshine-*.log")
-                    .OrderByDescending(f => File.GetLastWriteTime(f))
-                    .FirstOrDefault();
+                // EnumerateFiles yields FileInfo objects whose timestamps come from the
+                // directory enumeration itself — no stat() per file, unlike GetFiles()
+                // followed by File.GetLastWriteTime() on every path.
+                FileInfo? newest = null;
+                foreach (var file in new DirectoryInfo(directory).EnumerateFiles("sunshine-*.log"))
+                    if (newest == null || file.LastWriteTimeUtc > newest.LastWriteTimeUtc)
+                        newest = file;
+
+                return newest?.FullName;
             }
             catch { return null; }
         }
