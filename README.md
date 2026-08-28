@@ -94,15 +94,6 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **The Sentinel's safety-net poll dropped from 5 to 30 seconds** — it was costing 2.5% of a CPU core around the clock, which after the work above was four times everything else the app does at rest. The watch on the driver's settings database is what actually catches a reset, in milliseconds; the poll only covers the cases that watch cannot see
 - ⚠️ Host metrics now take about a second to appear once a client starts asking, instead of being there instantly — they are rates, and a rate means nothing until it has been measured twice
 
-## ✨ What's New in 8.1.2 — "The Tray Update"
-
-- **The tray menu is Open and Exit** — everything else it carried either repeated what the tooltip and the icon already say, or was a second copy of a control with a proper home on one of the app's own pages
-- **"Restore link speed" disagreed with itself three ways** — with no session running it relabelled itself *Switch link speed now*, a command that stopped existing in 8.1.0; clicking it ran a restore regardless of the label; and that restore did nothing at all unless the adapter had actually been switched. **Network** has always done this properly, greying the button out and saying why
-- **The tooltip says more** — the adapter speed *and* the session state, so the two status rows that used to sit in the menu are still a hover away
-- **A toggle that lied is gone** — the tray's HDR switch was read once when the app started and never refreshed, while HDR gets changed from **Display & audio**, with Win+Alt+B, and by the streaming server itself on every session
-- **The link match works right after a session** — a session stays open for half a minute after the client disconnects, so that reconnecting rejoins the same history entry, and for that whole window the host turned down every request to change the adapter. Starting another game in it is the likeliest thing there is, and the client could not tell: it announced the change and nothing happened. A session now counts as running only while a stream really is, which also lets StreamLight stay quiet instead of promising a change it will not get *(needs StreamLight 5.1.2 to be predicted; the match itself works with any client)*
-- **The "put the link back?" prompt appears again** — it was being swallowed by that same window, and returning to the host list almost always lands inside it
-
 *Older releases are in [changelog.txt](changelog.txt).*
 
 ## 🏗️ Architecture
