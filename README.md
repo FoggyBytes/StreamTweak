@@ -2,7 +2,9 @@
 
 ![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue.svg) ![Framework](https://img.shields.io/badge/Framework-.NET%208%20%2F%20WinUI%203-purple.svg) ![Downloads](.badges/downloads.svg) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-brightgreen.svg)](https://claude.ai/code)
 
-<img width="951" height="536" alt="Immagine 2026-08-08 115135" src="https://github.com/user-attachments/assets/356e7c70-72c8-4e2b-978d-61c9c2c23363" />
+<div align="center">
+  <img width="951" height="536" alt="Immagine 2026-08-08 115135" src="https://github.com/user-attachments/assets/356e7c70-72c8-4e2b-978d-61c9c2c23363" />
+</div>
 
 **StreamTweak** is the host half of the FoggyBytes streaming duo. It takes care of the setup that makes game streaming reliable — the network link, spatial audio, HDR, the game library, the NVIDIA driver profile — and keeps a record of how every session actually went.
 
