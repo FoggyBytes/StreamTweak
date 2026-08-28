@@ -74,10 +74,12 @@ namespace StreamTweak.ViewModels
             if (_svc != null)
             {
                 _autoRestoreEnabled = _svc.AutoRestoreEnabled;
-                _svc.AutoRestorePerformed += OnAutoRestorePerformed;
+                _svc.AutoRestorePerformed  += OnAutoRestorePerformed;
+                _svc.AutoRestoreStateChanged += OnAutoRestoreStateChanged;
             }
 
             UpdateLastRestoreText();
+            UpdateStuckState();
         }
 
         public string GpuHeader { get; }
@@ -362,15 +364,63 @@ namespace StreamTweak.ViewModels
             });
         }
 
+        // ── Stuck state ────────────────────────────────────────────────────────
+
+        private bool _isStuck;
+        /// <summary>Auto-restore is armed but cannot put the profile back. Drives the warning.</summary>
+        public bool IsStuck
+        {
+            get => _isStuck;
+            private set => SetProperty(ref _isStuck, value);
+        }
+
+        private string _stuckMessage = "";
+        public string StuckMessage
+        {
+            get => _stuckMessage;
+            private set => SetProperty(ref _stuckMessage, value);
+        }
+
+        private void OnAutoRestoreStateChanged(object? sender, EventArgs e)
+            => _ui.TryEnqueue(UpdateStuckState);
+
+        private void UpdateStuckState()
+        {
+            if (_svc is not { IsStuck: true })
+            {
+                IsStuck      = false;
+                StuckMessage = "";
+                return;
+            }
+
+            // Say what is not happening, then the one thing that usually fixes it. The driver's
+            // own wording is kept on the end because it is the only part that varies.
+            string msg = "Your profile is not being protected. The driver refused to re-apply it, "
+                       + "so auto-restore has stopped retrying. This usually means the saved profile "
+                       + "was captured on a different driver version — save it again to fix it.";
+
+            if (_svc.StuckSince is { } since)
+                msg += $" Failing since {since.ToLocalTime():dd/MM/yyyy HH:mm}.";
+
+            if (!string.IsNullOrWhiteSpace(_svc.StuckReason))
+                msg += $"\n{_svc.StuckReason}";
+
+            StuckMessage = msg;
+            IsStuck      = true;
+        }
+
         /// <summary>
-        /// Unsubscribes from the singleton service's event. Called from the View's
+        /// Unsubscribes from the singleton service's events. Called from the View's
         /// OnNavigatedFrom so navigating away doesn't leak this VM (a new VM is created
         /// on every navigation to the page).
         /// </summary>
         public void Cleanup()
         {
             if (_svc != null)
-                _svc.AutoRestorePerformed -= OnAutoRestorePerformed;
+            {
+                _svc.AutoRestorePerformed    -= OnAutoRestorePerformed;
+                _svc.AutoRestoreStateChanged -= OnAutoRestoreStateChanged;
+            }
         }
     }
 }

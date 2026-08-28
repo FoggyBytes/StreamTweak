@@ -521,9 +521,26 @@ namespace StreamTweak.ViewModels
             }
         }
 
-        public string NvSentinelAutoRestoreColorHex  => _nvSentinelAutoRestoreText == "On" ? "#4ade80"   : "#f87171";
-        public string NvSentinelAutoRestoreBgHex     => _nvSentinelAutoRestoreText == "On" ? "#1F4ade80" : "#1Aef4444";
-        public string NvSentinelAutoRestoreBorderHex => _nvSentinelAutoRestoreText == "On" ? "#4D4ade80" : "#40ef4444";
+        // Three states, not two: "Stuck" is armed-but-not-working, and showing it in the red of
+        // "Off" would say the opposite of what is happening — the user turned it on. Amber.
+        public string NvSentinelAutoRestoreColorHex  => _nvSentinelAutoRestoreText switch
+        {
+            "On"    => "#4ade80",
+            "Stuck" => "#fbbf24",
+            _       => "#f87171",
+        };
+        public string NvSentinelAutoRestoreBgHex     => _nvSentinelAutoRestoreText switch
+        {
+            "On"    => "#1F4ade80",
+            "Stuck" => "#1Ffbbf24",
+            _       => "#1Aef4444",
+        };
+        public string NvSentinelAutoRestoreBorderHex => _nvSentinelAutoRestoreText switch
+        {
+            "On"    => "#4D4ade80",
+            "Stuck" => "#4Dfbbf24",
+            _       => "#40ef4444",
+        };
 
         private string _nvSentinelBadgeText = "Off";
         public string NvSentinelBadgeText
@@ -862,7 +879,10 @@ namespace StreamTweak.ViewModels
 
             var sentinel = AppStateService.Instance.NvidiaSentinel;
             if (sentinel != null)
-                sentinel.AutoRestorePerformed += OnNvAutoRestorePerformed;
+            {
+                sentinel.AutoRestorePerformed    += OnNvAutoRestorePerformed;
+                sentinel.AutoRestoreStateChanged += OnNvAutoRestorePerformed;
+            }
 
             // Keep the Paired clients list live: approving or revoking a client on the
             // Clients page otherwise left the Dashboard showing the old list until the
@@ -879,26 +899,53 @@ namespace StreamTweak.ViewModels
             if (!string.IsNullOrEmpty(initial))
                 OnSpatialAudioStatusChanged(initial);
 
+            // These two poll once or twice a second, so they run only while the window is
+            // actually on screen. Minimising hides the window instead of navigating away,
+            // so without this they kept polling for a dashboard nobody could see — most of
+            // the idle CPU cost in issue #7.
+            AppStateService.Instance.MainWindowVisibilityChanged += OnMainWindowVisibilityChanged;
+            if (AppStateService.Instance.IsMainWindowVisible)
+                StartPollingTimers();
+        }
+
+        private void OnMainWindowVisibilityChanged(object? sender, bool visible)
+            => _dispatcher.TryEnqueue(() =>
+            {
+                if (visible) StartPollingTimers();
+                else         StopPollingTimers();
+            });
+
+        private void StartPollingTimers()
+        {
             // Poll NIC link speed every 2 s so the Home tile stays current in real time.
-            _nicSpeedTimer = new System.Threading.Timer(_ => RefreshNicSpeed(),
+            _nicSpeedTimer ??= new System.Threading.Timer(_ => RefreshNicSpeed(),
                 state: null, dueTime: 0, period: 2000);
 
             // Idle host vitals — 1 s tick, same cadence as the collector itself.
             // Reads an already-sampled snapshot, so this is a cheap struct copy.
-            _vitalsTimer = _dispatcher.CreateTimer();
-            _vitalsTimer.Interval    = TimeSpan.FromSeconds(1);
-            _vitalsTimer.IsRepeating = true;
-            _vitalsTimer.Tick       += (_, _) => RefreshHostVitals();
+            if (_vitalsTimer == null)
+            {
+                _vitalsTimer = _dispatcher.CreateTimer();
+                _vitalsTimer.Interval    = TimeSpan.FromSeconds(1);
+                _vitalsTimer.IsRepeating = true;
+                _vitalsTimer.Tick       += (_, _) => RefreshHostVitals();
+            }
             _vitalsTimer.Start();
             RefreshHostVitals();
         }
 
-        public void Unsubscribe()
+        private void StopPollingTimers()
         {
             _nicSpeedTimer?.Dispose();
             _nicSpeedTimer = null;
             _vitalsTimer?.Stop();
+        }
+
+        public void Unsubscribe()
+        {
+            StopPollingTimers();
             _vitalsTimer = null;
+            AppStateService.Instance.MainWindowVisibilityChanged -= OnMainWindowVisibilityChanged;
             StopLiveSession();
             AppStateService.Instance.SessionStateChanged       -= OnSessionStateChanged;
             AppStateService.Instance.SpatialAudioStatusChanged -= OnSpatialAudioStatusChanged;
@@ -906,7 +953,10 @@ namespace StreamTweak.ViewModels
 
             var sentinel = AppStateService.Instance.NvidiaSentinel;
             if (sentinel != null)
-                sentinel.AutoRestorePerformed -= OnNvAutoRestorePerformed;
+            {
+                sentinel.AutoRestorePerformed    -= OnNvAutoRestorePerformed;
+                sentinel.AutoRestoreStateChanged -= OnNvAutoRestorePerformed;
+            }
 
             var bridgeAuth = AppStateService.Instance.BridgeAuth;
             if (bridgeAuth != null)
@@ -1449,7 +1499,9 @@ namespace StreamTweak.ViewModels
                 return;
             }
 
-            NvSentinelAutoRestoreText = svc.AutoRestoreEnabled ? "On" : "Off";
+            NvSentinelAutoRestoreText = !svc.AutoRestoreEnabled ? "Off"
+                                      : svc.IsStuck            ? "Stuck"
+                                      :                          "On";
 
             // The snapshot size is reported on its own neutral badge now, next to the
             // auto-restore state — so it's shown whether auto-restore is armed or not

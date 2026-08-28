@@ -424,6 +424,13 @@
                     </StackPanel>
                     <Border Style="{StaticResource ST8_GroupCard}">
                         <StackPanel>
+                            <!-- Armed but unable to re-apply: the one state where auto-restore
+                                 looks on and is doing nothing, so it has to say so. -->
+                            <InfoBar IsOpen="{x:Bind Nv.IsStuck, Mode=OneWay}"
+                                     Visibility="{x:Bind Nv.IsStuck, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                                     Severity="Warning" Title="Auto-restore is not working"
+                                     Message="{x:Bind Nv.StuckMessage, Mode=OneWay}"
+                                     IsClosable="False" Margin="0,12,0,2"/>
                             <Border Style="{StaticResource ST8_Row}">
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

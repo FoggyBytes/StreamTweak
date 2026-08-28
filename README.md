@@ -84,6 +84,16 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Remote Windows Update** *(3.3.0+)* — scan, classify and install updates on the host and reboot it, or install them as part of a shutdown, all from the client with no keyboard on the host. The privileged work runs in the LocalSystem service
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 
+## ✨ What's New in 8.2.0 — "The Quiet Update"
+
+- **It costs nothing to leave running** — StreamTweak held a steady slice of a CPU core while doing nothing at all: in the tray, no client connected, no session running. Reported as [issue #7](https://github.com/FoggyBytes/StreamTweak/issues/7), and the cause was measured rather than guessed at
+- **The host metrics were paying hundreds of times over** — the figures behind the client's overlay were gathered by opening one performance counter per process per GPU engine and asking each in turn, and every one of those questions re-read the entire set. On an ordinary desktop that was over two hundred full reads a second. One pass now returns the same numbers, and the cost stops growing with how busy the machine is
+- **Nothing is measured unless something is asking** — the metrics are collected while a client is connected or the Dashboard is in front of you, and not otherwise. The Dashboard's live tiles also stop when the window is closed to the tray, and never start at all when StreamTweak launches minimised with Windows
+- **The log watch got cheap, not slow** — the check for a new streaming-server log was rescanning the folder ten times a second. It now looks only when the folder has actually changed, at the same cadence: the reader picks up a rotated log from its end, so slowing the check down would have cost log lines instead of CPU
+- **NVIDIA Sentinel says when it is stuck** — auto-restore could fail every single time and tell you nothing: the profile went unprotected while the switch still read *On*, and the only trace was a line in a log file. It now backs off instead of retrying forever, shows **Stuck** on the Dashboard badge and explains itself on the **Tuning** page. A profile saved under a different driver version is the usual cause and re-saving it is the usual fix — and a restore that failed is no longer recorded as though it had worked
+- **The Sentinel's safety-net poll dropped from 5 to 30 seconds** — it was costing 2.5% of a CPU core around the clock, which after the work above was four times everything else the app does at rest. The watch on the driver's settings database is what actually catches a reset, in milliseconds; the poll only covers the cases that watch cannot see
+- ⚠️ Host metrics now take about a second to appear once a client starts asking, instead of being there instantly — they are rates, and a rate means nothing until it has been measured twice
+
 ## ✨ What's New in 8.1.2 — "The Tray Update"
 
 - **The tray menu is Open and Exit** — everything else it carried either repeated what the tooltip and the icon already say, or was a second copy of a control with a proper home on one of the app's own pages
