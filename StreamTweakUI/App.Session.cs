@@ -379,6 +379,10 @@ namespace StreamTweak
                 _sessionProcessMonitor = new SessionProcessMonitor(games);
                 _sessionProcessMonitor.Start();
                 SeedLaunchedGameIntoMonitor();  // credit the game named in the server log
+
+                // Armed for every session, unlike the heartbeat one, which waits for telemetry
+                // that a non-StreamLight client never sends.
+                EnsureSocketWatchdog();
             }
             catch (Exception ex) { DebugLogger.Log($"[Streaming] HandleAutoStreamStart failed: {ex}"); }
             finally { _sessionStartInProgress = false; }
@@ -422,6 +426,7 @@ namespace StreamTweak
                     _lastLaunchedGameName = null;
                     _lastSessionDataUtc   = DateTime.MinValue;   // disarm the client-heartbeat watchdog
                     StopHeartbeatWatchdog();                     // …and release its timer
+                    StopSocketWatchdog();                        // same for the stream-socket one
                     AppStateService.Instance.IsSessionActive = false;
                     UpdateTrayStreamingState(false);
                 }
@@ -622,6 +627,87 @@ namespace StreamTweak
                 _ = HandleAutoStreamStop("Client heartbeat lost");
             };
             _heartbeatWatchdog.Start();
+        }
+
+        // ── Stream-socket watchdog ───────────────────────────────────────────
+        // The other fallback session-end, and the only one that covers a client which sends no
+        // telemetry — stock Moonlight, every non-StreamLight client. The heartbeat watchdog above
+        // arms only once SESSIONDATA has been seen, so for those clients nothing at all closed a
+        // session whose end the server never logged: it stayed open until StreamTweak was
+        // restarted, which is what issue #9 looked like from the outside.
+        //
+        // The signal is the stream's own UDP sockets (LogParser.HasActiveStreamSockets), measured
+        // to appear and disappear within a poll of the client attaching and detaching. Three
+        // refusals in a row, not one: a stream restarting mid-session — a reconnect, a settings
+        // change — takes the sockets down briefly, and ending a live session over that would be
+        // far worse than ending a dead one ninety seconds late.
+        //
+        // ⚠️ It cannot cover a server hung in its own teardown: the sockets stay open with the
+        // process. Nothing available to the host covers that.
+        private Microsoft.UI.Dispatching.DispatcherQueueTimer? _socketWatchdog;
+        private int _socketWatchdogMisses;
+        private bool _socketWatchdogChecking;
+        private const int SOCKET_WATCHDOG_INTERVAL_MS = 30_000;
+        private const int SOCKET_WATCHDOG_STRIKES     = 3;
+
+        private void EnsureSocketWatchdog()
+        {
+            if (_socketWatchdog != null) return;
+            _socketWatchdogMisses = 0;
+            _socketWatchdog = _dispatcher.CreateTimer();
+            _socketWatchdog.Interval    = TimeSpan.FromMilliseconds(SOCKET_WATCHDOG_INTERVAL_MS);
+            _socketWatchdog.IsRepeating = true;
+            _socketWatchdog.Tick += (_, _) =>
+            {
+                if (_isDebugModeActive) return;      // the debug feed has no server behind it
+                if (!_isAutoSessionActive) return;   // no session → nothing to end
+                if (_socketWatchdogChecking) return; // a slow check is still running
+
+                // The session outlives the disconnect by a grace period, so that a client coming
+                // straight back rejoins the same history row. The sockets are already gone for all
+                // of it, and this watchdog exists for the case where the log said *nothing* — so
+                // while the grace period is counting down there is nothing here to add. Skipping
+                // is not only tidier: it kept logging a stray "1/3" after almost every session,
+                // which reads like a fault in a log whose whole job is telling faults apart.
+                if (_inactivityTimer?.IsRunning == true) return;
+
+                _socketWatchdogChecking = true;
+                _ = Task.Run(() =>
+                {
+                    // Off the UI thread: the probe enumerates processes and the system's UDP table.
+                    bool live = LogParser.HasActiveStreamSockets();
+                    _dispatcher.TryEnqueue(() =>
+                    {
+                        _socketWatchdogChecking = false;
+                        if (!_isAutoSessionActive) return;
+
+                        if (live) { _socketWatchdogMisses = 0; return; }
+
+                        if (++_socketWatchdogMisses < SOCKET_WATCHDOG_STRIKES)
+                        {
+                            DebugLogger.Log($"[Session] No stream sockets ({_socketWatchdogMisses}/{SOCKET_WATCHDOG_STRIKES})");
+                            return;
+                        }
+
+                        DebugLogger.Log($"[Session] No stream sockets for "
+                                      + $"{SOCKET_WATCHDOG_STRIKES * SOCKET_WATCHDOG_INTERVAL_MS / 1000}s — "
+                                      + "ending session (the server logged no disconnect)");
+                        _socketWatchdogMisses = 0;
+                        _ = HandleAutoStreamStop("Stream sockets gone");
+                    });
+                });
+            };
+            _socketWatchdog.Start();
+        }
+
+        private void StopSocketWatchdog()
+        {
+            _dispatcher.TryEnqueue(() =>
+            {
+                _socketWatchdog?.Stop();
+                _socketWatchdog = null;
+                _socketWatchdogMisses = 0;
+            });
         }
 
         /// <summary>

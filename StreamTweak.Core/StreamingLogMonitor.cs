@@ -119,6 +119,31 @@ namespace StreamTweak
         private const double DESKTOP_LINE_SUPPRESSION_SEC = 3.0;
         private DateTime lastLaunchLineUtc = DateTime.MinValue;
 
+        /// <summary>
+        /// The uuid of the session the server most recently declared open, on the two forks that
+        /// declare one (Vibeshine, Vibepollo — <c>session_history: begin_session uuid=…</c>).
+        /// Null on Sunshine and Apollo, and until the first such line is read.
+        /// </summary>
+        private string? openHistoryUuid;
+
+        /// <summary>Extracts the <c>uuid=…</c> of a session_history line, or null.</summary>
+        private static string? TryParseHistoryUuid(string line)
+        {
+            const string marker = "uuid=";
+            int i = line.IndexOf(marker, StringComparison.Ordinal);
+            if (i < 0) return null;
+            i += marker.Length;
+            int end = i;
+            while (end < line.Length && (char.IsLetterOrDigit(line[end]) || line[end] == '-')) end++;
+            return end > i ? line.Substring(i, end - i) : null;
+        }
+
+        private static bool IsHistoryBegin(string line) =>
+            line.IndexOf("session_history: begin_session", StringComparison.Ordinal) >= 0;
+
+        private static bool IsHistoryEnd(string line) =>
+            line.IndexOf("session_history: end_session", StringComparison.Ordinal) >= 0;
+
         public class StreamingEventArgs : EventArgs
         {
             public LogParser.StreamingEvent Event { get; set; }
@@ -147,18 +172,22 @@ namespace StreamTweak
                 DebugLog("No log file found at startup — will keep retrying via rediscovery");
             }
 
-            // Primary: check active TCP connections on port 48010 (RTSP).
-            // Sunshine / Apollo / Vibeshine / Vibepollo maintain this connection
-            // for the entire session — instantaneous, no log parsing, works with
-            // any Moonlight-compatible client (not just StreamLight).
-            if (LogParser.HasActiveMoonlightSession())
+            // Primary: is the streaming server holding the UDP sockets a session runs on? No log
+            // parsing, instantaneous, and true for any Moonlight-compatible client rather than
+            // just StreamLight. (Until 8.3.0 this asked about a TCP connection on 48010 instead,
+            // which a live session does not hold — see LogParser.HasActiveMoonlightSession. The
+            // consequence was that this branch never once fired and the scan below did all the
+            // work, unassisted.)
+            if (LogParser.HasActiveStreamSockets())
             {
+                DebugLog("A session is already running at startup (stream sockets are open)");
                 FireRetrospectiveStarted();
             }
             else if (!string.IsNullOrEmpty(currentLogFilePath))
             {
-                // Fallback: log file scan — covers edge cases (e.g. brief TCP gap
-                // during StreamTweak reinstall while session continues on UDP).
+                // Fallback: log file scan, for the moment where the sockets exist but this one
+                // reading missed them. Both of its phases confirm with the sockets before they
+                // revive anything.
                 CheckForExistingSession(currentLogFilePath);
             }
 
@@ -247,12 +276,36 @@ namespace StreamTweak
                             // log lines or rotation artifacts.
                             if (streamingEvent == LogParser.StreamingEvent.StreamStarted)
                             {
+                                if (IsHistoryBegin(line))
+                                {
+                                    openHistoryUuid = TryParseHistoryUuid(line);
+                                    DebugLog($"Server declared session {openHistoryUuid ?? "(no uuid)"} open");
+                                }
+
                                 seenStreamStarted = true;
                                 DebugLog($"Event raised: {streamingEvent}");
                                 StreamingEventDetected?.Invoke(this, new StreamingEventArgs { Event = streamingEvent });
                             }
                             else if (streamingEvent == LogParser.StreamingEvent.StreamStopped)
                             {
+                                // The pairing the uuid buys us: an end that belongs to a different
+                                // session than the one running is not this session's end. Without
+                                // it a stale line — the tail re-read at every startup routinely
+                                // hands us the previous session's "Session ended" — can close a
+                                // session that is actually live. Only Vibeshine and Vibepollo
+                                // declare uuids; elsewhere openHistoryUuid stays null and this
+                                // check stands aside.
+                                if (IsHistoryEnd(line) && openHistoryUuid != null)
+                                {
+                                    string? ending = TryParseHistoryUuid(line);
+                                    if (ending != null && ending != openHistoryUuid)
+                                    {
+                                        DebugLog($"Ignored end_session for {ending}: the open session is {openHistoryUuid}");
+                                        continue;
+                                    }
+                                    openHistoryUuid = null;
+                                }
+
                                 if (seenStreamStarted)
                                 {
                                     seenStreamStarted = false;
@@ -423,9 +476,12 @@ namespace StreamTweak
         }
 
         /// <summary>
-        /// Reads the tail of the log file and fires a retrospective StreamStarted event if the
-        /// most recent streaming event found is "started" (meaning the session is already active).
-        /// Called once at startup before the real-time monitoring loop begins.
+        /// Reads the log file and fires a retrospective StreamStarted event when the most recent
+        /// streaming event is "started" <b>and</b> the server is holding the stream's UDP sockets.
+        /// Called once at startup, after the direct socket check, before the monitoring loop.
+        /// <para>Both halves are load-bearing and neither is sufficient: the log alone revives
+        /// sessions that ended without their end being written (issue #9), and the sockets alone
+        /// would miss a session whose sockets this one reading happened not to catch.</para>
         /// </summary>
         private void CheckForExistingSession(string logFilePath)
         {
@@ -439,6 +495,21 @@ namespace StreamTweak
                     LogParser.StreamingEvent ev = LogParser.ParseLogLine(tailLines[i]);
                     if (ev == LogParser.StreamingEvent.StreamStarted)
                     {
+                        // A start line in the tail says a session *was* opened, never that it is
+                        // still up: the line survives in the log until the server rotates it, so
+                        // on its own it revives the same dead session at every launch — which is
+                        // how the phantom of issue #9 kept coming back from a restart.
+                        //
+                        // ⚠️ The check has to be the UDP one. Gating this on the TCP probe was
+                        // tried and reverted the same day: that probe never sees a live session,
+                        // so it would have stopped a StreamTweak restarted mid-session from ever
+                        // picking the session back up. See LogParser for both measurements.
+                        if (!StreamSocketsPresent())
+                        {
+                            DebugLog("Tail shows a session start, but the server holds no stream sockets — not reviving it");
+                            return;
+                        }
+
                         DebugLog("Active session detected in tail at startup — raising StreamStarted retroactively");
                         FireRetrospectiveStarted();
                         return;
@@ -455,20 +526,16 @@ namespace StreamTweak
                 // produces enough verbose output to push the initial CLIENT CONNECTED line outside
                 // the tail window. Check the file head for a StreamStarted event.
                 //
-                // IMPORTANT: always re-verify via TCP before firing, even though the TCP check
-                // already returned false (which is why we entered CheckForExistingSession at all).
-                // Without this guard, a stale log file that contains a StreamStarted from a
-                // long-past session — whose StreamStopped was written between the tail window and
-                // the head — would trigger a phantom retrospective session on every startup.
-                // The re-check here ensures Phase 2 only fires when the session is still live
-                // (i.e. TCP confirms it, possibly recovering from a brief gap that cleared up
-                // while we were reading the file).
+                // IMPORTANT: the socket check is not optional here. A stale log file containing a
+                // StreamStarted from a long-past session — whose StreamStopped was written between
+                // the tail window and the head — would otherwise raise a phantom retrospective
+                // session at every single startup.
                 string[] headLines = ReadHeadLines(logFilePath, 200);
                 bool headHasStart = headLines.Any(l =>
                     LogParser.ParseLogLine(l) == LogParser.StreamingEvent.StreamStarted);
-                if (headHasStart && LogParser.HasActiveMoonlightSession())
+                if (headHasStart && StreamSocketsPresent())
                 {
-                    DebugLog("Active session detected in file head at startup (long session, TCP verified) — raising StreamStarted retroactively");
+                    DebugLog("Active session detected in file head at startup (long session, sockets confirm) — raising StreamStarted retroactively");
                     FireRetrospectiveStarted();
                     return;
                 }
@@ -479,6 +546,21 @@ namespace StreamTweak
             {
                 DebugLog($"CheckForExistingSession error: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// The startup form of <see cref="LogParser.HasActiveStreamSockets"/>: reads twice, a
+        /// second apart, and takes yes for an answer. The watchdog can afford to be patient — it
+        /// wants three refusals in a row — but this runs once, at launch, and a single unlucky
+        /// reading (a stream restarting as StreamTweak starts) would lose a live session for the
+        /// rest of it. Costs one extra second, and only on the path where the log says a session
+        /// might be open.
+        /// </summary>
+        private static bool StreamSocketsPresent()
+        {
+            if (LogParser.HasActiveStreamSockets()) return true;
+            Thread.Sleep(1000);
+            return LogParser.HasActiveStreamSockets();
         }
 
         private void FireRetrospectiveStarted()

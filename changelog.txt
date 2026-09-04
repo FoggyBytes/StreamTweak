@@ -4,6 +4,23 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-------------------------------------------------
+Version 8.3.0 - "The Phantom Update" (04/09/2026)
+-------------------------------------------------
+
+🐛 BUG FIXES — SESSION DETECTION:
+• A session could show as live on the Dashboard while nothing was streaming, and stay that way until the PC was restarted — StreamTweak read the streaming server's log by looking for a few words anywhere in a line, and ordinary lines contained them (reported in issue #9)
+• Those words are now matched where the server actually writes them, at the start of its own message — the Playnite bridge announcing its pipe, a display being restored after a stream, or any line naming a client whose own name contains "Moonlight" no longer count as a session starting or ending
+• Reopening StreamTweak no longer brings a finished session back to life — before trusting what the log says, it checks whether the streaming server is really holding the network sockets a stream runs on
+
+🛠️ SESSION TRACKING:
+• A session now ends even when the streaming server never writes that it did — StreamTweak watches the sockets the stream itself runs on and closes the session a minute and a half after they go away. Until now this only worked for StreamLight, which reports in every second; with a phone, a TV or any other Moonlight client the session stayed open until the app was restarted
+• On Vibeshine and Vibepollo, sessions are matched to the identifier the server gives them, so the end of one session can no longer be mistaken for the end of another
+• A session in progress is recognised the moment StreamTweak starts, however long it has been running — the check that was supposed to do this had never once worked
+
+🙏 THANKS:
+• Thanks to @markmghali for the report and the logs that pinned it down (https://github.com/FoggyBytes/StreamTweak/issues/9)
+
 -----------------------------------------------
 Version 8.2.0 - "The Quiet Update" (28/08/2026)
 -----------------------------------------------

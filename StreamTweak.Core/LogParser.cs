@@ -25,37 +25,130 @@ namespace StreamTweak
             "Vibepollo", "Vibeshine", "Apollo", "Sunshine"
         };
 
+        /// <summary>
+        /// The server's own log level prefixes, stripped before matching. Sunshine and all three
+        /// forks write <c>[timestamp]: Level: message</c>.
+        /// </summary>
+        private static readonly string[] LevelPrefixes =
+        {
+            "Verbose: ", "Debug: ", "Info: ", "Warning: ", "Error: ", "Fatal: "
+        };
+
+        /// <summary>
+        /// Markers that open a session, matched against the <i>start</i> of the message.
+        /// <c>CLIENT CONNECTED</c> is the one that fires in practice — the other two are kept as
+        /// wording insurance across forks, and cost nothing now that they are anchored.
+        /// </summary>
+        private static readonly string[] StartMarkers =
+        {
+            "CLIENT CONNECTED", "Starting stream", "Stream started",
+            // Vibeshine and Vibepollo only (verified absent from Sunshine and Apollo, whose src/
+            // has no session_history at all). Written by the server's own history subsystem when
+            // the RTSP session is negotiated — about a second *before* CLIENT CONNECTED, already
+            // carrying resolution, fps, codec and HDR. Two lines meant for machines, paired by a
+            // uuid, instead of prose: see StreamingLogMonitor for what the pairing is worth.
+            "session_history: begin_session"
+        };
+
+        /// <summary>
+        /// Markers that close a session. <c>Session ended</c> is load-bearing and was missing until
+        /// 8.1.0: when the streamed app exits, the server tears the session down and logs *only*
+        /// that line — there is no CLIENT DISCONNECTED, because the client never disconnected.
+        /// Without it StreamTweak never learned the session was over, so the link stayed switched,
+        /// the session kept running in the history, and a stream started shortly afterwards was
+        /// merged into it. Verified present in src/stream.cpp of Sunshine, Apollo, Vibeshine and
+        /// Vibepollo.
+        /// </summary>
+        private static readonly string[] StopMarkers =
+        {
+            "CLIENT DISCONNECTED", "Session ended", "Stream ended", "Stream stopped", "Stopping stream",
+            // The other half of the pair above. Written in the same breath as "Session ended" —
+            // literally the next statement in the server's teardown (stream.cpp) — so it is no more
+            // reliable than that line is. What it adds is the uuid, not robustness.
+            "session_history: end_session"
+        };
+
+        /// <summary>
+        /// Strips <c>[timestamp]: </c>, the log level, and any leading <c>[tag] </c>, leaving the
+        /// server's message. A line with none of them is returned as-is (wrapped continuation
+        /// lines, foreign formats).
+        /// </summary>
+        private static string ExtractMessage(string logLine)
+        {
+            string s = logLine;
+
+            int ts = s.IndexOf("]: ", StringComparison.Ordinal);
+            if (ts >= 0) s = s.Substring(ts + 3);
+
+            foreach (string prefix in LevelPrefixes)
+            {
+                if (s.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    s = s.Substring(prefix.Length);
+                    break;
+                }
+            }
+
+            s = s.TrimStart();
+
+            // The belt on the anchoring above: a fork that one day prefixes its message with a
+            // tag ("Info: [rtsp] Session ended") would otherwise have its session lines silently
+            // ignored, and a missed *stop* is the expensive direction — 8.1.0 shipped with
+            // "Session ended" absent from the vocabulary, and the link stayed switched while the
+            // session ran on in the history. None of the four servers writes a tag today (the two
+            // forks' logs measured for issue #9 write the message bare), so this costs nothing and
+            // covers the case that would cost a release.
+            //
+            // Deliberately narrow: the bracket must close, and a space must follow it, so
+            // "[Pixel 9 Moonlight V+]: …" (a client name, ']' followed by ':') is not a tag. Two
+            // at most, because a message that opens with three brackets is not a log format we
+            // are prepared to guess at.
+            for (int i = 0; i < 2 && s.Length > 0 && s[0] == '['; i++)
+            {
+                int close = s.IndexOf(']');
+                if (close < 0 || close + 1 >= s.Length || s[close + 1] != ' ') break;
+                s = s.Substring(close + 1).TrimStart();
+            }
+
+            return s;
+        }
+
+        /// <summary>
+        /// True when the message <i>begins</i> with one of the markers.
+        /// <para><b>Anchored on purpose — this is issue #9.</b> These markers used to be matched as
+        /// substrings anywhere in the line, which made three ordinary lines look like session
+        /// events: Apollo's Playnite bridge (<c>Playnite IPC: client connected</c>), the display
+        /// teardown (<c>Display restore: final stream ended; …</c>), and — via a <c>moonlight</c>
+        /// marker that is now gone — every line naming a client whose own name contains
+        /// "Moonlight". In the reporter's log 177 of 205 detected starts were of that kind, and one
+        /// of them left a phantom session running for hours. Matching from the start of the message
+        /// discriminates them all: the noise always carries a prefix, the real lines never do.</para>
+        /// StartsWith rather than equality so a fork appending a detail
+        /// (<c>CLIENT DISCONNECTED [1 remaining]</c>) still counts.
+        /// </summary>
+        private static bool StartsWithMarker(string message, string[] markers)
+        {
+            foreach (string marker in markers)
+                if (message.StartsWith(marker, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
+        }
+
         public static StreamingEvent ParseLogLine(string logLine)
         {
             if (string.IsNullOrWhiteSpace(logLine))
                 return StreamingEvent.None;
 
-            string lowerLine = logLine.ToLower();
+            string message = ExtractMessage(logLine);
 
-            // Check StreamStopped FIRST (more specific patterns)
-            //
-            // "session ended" is load-bearing and was missing until 8.1.0: when the streamed app
-            // exits, the server tears the session down and logs *only* that line — there is no
-            // CLIENT DISCONNECTED, because the client never disconnected. Without it StreamTweak
-            // simply never learned the session was over, so the link stayed switched, the session
-            // kept running in the history, and a stream started shortly afterwards was merged into
-            // it. Verified present in src/stream.cpp of Sunshine, Apollo, Vibeshine and Vibepollo.
-            if (lowerLine.Contains("client disconnected") ||
-                lowerLine.Contains("session ended") ||
-                lowerLine.Contains("stream ended") ||
-                lowerLine.Contains("stream stopped") ||
-                lowerLine.Contains("stopping stream"))
+            // Check StreamStopped FIRST (more specific patterns).
+            if (StartsWithMarker(message, StopMarkers))
             {
                 DebugLog($"StreamStopped detected: {logLine}");
                 return StreamingEvent.StreamStopped;
             }
 
-            // Then check StreamStarted
-            if (lowerLine.Contains("client connected") ||
-                lowerLine.Contains("starting stream") ||
-                lowerLine.Contains("stream started") ||
-                lowerLine.Contains("client ip") ||
-                lowerLine.Contains("moonlight"))
+            if (StartsWithMarker(message, StartMarkers))
             {
                 DebugLog($"StreamStarted detected: {logLine}");
                 return StreamingEvent.StreamStarted;
@@ -281,6 +374,37 @@ namespace StreamTweak
         // Filtering to port 48010 prevents false positives from Sunshine's HTTPS web UI
         // (47989/47990), which can be accessed from another machine without an active stream.
         // Fallback: same check via IPGlobalProperties — less precise (any process, same port).
+        //
+        // ⚠️⚠️ MEASURED 04/09/2026: THIS DOES NOT DETECT A LIVE SESSION. Polled every 11 s across
+        // a real session on Vibeshine (14:27:00 → 14:40:56, MGS4): false at all 76 polls inside
+        // the session, with zero established sockets on 48010 at every one of them. It was true
+        // exactly once, at 14:26:59 — the launch handshake, one second before CLIENT CONNECTED —
+        // and gone again 11 s later. (tools/ProbeWatch is the harness; keep it for the next one.)
+        //
+        // The client source says why: RTSP is used for setup only, and moonlight-common-c opens a
+        // TCP connection per RTSP message and closes it at the end of the transaction
+        // (RtspConnection.c, transactRtspMessageTcp), or skips TCP entirely on servers where it
+        // uses ENet. The stream itself is UDP. So this is true only for the milliseconds of an
+        // RTSP exchange during launch, and the comment above — "maintained for the entire
+        // session" — was never true.
+        //
+        // It is therefore NOT a liveness signal, and nothing may be gated on a false result from
+        // it. Callers to re-examine: LinkSpeedManager.LiveSessionProbe (the guard meant to stop a
+        // client renegotiating the adapter mid-stream) and StreamingLogMonitor Phase 2.
+        // The obvious replacement was tried and does NOT fit either. GET
+        // http://127.0.0.1:47989/serverinfo answers unauthenticated with <state> and <currentgame>,
+        // and it does track a session: measured 04/09/2026, BUSY within a second of CLIENT
+        // CONNECTED, FREE within one poll of the client going away. But a second measurement, with
+        // the client disconnected and the game left running, showed it stays BUSY with nobody
+        // attached (15:07:43 disconnect → still BUSY at 15:07:51 and 15:08:02 → FREE only at
+        // 15:08:24, once the game was gone). So <state> means "a session or its app is up", not
+        // "a client is streaming", and it must NOT be wired into the guards here: a client that
+        // drops and relaunches would be refused its SETSPEED for as long as the game stays up —
+        // the relaunch case LinkSim S16 exists to protect.
+        //
+        // Net: there is no known live-stream signal available to the host today except the
+        // log-derived flag. Do not replace this with a probe that has not been measured across a
+        // disconnect-with-game-running, which is where both candidates so far have failed.
         public static bool HasActiveMoonlightSession()
         {
             // Primary: process-scoped TCP check
@@ -334,6 +458,158 @@ namespace StreamTweak
             {
                 DebugLog($"TCP check (fallback) error: {ex.Message}");
                 return false;
+            }
+        }
+
+        // ─── Active session detection via the stream's own UDP sockets ────────
+
+        /// <summary>
+        /// True while the streaming server holds any UDP socket — which means a client is attached
+        /// and streaming.
+        /// <para><b>Why this and not a port list.</b> The stream runs on UDP ports derived from the
+        /// server's configurable base port, so naming 47998-48000 would break on a host that moved
+        /// it. The measurement that makes the simpler question sound: with no session running the
+        /// server process holds <i>zero</i> UDP sockets and four TCP listeners, so the presence of
+        /// any UDP socket at all is the event. Ports are still logged, for diagnosis.</para>
+        /// <para><b>Measured 04/09/2026</b>, two full cycles on Vibeshine, polled every 11 s:
+        /// the sockets (47998/47999/48000) appeared within one poll of CLIENT CONNECTED and were
+        /// gone within one poll of CLIENT DISCONNECTED, both times. Crucially they were <i>absent</i>
+        /// through the 43 s when the client had gone but the game was still running — the case
+        /// where <c>/serverinfo</c>'s <c>&lt;state&gt;</c> keeps saying BUSY. So this tracks the
+        /// client, not the app, which is exactly the question StreamTweak asks.</para>
+        /// <para>⚠️ It cannot see through a server that has hung in its teardown: the sockets stay
+        /// open with the process, and so does the session. Nothing available to the host covers
+        /// that case.</para>
+        /// <para>⚠️ NOT wired into <c>LinkSpeedManager.LiveSessionProbe</c>. That guard acts on a
+        /// single reading, so a momentary gap mid-session — a client reconnecting, a stream
+        /// restarting on a settings change — would let it renegotiate the adapter under a live
+        /// stream. Wiring it there needs a measurement across a long session first, showing the
+        /// signal has no gaps between the first and last poll. The consumers here all tolerate a
+        /// gap: the watchdog needs three in a row, the startup check reads twice.</para>
+        /// </summary>
+        public static bool HasActiveStreamSockets()
+        {
+            try
+            {
+                var serverInfo = FindStreamingAppInfo();
+                if (serverInfo?.ExePath == null)
+                {
+                    VerboseLog("UDP check: no streaming server installed");
+                    return false;
+                }
+
+                string exeName = Path.GetFileNameWithoutExtension(serverInfo.ExePath);
+                int[] pids;
+                var procs = Process.GetProcessesByName(exeName);
+                try
+                {
+                    pids = procs.Select(p => p.Id).ToArray();
+                }
+                finally
+                {
+                    foreach (var p in procs) p.Dispose();
+                }
+
+                if (pids.Length == 0)
+                {
+                    VerboseLog($"UDP check: {exeName} is not running");
+                    return false;
+                }
+
+                int[] ports = UdpHelper.PortsOwnedBy(pids);
+                VerboseLog(ports.Length > 0
+                    ? $"UDP check: {exeName} holds {string.Join(", ", ports)} — a client is streaming"
+                    : $"UDP check: {exeName} holds no UDP socket — no client streaming");
+                return ports.Length > 0;
+            }
+            catch (Exception ex)
+            {
+                // Deliberately false on error: every caller treats false as "no session", and the
+                // costly mistake is the other one — ending a session that is running.
+                DebugLog($"UDP check error: {ex.Message}");
+                return false;
+            }
+        }
+
+        // ─── P/Invoke helper: GetExtendedUdpTable ─────────────────────────────
+
+        private static class UdpHelper
+        {
+            [StructLayout(LayoutKind.Sequential)]
+            private struct MIB_UDPROW_OWNER_PID
+            {
+                public uint dwLocalAddr;
+                public uint dwLocalPort;
+                public uint dwOwningPid;
+            }
+
+            // IPv6 rows carry a 16-byte address and a scope id before the port, and the fields are
+            // laid out in a different order — hence a second struct rather than a shared one.
+            [StructLayout(LayoutKind.Sequential)]
+            private struct MIB_UDP6ROW_OWNER_PID
+            {
+                [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+                public byte[] ucLocalAddr;
+                public uint dwLocalScopeId;
+                public uint dwLocalPort;
+                public uint dwOwningPid;
+            }
+
+            [DllImport("iphlpapi.dll", SetLastError = true)]
+            private static extern uint GetExtendedUdpTable(IntPtr pUdpTable, ref int dwOutBufLen,
+                bool sort, int ipVersion, int tblClass, uint reserved);
+
+            private const int AF_INET = 2, AF_INET6 = 23, UDP_TABLE_OWNER_PID = 1;
+
+            /// <summary>Local UDP ports currently bound by any of the given processes, both
+            /// address families. Empty when there are none.</summary>
+            public static int[] PortsOwnedBy(int[] pids)
+            {
+                var ports = new List<int>();
+                Collect(AF_INET, pids, ports);
+                Collect(AF_INET6, pids, ports);
+                ports.Sort();
+                return ports.ToArray();
+            }
+
+            private static void Collect(int family, int[] pids, List<int> ports)
+            {
+                int len = 0;
+                GetExtendedUdpTable(IntPtr.Zero, ref len, false, family, UDP_TABLE_OWNER_PID, 0);
+                if (len <= 0) return;
+
+                IntPtr buf = Marshal.AllocHGlobal(len);
+                try
+                {
+                    if (GetExtendedUdpTable(buf, ref len, false, family, UDP_TABLE_OWNER_PID, 0) != 0)
+                        return;
+
+                    int rows = Marshal.ReadInt32(buf);
+                    int size = family == AF_INET
+                        ? Marshal.SizeOf<MIB_UDPROW_OWNER_PID>()
+                        : Marshal.SizeOf<MIB_UDP6ROW_OWNER_PID>();
+
+                    for (int i = 0; i < rows; i++)
+                    {
+                        IntPtr row = buf + 4 + i * size;
+                        uint pid, port;
+                        if (family == AF_INET)
+                        {
+                            var r = Marshal.PtrToStructure<MIB_UDPROW_OWNER_PID>(row);
+                            pid = r.dwOwningPid; port = r.dwLocalPort;
+                        }
+                        else
+                        {
+                            var r = Marshal.PtrToStructure<MIB_UDP6ROW_OWNER_PID>(row);
+                            pid = r.dwOwningPid; port = r.dwLocalPort;
+                        }
+
+                        if (Array.IndexOf(pids, (int)pid) < 0) continue;
+                        // Network byte order, same as the TCP table.
+                        ports.Add((int)(((port & 0xFF) << 8) | ((port >> 8) & 0xFF)));
+                    }
+                }
+                finally { Marshal.FreeHGlobal(buf); }
             }
         }
 

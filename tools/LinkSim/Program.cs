@@ -379,8 +379,79 @@ Scenario("S15  end-of-session log lines are recognised (real lines, all four ser
     Line("'New streaming session started' is NOT an ending",
          "[2026-07-28 22:06:49.958]: Info: New streaming session started [active sessions: 1]",
          LogParser.StreamingEvent.None);
-    Line("'session_history: end_session' is NOT an ending",
+    // ⚠️ This case asserted the opposite until 8.3.0, and the change is deliberate. The line was
+    // written off as noise when the only question was "does the word 'session ended' appear",
+    // because reading it as an end on top of the real one would have double-counted. Now that the
+    // markers are anchored, it is read for what it is: the server naming the session it just
+    // closed. Anchoring is what makes it safe — the four session_history lines below prove the
+    // subsystem's other chatter still says nothing.
+    Line("'session_history: end_session' IS an ending",
          "[2026-07-28 22:06:37.865]: Info: session_history: end_session uuid=FCD70CF2",
+         LogParser.StreamingEvent.StreamStopped);
+
+    // ── issue #9 ─────────────────────────────────────────────────────────────
+    // Every line below is verbatim from the reporter's server log, and every one of them
+    // used to open or close a session: the markers were matched as substrings anywhere in
+    // the line. 177 of the 205 starts detected in his debug.log were of this kind, and the
+    // phantom session he filed the issue about was the Playnite one. They are all told apart
+    // by the same property — the marker is never at the start of the message.
+    Line("Playnite's own pipe is NOT a session start",
+         "[2026-09-03 10:33:56.631]: Debug: Playnite IPC: client connected",
+         LogParser.StreamingEvent.None);
+    Line("…nor is its disconnect an ending",
+         "[2026-09-02 20:34:33.937]: Debug: Playnite IPC: client disconnected",
+         LogParser.StreamingEvent.None);
+    Line("a client named 'Moonlight' being looked up is NOT a start",
+         "[2026-08-22 08:51:08.362]: Debug: Found matching client UUID: E1D152E5-3D04-082F-2598-5D2E14BF4039 for client: Pixel 9 Moonlight V+",
+         LogParser.StreamingEvent.None);
+    Line("…nor is a permission check on it",
+         "[2026-08-22 08:51:08.503]: Debug: Permission Get ServerCommand denied for client [Pixel 9 Moonlight V+]: it lacks the \"Run server commands\" permission (current permission mask 0x3000000). Grant it in the Web UI under Client Management.",
+         LogParser.StreamingEvent.None);
+    Line("…nor is a display mode request for it",
+         "[2026-09-03 20:17:15.412]: Info: Display mode for client [Pixel 9 Moonlight V+] requested to [2992x1344x120]",
+         LogParser.StreamingEvent.None);
+    Line("the display teardown is NOT an ending",
+         "[2026-08-31 21:05:42.829]: Info: Display restore: final stream ended; dispatching restore while keeping virtual display alive.",
+         LogParser.StreamingEvent.None);
+
+    // Synthetic, not from any log: pins the matcher to StartsWith rather than equality, so a
+    // fork that appends a detail to the real line keeps working.
+    Line("a real line with a suffix still ends the session",
+         "[2026-09-03 20:17:18.400]: Info: CLIENT DISCONNECTED [1 remaining]",
+         LogParser.StreamingEvent.StreamStopped);
+
+    // ── The pair Vibeshine and Vibepollo declare for themselves ──────────────
+    // Verbatim from a real log. begin_session lands about a second before CLIENT CONNECTED and
+    // end_session in the same millisecond as "Session ended"; both are absent on Sunshine and
+    // Apollo, where the markers above carry the session on their own.
+    Line("'begin_session' opens a session",
+         "[2026-09-04 15:20:06.927]: Info: session_history: begin_session uuid=5564E850-9CD9-0B05-6A12-E35A054D88A5 protocol=rtsp",
+         LogParser.StreamingEvent.StreamStarted);
+    Line("'end_session' closes it",
+         "[2026-09-04 15:21:01.143]: Info: session_history: end_session uuid=5564E850-9CD9-0B05-6A12-E35A054D88A5",
+         LogParser.StreamingEvent.StreamStopped);
+    // And the noise from the same subsystem, which must stay silent — it is written 27 times per
+    // log on startup, and "initializing database at …\session_history\…" contains the word.
+    Line("'session_history: initialized' is neither",
+         "[2026-09-04 14:21:07.999]: Info: session_history: initialized",
+         LogParser.StreamingEvent.None);
+    Line("…nor is the database path it prints",
+         "[2026-09-04 14:21:07.998]: Info: session_history: initializing database at C:\\Program Files\\Sunshine\\config\\session_history\\session_history.db",
+         LogParser.StreamingEvent.None);
+
+    // Also synthetic: no server writes a tag in front of the message today, and this is the
+    // belt for the day one does — a missed stop is what 8.1.0 cost us.
+    Line("a tagged session line is still recognised",
+         "[2026-09-03 20:17:18.400]: Info: [rtsp] Session ended",
+         LogParser.StreamingEvent.StreamStopped);
+
+    // …and the two real tagged lines in the logs on hand, which must stay silent. The second
+    // is the reason the tag has to close and be followed by a space: 'message: …]' inside it.
+    Line("a tagged line that is not a session line stays None",
+         "[2026-08-31 21:05:16.311]: Debug: [running] App exited but stream teardown is already in flight; deferring cleanup to the gate owner.",
+         LogParser.StreamingEvent.None);
+    Line("…and so does a tagged error",
+         "[2026-09-02 09:35:47.658]: Warning: [code: ERROR_INVALID_PARAMETER, message: Parametro non corretto] failed to query display config",
          LogParser.StreamingEvent.None);
 }
 
