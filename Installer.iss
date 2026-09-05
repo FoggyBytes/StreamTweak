@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v8.3.0 - GitHub Release Installer
-; WinUI 3 (Windows App SDK 2.3) unpackaged deployment
+; StreamTweak v8.4.0 - GitHub Release Installer
+; WinUI 3 (Windows App SDK 2.4) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "8.3.0"
+#define MyAppVersion "8.4.0"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -35,7 +35,7 @@ Compression=lzma2
 SolidCompression=yes
 OutputDir=Output
 OutputBaseFilename=StreamTweak_{#MyAppVersion}_Installer
-; WinUI 3 + Windows App SDK 2.3 require Windows 10 1903+ (build 18362) — the 2.x line
+; WinUI 3 + Windows App SDK 2.4 require Windows 10 1903+ (build 18362) — the 2.x line
 ; raised this from the 1809 (17763) floor of the 1.x line.
 ; StreamTweak targets 19041 (20H1), which is stricter than both, so nothing changes here.
 MinVersion=10.0.19041
@@ -345,6 +345,9 @@ begin
     Exec('sc.exe', 'delete ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     // Remove autostart registry entry if the user had it enabled in-app
     RegDeleteValue(HKCU, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Run', 'StreamTweak');
+    // ...and the logon task, if the user chose Priority instead. Without this the task
+    // survives the uninstall and fails at every logon, forever, launching an exe that is gone.
+    Exec('schtasks.exe', '/Delete /TN "StreamTweak Startup" /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;
 
@@ -352,7 +355,7 @@ function InitializeSetup: Boolean;
 begin
   // .NET 8 base runtime (Microsoft.NETCore.App) — WinUI 3 does not need Desktop runtime
   Dependency_AddDotNet80;
-  // Windows App SDK 2.3 runtime — provides the WinUI 3 XAML framework (DDLM package)
-  Dependency_AddWindowsAppRuntime23;
+  // Windows App SDK 2.4 runtime — provides the WinUI 3 XAML framework (DDLM package)
+  Dependency_AddWindowsAppRuntime24;
   Result := True;
 end;

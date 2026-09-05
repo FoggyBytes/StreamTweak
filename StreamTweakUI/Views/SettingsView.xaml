@@ -218,15 +218,19 @@
                             <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3" Margin="0,0,16,0">
                                 <TextBlock Text="Start with Windows"
                                            Style="{StaticResource ST_RowLabel}"/>
-                                <TextBlock Text="Launch StreamTweak automatically when you log in."
+                                <TextBlock Text="{x:Bind ViewModel.StartupModeDescription, Mode=OneWay}"
                                            Style="{StaticResource ST_RowDescription}"/>
                             </StackPanel>
-                            <ToggleSwitch Grid.Column="1"
-                                          Style="{StaticResource ST_Toggle}"
-                                          AutomationProperties.AutomationId="StartWithWindowsToggle"
-                                          AutomationProperties.Name="Start with Windows"
-                                          IsOn="{x:Bind ViewModel.StartWithWindows, Mode=TwoWay}"
-                                          VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="1"
+                                      MinWidth="180" MaxWidth="220"
+                                      AutomationProperties.AutomationId="StartupModeCombo"
+                                      AutomationProperties.Name="Start with Windows"
+                                      SelectedIndex="{x:Bind ViewModel.StartupModeIndex, Mode=TwoWay}"
+                                      VerticalAlignment="Center">
+                                <ComboBoxItem Content="Off"/>
+                                <ComboBoxItem Content="Normal"/>
+                                <ComboBoxItem Content="Priority"/>
+                            </ComboBox>
                         </Grid>
 
                         <Border Style="{StaticResource ST_Separator}"/>

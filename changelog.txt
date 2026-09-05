@@ -4,6 +4,19 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+----------------------------------------------------
+Version 8.4.0 - "The Head Start Update" (05/09/2026)
+----------------------------------------------------
+
+🚀 STARTUP:
+• "Start with Windows" is now a three-way choice — Off, Normal or Priority — in place of the single switch
+• Priority starts StreamTweak on the sign-in event itself, instead of leaving it in the queue Windows works through after the desktop appears, which cuts the wait sharply — a client that wakes this PC with Wake-on-LAN reaches it far sooner
+• Priority cannot start anything before you are signed in — on a PC that stops at the sign-in screen after a cold boot instead of signing in by itself, StreamTweak still starts only once you sign in
+• Switching back to Normal or Off removes the scheduled task and puts the ordinary startup entry back, and uninstalling StreamTweak removes it as well
+
+🧹 UNDER THE HOOD:
+• Updated to Windows App SDK 2.4 — the installer fetches the 2.4 runtime only if it is missing and installs it alongside whatever is already on the PC, so nothing needs uninstalling
+
 -------------------------------------------------
 Version 8.3.0 - "The Phantom Update" (04/09/2026)
 -------------------------------------------------

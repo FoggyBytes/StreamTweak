@@ -157,25 +157,18 @@ namespace StreamTweak
             }
             catch { _nvidiaSentinel = null; }
 
-            // When launched at Windows login via the autostart registry entry the exe
-            // is invoked with --minimized: skip Activate() so the window never appears.
-            // The app runs silently in the background; the tray icon is the entry point.
-            bool startMinimized = Environment.GetCommandLineArgs()
-                .Any(a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase));
+            // In Priority mode the logon task holds an absolute path to this exe; a reinstall to
+            // another folder would leave it launching something that is not there. Off the
+            // startup thread — it is a COM round-trip, and a feature about starting sooner has
+            // no business adding milliseconds to the start.
+            _ = Task.Run(StartupModeManager.SyncTaskExePath);
 
-            MainWindow = new MainWindow();
-            // Set before Activate(): the pages are constructed and navigated by the window's
-            // own ctor, so their timers consult this on the way up. Under --minimized the
-            // window is never shown, and nothing on it should be polling.
-            AppStateService.Instance.SetMainWindowVisible(!startMinimized);
-            if (!startMinimized)
-                MainWindow.Activate();
-            SetupTrayIcon();
-
-            // GitHub releases poll — populates AppStateService.UpdateAvailable
-            // so the sidebar and Settings can surface "update available" indicators.
-            // Fire-and-forget: silent on network failure, no UI blocking.
-            _ = AppStateService.Instance.CheckForUpdatesAsync();
+            // ⚠️ The window and the tray icon are built LOWER DOWN, after the bridge is
+            // listening — see the block below `_bridge.LockStateProvider`. Do not move them
+            // back up here: measured on a cold boot in Priority mode (05/09/2026), building
+            // MainWindow costs most of a ~3,9 s stretch that the bridge used to wait behind,
+            // and under --minimized that window is never even shown. Nothing between here and
+            // there touches the window or the tray.
 
             // Spatial audio
             _dolbyMonitor.StatusChanged += OnDolbyStatusChanged;
@@ -240,6 +233,49 @@ namespace StreamTweak
             };
             _bridge.UpdateStateProvider = () => WindowsUpdateState.ToJson();
             _bridge.LockStateProvider   = () => LockState.ToJson();
+
+            // ── UI: window + tray ────────────────────────────────────────────
+            // Deliberately here, AFTER the bridge is listening and its providers are wired.
+            // A client that woke this host by WOL is waiting on port 47998, not on our window,
+            // and building the window is the single most expensive thing in startup: the pages
+            // are constructed and navigated by its own ctor, and under --minimized it is never
+            // shown at all. Nothing above this point touches MainWindow or the tray —
+            // `_trayIcon` is null-guarded at every use, and the one MainWindow reference
+            // (bridgeAuth.ApprovalRequested) is null-conditional inside a dispatcher callback,
+            // which cannot run before this method returns. Even if it somehow did, the client
+            // is already stored as Pending by BridgeAuthService and is approvable from the
+            // Clients page, so nothing is lost.
+            //
+            // ⚠️ This ordering is DELIBERATELY unconditional — it is not gated on --minimized,
+            // and that is a decision, not an oversight. Gating it would give a manual launch its
+            // window back a fraction sooner, but the block that now precedes the window measured
+            // 0,12 s on a cold boot (Dolby at 22.273 → bridge listening at 22.395, 05/09/2026)
+            // and less on a warm machine. Not worth a second init path to keep in step forever.
+            //
+            // When launched at Windows login the exe is invoked with --minimized: skip
+            // Activate() so the window never appears. The tray icon is the entry point.
+            bool startMinimized = Environment.GetCommandLineArgs()
+                .Any(a => a.Equals("--minimized", StringComparison.OrdinalIgnoreCase));
+
+            MainWindow = new MainWindow();
+            // Set before Activate(): the pages are constructed and navigated by the window's
+            // own ctor, so their timers consult this on the way up. Under --minimized the
+            // window is never shown, and nothing on it should be polling.
+            AppStateService.Instance.SetMainWindowVisible(!startMinimized);
+            if (!startMinimized)
+                MainWindow.Activate();
+            SetupTrayIcon();
+            // Startup marker, kept on purpose. The gap between "StreamTweakBridge listening"
+            // and this line is the cost of building the window and the tray — measured 0,58 s
+            // and 0,36 s on two cold boots (05/09/2026), which is what settled the question of
+            // deferring MainWindow entirely under --minimized: not worth it. One line per
+            // launch; leave it, it is the only handle on this part of startup.
+            DebugLogger.Log("[Startup] UI ready (window + tray)");
+
+            // GitHub releases poll — populates AppStateService.UpdateAvailable
+            // so the sidebar and Settings can surface "update available" indicators.
+            // Fire-and-forget: silent on network failure, no UI blocking.
+            _ = AppStateService.Instance.CheckForUpdatesAsync();
 
             // The tile guard. Enabled state comes from config rather than from the backup files
             // still sitting in the assets folder: an updater that wipes the folder would take

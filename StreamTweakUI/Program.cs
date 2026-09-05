@@ -46,12 +46,16 @@ namespace StreamTweak
         }
 
         /// <summary>
-        /// Opts into the Windows App SDK 2.3 XAML optimisations that are safe for this app.
+        /// Opts into the Windows App SDK XAML optimisations that are safe for this app.
         ///
-        /// Only four opt-ins exist in 2.3 (the "20+ optimisations" in the release notes are
+        /// Only four opt-ins exist (the "20+ optimisations" in the release notes are
         /// mostly always-on; the rest of that list are RuntimeCompatibility identifiers for
         /// servicing fixes, a different mechanism). Verified against the shipped enum
         /// Microsoft.UI.Xaml.Settings.XamlChangeId.
+        ///
+        /// 2.4 adds none: the enum was read out of the metadata of both SDK builds and is
+        /// byte-for-byte the same set — these four plus a _Reserved member. So there is no
+        /// new opt-in to consider on the 2.3.1 → 2.4.0 move, and nothing here had to change.
         ///
         /// Every call is logged: EnableChange returns false if the setting was rejected or
         /// applied too late, so debug.log is the ground truth on whether these took effect.
