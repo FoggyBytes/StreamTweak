@@ -72,6 +72,15 @@ namespace StreamTweak
         public float HostLatencyAvgMs { get; set; } = -1f;
         public float HostLatencyMaxMs { get; set; } = -1f;
 
+        /// <summary>
+        /// Share of reported samples whose worst frame exceeded
+        /// <see cref="QualityGradeCalculator.LateFrameMultiplier"/> frame periods, in percent.
+        /// Answers "how often did the host miss the budget", which <see cref="HostLatencyMaxMs"/>
+        /// cannot: a max is a single unlucky frame and grows with session length.
+        /// -1 = the client never reported frame latency.
+        /// </summary>
+        public float HostLatencyOverBudgetPct { get; set; } = -1f;
+
         // Host metrics (sampled at each batch interval, -1 = not available)
         public int   HostGpuAvg      { get; set; } = -1;
         public int   HostGpuPeak     { get; set; } = -1;
@@ -104,6 +113,8 @@ namespace StreamTweak
         private readonly List<float> _bitrateSamples  = new();
         private readonly List<float> _hostLatencyAvgSamples = new();
         private readonly List<float> _hostLatencyMaxSamples = new();
+        private int _hostLatencyLateSamples;
+        private int _hostLatencyRatedSamples;
 
         // Host (campionati una volta per batch, ogni ~10s)
         private readonly List<int>   _gpuSamples      = new();
@@ -171,6 +182,13 @@ namespace StreamTweak
                         _hostLatencyAvgSamples.Add(s.HostLatencyAvg);
                         _hostLatencyMaxSamples.Add(s.HostLatencyMax);
                         _hostLatencyTimeSeries.Add(s.HostLatencyAvg);
+
+                        // Late-frame frequency, counted against THIS batch's target
+                        // fps so a mid-session rate change is accounted for correctly.
+                        _hostLatencyRatedSamples++;
+                        if (s.HostLatencyMax > QualityGradeCalculator.FramePeriodMs(batch.TargetFps)
+                                               * QualityGradeCalculator.LateFrameMultiplier)
+                            _hostLatencyLateSamples++;
                     }
                 }
 
@@ -207,6 +225,9 @@ namespace StreamTweak
 
                     HostLatencyAvgMs = _hostLatencyAvgSamples.Count > 0 ? _hostLatencyAvgSamples.Average() : -1f,
                     HostLatencyMaxMs = _hostLatencyMaxSamples.Count > 0 ? _hostLatencyMaxSamples.Max()     : -1f,
+                    HostLatencyOverBudgetPct = _hostLatencyRatedSamples > 0
+                                         ? (float)_hostLatencyLateSamples / _hostLatencyRatedSamples * 100f
+                                         : -1f,
 
                     HostGpuAvg      = _gpuSamples.Count     > 0 ? (int)_gpuSamples.Average()     : -1,
                     HostGpuPeak     = _gpuSamples.Count     > 0 ? _gpuSamples.Max()               : -1,
@@ -268,6 +289,8 @@ namespace StreamTweak
                 _bitrateSamples.Clear();
                 _hostLatencyAvgSamples.Clear();
                 _hostLatencyMaxSamples.Clear();
+                _hostLatencyLateSamples  = 0;
+                _hostLatencyRatedSamples = 0;
                 _gpuSamples.Clear();
                 _gpuEncSamples.Clear();
                 _gpuTempSamples.Clear();
@@ -330,6 +353,12 @@ namespace StreamTweak
         public List<float> HostCpuSeries { get; set; } = [];
 
         /// <summary>
+        /// Live-stream intervals so far. Carries the gaps through a crash recovery, without
+        /// which a recovered session would be charted as one continuous stretch.
+        /// </summary>
+        public List<StreamSpan> StreamSpans { get; set; } = [];
+
+        /// <summary>
         /// Games detected by SessionProcessMonitor up to the last checkpoint write.
         /// Persisted here so they can be recovered if the session ends abruptly
         /// (host shutdown, crash) and SessionLogger.EndSession is never called.
@@ -344,6 +373,25 @@ namespace StreamTweak
 
     public static class QualityGradeCalculator
     {
+        /// <summary>
+        /// How late a frame must be before it counts as a stutter, in frame periods.
+        /// 2 periods = the frame missed its own slot and the next one entirely, which
+        /// is the point at which a hitch becomes visible rather than merely measurable.
+        /// </summary>
+        public const float LateFrameMultiplier = 2f;
+
+        /// <summary>
+        /// Frame budget for the session's target rate. The latency thresholds below are
+        /// expressed in frame periods rather than milliseconds: the original 8/16/40 ms
+        /// were 0.5/1/2.4 frames at 60 Hz — the only rate that existed when they were
+        /// written — and at 120 Hz they are twice as lenient in relative terms, which is
+        /// how a 21.7 ms spike (2.6 frames) slipped under a 40 ms bar. targetFps &lt;= 0
+        /// (older clients, or a batch that never reported it) falls back to 60 Hz, so
+        /// historical sessions keep grading exactly as before.
+        /// </summary>
+        public static float FramePeriodMs(int targetFps)
+            => 1000f / (targetFps > 0 ? targetFps : 60);
+
         public static QualityGrade Evaluate(SessionQualityStats stats, int targetFps)
         {
             if (stats.SampleCount < 2)
@@ -351,6 +399,8 @@ namespace StreamTweak
 
             // FPS intentionally excluded: affected by static screens / loading screens,
             // which produce artificially low fps that doesn't reflect streaming quality.
+
+            float frameMs = FramePeriodMs(targetFps);
 
             var gradeDrop = stats.DropRatePct < 1.0f  ? QualityGrade.High
                           : stats.DropRatePct <= 2.0f ? QualityGrade.Medium
@@ -365,30 +415,43 @@ namespace StreamTweak
             if (stats.RttMaxMs > 200f && gradeRtt < QualityGrade.Low)
                 gradeRtt = (QualityGrade)((int)gradeRtt + 1);
 
-            // GpuEnc: usa avg; non penalizza se metrica non disponibile (-1)
-            var gradeEnc  = stats.HostGpuEncAvg < 0  ? QualityGrade.High
-                          : stats.HostGpuEncAvg < 80 ? QualityGrade.High
-                          : stats.HostGpuEncAvg < 90 ? QualityGrade.Medium
-                          :                            QualityGrade.Low;
-
             // Host frame-processing latency (capture+encode, client-measured) is a
             // far more direct "the host couldn't keep up" signal than encoder
             // utilization %: a high latency means the host took too long to produce
             // the frame regardless of how busy the encoder looked. Only graded when
             // the client reported it (>= 0); otherwise it doesn't penalize.
-            var gradeHostLat = stats.HostLatencyAvgMs < 0f  ? QualityGrade.High
-                             : stats.HostLatencyAvgMs < 8f  ? QualityGrade.High
-                             : stats.HostLatencyAvgMs <= 16f ? QualityGrade.Medium
-                             :                                QualityGrade.Low;
+            var gradeHostLat = stats.HostLatencyAvgMs < 0f                 ? QualityGrade.High
+                             : stats.HostLatencyAvgMs < frameMs * 0.5f     ? QualityGrade.High
+                             : stats.HostLatencyAvgMs <= frameMs           ? QualityGrade.Medium
+                             :                                               QualityGrade.Low;
 
-            // A severe single-frame spike (>40 ms ≈ 2.5 frames at 60 Hz) drops the
-            // grade by one level even when the average is good.
-            if (stats.HostLatencyMaxMs > 40f && gradeHostLat < QualityGrade.Low)
+            // A severe single-frame spike (2.5 frame periods) drops the grade by one
+            // level even when the average is good.
+            if (stats.HostLatencyMaxMs > frameMs * 2.5f && gradeHostLat < QualityGrade.Low)
                 gradeHostLat = (QualityGrade)((int)gradeHostLat + 1);
 
+            // How OFTEN the host missed the frame budget. HostLatencyMaxMs is one
+            // unlucky frame and grows with session length, so it cannot separate "a
+            // single hitch in two hours" from "a hitch every second" — and in practice
+            // it ranked them backwards. This is duration-independent and is the thing
+            // that gets perceived as stutter. -1 = the client never reported latency.
+            // ⚠️ Provisional thresholds: they need calibrating against what is actually
+            // felt, which is only possible now that the metric exists.
+            var gradeLate = stats.HostLatencyOverBudgetPct < 0f    ? QualityGrade.High
+                          : stats.HostLatencyOverBudgetPct < 1f    ? QualityGrade.High
+                          : stats.HostLatencyOverBudgetPct <= 5f   ? QualityGrade.Medium
+                          :                                          QualityGrade.Low;
+
+            // Encoder utilization is deliberately NOT graded. It measures how hard the
+            // host worked, not whether the stream suffered, and on a saturating workload
+            // (4K120 AV1) the normal operating point is 96-98% — so every threshold
+            // either fires always or never, and the criterion carries no information.
+            // Its consequence, when there is one, shows up in gradeLate above.
+            // HostGpuEncAvg is still collected and displayed as context.
+
             return (QualityGrade)Math.Max(
-                Math.Max(Math.Max((int)gradeDrop, (int)gradeRtt), (int)gradeEnc),
-                (int)gradeHostLat);
+                Math.Max((int)gradeDrop, (int)gradeRtt),
+                Math.Max((int)gradeHostLat, (int)gradeLate));
         }
     }
 }

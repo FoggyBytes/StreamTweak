@@ -94,6 +94,7 @@ namespace StreamTweak
                     HostEncSeries = hostEnc,
                     HostCpuSeries = hostCpu,
                     GamesDetected = hasGames ? detectedGames : null,
+                    StreamSpans   = SessionLogger.SnapshotStreamSpans() ?? [],
                 };
 
                 // Scrittura atomica: .tmp → File.Move overwrite per evitare file corrotti.
@@ -193,6 +194,9 @@ namespace StreamTweak
                         else
                         {
                             StopInactivityTimer(); // reconnected within grace period
+                            // Reconnect inside the grace period: a new live interval in the
+                            // same session, which is what lets the chart show the idle gap.
+                            SessionLogger.RecordStreamStart(DateTime.Now);
 
                             // ⚠️ Load-bearing since the link flag started clearing on disconnect.
                             // This branch is the resume path, and HandleAutoStreamStart — which is
@@ -223,6 +227,7 @@ namespace StreamTweak
                             // eventually winds the session up: a launch armed in between belongs
                             // to the next session and must survive the cleanup.
                             _lastStopDetectedUtc = DateTime.UtcNow;
+                            SessionLogger.RecordStreamStop(DateTime.Now);
 
                             // The link manager is told now, not when the grace period is up. Its
                             // flag governs whether a client may renegotiate the adapter, and no
@@ -486,6 +491,7 @@ namespace StreamTweak
                     HostNetTxAvg    = 72,
                     HostLatencyAvgMs = 6.4f,
                     HostLatencyMaxMs = 11.2f,
+                    HostLatencyOverBudgetPct = 0.4f,
                 };
 
                 var rttSeries     = Enumerable.Range(0, 30).Select(i => 8f  + i % 3).ToList();

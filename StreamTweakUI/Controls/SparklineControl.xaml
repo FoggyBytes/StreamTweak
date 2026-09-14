@@ -61,9 +61,18 @@
                                Height="1"
                                Fill="#25FFFFFF"
                                IsHitTestVisible="False"/>
-                    <!-- Drawing canvas -->
+                    <!-- Drawing canvas.
+                         ⚠️ Background="Transparent" is load-bearing: a Canvas with no
+                         background is not hit-testable, so without it PointerMoved never
+                         fires and the hover readout silently does nothing. -->
                     <Canvas x:Name="ChartCanvas"
-                            SizeChanged="ChartCanvas_SizeChanged">
+                            Background="Transparent"
+                            SizeChanged="ChartCanvas_SizeChanged"
+                            PointerMoved="ChartCanvas_PointerMoved"
+                            PointerExited="ChartCanvas_PointerExited"
+                            PointerCanceled="ChartCanvas_PointerExited">
+                        <!-- Stream start/stop markers, drawn behind the data -->
+                        <Canvas x:Name="MarkerCanvas" IsHitTestVisible="False"/>
                         <!-- Min/max band (envelope mode): drawn behind the average line
                              so downsampled spikes stay visible instead of being averaged away. -->
                         <Polygon x:Name="EnvelopeBand"
@@ -72,19 +81,42 @@
                         <Polyline x:Name="DataLine"
                                   StrokeThickness="1.5"
                                   StrokeLineJoin="Round"/>
+                        <!-- Stream labels (S1, S2, …): above the data so they stay readable,
+                             below the hover readout (ZIndex 10+) so they never cover it. -->
+                        <Canvas x:Name="StreamLabelCanvas"
+                                Canvas.ZIndex="5"
+                                IsHitTestVisible="False"/>
+                        <!-- Hover readout: vertical guide, dot, and value popup.
+                             ⚠️ Canvas.ZIndex is load-bearing: multi-line mode adds its
+                             polylines to this canvas at runtime, AFTER these elements, so
+                             without it the lines are drawn over the readout. -->
+                        <Line x:Name="HoverGuide"
+                              Canvas.ZIndex="10"
+                              Stroke="#66FFFFFF" StrokeThickness="1"
+                              Visibility="Collapsed" IsHitTestVisible="False"/>
+                        <Ellipse x:Name="HoverDot"
+                                 Canvas.ZIndex="11"
+                                 Width="7" Height="7"
+                                 Stroke="#FFFFFFFF" StrokeThickness="1.5"
+                                 Visibility="Collapsed" IsHitTestVisible="False"/>
+                        <Border x:Name="HoverPopup"
+                                Canvas.ZIndex="12"
+                                Background="#F0161616"
+                                BorderBrush="#40FFFFFF" BorderThickness="1"
+                                CornerRadius="4" Padding="6,3"
+                                Visibility="Collapsed" IsHitTestVisible="False">
+                            <StackPanel>
+                                <TextBlock x:Name="HoverTime" FontSize="10" Opacity="0.7"/>
+                                <TextBlock x:Name="HoverValue" FontSize="12" FontWeight="SemiBold"/>
+                            </StackPanel>
+                        </Border>
                     </Canvas>
                 </Grid>
             </Border>
 
-            <!-- X-axis labels: "0" left, duration right -->
-            <Grid Grid.Row="1" Grid.Column="1" Margin="0,2,0,0">
-                <TextBlock Text="0"
-                           FontSize="9" Opacity="0.55"
-                           HorizontalAlignment="Left"/>
-                <TextBlock x:Name="XEndLabel"
-                           FontSize="9" Opacity="0.55"
-                           HorizontalAlignment="Right"/>
-            </Grid>
+            <!-- X-axis labels. Populated by DrawXAxis(): clock times when a TimeAxis is
+                 supplied, otherwise the legacy "0 → duration" pair. -->
+            <Canvas x:Name="XAxisCanvas" Grid.Row="1" Grid.Column="1" Margin="0,2,0,0"/>
         </Grid>
     </Grid>
 

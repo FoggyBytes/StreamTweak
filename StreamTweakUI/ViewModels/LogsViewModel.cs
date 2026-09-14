@@ -18,21 +18,6 @@ namespace StreamTweak.ViewModels
         public string DeltaColorHex { get; set; } = "#FF908C88";
     }
 
-    /// <summary>One chart in the Compare view: title + the two sessions' lines.</summary>
-    public sealed class CompareChart : ViewModelBase
-    {
-        public string Title { get; set; } = "";
-        public IReadOnlyList<SparklineSeries> Lines { get; set; } = new List<SparklineSeries>();
-
-        // Tracks LogsViewModel.DetailChartHeight so charts grow with the window.
-        private double _height = 185;
-        public double Height
-        {
-            get => _height;
-            set => SetProperty(ref _height, value);
-        }
-    }
-
     public sealed class LogsViewModel : ViewModelBase
     {
         // ── Session list ──────────────────────────────────────────────────────
@@ -100,6 +85,15 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _detailTitle, value);
         }
 
+
+        // One axis object for every chart in the detail view, built once here so the
+        // nine call sites cannot drift apart. Null until a session is selected.
+        private ChartTimeAxis? _detailTimeAxis;
+        public ChartTimeAxis? DetailTimeAxis
+        {
+            get => _detailTimeAxis;
+            private set => SetProperty(ref _detailTimeAxis, value);
+        }
         private string _detailDuration = string.Empty;
         public string DetailDuration
         {
@@ -294,11 +288,7 @@ namespace StreamTweak.ViewModels
         public double DetailChartHeight
         {
             get => _detailChartHeight;
-            set
-            {
-                if (SetProperty(ref _detailChartHeight, value))
-                    foreach (var c in CompareCharts) c.Height = value;
-            }
+            set => SetProperty(ref _detailChartHeight, value);
         }
 
         // ── Fullscreen chart ──────────────────────────────────────────────────
@@ -494,8 +484,6 @@ namespace StreamTweak.ViewModels
         // Reference colours: Session 1 = cyan, Session 2 = amber (equal-weight, neutral).
         public string CompareColorAHex => "#FF26C6DA";
         public string CompareColorBHex => "#FFFFA726";
-        private static readonly Color CompareColorA = Color.FromArgb(0xFF, 0x26, 0xC6, 0xDA);
-        private static readonly Color CompareColorB = Color.FromArgb(0xFF, 0xFF, 0xA7, 0x26);
         private const string GreenHex   = "#FF4ade80";
         private const string RedHex     = "#FFEF4444";
         private const string NeutralHex = "#FF908C88";
@@ -509,7 +497,6 @@ namespace StreamTweak.ViewModels
         public ObservableCollection<SessionEntry> CompareCandidatesB { get; } = new();
         public ObservableCollection<CompareMetric> CompareClientMetrics { get; } = new();
         public ObservableCollection<CompareMetric> CompareHostMetrics { get; } = new();
-        public ObservableCollection<CompareChart> CompareCharts { get; } = new();
         public ObservableCollection<SessionGameCover> CompareCoversA { get; } = new();
         public ObservableCollection<SessionGameCover> CompareCoversB { get; } = new();
 
@@ -631,7 +618,6 @@ namespace StreamTweak.ViewModels
             IsCompareVisible = false;
             CompareClientMetrics.Clear();
             CompareHostMetrics.Clear();
-            CompareCharts.Clear();
             CompareCoversA.Clear();
             CompareCoversB.Clear();
             CompareCandidatesA.Clear();
@@ -643,7 +629,6 @@ namespace StreamTweak.ViewModels
         {
             CompareClientMetrics.Clear();
             CompareHostMetrics.Clear();
-            CompareCharts.Clear();
 
             var a = _compareA?.QualityStats;
             var b = _compareB?.QualityStats;
@@ -654,7 +639,10 @@ namespace StreamTweak.ViewModels
             CompareClientMetrics.Add(M("RTT avg",   a!.RttAvgMs,    b!.RttAvgMs,    1, " ms",   Dir.LowerBetter,  a.RttAvgMs    > 0, b.RttAvgMs    > 0));
             CompareClientMetrics.Add(M("RTT max",   a.RttMaxMs,     b.RttMaxMs,     1, " ms",   Dir.LowerBetter,  a.RttMaxMs    > 0, b.RttMaxMs    > 0));
             CompareClientMetrics.Add(M("Jitter avg",a.JitterAvgMs,  b.JitterAvgMs,  1, " ms",   Dir.LowerBetter,  a.JitterAvgMs > 0, b.JitterAvgMs > 0));
-            CompareClientMetrics.Add(M("Drops",     a.TotalDrops,   b.TotalDrops,   0, "",      Dir.LowerBetter));
+            // Neutral, not LowerBetter: a raw count favours the shorter session, so
+            // judging it green/red asserts something false when the two differ in
+            // length. Drop rate carries the comparable signal.
+            CompareClientMetrics.Add(M("Drops",     a.TotalDrops,   b.TotalDrops,   0, "",      Dir.Neutral));
             CompareClientMetrics.Add(M("Drop rate", a.DropRatePct,  b.DropRatePct,  2, "%",     Dir.LowerBetter));
             CompareClientMetrics.Add(M("Decode avg",a.DecodeAvgMs,  b.DecodeAvgMs,  1, " ms",   Dir.LowerBetter));
             CompareClientMetrics.Add(M("Bitrate avg",a.BitrateAvgMbps, b.BitrateAvgMbps, 1, " Mbps", Dir.HigherBetter));
@@ -666,16 +654,7 @@ namespace StreamTweak.ViewModels
             CompareHostMetrics.Add(M("CPU avg",      a.HostCpuAvg,     b.HostCpuAvg,     0, "%",    Dir.Neutral, a.HostCpuAvg    >= 0, b.HostCpuAvg    >= 0));
             CompareHostMetrics.Add(M("Net TX avg",   a.HostNetTxAvg,   b.HostNetTxAvg,   0, " Mbps",Dir.Neutral, a.HostNetTxAvg  >= 0, b.HostNetTxAvg  >= 0));
             CompareHostMetrics.Add(M("Frame latency",a.HostLatencyAvgMs, b.HostLatencyAvgMs, 1, " ms", Dir.LowerBetter, a.HostLatencyAvgMs >= 0, b.HostLatencyAvgMs >= 0));
-
-            // Charts — one per metric, each holding both sessions (only added if data exists)
-            AddChart("RTT ms",                _compareA!.RttTimeSeries,         _compareB!.RttTimeSeries);
-            AddChart("Frame Drops",           _compareA.DropsTimeSeries,        _compareB.DropsTimeSeries);
-            AddChart("Bitrate Mbps",          _compareA.BitrateTimeSeries,      _compareB.BitrateTimeSeries);
-            AddChart("Decode ms",             _compareA.DecodeTimeSeries,       _compareB.DecodeTimeSeries);
-            AddChart("Host frame latency ms", _compareA.HostLatencyTimeSeries,  _compareB.HostLatencyTimeSeries);
-            AddChart("Host GPU %",            _compareA.HostGpuTimeSeries,      _compareB.HostGpuTimeSeries);
-            AddChart("Host Encoder %",        _compareA.HostEncTimeSeries,      _compareB.HostEncTimeSeries);
-            AddChart("Host CPU %",            _compareA.HostCpuTimeSeries,      _compareB.HostCpuTimeSeries);
+            CompareHostMetrics.Add(M("Late frames", a.HostLatencyOverBudgetPct, b.HostLatencyOverBudgetPct, 1, "%", Dir.LowerBetter, a.HostLatencyOverBudgetPct >= 0, b.HostLatencyOverBudgetPct >= 0));
         }
 
         public async Task LoadCompareCoversAsync()
@@ -687,15 +666,6 @@ namespace StreamTweak.ViewModels
             CompareCoversB.Clear();
             if (_compareA != null) await LoadCoversForAsync(_compareA, CompareCoversA);
             if (_compareB != null) await LoadCoversForAsync(_compareB, CompareCoversB);
-        }
-
-        private void AddChart(string title, System.Collections.Generic.List<float>? a, System.Collections.Generic.List<float>? b)
-        {
-            var lines = new List<SparklineSeries>();
-            if (a is { Count: >= 2 }) lines.Add(new SparklineSeries { Label = "Session 1", Color = CompareColorA, Data = a });
-            if (b is { Count: >= 2 }) lines.Add(new SparklineSeries { Label = "Session 2", Color = CompareColorB, Data = b });
-            if (lines.Count > 0)
-                CompareCharts.Add(new CompareChart { Title = title, Lines = lines, Height = _detailChartHeight });
         }
 
         private static CompareMetric M(string label, float a, float b, int dec, string unit, Dir dir, bool aOk = true, bool bOk = true)
@@ -712,7 +682,10 @@ namespace StreamTweak.ViewModels
             }
             else
             {
-                float d   = b - a;
+                // Delta reads "Session 1 relative to Session 2": the left column is the
+                // one being evaluated, so the sign answers "how does A differ from B".
+                // The improved/regressed colour follows from the same subtraction.
+                float d   = a - b;
                 float eps = 0.5f * (float)System.Math.Pow(10, -dec);
                 string sign = d > 0 ? "+" : (d < 0 ? "−" : "");   // real minus sign
                 delta = sign + System.Math.Abs(d).ToString("F" + dec, CultureInfo.InvariantCulture) + unit;
@@ -738,6 +711,7 @@ namespace StreamTweak.ViewModels
                 GradeColorHex = "#FF808080";
                 DetailTitle = string.Empty;
                 DetailDuration = string.Empty;
+                DetailTimeAxis = null;
                 DetailHeaderSubtitle = string.Empty;
                 ClearClientStats();
                 ClearHostStats();
@@ -754,6 +728,7 @@ namespace StreamTweak.ViewModels
 
             DetailTitle    = s.StartTimeDisplay;
             DetailDuration = s.TelemetryDurationDisplay;
+            DetailTimeAxis = new ChartTimeAxis(s.StreamSpans, s.EndTime);
             DetailHeaderSubtitle = $"{s.StartTimeDisplay}  ·  {s.TelemetryDurationDisplay}";
 
             // Grade
@@ -790,7 +765,12 @@ namespace StreamTweak.ViewModels
                 DetailHostCpuSec     = q.HostCpuAvg     >= 0 ? $"peak {q.HostCpuPeak} %"    : "";
                 DetailHostNetTx      = q.HostNetTxAvg   >= 0 ? $"{q.HostNetTxAvg} Mbps" : "N/A";
                 DetailHostLatency    = q.HostLatencyAvgMs >= 0 ? $"{q.HostLatencyAvgMs:F1} ms" : "N/A";
-                DetailHostLatencySec = q.HostLatencyAvgMs >= 0 ? $"max {q.HostLatencyMaxMs:F1} ms" : "";
+                // Secondary line carries the late-frame frequency next to the max, so the
+                // number that now moves the grade is visible beside the one that doesn't.
+                DetailHostLatencySec = q.HostLatencyAvgMs < 0 ? ""
+                    : q.HostLatencyOverBudgetPct >= 0
+                        ? $"max {q.HostLatencyMaxMs:F1} ms · {q.HostLatencyOverBudgetPct:F1} % late"
+                        : $"max {q.HostLatencyMaxMs:F1} ms";
             }
             else
             {

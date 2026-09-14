@@ -525,43 +525,47 @@
                         <StackPanel Spacing="12">
                             <Grid Height="{x:Bind ViewModel.DetailChartHeight, Mode=OneWay}"
                                   Tapped="RttChart_Tapped"
-                                  ToolTipService.ToolTip="Click to expand">
+                                  ctl:AutoHideToolTip.Text="Click to expand">
                                 <ctl:SparklineControl
                                     Title="RTT ms"
                                     LineColor="#FFFFA726"
                                     EnvelopeMode="True"
                                     Data="{x:Bind ViewModel.RttSeries, Mode=OneWay}"
-                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"
+                                    TimeAxis="{x:Bind ViewModel.DetailTimeAxis, Mode=OneWay}"/>
                             </Grid>
 
                             <Grid Height="{x:Bind ViewModel.DetailChartHeight, Mode=OneWay}"
                                   Tapped="DropsChart_Tapped"
-                                  ToolTipService.ToolTip="Click to expand">
+                                  ctl:AutoHideToolTip.Text="Click to expand">
                                 <ctl:SparklineControl
                                     Title="Frame Drops"
                                     LineColor="#FFEF5350"
                                     Data="{x:Bind ViewModel.DropsSeries, Mode=OneWay}"
-                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"
+                                    TimeAxis="{x:Bind ViewModel.DetailTimeAxis, Mode=OneWay}"/>
                             </Grid>
 
                             <Grid Height="{x:Bind ViewModel.DetailChartHeight, Mode=OneWay}"
                                   Tapped="BitrateChart_Tapped"
-                                  ToolTipService.ToolTip="Click to expand">
+                                  ctl:AutoHideToolTip.Text="Click to expand">
                                 <ctl:SparklineControl
                                     Title="Bitrate Mbps"
                                     LineColor="#FF26C6DA"
                                     Data="{x:Bind ViewModel.BitrateSeries, Mode=OneWay}"
-                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"
+                                    TimeAxis="{x:Bind ViewModel.DetailTimeAxis, Mode=OneWay}"/>
                             </Grid>
 
                             <Grid Height="{x:Bind ViewModel.DetailChartHeight, Mode=OneWay}"
                                   Tapped="DecodeChart_Tapped"
-                                  ToolTipService.ToolTip="Click to expand">
+                                  ctl:AutoHideToolTip.Text="Click to expand">
                                 <ctl:SparklineControl
                                     Title="Decode ms"
                                     LineColor="#FFAB47BC"
                                     Data="{x:Bind ViewModel.DecodeSeries, Mode=OneWay}"
-                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"
+                                    TimeAxis="{x:Bind ViewModel.DetailTimeAxis, Mode=OneWay}"/>
                             </Grid>
 
                             <!-- Host frame-processing latency (capture+encode) — the most
@@ -569,26 +573,28 @@
                                  single-frame spike stays visible. -->
                             <Grid Height="{x:Bind ViewModel.DetailChartHeight, Mode=OneWay}"
                                   Tapped="HostLatencyChart_Tapped"
-                                  ToolTipService.ToolTip="Click to expand">
+                                  ctl:AutoHideToolTip.Text="Click to expand">
                                 <ctl:SparklineControl
                                     Title="Host frame latency ms"
                                     LineColor="#FF66BB6A"
                                     EnvelopeMode="True"
                                     Data="{x:Bind ViewModel.HostLatencySeries, Mode=OneWay}"
-                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"
+                                    TimeAxis="{x:Bind ViewModel.DetailTimeAxis, Mode=OneWay}"/>
                             </Grid>
 
                             <!-- Host compute %: GPU / Encoder / CPU overlaid on a shared
                                  0–100% scale with a legend. -->
                             <Grid Height="{x:Bind ViewModel.DetailChartHeight, Mode=OneWay}"
                                   Tapped="HostComputeChart_Tapped"
-                                  ToolTipService.ToolTip="Click to expand"
+                                  ctl:AutoHideToolTip.Text="Click to expand"
                                   Visibility="{x:Bind ViewModel.HasHostComputeChart, Mode=OneWay,
                                                Converter={StaticResource BoolToVisibilityConverter}}">
                                 <ctl:SparklineControl
                                     Title="Host compute %"
                                     LinesData="{x:Bind ViewModel.HostComputeLines, Mode=OneWay}"
-                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                                    DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"
+                                    TimeAxis="{x:Bind ViewModel.DetailTimeAxis, Mode=OneWay}"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -671,7 +677,8 @@
                         Data="{x:Bind ViewModel.FullscreenChartData, Mode=OneWay}"
                         LinesData="{x:Bind ViewModel.FullscreenChartLines, Mode=OneWay}"
                         LineColor="{x:Bind ViewModel.FullscreenLineColor, Mode=OneWay}"
-                        DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"/>
+                        DurationLabel="{x:Bind ViewModel.DetailDuration, Mode=OneWay}"
+                        TimeAxis="{x:Bind ViewModel.DetailTimeAxis, Mode=OneWay}"/>
                 </Grid>
             </Border>
         </Grid>
@@ -962,30 +969,6 @@
                                         </StackPanel>
                                     </Border>
                                 </Grid>
-
-                                <!-- Charts header -->
-                                <TextBlock Text="COMPARISON CHARTS"
-                                           Style="{StaticResource ST_SectionLabel}"
-                                           Margin="0,0,0,10"/>
-
-                                <!-- Charts (single column, both sessions per chart + legend) -->
-                                <Border Background="#FA111010" CornerRadius="8" Padding="12">
-                                    <ItemsControl ItemsSource="{x:Bind ViewModel.CompareCharts, Mode=OneWay}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate>
-                                                <StackPanel Spacing="12"/>
-                                            </ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <ctl:SparklineControl
-                                                    Height="{Binding Height}"
-                                                    Title="{Binding Title}"
-                                                    LinesData="{Binding Lines}"/>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </Border>
 
                             </StackPanel>
                         </StackPanel>

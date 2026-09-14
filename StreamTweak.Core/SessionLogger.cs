@@ -14,6 +14,22 @@ namespace StreamTweak
     /// </summary>
     public record GameCoverItem(string Name, string? CoverPath);
 
+    /// <summary>
+    /// One stretch of time during which a stream was actually live inside this session.
+    /// A session survives a client disconnect/reconnect (grace period), so a single record
+    /// can span several streams with idle gaps between them — the 11/09/2026 record held 11.
+    /// Without these the charts cannot be placed on a clock: samples only accrue while a
+    /// stream is live, so mapping them linearly from StartTime to EndTime stretches them
+    /// across the gaps and mislabels everything after the first one.
+    /// </summary>
+    public class StreamSpan
+    {
+        public DateTime Start { get; set; }
+
+        /// <summary>Null when the stream was still live (session ended abruptly).</summary>
+        public DateTime? End { get; set; }
+    }
+
     public class SessionEntry
     {
         public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
@@ -54,6 +70,13 @@ namespace StreamTweak
 
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<float>? HostCpuTimeSeries { get; set; }
+
+        /// <summary>
+        /// Live-stream intervals within this session, in order. Null → the session pre-dates
+        /// this feature; charts then fall back to "0 → duration" with no clock on the axis.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<StreamSpan>? StreamSpans { get; set; }
 
         /// <summary>
         /// Display names of games detected as running during this session (process monitor).
@@ -272,6 +295,46 @@ namespace StreamTweak
         public static string?  ActiveSessionId        => _activeSessionId;
         public static DateTime ActiveSessionStartTime => _activeSessionStartTime;
 
+        // Live-stream intervals for the active session. Held in memory and written at
+        // session end (and into the checkpoint) rather than on every event, so a
+        // reconnect storm does not rewrite the whole history file each time.
+        // ⚠️ Its own lock, deliberately not _fileLock: SnapshotStreamSpans() is called
+        // from inside code that already holds _fileLock.
+        private static readonly object _spanLock = new();
+        private static readonly List<StreamSpan> _activeStreamSpans = new();
+
+        /// <summary>Opens a live-stream interval. Ignored when one is already open.</summary>
+        public static void RecordStreamStart(DateTime when)
+        {
+            lock (_spanLock)
+            {
+                if (_activeStreamSpans.Count > 0 && _activeStreamSpans[^1].End == null) return;
+                _activeStreamSpans.Add(new StreamSpan { Start = when });
+            }
+        }
+
+        /// <summary>Closes the open live-stream interval, if any.</summary>
+        public static void RecordStreamStop(DateTime when)
+        {
+            lock (_spanLock)
+            {
+                if (_activeStreamSpans.Count == 0) return;
+                if (_activeStreamSpans[^1].End == null) _activeStreamSpans[^1].End = when;
+            }
+        }
+
+        /// <summary>Copy of the intervals so far, for persisting. Null when there are none.</summary>
+        public static List<StreamSpan>? SnapshotStreamSpans()
+        {
+            lock (_spanLock)
+            {
+                if (_activeStreamSpans.Count == 0) return null;
+                return _activeStreamSpans
+                    .Select(s => new StreamSpan { Start = s.Start, End = s.End })
+                    .ToList();
+            }
+        }
+
         public static void StartSession(string triggerMode, string originalSpeed)
         {
             try
@@ -288,6 +351,14 @@ namespace StreamTweak
 
                     _activeSessionId        = entry.Id;
                     _activeSessionStartTime = entry.StartTime;
+
+                    // A session opens with a live stream by definition; later reconnects
+                    // append their own spans via RecordStreamStart.
+                    lock (_spanLock)
+                    {
+                        _activeStreamSpans.Clear();
+                        _activeStreamSpans.Add(new StreamSpan { Start = entry.StartTime });
+                    }
                     sessions.Insert(0, entry);
 
                     // No max-session cap: full history retained until the user manually
@@ -387,6 +458,7 @@ namespace StreamTweak
                         s.HostGpuTimeSeries = cp.HostGpuSeries.Count > 0 ? cp.HostGpuSeries : null;
                         s.HostEncTimeSeries = cp.HostEncSeries.Count > 0 ? cp.HostEncSeries : null;
                         s.HostCpuTimeSeries = cp.HostCpuSeries.Count > 0 ? cp.HostCpuSeries : null;
+                        s.StreamSpans       = cp.StreamSpans is { Count: > 0 } ? cp.StreamSpans : null;
                         usedCheckpoint = true;
                     }
 
@@ -502,6 +574,7 @@ namespace StreamTweak
                     entry.HostGpuTimeSeries = hostGpuSeries.Count > 0 ? hostGpuSeries : null;
                     entry.HostEncTimeSeries = hostEncSeries.Count > 0 ? hostEncSeries : null;
                     entry.HostCpuTimeSeries = hostCpuSeries.Count > 0 ? hostCpuSeries : null;
+                    entry.StreamSpans       = SnapshotStreamSpans();
                     Save(sessions);
                 }
             }
@@ -525,6 +598,8 @@ namespace StreamTweak
                     {
                         entry!.EndTime = DateTime.Now;
                         entry.EndReason = endReason;
+                        RecordStreamStop(entry.EndTime.Value);
+                        entry.StreamSpans = SnapshotStreamSpans();
 
                         // Too short to be a real session — drop it from history entirely
                         // rather than finalising it (see MinSessionSeconds).

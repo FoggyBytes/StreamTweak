@@ -4,6 +4,29 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-------------------------------------------------
+Version 8.5.0 - "The Verdict Update" (14/09/2026)
+-------------------------------------------------
+
+📊 SESSION QUALITY:
+• A session is no longer marked down for how busy the encoder was — at 4K120 a healthy stream keeps the encoder near 100%, and judging it on that made every gaming session read "Poor" while everything the stream actually delivered was fine
+• The frame latency limits now scale with the frame rate you stream at — they were fixed at figures that meant half a frame at 60 fps, and at 120 they let a stutter of two and a half frames pass as normal
+• A session is now judged on how often the host missed a frame rather than on the single worst frame it ever missed — one unlucky frame in two hours and a hitch every few seconds used to score the same
+• Encoder load is still measured and shown on the session, as context rather than a verdict
+
+📈 SESSION CHARTS:
+• The time axis now carries the clock — date and time at each end, with the times in between marked on a scale of light vertical lines
+• Moving the pointer across a chart reads out the exact time and value beneath it, and the pointer does not have to find the line itself to do it — on a chart with several lines, each one gets its own marker and all their values are read out together
+• The "Click to expand" hint on a chart now closes by itself after five seconds instead of staying over the data while you read it
+• A session that survived a client disconnecting and reconnecting now shows where each stream ended and the next began, with each stream labelled S1, S2 and so on — in the session detail and in the enlarged chart
+• Sessions recorded before this release keep the old "0 to duration" axis — what was needed to place them on a clock was never written down at the time, and inventing it would have put wrong times on the chart
+
+🔍 COMPARE SESSIONS:
+• The difference column now reads the first session against the second, matching the order the columns are laid out in — it was showing the second against the first
+• A new "Late frames" row gives the share of each session where the host missed the frame budget
+• Total dropped frames is no longer marked better or worse: it is a count, so the shorter session won it whatever actually happened in either one
+• The comparison charts are gone — two sessions of different lengths drawn on one axis were unreadable, and the figures above them already carry the comparison
+
 ----------------------------------------------------
 Version 8.4.0 - "The Head Start Update" (05/09/2026)
 ----------------------------------------------------
