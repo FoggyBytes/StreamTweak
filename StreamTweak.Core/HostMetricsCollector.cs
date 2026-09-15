@@ -272,7 +272,8 @@ namespace StreamTweak
 
         private int SampleVramUsedMb()
         {
-            // Primary: PDH GPU Process Memory\Dedicated Usage — cross-vendor.
+            // Primary: PDH GPU Adapter Memory\Dedicated Usage — cross-vendor, same figure
+            // as Task Manager and within a few MB of NVML.
             long totalBytes = _gpu.VramUsedBytes;
             if (totalBytes > 0)
                 return (int)(totalBytes / (1024 * 1024));
@@ -425,13 +426,25 @@ namespace StreamTweak
                 }
             }
 
+            /// <remarks>
+            /// Reads the per-ADAPTER category, not "GPU Process Memory". The per-process one
+            /// charges a shared allocation (DWM surfaces, overlays, cross-process textures) to
+            /// every process that maps it, so its sum counts the same memory several times:
+            /// measured at 4,886 MB on an RTX 5090 where Task Manager and nvidia-smi both read
+            /// ~2,750, and reported by a user as 20+ GB against Afterburner's 11-12 (issue #20).
+            ///
+            /// Every adapter is summed on purpose. Narrowing it to the adapter D3dkmtGpu picked
+            /// was tried and dropped: that pick is not reliable (it can land on a virtual display
+            /// adapter that PDH does not even list), and an adapter's own figure carries no
+            /// double counting anyway.
+            /// </remarks>
             private void SampleMemory()
             {
                 if (_memoryUnavailable) { VramUsedBytes = -1; return; }
 
                 try
                 {
-                    var dedicated = new PerformanceCounterCategory("GPU Process Memory")
+                    var dedicated = new PerformanceCounterCategory("GPU Adapter Memory")
                         .ReadCategory()["Dedicated Usage"];
                     if (dedicated == null) { _memoryUnavailable = true; VramUsedBytes = -1; return; }
 

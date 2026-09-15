@@ -4,6 +4,16 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+------------------------------------------------------
+Version 8.5.1 - "The True Reading Update" (15/09/2026)
+------------------------------------------------------
+
+🛠️ HOST METRICS:
+• Fixed the VRAM figure shown in StreamLight's performance overlay, which could read close to twice the memory actually in use — it added up every app's share of graphics memory, and memory that several apps share was counted once for each of them. It now reads the same figure as Task Manager
+
+🙏 THANKS:
+• Thanks to @ludipraxa for the report (https://github.com/FoggyBytes/StreamLight/issues/20)
+
 -------------------------------------------------
 Version 8.5.0 - "The Verdict Update" (14/09/2026)
 -------------------------------------------------
