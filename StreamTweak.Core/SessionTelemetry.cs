@@ -426,8 +426,16 @@ namespace StreamTweak
                              :                                               QualityGrade.Low;
 
             // A severe single-frame spike (2.5 frame periods) drops the grade by one
-            // level even when the average is good.
-            if (stats.HostLatencyMaxMs > frameMs * 2.5f && gradeHostLat < QualityGrade.Low)
+            // level — but only when the host was ALSO late often enough for the spike
+            // to be part of a pattern. On its own the maximum is one unlucky frame and
+            // it grows with session length, the very flaw HostLatencyOverBudgetPct was
+            // added to fix: a 1h44 session (15/09/2026) was marked down to Low by a
+            // single 25 ms frame during a loading screen while it missed the frame
+            // budget 0.23% of the time and every other criterion read High.
+            // ⚠️ The 1% gate is deliberately gradeLate's own High/Medium boundary.
+            if (stats.HostLatencyMaxMs > frameMs * 2.5f &&
+                    stats.HostLatencyOverBudgetPct >= 1f &&
+                    gradeHostLat < QualityGrade.Low)
                 gradeHostLat = (QualityGrade)((int)gradeHostLat + 1);
 
             // How OFTEN the host missed the frame budget. HostLatencyMaxMs is one

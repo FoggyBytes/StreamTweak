@@ -84,6 +84,15 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Remote Windows Update** *(3.3.0+)* — scan, classify and install updates on the host and reboot it, or install them as part of a shutdown, all from the client with no keyboard on the host. The privileged work runs in the LocalSystem service
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 
+## ✨ What's New in 8.5.2 — "The Long Session Update"
+
+- **One bad frame no longer marks a session down** — a latency spike is now counted against a session only when the host was also missing the frame budget often enough for the spike to be part of a pattern. A session of an hour and three quarters, with every other measure at its best and the budget missed in 0.2% of it, was being graded "Poor" for a single 25 ms frame during a loading screen
+- ⚠️ Sessions already in the history keep the verdict they were given — a session is judged once, when it ends, and is never re-graded afterwards
+
+## ✨ What's New in 8.5.1 — "The True Reading Update"
+
+- **The VRAM figure in the overlay reads true** — StreamLight's performance overlay could show close to twice the graphics memory actually in use: it added up every app's share, and memory that several apps share was counted once for each of them. It now reads the same figure as Task Manager
+
 ## ✨ What's New in 8.5.0 — "The Verdict Update"
 
 - **A busy encoder is no longer a bad session** — at 4K120 a perfectly healthy stream keeps the encoder pegged near 100%, so grading a session on encoder load marked every gaming session "Poor" while the drop rate, the latency and the network were all fine. Encoder load is still measured and shown on the session, as context rather than as a verdict

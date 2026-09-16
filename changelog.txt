@@ -5,6 +5,14 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 ------------------------------------------------------
+Version 8.5.2 - "The Long Session Update" (16/09/2026)
+------------------------------------------------------
+
+📊 SESSION QUALITY:
+• One bad frame no longer marks a session down on its own — a spike now counts against the session only when the host was also missing the frame budget often enough for it to be a pattern, so a single hitch during a loading screen no longer decides the verdict of a two-hour session
+• Sessions already in the history keep the verdict they were given — a session is judged once, when it ends
+
+------------------------------------------------------
 Version 8.5.1 - "The True Reading Update" (15/09/2026)
 ------------------------------------------------------
 
