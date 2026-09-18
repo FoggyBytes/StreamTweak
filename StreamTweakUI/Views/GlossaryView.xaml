@@ -156,7 +156,7 @@
                     <Rectangle Height="0.5" Fill="{StaticResource STBorderActive}" Margin="0,0,0,10"/>
 
                     <local:GlossaryRow Term="Quality Grade"
-                                       Definition="Composite assessment of session quality based on drop rate, RTT, GPU encoder load, and host frame latency: Excellent, Good, or Poor."/>
+                                       Definition="Composite assessment of session quality based on drop rate, RTT, and host frame latency: Excellent, Good, or Poor. Encoder load is shown but not graded."/>
 
                     <!-- ── APP MANAGEMENT ── -->
                     <TextBlock Text="// APP MANAGEMENT"

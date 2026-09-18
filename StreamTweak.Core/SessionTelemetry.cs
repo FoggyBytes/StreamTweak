@@ -420,8 +420,12 @@ namespace StreamTweak
             // utilization %: a high latency means the host took too long to produce
             // the frame regardless of how busy the encoder looked. Only graded when
             // the client reported it (>= 0); otherwise it doesn't penalize.
+            // High was half a frame until 8.5.3, and at 4K120 that is 4.17 ms — the floor of
+            // the fastest preset with a full-resolution two-pass encode, so a flawless
+            // 2h36 session (18/09/2026, 0.03 % drops) read Good for 0.03 ms. 0.6 frame
+            // (5 ms at 120 Hz) still separates a fast host from a merely adequate one.
             var gradeHostLat = stats.HostLatencyAvgMs < 0f                 ? QualityGrade.High
-                             : stats.HostLatencyAvgMs < frameMs * 0.5f     ? QualityGrade.High
+                             : stats.HostLatencyAvgMs < frameMs * 0.6f     ? QualityGrade.High
                              : stats.HostLatencyAvgMs <= frameMs           ? QualityGrade.Medium
                              :                                               QualityGrade.Low;
 

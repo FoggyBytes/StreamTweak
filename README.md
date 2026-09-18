@@ -84,6 +84,13 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Remote Windows Update** *(3.3.0+)* — scan, classify and install updates on the host and reboot it, or install them as part of a shutdown, all from the client with no keyboard on the host. The privileged work runs in the LocalSystem service
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 
+## ✨ What's New in 8.5.3 — "The Fair Bar Update"
+
+- **A host that keeps up earns "Excellent"** — the bar for average frame latency moves from half a frame to 0.6 of a frame, 5 ms at 120 fps. At 4K120 half a frame is 4.17 ms, below what even the fastest encoder preset holds with a full-resolution two-pass encode, so a session of two and a half hours with 0.03% of frames dropped read "Good" by three hundredths of a millisecond
+- **The frame latency row fits the window** — the session detail shows the average and the maximum only; the share of late frames is still in Compare
+- **The glossary matches the grade** — encoder load is no longer listed among what the grade looks at; it stopped counting in 8.5.0
+- ⚠️ Sessions already in the history keep the verdict they were given
+
 ## ✨ What's New in 8.5.2 — "The Long Session Update"
 
 - **One bad frame no longer marks a session down** — a latency spike is now counted against a session only when the host was also missing the frame budget often enough for the spike to be part of a pattern. A session of an hour and three quarters, with every other measure at its best and the budget missed in 0.2% of it, was being graded "Poor" for a single 25 ms frame during a loading screen

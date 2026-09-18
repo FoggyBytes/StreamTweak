@@ -4,6 +4,18 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+--------------------------------------------------
+Version 8.5.3 - "The Fair Bar Update" (18/09/2026)
+--------------------------------------------------
+
+📊 SESSION QUALITY:
+• A host that keeps up comfortably now earns "Excellent" — the bar for average frame latency moves from half a frame to 0.6 of a frame (5 ms at 120 fps). At 4K120 half a frame sits below what even the fastest encoder preset holds with a full-resolution two-pass encode, so a flawless session could only ever read "Good"
+• The glossary no longer lists encoder load among what the grade looks at — it stopped counting in 8.5.0
+• Sessions already in the history keep the verdict they were given
+
+🗂️ SESSION HISTORY:
+• The frame latency row in the session detail now shows only the average and the maximum — the share of late frames that followed them was cut off in a narrow window. It is still in Compare, as "Late frames"
+
 ------------------------------------------------------
 Version 8.5.2 - "The Long Session Update" (16/09/2026)
 ------------------------------------------------------

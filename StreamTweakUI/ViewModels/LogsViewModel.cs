@@ -765,12 +765,9 @@ namespace StreamTweak.ViewModels
                 DetailHostCpuSec     = q.HostCpuAvg     >= 0 ? $"peak {q.HostCpuPeak} %"    : "";
                 DetailHostNetTx      = q.HostNetTxAvg   >= 0 ? $"{q.HostNetTxAvg} Mbps" : "N/A";
                 DetailHostLatency    = q.HostLatencyAvgMs >= 0 ? $"{q.HostLatencyAvgMs:F1} ms" : "N/A";
-                // Secondary line carries the late-frame frequency next to the max, so the
-                // number that now moves the grade is visible beside the one that doesn't.
-                DetailHostLatencySec = q.HostLatencyAvgMs < 0 ? ""
-                    : q.HostLatencyOverBudgetPct >= 0
-                        ? $"max {q.HostLatencyMaxMs:F1} ms · {q.HostLatencyOverBudgetPct:F1} % late"
-                        : $"max {q.HostLatencyMaxMs:F1} ms";
+                // Only the max: the late-frame share that used to follow it was cut off in a
+                // narrow window. It is still in Compare, as "Late frames".
+                DetailHostLatencySec = q.HostLatencyAvgMs >= 0 ? $"max {q.HostLatencyMaxMs:F1} ms" : "";
             }
             else
             {
