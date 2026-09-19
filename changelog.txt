@@ -4,6 +4,20 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+----------------------------------------------------
+Version 8.6.0 - "The Good Night Update" (19/09/2026)
+----------------------------------------------------
+
+🌙 REMOTE POWER:
+• StreamLight 6.2.0 can now put the host to sleep or restart it, not only shut it down — restart with "install Windows updates" too, like shutdown
+• The host tells StreamLight which of these it really supports, read from the machine itself: sleep only where the PC has it (classic standby or Modern Standby), and nothing at all for an account that is not allowed to shut the PC down
+• StreamLight is also told whether the network adapter is set to wake the PC, so it can warn before putting to sleep a host it would not be able to wake again
+• Before sleeping, the host puts its link speed back — after a shutdown the next start already did that, but a PC waking from sleep would otherwise stay at the streaming speed
+• A power request is now answered, so StreamLight knows when the host refused it instead of guessing
+
+⚠️ COMPATIBILITY:
+• The new power options need StreamLight 6.2.0 — older StreamLight versions keep shutting the host down exactly as before
+
 --------------------------------------------------
 Version 8.5.3 - "The Fair Bar Update" (18/09/2026)
 --------------------------------------------------

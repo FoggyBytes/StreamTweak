@@ -198,6 +198,7 @@ namespace StreamTweak
             _bridge.LinkSpeed            = _linkSpeed;
             _bridge.RestoreRequested    += OnBridgeRestoreRequested;
             _bridge.ShutdownRequested   += OnBridgeShutdownRequested;
+            _bridge.PowerRequested      += OnBridgePowerRequested;
             _bridge.SessionDataReceived += OnSessionDataReceived;
 
             // Bridge authentication (7.2.0): mandatory. Only StreamLight clients the
@@ -233,6 +234,7 @@ namespace StreamTweak
             };
             _bridge.UpdateStateProvider = () => WindowsUpdateState.ToJson();
             _bridge.LockStateProvider   = () => LockState.ToJson();
+            _bridge.PowerCapsProvider   = () => HostPowerCapabilities.ToJson(_linkSpeed?.AdapterName);
 
             // ── UI: window + tray ────────────────────────────────────────────
             // Deliberately here, AFTER the bridge is listening and its providers are wired.
@@ -372,6 +374,7 @@ namespace StreamTweak
 
             // Windows session-end cleanup
             Microsoft.Win32.SystemEvents.SessionEnding += OnSystemSessionEnding;
+            RegisterPowerTrace(OnPowerTransition);
         }
 
         // ── Single-instance activation watcher ───────────────────────────────
@@ -497,18 +500,89 @@ namespace StreamTweak
                     // shell, so a toast would race it. DebugLogger is the trace.
                     DebugLogger.Log($"[Bridge] {(installUpdates ? "SHUTDOWN_UPDATE" : "SHUTDOWN")} requested by approved client — powering off host");
 
-                    // Best-effort: close out any active session so it is not left dangling.
-                    if (_isAutoSessionActive)
-                    {
-                        FinalizeSessionTelemetry();
-                        StopCheckpointTimer();
-                        var games = _sessionProcessMonitor?.GetDetectedGames();
-                        SessionLogger.EndSession("Host Shutdown", games);
-                    }
-
+                    EndSessionForPowerAction("Host Shutdown");
                     ShutdownHost(installUpdates);
                 }
                 catch (Exception ex) { DebugLogger.Log($"[Bridge] OnBridgeShutdownRequested failed: {ex}"); }
+            });
+        }
+
+        // Best-effort: close out any active session so it is not left dangling.
+        private void EndSessionForPowerAction(string reason)
+        {
+            if (!_isAutoSessionActive) return;
+            FinalizeSessionTelemetry();
+            StopCheckpointTimer();
+            var games = _sessionProcessMonitor?.GetDetectedGames();
+            SessionLogger.EndSession(reason, games);
+        }
+
+        // POWER <mode> [UPDATE] from an approved client (8.6.0). The bridge has already checked
+        // the signature, that this machine supports the mode, and written OK back.
+        private void OnBridgePowerRequested(string mode, bool installUpdates)
+        {
+            _dispatcher.TryEnqueue(() =>
+            {
+                try
+                {
+                    DebugLogger.Log($"[Bridge] POWER {mode}{(installUpdates ? " + updates" : "")} requested by approved client");
+                    switch (mode)
+                    {
+                        case HostPowerCapabilities.Shutdown:
+                            EndSessionForPowerAction("Host Shutdown");
+                            ShutdownHost(installUpdates);
+                            break;
+
+                        case HostPowerCapabilities.Restart:
+                            EndSessionForPowerAction("Host Restart");
+                            RestartHost(installUpdates);
+                            break;
+
+                        case HostPowerCapabilities.Sleep:
+                        case HostPowerCapabilities.Hibernate:
+                        {
+                            bool hibernate = mode == HostPowerCapabilities.Hibernate;
+                            EndSessionForPowerAction(hibernate ? "Host Hibernate" : "Host Sleep");
+                            // Off the UI thread: the restore takes seconds (link down, link up,
+                            // settle) and SetSuspendState only returns once the machine resumes.
+                            var link = _linkSpeed;
+                            _ = Task.Run(async () =>
+                            {
+                                if (link != null && link.IsSwitched)
+                                {
+                                    bool restored = await link.RestoreBeforeSuspendAsync(TimeSpan.FromSeconds(40));
+                                    DebugLogger.Log($"[Power] link {(restored ? "restored" : "NOT restored")} before {mode}");
+                                }
+                                SuspendHost(hibernate);
+                            });
+                            break;
+                        }
+                    }
+                }
+                catch (Exception ex) { DebugLogger.Log($"[Bridge] OnBridgePowerRequested failed: {ex}"); }
+            });
+        }
+
+        // Suspend / resume trace (8.6.0). Nothing in StreamTweak reacted to a resume before
+        // remote sleep existed, and nothing is changed on resume yet: this records what state
+        // the bridge and the link come back in, so a sleep cycle can be read in debug.log
+        // instead of guessed.
+        // ⚠️ Fed by PowerRegisterSuspendResumeNotification (App.Power.cs), not by
+        // SystemEvents.PowerModeChanged: that one was wired first and never fired in this
+        // WinUI process — the first real sleep on 19/09/2026 left no trace at all.
+        private void OnPowerTransition(string what)
+        {
+            DebugLogger.Log($"[Power] {what}: link switched {_linkSpeed?.IsSwitched}, "
+                          + $"link state {_linkSpeed?.State}, {_linkSpeed?.CurrentMbps} Mbps, "
+                          + $"session active {_isAutoSessionActive}");
+            if (what == "Suspend") return;
+            // The adapter is usually still down at the resume notification: log it again once
+            // it has had time to renegotiate.
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(15_000);
+                DebugLogger.Log($"[Power] 15 s after resume: {_linkSpeed?.CurrentMbps} Mbps, "
+                              + $"lock state {LockState.ToJson()}");
             });
         }
 
@@ -608,6 +682,7 @@ namespace StreamTweak
             {
                 _bridge.RestoreRequested     -= OnBridgeRestoreRequested;
                 _bridge.ShutdownRequested    -= OnBridgeShutdownRequested;
+                _bridge.PowerRequested       -= OnBridgePowerRequested;
                 _bridge.SessionDataReceived  -= OnSessionDataReceived;
                 _bridge.UnlockSessionMarked  -= OnBridgeUnlockSessionMarked;
                 _bridge.Dispose();
@@ -621,6 +696,7 @@ namespace StreamTweak
             try { _nvidiaSentinel?.Dispose(); } catch { }
             _nvidiaSentinel = null;
             Microsoft.Win32.SystemEvents.SessionEnding -= OnSystemSessionEnding;
+            UnregisterPowerTrace();
 
             // Release single-instance resources so the watcher thread can exit cleanly.
             _activationEvent?.Set();   // unblocks WatchActivationRequests if waiting

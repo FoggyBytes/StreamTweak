@@ -30,6 +30,14 @@ namespace StreamTweak
     ///   SHUTDOWN_UPDATE — like SHUTDOWN, but installs any pending Windows updates
     ///              before powering off ("Update and shut down"). Same verified-signature
     ///              requirement as SHUTDOWN.
+    ///   POWERCAPS — which power modes this machine supports, read from the running system
+    ///              (8.6.0): {"v":1,"modes":["sleep","hibernate","restart","shutdown"],
+    ///              "wake_lan":bool}. Read-only, gated like STATS.
+    ///   POWER <mode> [UPDATE] — sleep / hibernate / restart / shutdown (8.6.0). Same verified-
+    ///              signature requirement as SHUTDOWN, but the reply is meant to be READ:
+    ///              OK / ERR_UNSUPPORTED (a mode this machine lacks, or UPDATE with a mode that
+    ///              cannot install updates) / ERR (not authenticated). SHUTDOWN and
+    ///              SHUTDOWN_UPDATE stay for clients that predate it.
     ///   UPDATESTATE — client asks whether the host has updates waiting for a reboot.
     ///              Server replies with {"pending":true|false}.
     ///   UPDATECHECK — client asks the host to start an async Windows-update scan.
@@ -179,6 +187,18 @@ namespace StreamTweak
         /// carried a verified AUTH1 signature — never from the legacy/open code path.
         /// </summary>
         public event Action<bool>? ShutdownRequested;
+
+        /// <summary>
+        /// Raised for a verified POWER &lt;mode&gt; [UPDATE] (8.6.0): mode is one of the
+        /// <see cref="HostPowerCapabilities"/> constants, already checked against what this
+        /// machine supports; the bool asks for pending updates to be installed first (restart
+        /// and shutdown only). Raised AFTER the reply has been written, so the client learns
+        /// the command was taken before the host goes away.
+        /// </summary>
+        public event Action<string, bool>? PowerRequested;
+
+        /// <summary>POWERCAPS reply. Set in App.xaml.cs; null answers "ERR".</summary>
+        public Func<string>? PowerCapsProvider { get; set; }
 
         /// <summary>
         /// Raised when an UPDATECHECK command is received: start an async Windows-update
@@ -454,6 +474,37 @@ namespace StreamTweak
                     ShutdownRequested?.Invoke(command == "SHUTDOWN_UPDATE");
                     await writer.WriteLineAsync("OK");
                     break;
+
+                case "POWERCAPS":
+                    // Read-only: what the client may offer for this host. Gated like STATS.
+                    await writer.WriteLineAsync(PowerCapsProvider?.Invoke() ?? "ERR");
+                    break;
+
+                case "POWER":
+                {
+                    // Destructive, exactly like SHUTDOWN: never on an unverified signature.
+                    if (!authenticated)
+                    {
+                        DebugLog($"StreamTweakBridge: rejected unauthenticated {command} from {remote}");
+                        await writer.WriteLineAsync("ERR");
+                        break;
+                    }
+                    string[] words = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    string mode = words.Length > 0 ? words[0].ToLowerInvariant() : "";
+                    bool withUpdates = words.Length > 1 && words[1] == "UPDATE";
+                    bool canUpdate = mode == HostPowerCapabilities.Restart || mode == HostPowerCapabilities.Shutdown;
+                    if (words.Length > 2 || (words.Length == 2 && !withUpdates)
+                        || !HostPowerCapabilities.IsSupported(mode) || (withUpdates && !canUpdate))
+                    {
+                        DebugLog($"StreamTweakBridge: POWER '{arg}' not supported on this host (from {remote})");
+                        await writer.WriteLineAsync("ERR_UNSUPPORTED");
+                        break;
+                    }
+                    // Reply first: the host may be gone a moment later.
+                    await writer.WriteLineAsync("OK");
+                    PowerRequested?.Invoke(mode, withUpdates);
+                    break;
+                }
 
                 case "UPDATESTATE":
                     string updateState = UpdateStateProvider?.Invoke() ?? "{\"pending\":false}";

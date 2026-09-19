@@ -450,6 +450,43 @@ namespace StreamTweak
         }
 
         /// <summary>
+        /// A client is about to put this host to sleep or into hibernation (8.6.0). Puts the link
+        /// back and waits for it, because nothing else would: after a shutdown the next start
+        /// runs <see cref="RecoverAtStartup"/>, but a resume is not a start — the process simply
+        /// carries on, still at the streaming speed.
+        ///
+        /// ⚠️ It has to be awaited here rather than left to <see cref="RestoreNow"/>: that returns
+        /// at once and applies on the thread pool, and suspending under it would freeze the
+        /// renegotiation half-way. Returns false when it did not complete — a live stream
+        /// deferred it, the apply failed, or <paramref name="timeout"/> ran out — and the caller
+        /// suspends anyway: a host left switched is the lesser harm than one that never sleeps.
+        /// </summary>
+        public async Task<bool> RestoreBeforeSuspendAsync(TimeSpan timeout)
+        {
+            lock (_lock)
+            {
+                if (!IsSwitched && State != LinkSpeedState.Changing) return true;
+            }
+
+            RestoreNow("the host is going to sleep");
+
+            var deadline = _env.UtcNow + timeout;
+            while (_env.UtcNow < deadline)
+            {
+                lock (_lock)
+                {
+                    if (!IsSwitched && State == LinkSpeedState.Idle) return true;
+                    if (State == LinkSpeedState.Error) return false;
+                    // Deferred by a live stream: RestoreNow scheduled it instead of running it.
+                    if (RestoreAtUtc != null) return false;
+                }
+                await _env.Delay(250).ConfigureAwait(false);
+            }
+            DebugLogger.Log($"[Link] restore before sleep did not finish within {timeout.TotalSeconds:0}s");
+            return false;
+        }
+
+        /// <summary>
         /// Called once at startup. If a previous run left the link switched — a crash, an update,
         /// a forced quit — put it back, because nothing else ever will.
         /// </summary>

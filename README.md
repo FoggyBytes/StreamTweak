@@ -81,34 +81,16 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Delivered vs target bitrate** *(4.5.0+)* — the client reports the rate it was told to aim for, so the Dashboard can show what was actually delivered against it
 - **Remote session pause** *(2.3.0+)* — the Pause button on the Dashboard ends the stream client-side
 - **Remote host power-off** *(3.2.0+)* — an approved client can shut down the host, itself, or both. Destructive, so it only ever fires on a verified signature
+- **Remote sleep and restart** *(6.2.0+)* — the host reports the power options it really has, and the client offers only those
 - **Remote Windows Update** *(3.3.0+)* — scan, classify and install updates on the host and reboot it, or install them as part of a shutdown, all from the client with no keyboard on the host. The privileged work runs in the LocalSystem service
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 
-## ✨ What's New in 8.5.3 — "The Fair Bar Update"
+## ✨ What's New in 8.6.0 — "The Good Night Update"
 
-- **A host that keeps up earns "Excellent"** — the bar for average frame latency moves from half a frame to 0.6 of a frame, 5 ms at 120 fps. At 4K120 half a frame is 4.17 ms, below what even the fastest encoder preset holds with a full-resolution two-pass encode, so a session of two and a half hours with 0.03% of frames dropped read "Good" by three hundredths of a millisecond
-- **The frame latency row fits the window** — the session detail shows the average and the maximum only; the share of late frames is still in Compare
-- **The glossary matches the grade** — encoder load is no longer listed among what the grade looks at; it stopped counting in 8.5.0
-- ⚠️ Sessions already in the history keep the verdict they were given
-
-## ✨ What's New in 8.5.2 — "The Long Session Update"
-
-- **One bad frame no longer marks a session down** — a latency spike is now counted against a session only when the host was also missing the frame budget often enough for the spike to be part of a pattern. A session of an hour and three quarters, with every other measure at its best and the budget missed in 0.2% of it, was being graded "Poor" for a single 25 ms frame during a loading screen
-- ⚠️ Sessions already in the history keep the verdict they were given — a session is judged once, when it ends, and is never re-graded afterwards
-
-## ✨ What's New in 8.5.1 — "The True Reading Update"
-
-- **The VRAM figure in the overlay reads true** — StreamLight's performance overlay could show close to twice the graphics memory actually in use: it added up every app's share, and memory that several apps share was counted once for each of them. It now reads the same figure as Task Manager
-
-## ✨ What's New in 8.5.0 — "The Verdict Update"
-
-- **A busy encoder is no longer a bad session** — at 4K120 a perfectly healthy stream keeps the encoder pegged near 100%, so grading a session on encoder load marked every gaming session "Poor" while the drop rate, the latency and the network were all fine. Encoder load is still measured and shown on the session, as context rather than as a verdict
-- **The latency limits follow your frame rate** — they were fixed figures that meant half a frame at 60 fps, the only rate they were ever calibrated against. At 120 fps the same numbers were twice as forgiving in relative terms, and a stutter of two and a half frames passed as normal
-- **Sessions are judged on how often the host missed a frame** — not on the single worst frame it ever missed. A maximum is one unlucky frame and it grows simply by streaming for longer, so one hitch in two hours and a hitch every few seconds scored the same. The new measure is a share, so length does not flatter or punish a session
-- **Session charts carry a clock** — date and time at each end of the axis, the times in between marked on a scale of light vertical lines, and a readout that follows the pointer across the chart giving the exact time and value beneath it. The pointer does not have to find the line itself, and on a chart with several lines each one gets its own marker, with all their values read out together
-- **Where each stream stopped and the next began** — a session survives a client disconnecting and reconnecting, so one session can hold several streams with idle gaps between them. Those boundaries are now marked on the chart, and each stream is labelled S1, S2 and so on
-- **Compare reads the way it is laid out** — the difference column was showing the second session against the first, which is backwards from the order the columns are in. Total dropped frames is also no longer marked better or worse: it is a count, so the shorter session won it whatever actually happened in either one. A "Late frames" row has been added, and the comparison charts removed — two sessions of different lengths on one axis were unreadable
-- ⚠️ Sessions recorded before this release keep the old "0 to duration" axis. What was needed to place their samples on a clock was never written down at the time, and a session can hold gaps that nothing in the old record describes — inventing the mapping would have put plausible, wrong times on the chart
+- **Sleep and restart from StreamLight** — StreamLight 6.2.0 can put the host to sleep or restart it, not only shut it down, with Windows updates installed first where Windows allows it
+- **Only what the host can really do** — the host reports its own power options, read from the machine: standby (classic or Modern Standby), nothing for an account without the right to shut the PC down. It also reports whether its network adapter is set to wake the PC
+- **The link comes back before sleep** — the host restores its link speed before sleeping, since a PC that wakes from sleep does not start again and would stay at the streaming speed
+- ⚠️ Older StreamLight versions keep shutting the host down exactly as before
 
 *Older releases are in [changelog.txt](changelog.txt).*
 
@@ -120,7 +102,7 @@ Three components:
 - **`StreamTweak.Core`** — shared logic: NIC control, audio, HDR, game library, telemetry, NVIDIA Sentinel, Tailscale detection, the TCP bridge
 - **`StreamTweakService.exe`** — a LocalSystem Windows Service reached over a named pipe, which performs the NIC changes, host-asset writes and Windows Update work, so no UAC prompt ever appears
 
-The bridge is a TCP listener on **port 47998** (LAN, line-delimited ASCII). Commands accepted from StreamLight: `NETINFO`, `SETSPEED`, `RESTORE`, `STATUS`, `STATS`, `APPSTORES`, `TAILSCALE`, `SESSIONDATA`, `GAMESTATE`, `LASTSESSION`, `LOCKSTATE`, `UNLOCKBEGIN` / `UNLOCKEND`, and the power and update set `SHUTDOWN`, `SHUTDOWN_UPDATE`, `UPDATESTATE`, `UPDATECHECK`, `UPDATE_NOW`, `UPDATEPROGRESS`. A client negotiates with `CAPS`, enrolls its Moonlight certificate once with `ENROLL`, and signs every command afterwards with `AUTH1` (RSA-SHA256). Destructive commands additionally require a verified signature.
+The bridge is a TCP listener on **port 47998** (LAN, line-delimited ASCII). Commands accepted from StreamLight: `NETINFO`, `SETSPEED`, `RESTORE`, `STATUS`, `STATS`, `APPSTORES`, `TAILSCALE`, `SESSIONDATA`, `GAMESTATE`, `LASTSESSION`, `LOCKSTATE`, `UNLOCKBEGIN` / `UNLOCKEND`, and the power and update set `POWERCAPS`, `POWER`, `SHUTDOWN`, `SHUTDOWN_UPDATE`, `UPDATESTATE`, `UPDATECHECK`, `UPDATE_NOW`, `UPDATEPROGRESS`. A client negotiates with `CAPS`, enrolls its Moonlight certificate once with `ENROLL`, and signs every command afterwards with `AUTH1` (RSA-SHA256). Destructive commands additionally require a verified signature.
 
 ```
 StreamLight (Qt, client PC)

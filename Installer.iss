@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v8.5.3 - GitHub Release Installer
+; StreamTweak v8.6.0 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 2.4) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "8.5.3"
+#define MyAppVersion "8.6.0"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -250,7 +250,7 @@ begin
     '•  Store badges on your synced game covers (Steam, Epic, GOG, Xbox, …)' + #13#10 +
     '•  Per-session quality grading, charts and delivered-vs-target bitrate' + #13#10 +
     '•  This host''s last session shown on the client, cover art included' + #13#10 +
-    '•  Power this host off, or run Windows Update on it, from the client' + #13#10 +
+    '•  Sleep, restart or power this host off, or update it, from the client' + #13#10 +
     '•  Gamepad-first interface: every action reachable from the pad' + #13#10 +
     '•  Per-game and per-host profiles, custom resolutions, live stream settings' + #13#10 +
     '•  Tailscale presence for streaming from outside your network';
