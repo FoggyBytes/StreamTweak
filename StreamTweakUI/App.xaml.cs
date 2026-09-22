@@ -57,6 +57,10 @@ namespace StreamTweak
         private readonly StreamTweakBridge _bridge = new();
         private readonly HostMetricsCollector _metricsCollector = new();
 
+        // The clipboard shared with StreamLight (8.7.0, §79). Always created; its own Enabled
+        // switch (Clients page) decides whether it answers.
+        private readonly ClipboardShare _clipboardShare = new();
+
         // Watches for the launched game's window so the client can hold its launch curtain up
         // until the game is on screen instead of dropping the user into a reconfiguring desktop.
         private readonly LaunchWatcher _launchWatcher = new();
@@ -209,6 +213,7 @@ namespace StreamTweak
             AppStateService.Instance.BridgeAuth = bridgeAuth;
             _bridge.AuthService = bridgeAuth;
             _bridge.RequireAuth = true;
+            _bridge.Clipboard   = _clipboardShare;
             bridgeAuth.ApprovalRequested += client =>
                 _dispatcher.TryEnqueue(() => MainWindow?.ShowBridgeApproval(client));
 
@@ -222,6 +227,10 @@ namespace StreamTweak
                     _stopStreamRequested = false;   // one-shot: consume immediately
                     json = json.TrimEnd('}') + ",\"stop\":1}";
                 }
+                // The clipboard's sequence number: StreamLight asks CLIPGET when it moves, so the
+                // host never has to push. Absent when sharing is off.
+                if (ClipboardShare.Enabled)
+                    json = json.TrimEnd('}') + $",\"clip\":{ClipboardShare.SequenceNumber}}}";
                 return json;
             };
             _bridge.GameStateProvider  = () => _launchWatcher.ToJson();
@@ -688,6 +697,8 @@ namespace StreamTweak
                 _bridge.Dispose();
             }
             catch { }
+            // After the bridge: no CLIPSET can arrive while a password we hold is being cleared.
+            try { _clipboardShare.Dispose(); } catch { }
             _traySpeedTimer?.Stop();
             _traySpeedTimer = null;
             _metricsCollector.Dispose();

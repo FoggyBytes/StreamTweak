@@ -5,6 +5,22 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 ----------------------------------------------------
+Version 8.7.0 - "The Copy Paste Update" (22/09/2026)
+----------------------------------------------------
+
+📋 SHARED CLIPBOARD:
+• Text copied on the host pastes on a StreamLight device while it streams, and the other way round — up to 32 KB, over the bridge, whichever streaming server you use
+• Encrypted with a key made for each stream and wrapped for the device's own certificate, so only that device can read it; the key is dropped when the stream ends
+• Passwords marked by a password manager stay out of Win+V history and are cleared when the original is, within 60 seconds anyway — and when StreamTweak closes
+• "Share clipboard with StreamLight" on the Clients page, on by default — nothing moves until the device turns it on as well
+
+⚠️ COMPATIBILITY:
+• Needs StreamLight 6.3.0 — older versions never ask, and nothing changes for them
+
+🙏 THANKS:
+• Thanks to @vitorhugoaranda (https://github.com/FoggyBytes/StreamLight/issues/23) for asking for a shared clipboard
+
+----------------------------------------------------
 Version 8.6.0 - "The Good Night Update" (19/09/2026)
 ----------------------------------------------------
 

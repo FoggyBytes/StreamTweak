@@ -148,6 +148,22 @@ namespace StreamTweak.ViewModels
             }
         }
 
+        // ── Clipboard shared with StreamLight (Clients page) ──────────────────
+
+        // Same shape as RecordOnlyGameSessions: the static on ClipboardShare is what the bridge
+        // reads, this only mirrors it and persists the choice.
+        public bool ShareClipboard
+        {
+            get => ClipboardShare.Enabled;
+            set
+            {
+                if (ClipboardShare.Enabled == value) return;
+                ClipboardShare.Enabled = value;
+                ConfigService.Set("ShareClipboard", value);
+                OnPropertyChanged();
+            }
+        }
+
         // ── Debug mode ────────────────────────────────────────────────────────
 
         private bool _isDebugModeActive;

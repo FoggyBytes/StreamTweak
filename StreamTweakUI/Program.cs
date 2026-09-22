@@ -33,6 +33,9 @@ namespace StreamTweak
             // recovery there applies this rule too.
             SessionLogger.RecordOnlyGameSessions = Services.ConfigService.GetBool("RecordOnlyGameSessions");
 
+            // On unless the user turned it off: the client side starts off (§79.6).
+            ClipboardShare.Enabled = Services.ConfigService.GetBool("ShareClipboard", true);
+
             ApplyXamlPerformanceOptIns();
 
             global::WinRT.ComWrappersSupport.InitializeComWrappers();

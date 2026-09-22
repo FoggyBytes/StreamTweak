@@ -137,6 +137,8 @@
                                        Definition="Authenticated TCP channel (port 47998) between StreamLight and StreamTweak for the advanced integration — host metrics, link-speed switch, power-off. Streaming itself never uses it."/>
                     <local:GlossaryRow Term="Client approval"
                                        Definition="A StreamLight device must be approved once (a 4-digit PIN shown on both sides is compared out of band) before it can use the bridge integration. Its Moonlight certificate then signs every command."/>
+                    <local:GlossaryRow Term="Shared clipboard"
+                                       Definition="Text copied on the host can be pasted on an approved StreamLight device while it streams, and the other way round — up to 32 KB, over the bridge, encrypted with a key that lasts one stream. Passwords marked by a password manager are cleared on the other side when the original is, and within 60 seconds anyway. Needs StreamLight 6.3.0 or later, with the option turned on there too."/>
 
                     <!-- ── STREAMING SERVERS ── -->
                     <TextBlock Text="// STREAMING SERVERS"

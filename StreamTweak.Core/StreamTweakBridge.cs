@@ -47,6 +47,11 @@ namespace StreamTweak
     ///              Destructive; requires a verified AUTH1 signature. Replies "OK"/"ERR".
     ///   UPDATEPROGRESS — poll the current update job state. Server replies with JSON
     ///              {"phase":…,"percent":…,"message":…,"updates":[…],"counts":{…}}.
+    ///   CLIPKEY / CLIPSET / CLIPGET / CLIPEND — the shared clipboard (8.7.0), see
+    ///              <see cref="ClipboardShare"/>. All four need a verified AUTH1 signature.
+    ///              CLIPKEY → "KEY &lt;base64&gt;" | ERR_NOT_ALLOWED; CLIPSET + one sealed
+    ///              payload line → OK | ERR_*; CLIPGET → "CLIP &lt;seq&gt; &lt;base64&gt;" | OWN | EMPTY |
+    ///              NOTEXT | ERR_*; CLIPEND → OK. CAPS carries "clip=on|off".
     ///
     /// Each connection is short-lived: client sends one line, server replies "OK",
     /// the speed string, or "ERR".
@@ -201,6 +206,12 @@ namespace StreamTweak
         public Func<string>? PowerCapsProvider { get; set; }
 
         /// <summary>
+        /// The clipboard shared with StreamLight (8.7.0). Null leaves the CLIP* verbs answering
+        /// "ERR" and CAPS without a "clip=" token, exactly like a host that predates them.
+        /// </summary>
+        public ClipboardShare? Clipboard { get; set; }
+
+        /// <summary>
         /// Raised when an UPDATECHECK command is received: start an async Windows-update
         /// scan on the host. Not destructive; gated by RequireAuth like the read commands.
         /// </summary>
@@ -307,7 +318,11 @@ namespace StreamTweak
                     // ── CAPS: capability negotiation (always unauthenticated) ──────
                     if (first.Equals("CAPS", StringComparison.OrdinalIgnoreCase))
                     {
-                        await writer.WriteLineAsync($"CAPS1 auth={(RequireAuth ? "required" : "optional")}");
+                        // "clip=" tells StreamLight's settings whether this host shares its clipboard,
+                        // before any stream: a host without the token predates the feature. Harmless
+                        // to reveal unauthenticated — it is a yes/no about a setting, not the clipboard.
+                        string clip = Clipboard == null ? "" : ClipboardShare.Enabled ? " clip=on" : " clip=off";
+                        await writer.WriteLineAsync($"CAPS1 auth={(RequireAuth ? "required" : "optional")}{clip}");
                         return;
                     }
 
@@ -401,6 +416,11 @@ namespace StreamTweak
             // expected packet said nothing and drowned the anomalies. Rejections, unknown
             // verbs and parse failures below stay unconditional.
             DebugLogger.Verbose($"StreamTweakBridge received: {command} from {remote}");
+
+            // A streaming client polls STATS every second: any verified command keeps its
+            // clipboard key alive, and silence lets it expire.
+            if (authenticated && clientId != null)
+                Clipboard?.Touch(clientId);
 
             // Split off an optional argument (only UPDATE_NOW carries one). For every other
             // command verb == command, so the existing exact-match cases are unaffected.
@@ -634,6 +654,35 @@ namespace StreamTweak
                         await writer.WriteLineAsync("ERR");
                     }
                     break;
+
+                case "CLIPKEY":
+                case "CLIPSET":
+                case "CLIPGET":
+                case "CLIPEND":
+                {
+                    // CLIPSET's sealed payload is read before any check, so a refusal never
+                    // leaves the line unread on the stream.
+                    string? sealedLine = verb == "CLIPSET"
+                        ? await ReadLineLimitedAsync(reader, MaxPayloadLineLength, token)
+                        : null;
+
+                    // Moves data on and off this machine: a verified signature, always.
+                    if (!authenticated || clientId == null || Clipboard == null || AuthService == null)
+                    {
+                        if (!authenticated) DebugLog($"StreamTweakBridge: rejected unauthenticated {verb} from {remote}");
+                        await writer.WriteLineAsync("ERR");
+                        break;
+                    }
+                    string reply = verb switch
+                    {
+                        "CLIPKEY" => Clipboard.HandleKey(clientId, key => AuthService.WrapForClient(clientId, key)),
+                        "CLIPSET" => await Clipboard.HandleSetAsync(clientId, sealedLine),
+                        "CLIPGET" => await Clipboard.HandleGetAsync(clientId),
+                        _         => await Clipboard.HandleEndAsync(clientId),
+                    };
+                    await writer.WriteLineAsync(reply);
+                    break;
+                }
 
                 default:
                     DebugLog($"StreamTweakBridge unknown command: {command}");

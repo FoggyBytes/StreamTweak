@@ -84,13 +84,14 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Remote sleep and restart** *(6.2.0+)* — the host reports the power options it really has, and the client offers only those
 - **Remote Windows Update** *(3.3.0+)* — scan, classify and install updates on the host and reboot it, or install them as part of a shutdown, all from the client with no keyboard on the host. The privileged work runs in the LocalSystem service
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
+- **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched on the Clients page here, and on the device too
 
-## ✨ What's New in 8.6.0 — "The Good Night Update"
+## ✨ What's New in 8.7.0 — "The Copy Paste Update"
 
-- **Sleep and restart from StreamLight** — StreamLight 6.2.0 can put the host to sleep or restart it, not only shut it down, with Windows updates installed first where Windows allows it
-- **Only what the host can really do** — the host reports its own power options, read from the machine: standby (classic or Modern Standby), nothing for an account without the right to shut the PC down. It also reports whether its network adapter is set to wake the PC
-- **The link comes back before sleep** — the host restores its link speed before sleeping, since a PC that wakes from sleep does not start again and would stay at the streaming speed
-- ⚠️ Older StreamLight versions keep shutting the host down exactly as before
+- **Shared clipboard with StreamLight** — copy on the host, paste on the device you stream to, and the other way round. Text up to 32 KB, any streaming server
+- **Encrypted per stream** — a new key for every stream, readable only by that device, dropped when the stream ends
+- **Passwords don't linger** — anything a password manager marks is kept out of Win+V history and cleared within 60 seconds
+- ⚠️ Needs StreamLight 6.3.0; the switch is on the Clients page, and the device must turn it on as well
 
 *Older releases are in [changelog.txt](changelog.txt).*
 

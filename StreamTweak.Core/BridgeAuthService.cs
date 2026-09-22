@@ -234,6 +234,35 @@ namespace StreamTweak
             foreach (var k in stale) _seenSignatures.Remove(k);
         }
 
+        /// <summary>
+        /// Encrypts <paramref name="data"/> for an approved client's certificate — RSA-OAEP with
+        /// SHA-256 for both the digest and MGF1 — and returns it as base64. Only the client can
+        /// open it, with the private key it pairs with. Null for an unknown or unapproved client.
+        /// Used to hand out the clipboard session key (§79).
+        ///
+        /// ⚠️ StreamLight must decrypt with the SAME parameters: <c>rsa_oaep_md</c> AND
+        /// <c>rsa_mgf1_md</c> both SHA-256. A mismatch fails without a useful error.
+        /// </summary>
+        public string? WrapForClient(string uniqueId, byte[] data)
+        {
+            BridgeClient? client;
+            lock (_lock)
+            {
+                client = _clients.FirstOrDefault(c =>
+                    string.Equals(c.UniqueId, uniqueId, StringComparison.OrdinalIgnoreCase)
+                    && c.Status == "approved");
+            }
+            if (client == null) return null;
+            try
+            {
+                using var cert = X509Certificate2.CreateFromPem(client.CertPem);
+                using var rsa = cert.GetRSAPublicKey();
+                if (rsa == null) return null;
+                return Convert.ToBase64String(rsa.Encrypt(data, RSAEncryptionPadding.OaepSHA256));
+            }
+            catch { return null; }
+        }
+
         // ── Management (UI) ──────────────────────────────────────────────────
 
         /// <summary>Friendly label of an approved client, for host-side status text.

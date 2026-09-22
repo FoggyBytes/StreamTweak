@@ -16,6 +16,29 @@
                                Style="{StaticResource ST_PageSubtitle}"/>
                 </StackPanel>
 
+                <!-- Clipboard shared with StreamLight (8.7.0, §79). Above the list it applies to:
+                     one switch for every approved device. -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="CLIPBOARD" Style="{StaticResource ST_SectionLabel}"/>
+                    <Border Style="{StaticResource ST8_GroupCard}">
+                        <Border Style="{StaticResource ST8_Row}" BorderThickness="0">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center" Margin="0,0,16,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="7">
+                                        <TextBlock Text="Share clipboard with StreamLight" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
+                                        <ctrl:InfoHint Term="Shared clipboard" Tip="Text copied on this PC can be pasted on the device, and the other way round, while it streams. Encrypted with a key that lasts one stream. Passwords are cleared within 60 seconds. The device must turn it on too; StreamLight 6.3.0 or later."/>
+                                    </StackPanel>
+                                    <TextBlock Text="Approved devices, while streaming" Style="{StaticResource ST_RowDescription}"/>
+                                </StackPanel>
+                                <ToggleSwitch Grid.Column="1" Style="{StaticResource ST_Toggle}" VerticalAlignment="Center"
+                                              AutomationProperties.Name="Share clipboard with StreamLight"
+                                              IsOn="{x:Bind ViewModel.ShareClipboard, Mode=TwoWay}"/>
+                            </Grid>
+                        </Border>
+                    </Border>
+                </StackPanel>
+
                 <StackPanel Spacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                         <TextBlock Text="STREAMLIGHT DEVICES" Style="{StaticResource ST_SectionLabel}" VerticalAlignment="Center"/>
