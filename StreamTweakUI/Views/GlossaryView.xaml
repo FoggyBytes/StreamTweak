@@ -5,26 +5,23 @@
     xmlns:local="using:StreamTweak.Views"
     Background="{StaticResource STBackground}">
 
-    <Grid Margin="28,24,28,28">
+    <!-- 9.0: hosted in the Glossary side panel (MainWindow), which carries the title.
+         The page adds the search box and the scrollable list of terms. -->
+    <Grid Padding="16,12,8,12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Spacing="3" Margin="0,0,0,14">
-            <TextBlock Text="Glossary" Style="{StaticResource ST_PageTitle}"/>
-            <TextBlock Text="Technical terms used across StreamTweak and StreamLight."
-                       Style="{StaticResource ST_PageSubtitle}"/>
-        </StackPanel>
+        <TextBox x:Name="SearchBox" Grid.Row="0" Margin="0,0,8,12"
+                 PlaceholderText="Search terms"
+                 Style="{StaticResource ST9_SearchBox}"
+                 TextChanged="SearchBox_TextChanged"
+                 AutomationProperties.Name="Search the glossary"/>
 
-        <!-- Terminal-style content panel -->
-        <Border Grid.Row="1"
-                Background="#0A0908"
-                BorderBrush="{StaticResource STBorder}"
-                BorderThickness="1"
-                CornerRadius="10">
+        <Border Grid.Row="1" Background="Transparent">
             <ScrollViewer x:Name="GlossaryScroll" VerticalScrollBarVisibility="Auto"
-                          Padding="20,16,24,16">
+                          Padding="0,0,12,16">
                 <StackPanel x:Name="GlossaryStack" Spacing="0">
                     <StackPanel.Resources>
                         <Style TargetType="TextBlock">
@@ -158,7 +155,11 @@
                     <Rectangle Height="0.5" Fill="{StaticResource STBorderActive}" Margin="0,0,0,10"/>
 
                     <local:GlossaryRow Term="Quality Grade"
-                                       Definition="Composite assessment of session quality based on drop rate, RTT, and host frame latency: Excellent, Good, or Poor. Encoder load is shown but not graded."/>
+                                       Definition="Excellent, Good or Poor — the worst of four checks: drop rate (Excellent below 1 %), average RTT (below 25 ms), average host frame latency (below 0.6 of a frame) and late frames (below 1 %). Decided once, when the session ends. Encoder load is shown but not graded."/>
+                    <local:GlossaryRow Term="Late frames"
+                                       Definition="Share of the session where the host needed more than two frame periods for a frame (16.7 ms at 120 fps). The one host check that reads as stutter; a few around loading screens are normal."/>
+                    <local:GlossaryRow Term="Timeline"
+                                       Definition="The session detail chart: every metric on one clock. Hover to read all values at the same moment, drag on the strip below to zoom, click a game to zoom to the time it ran. Dashed lines mark the grade limits; S1, S2 mark streams split by a reconnect."/>
 
                     <!-- ── APP MANAGEMENT ── -->
                     <TextBlock Text="// APP MANAGEMENT"

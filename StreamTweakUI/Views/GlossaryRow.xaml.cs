@@ -43,6 +43,16 @@ namespace StreamTweak.Views
         public GlossaryRow()
         {
             this.InitializeComponent();
+            SizeChanged += OnSizeChanged;
+        }
+
+        private void OnSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            bool narrow = e.NewSize.Width < 520;
+            TermColumn.Width = narrow ? new GridLength(0) : new GridLength(180);
+            Grid.SetColumn(TermText, narrow ? 1 : 0);
+            Grid.SetRow(DefinitionText, narrow ? 1 : 0);
+            DefinitionText.Margin = narrow ? new Thickness(0, 2, 0, 0) : new Thickness(12, 0, 0, 0);
         }
 
         /// <summary>Briefly highlights the row (green fade-out) after a deep-link scroll.</summary>

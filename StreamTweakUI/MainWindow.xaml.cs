@@ -25,13 +25,18 @@ namespace StreamTweak
             var v = Assembly.GetExecutingAssembly().GetName().Version;
             SidebarVersionText.Text = v != null
                 ? $"v{v.Major}.{v.Minor}.{v.Build}"
-                : "v8.3.0";
+                : "v9.0.0";
+            TitleVersionText.Text = v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "9.0.0";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
             // the internal resource keys must be injected at runtime via code-behind.
             var sidebarBrush = new SolidColorBrush(Colors.Transparent);
-            NavView.Resources["NavigationViewDefaultPaneBackground"]  = sidebarBrush;
+            // 9.0: the pane can now open as an overlay (Compact and Minimal modes on narrow
+            // windows), where a transparent pane would sit unreadably over the page. The
+            // Expanded (side-by-side) pane stays transparent so Mica shows through it.
+            NavView.Resources["NavigationViewDefaultPaneBackground"]  =
+                new SolidColorBrush(Color.FromArgb(0xF7, 0x1B, 0x1D, 0x1D));
             NavView.Resources["NavigationViewExpandedPaneBackground"] = sidebarBrush;
             NavView.Resources["NavigationViewTopPaneBackground"]      = sidebarBrush;
             // Clear the content-area background (right side) and the pane border/divider
@@ -129,6 +134,9 @@ namespace StreamTweak
             // Navigate to Home on startup
             NavView.SelectedItem = NavHome;
             ContentFrame.Navigate(typeof(Views.HomeView));
+
+            // 9.0 title-bar pills and the Clients badge.
+            StartTitleBarState();
 
             // Sidebar update indicator: subscribe to AppStateService and refresh
             // immediately in case the boot-time check has already completed.
@@ -385,8 +393,13 @@ namespace StreamTweak
             this.SetTitleBar(AppTitleBar);
         }
 
-        private const int MinLogicalWidth  = 1280;
-        private const int MinLogicalHeight = 720;
+        // 9.0: the layout now adapts down to small windows (the sidebar collapses to icons
+        // below 1100 DIP), so the floor dropped from 1280×720. The first-run size stays the
+        // old minimum, which is also what a 7–8" handheld at 150–200 % gives.
+        private const int MinLogicalWidth      = 800;
+        private const int MinLogicalHeight     = 560;
+        private const int DefaultLogicalWidth  = 1280;
+        private const int DefaultLogicalHeight = 800;
 
         // ── Sidebar collapsed/expanded state (restored across runs) ──────────────
         private const string KeySidebarPaneOpen = "SidebarPaneOpen";
@@ -420,8 +433,8 @@ namespace StreamTweak
             double scale = dpi / 96.0;
 
             // Restore last saved size, or fall back to the minimum.
-            int logicalWidth  = Services.ConfigService.GetInt("WindowWidth",  MinLogicalWidth);
-            int logicalHeight = Services.ConfigService.GetInt("WindowHeight", MinLogicalHeight);
+            int logicalWidth  = Services.ConfigService.GetInt("WindowWidth",  DefaultLogicalWidth);
+            int logicalHeight = Services.ConfigService.GetInt("WindowHeight", DefaultLogicalHeight);
 
             // Enforce minimum so the UI never becomes unusable.
             logicalWidth  = Math.Max(logicalWidth,  MinLogicalWidth);
@@ -474,7 +487,6 @@ namespace StreamTweak
                 "TuneNv"        => typeof(Views.TuningView),
                 "TuneApps"      => typeof(Views.TuningView),
                 "Clients"       => typeof(Views.ClientsView),
-                "Glossary"      => typeof(Views.GlossaryView),
                 "Settings"      => typeof(Views.SettingsView),
                 _               => null
             };
@@ -485,9 +497,159 @@ namespace StreamTweak
 
         // ── Public helpers ──────────────────────────────────────────────────────
 
+        /// <summary>
+        /// 9.0: the Glossary is a panel, not a page — its footer item does not select, it opens
+        /// the panel over whatever page is showing.
+        /// </summary>
+        private void NavView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+        {
+            if (args.InvokedItemContainer?.Tag as string == "Glossary")
+                OpenGlossary(null);
+        }
+
+        /// <summary>
+        /// Opens the Glossary panel, scrolled to <paramref name="term"/> when given. Used by the
+        /// footer item, F1, and every ⓘ hint in the app.
+        /// </summary>
+        public void OpenGlossary(string? term)
+        {
+            AppStateService.Instance.PendingGlossaryTerm = term;
+            // A fresh navigation each time: GlossaryView reads the pending term in
+            // OnNavigatedTo and scrolls to it.
+            GlossaryFrame.Navigate(typeof(Views.GlossaryView));
+            GlossarySplit.IsPaneOpen = true;
+        }
+
+        private void CloseGlossary_Click(object sender, RoutedEventArgs e)
+            => GlossarySplit.IsPaneOpen = false;
+
+        private void GlossaryAccelerator_Invoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender,
+            Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+        {
+            args.Handled = true;
+            if (GlossarySplit.IsPaneOpen) GlossarySplit.IsPaneOpen = false;
+            else OpenGlossary(null);
+        }
+
+        // ── Title-bar live state (9.0) ──────────────────────────────────────────
+
+        private Microsoft.UI.Dispatching.DispatcherQueueTimer? _titleTimer;
+        private int _titleTick;
+
+        private void StartTitleBarState()
+        {
+            _titleTimer = DispatcherQueue.CreateTimer();
+            _titleTimer.Interval    = TimeSpan.FromSeconds(1);
+            _titleTimer.IsRepeating = true;
+            _titleTimer.Tick       += (_, _) => RefreshTitleBarState();
+
+            AppStateService.Instance.SessionStateChanged += (_, _) =>
+                DispatcherQueue.TryEnqueue(() => { _titleTick = 0; RefreshTitleBarState(); });
+            AppStateService.Instance.MainWindowVisibilityChanged += (_, visible) =>
+                DispatcherQueue.TryEnqueue(() =>
+                {
+                    if (visible) { _titleTick = 0; RefreshTitleBarState(); _titleTimer?.Start(); }
+                    else _titleTimer?.Stop();
+                });
+
+            var auth = AppStateService.Instance.BridgeAuth;
+            if (auth != null)
+                auth.ClientsChanged += () => DispatcherQueue.TryEnqueue(RefreshClientsBadge);
+            RefreshClientsBadge();
+
+            RefreshTitleBarState();
+            _titleTimer.Start();
+        }
+
+        /// <summary>
+        /// Once a second: the state pill (idle, or the game being streamed and for how long).
+        /// Every few seconds, off the UI thread: the link speed and the Tailscale address.
+        /// </summary>
+        private void RefreshTitleBarState()
+        {
+            bool live = AppStateService.Instance.IsSessionActive;
+            if (live)
+            {
+                var start = SessionLogger.ActiveSessionStartTime;
+                var d = start != default ? DateTime.Now - start : TimeSpan.Zero;
+                string clock = $"{(int)d.TotalHours}:{d.Minutes:00}:{d.Seconds:00}";
+                string? game = SessionLogger.CurrentGameName(TimeSpan.FromSeconds(20));
+                StatePillText.Text = string.IsNullOrEmpty(game) ? $"Streaming · {clock}" : $"{game} · {clock}";
+                StatePill.Background  = new SolidColorBrush(Color.FromArgb(0x21, 0x4a, 0xde, 0x80));
+                StatePill.BorderBrush = new SolidColorBrush(Color.FromArgb(0x59, 0x4a, 0xde, 0x80));
+                StatePillText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0x86, 0xef, 0xac));
+            }
+            else
+            {
+                StatePillText.Text = "Host ready";
+                StatePill.Background  = new SolidColorBrush(Color.FromArgb(0x0D, 0xFF, 0xFF, 0xFF));
+                StatePill.BorderBrush = new SolidColorBrush(Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
+                StatePillText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xC8, 0xCF, 0xCB));
+            }
+
+            // Link speed every 3 s, Tailscale every 30 s — both read network interfaces, so
+            // they run on the thread pool and only the text is set back here.
+            if (_titleTick % 3 == 0)
+            {
+                bool checkTailscale = _titleTick % 30 == 0;
+                _ = Task.Run(() =>
+                {
+                    string? link = ReadLinkSpeed();
+                    (bool ts, string ip) = checkTailscale ? SafeTailscale() : (false, string.Empty);
+                    DispatcherQueue.TryEnqueue(() =>
+                    {
+                        LinkPill.Visibility = link != null ? Visibility.Visible : Visibility.Collapsed;
+                        if (link != null) LinkPillText.Text = link;
+                        if (checkTailscale)
+                        {
+                            TailscalePill.Visibility = ts ? Visibility.Visible : Visibility.Collapsed;
+                            TailscalePillText.Text   = ip;
+                        }
+                    });
+                });
+            }
+            _titleTick++;
+        }
+
+        private static string? ReadLinkSpeed()
+        {
+            try
+            {
+                string adapterName = Services.ConfigService.Get("NetworkAdapterName", "Ethernet");
+                var ni = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+                    .FirstOrDefault(n => n.Name.Equals(adapterName, StringComparison.OrdinalIgnoreCase));
+                if (ni == null || ni.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up)
+                    return null;
+                long mbps = ni.Speed / 1_000_000;
+                if (mbps <= 0) return null;
+                return mbps >= 1000 ? $"{mbps / 1000.0:0.#} Gbps" : $"{mbps} Mbps";
+            }
+            catch { return null; }
+        }
+
+        private static (bool, string) SafeTailscale()
+        {
+            try { return TailscaleDetector.Detect(); }
+            catch { return (false, string.Empty); }
+        }
+
+        private void RefreshClientsBadge()
+        {
+            int pending = 0;
+            try
+            {
+                pending = AppStateService.Instance.BridgeAuth?.GetClients()
+                    .Count(c => c.Status == "pending") ?? 0;
+            }
+            catch { }
+            ClientsBadge.Value      = pending;
+            ClientsBadge.Visibility = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         /// <summary>Selects the navigation item with the given tag, triggering page navigation.</summary>
         public void NavigateTo(string tag)
         {
+            if (tag == "Glossary") { OpenGlossary(AppStateService.Instance.PendingGlossaryTerm); return; }
             var allItems = NavView.MenuItems
                 .Concat(NavView.FooterMenuItems)
                 .OfType<NavigationViewItem>();

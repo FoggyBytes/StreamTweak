@@ -4,9 +4,15 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Border x:Name="RootBorder" Margin="0,0,0,4" Padding="6,4" CornerRadius="6" Background="Transparent">
-        <Grid>
+        <!-- 9.0: term and definition side by side when there is room, stacked in the
+             narrow Glossary side panel (see GlossaryRow.OnSizeChanged). -->
+        <Grid x:Name="RowGrid">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="180"/>
+                <ColumnDefinition x:Name="TermColumn" Width="180"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
