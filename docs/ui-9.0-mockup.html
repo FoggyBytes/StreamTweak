@@ -1,0 +1,1890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>StreamTweak 9.0 UI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&family=Big+Shoulders+Display:wght@700;800&display=swap">
+<style>
+/* Layout concept: a Mica window that re-flows by its OWN width (container queries), so the
+   same page can be previewed as a 7" handheld, a 1080p desktop or a 4K monitor.
+   Dark-only, like the shipping app. Accent = StreamTweak mint; semantic greens/ambers/reds
+   are reserved for grades and state. */
+:root{
+  color-scheme:dark;
+  --desk:#08090a;
+  --mica:radial-gradient(1400px 820px at 6% -12%, rgba(74,222,128,.085), transparent 62%),
+         radial-gradient(1100px 760px at 108% 112%, rgba(56,189,248,.055), transparent 62%), #151617;
+  --card:rgba(255,255,255,.04);
+  --card-2:rgba(255,255,255,.065);
+  --card-solid:#1d1f1f;
+  --stroke:rgba(255,255,255,.075);
+  --stroke-2:rgba(255,255,255,.13);
+  --text:#f2f5f3;
+  --text-2:#c8cfcb;
+  --text-3:#929a96;
+  --text-4:#646b67;
+  --mint:#4ade80;
+  --mint-2:#86efac;
+  --mint-ink:#052e16;
+  --mint-soft:rgba(74,222,128,.13);
+  --mint-stroke:rgba(74,222,128,.35);
+  --good:#4ade80; --good-soft:rgba(74,222,128,.13);
+  --warn:#fbbf24; --warn-soft:rgba(251,191,36,.13);
+  --bad:#f87171;  --bad-soft:rgba(248,113,113,.13);
+  --info:#38bdf8; --info-soft:rgba(56,189,248,.12);
+  /* chart series (validated: dark surface, all-pairs) */
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --grid:rgba(255,255,255,.06);
+  --r-card:10px; --r-ctl:6px;
+  --sans:'DM Sans','Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;
+  --mono:'JetBrains Mono',Consolas,ui-monospace,monospace;
+  --cover:'Big Shoulders Display','Arial Narrow',Impact,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--desk);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;overflow-x:hidden}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+button:focus-visible,a:focus-visible,[tabindex]:focus-visible,input:focus-visible{outline:2px solid var(--mint);outline-offset:2px;border-radius:6px}
+input{font:inherit;color:inherit}
+.mono{font-family:var(--mono);font-size:12.5px}
+svg.i{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ── Mockup chrome (outside the app, Italian) ─────────────────────── */
+.mockbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 16px}
+.mockbar h1{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.mockbar .sub{color:var(--text-3);font-size:12.5px}
+.mockbar .sp{flex:1}
+.mockbar .grp{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.mockbar .readout{font-family:var(--mono);font-size:11.5px;color:var(--text-3);padding:4px 8px;border:1px dashed var(--stroke-2);border-radius:6px;white-space:nowrap}
+.seg{display:inline-flex;background:rgba(255,255,255,.05);border:1px solid var(--stroke);border-radius:8px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{white-space:nowrap;padding:4px 11px;border-radius:5px;font-size:12.5px;color:var(--text-2)}
+.seg button:hover{color:var(--text)}
+.seg button.on{background:rgba(255,255,255,.11);color:var(--text)}
+.seg.sm button{padding:3px 9px;font-size:12px}
+
+.stagewrap{padding:0 16px 16px;position:relative}
+.stage{transform-origin:top left;position:relative}
+.window{position:relative;border-radius:10px;overflow:hidden;background:var(--mica);border:1px solid rgba(255,255,255,.1);box-shadow:0 30px 80px rgba(0,0,0,.55);display:grid;grid-template-rows:44px minmax(0,1fr);container:win / inline-size}
+
+/* ── Title bar ─────────────────────────────────────────────────────── */
+.titlebar{display:flex;align-items:center;gap:10px;padding-left:12px;user-select:none;min-width:0}
+.titlebar .ham{display:none;width:36px;height:32px;border-radius:6px;place-items:center;color:var(--text-2)}
+.titlebar .ham:hover{background:rgba(255,255,255,.06)}
+.logo{width:20px;height:20px;border-radius:6px;background:conic-gradient(from 210deg,#4ade80,#22d3ee,#4ade80);display:grid;place-items:center;flex:none}
+.logo svg{width:12px;height:12px}
+.titlebar .name{font-weight:600;font-size:13px;letter-spacing:-.01em;white-space:nowrap}
+.titlebar .ver{font-size:11.5px;color:var(--text-4);font-family:var(--mono)}
+.pills{display:flex;gap:6px;margin-left:12px;min-width:0;overflow:hidden}
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid var(--stroke);font-size:12px;color:var(--text-2);white-space:nowrap;cursor:pointer}
+.pill:hover{background:rgba(255,255,255,.08)}
+.pill.live{background:var(--mint-soft);border-color:var(--mint-stroke);color:var(--mint-2)}
+.pill svg.i{width:13px;height:13px}
+.titlebar .sp{flex:1}
+.tb-btn{width:34px;height:30px;border-radius:6px;display:grid;place-items:center;color:var(--text-2)}
+.tb-btn:hover{background:rgba(255,255,255,.07);color:var(--text)}
+.caption-btns{display:flex;height:44px;flex:none}
+.caption-btns span{width:46px;display:grid;place-items:center;color:var(--text-3);font-size:12px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--good);flex:none}
+.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}.dot.off{background:var(--text-4)}.dot.info{background:var(--info)}
+.dot.pulse{animation:pulse 1.8s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.55)}70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+
+/* ── Shell + NavigationView (Auto: Expanded ≥1100 · Compact 760–1099 · Minimal <760) ── */
+.shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:0}
+.nav{display:flex;flex-direction:column;padding:2px 8px 10px;min-height:0;overflow:auto;gap:1px}
+.nav .grp{font-size:11.5px;color:var(--text-3);font-weight:500;padding:14px 12px 5px;white-space:nowrap}
+.nav a{position:relative;display:flex;align-items:center;gap:12px;height:36px;padding:0 12px;border-radius:6px;color:var(--text-2);cursor:pointer;font-size:13.5px;white-space:nowrap;text-decoration:none}
+.nav a:hover{background:rgba(255,255,255,.05)}
+.nav a.on{background:rgba(255,255,255,.075);color:var(--text)}
+.nav a.on::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:3px;border-radius:2px;background:var(--mint)}
+.nav a .lbl{overflow:hidden;text-overflow:ellipsis}
+.nav a .bdg{margin-left:auto;font-size:11px;font-weight:600;min-width:18px;height:18px;padding:0 6px;border-radius:9px;display:inline-grid;place-items:center;background:var(--warn);color:#2a1a02}
+.nav a .bdg.cnt{background:rgba(255,255,255,.08);color:var(--text-2);font-weight:500}
+.nav .sp{flex:1;min-height:12px}
+.nav hr{border:0;border-top:1px solid var(--stroke);margin:6px 6px}
+.nav .foot{padding:8px 12px 0;font-size:11.5px;color:var(--text-4);white-space:nowrap}
+.nav .foot b{color:var(--warn);font-weight:500;cursor:pointer}
+.nav svg.i{width:17px;height:17px}
+
+@container win (max-width:1099px){
+  .shell{grid-template-columns:60px minmax(0,1fr)}
+  .nav{padding:2px 8px 10px}
+  .nav a{padding:0;justify-content:center;height:40px}
+  .nav a .lbl,.nav a .bdg.cnt,.nav .foot{display:none}
+  .nav a .bdg{position:absolute;top:4px;right:4px;min-width:8px;width:8px;height:8px;padding:0;font-size:0}
+  .nav .grp{font-size:0;padding:6px 0;border-top:1px solid var(--stroke);margin:6px 6px 0}
+  .nav a.on::before{top:12px;bottom:12px}
+}
+@container win (max-width:759px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .nav{position:absolute;z-index:30;top:44px;bottom:0;left:0;width:260px;background:#1b1d1d;border-right:1px solid var(--stroke);box-shadow:20px 0 60px rgba(0,0,0,.5);transform:translateX(-102%);transition:transform .2s ease}
+  .window.navopen .nav{transform:none}
+  .nav a{justify-content:flex-start;padding:0 12px;height:40px}
+  .nav a .lbl,.nav .foot{display:block}
+  .nav .grp{font-size:11.5px;padding:14px 12px 5px;border:0;margin:0}
+  .nav a .bdg{position:static;width:auto;min-width:18px;height:18px;padding:0 6px;font-size:11px}
+  .titlebar .ham{display:grid}
+  .pills .pill:not(.keep){display:none}
+  .titlebar .ver{display:none}
+}
+.scrim{position:absolute;inset:44px 0 0 0;background:rgba(0,0,0,.45);z-index:25;display:none}
+.window.navopen .scrim,.window.draweropen .scrim{display:block}
+
+/* ── Content frame ─────────────────────────────────────────────────── */
+.frame{background:rgba(255,255,255,.025);border-top-left-radius:10px;border-left:1px solid var(--stroke);border-top:1px solid var(--stroke);overflow:auto;min-height:0;position:relative;container:content / inline-size}
+@container win (max-width:759px){.frame{border-radius:0;border-left:0}}
+.page{display:none;padding:26px clamp(16px,3.2cqi,48px) 48px}
+.page.on{display:block;animation:enter .22s ease-out}
+@keyframes enter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.ph{display:flex;align-items:flex-end;gap:12px 16px;margin-bottom:20px;flex-wrap:wrap}
+.ph .t{min-width:0}
+.ph h2{font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.15;text-wrap:balance}
+.ph p{color:var(--text-3);margin-top:4px;font-size:13.5px;max-width:760px}
+.ph .sp{flex:1}
+.crumb{display:flex;align-items:center;gap:8px;font-size:28px;font-weight:600;letter-spacing:-.02em;line-height:1.15;flex-wrap:wrap}
+.crumb .up{color:var(--text-3);cursor:pointer}
+.crumb .up:hover{color:var(--text-2)}
+.crumb .chev{color:var(--text-4);font-weight:400}
+@container content (max-width:560px){.ph h2,.crumb{font-size:23px}}
+
+/* ── Controls ──────────────────────────────────────────────────────── */
+.cmdbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 14px;border-radius:var(--r-ctl);font-size:13.5px;border:1px solid var(--stroke-2);background:rgba(255,255,255,.06);color:var(--text);white-space:nowrap}
+.btn:hover{background:rgba(255,255,255,.1)}
+.btn.primary{background:var(--mint);border-color:var(--mint);color:var(--mint-ink);font-weight:600}
+.btn.primary:hover{background:#6ee7a0}
+.btn.amber{background:var(--warn-soft);border-color:rgba(251,191,36,.35);color:var(--warn)}
+.btn.danger{background:transparent;border-color:rgba(248,113,113,.45);color:#fca5a5}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--text-2)}
+.btn.ghost:hover{background:rgba(255,255,255,.06)}
+.btn.icon{width:32px;padding:0;justify-content:center}
+.btn[disabled]{opacity:.4;pointer-events:none}
+.btn svg.i{width:15px;height:15px}
+.input{display:flex;align-items:center;gap:8px;height:32px;border-radius:var(--r-ctl);border:1px solid var(--stroke-2);border-bottom-color:rgba(255,255,255,.28);background:rgba(255,255,255,.05);padding:0 10px;min-width:0;color:var(--text-3)}
+.input input{background:none;border:0;outline:none;color:var(--text);width:100%;min-width:0}
+.combo{display:inline-flex;align-items:center;justify-content:space-between;gap:10px;height:32px;padding:0 10px 0 12px;border-radius:var(--r-ctl);border:1px solid var(--stroke-2);background:rgba(255,255,255,.05);font-size:13.5px;min-width:120px;white-space:nowrap;cursor:pointer}
+.combo::after{content:"";width:7px;height:7px;border-right:1.5px solid var(--text-3);border-bottom:1.5px solid var(--text-3);transform:rotate(45deg) translateY(-2px)}
+.tsw{display:inline-flex;align-items:center;gap:10px;font-size:13.5px;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.tsw i{width:40px;height:20px;border-radius:10px;border:1px solid var(--text-3);position:relative;flex:none;transition:.15s}
+.tsw i::after{content:"";position:absolute;width:12px;height:12px;border-radius:50%;background:var(--text-2);top:3px;left:4px;transition:.15s}
+.tsw.on i{background:var(--mint);border-color:var(--mint)}
+.tsw.on i::after{left:23px;background:var(--mint-ink)}
+.chk{width:18px;height:18px;border-radius:4px;border:1px solid var(--text-3);display:inline-grid;place-items:center;flex:none;cursor:pointer}
+.chk.on{background:var(--mint);border-color:var(--mint)}
+.chk.on::after{content:"";width:9px;height:5px;border-left:2px solid var(--mint-ink);border-bottom:2px solid var(--mint-ink);transform:rotate(-45deg) translate(1px,-1px)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:15px;border:1px solid var(--stroke-2);background:rgba(255,255,255,.03);font-size:13px;color:var(--text-2);cursor:pointer;white-space:nowrap}
+.chip:hover{background:rgba(255,255,255,.07)}
+.chip.on{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25);color:var(--text)}
+.chip .n{font-size:11.5px;color:var(--text-3)}
+.link{color:var(--mint-2);font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.link:hover{text-decoration:underline}
+.hint-i{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--text-4);color:var(--text-3);font-size:10px;font-weight:600;cursor:help;vertical-align:1px;margin-left:4px;font-family:var(--sans)}
+.hint-i:hover{border-color:var(--mint);color:var(--mint)}
+
+/* ── Cards, type roles ─────────────────────────────────────────────── */
+.card{background:var(--card);border:1px solid var(--stroke);border-radius:var(--r-card);padding:18px 20px;min-width:0}
+.card.flat{padding:0;overflow:hidden}
+.card h3{font-size:15.5px;font-weight:600;letter-spacing:-.01em}
+.card .hint{color:var(--text-3);font-size:12.5px}
+.cardhead{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.cardhead .sp{flex:1}
+.sech{display:flex;align-items:baseline;gap:10px;margin:28px 0 12px;flex-wrap:wrap}
+.sech h3{font-size:17px;font-weight:600;letter-spacing:-.01em}
+.sech .sub{color:var(--text-3);font-size:12.5px}
+.sech .sp{flex:1}
+.lbl{font-size:12.5px;color:var(--text-3);font-weight:500}
+.val{font-size:24px;font-weight:600;letter-spacing:-.02em;line-height:1.15;margin-top:3px}
+.val small{font-size:13px;font-weight:500;color:var(--text-3);margin-left:3px;letter-spacing:0}
+.val.l{font-size:34px}.val.s{font-size:18px}
+.foot{color:var(--text-3);font-size:12.5px;margin-top:5px}
+.tag{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:11px;font-size:11.5px;font-weight:600;border:1px solid transparent;white-space:nowrap}
+.tag.good{background:var(--good-soft);color:var(--mint-2);border-color:var(--mint-stroke)}
+.tag.warn{background:var(--warn-soft);color:var(--warn);border-color:rgba(251,191,36,.35)}
+.tag.bad{background:var(--bad-soft);color:#fca5a5;border-color:rgba(248,113,113,.35)}
+.tag.info{background:var(--info-soft);color:var(--info);border-color:rgba(56,189,248,.35)}
+.tag.grey{background:rgba(255,255,255,.06);color:var(--text-2);border-color:var(--stroke-2)}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.row .sp{flex:1}
+.divider{height:1px;background:var(--stroke);margin:14px 0}
+.small{font-size:12.5px;color:var(--text-3)}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px 20px}
+.kv .k{font-size:12px;color:var(--text-3)}
+.kv .v{font-size:14px;margin-top:2px}
+.kv .v small{color:var(--text-3);font-size:12px;margin-left:4px}
+.setrow{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--stroke);flex-wrap:wrap}
+.setrow:last-child{border-bottom:0;padding-bottom:4px}
+.setrow:first-child{padding-top:4px}
+.setrow .t{flex:1;min-width:200px}
+.setrow .t b{font-weight:500;display:block}
+.setrow .t span{color:var(--text-3);font-size:12.5px}
+.ico-bubble{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:rgba(255,255,255,.06);color:var(--text-2);flex:none}
+.ico-bubble.g{background:var(--mint-soft);color:var(--mint-2)}
+.ico-bubble.a{background:var(--warn-soft);color:var(--warn)}
+.ico-bubble.b{background:var(--info-soft);color:var(--info)}
+/* auto-filling column systems */
+.cols{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);align-items:start}
+@container content (min-width:900px){.cols{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container content (min-width:1650px){.cols.c3{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@container content (min-width:2500px){.cols.c3{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.cols .wide{grid-column:1/-1}
+.stack{display:grid;gap:16px;align-content:start;min-width:0}
+
+/* grade pill (shape + label, never colour alone) */
+.grade{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px 0 7px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap}
+.grade::before{content:"";width:8px;height:8px;border-radius:2px;background:currentColor}
+.grade.ex{background:var(--good-soft);color:var(--mint-2)}
+.grade.gd{background:var(--warn-soft);color:var(--warn)}
+.grade.gd::before{border-radius:50%}
+.grade.pr{background:var(--bad-soft);color:#fca5a5}
+.grade.pr::before{transform:rotate(45deg);border-radius:1px}
+
+/* ── Covers (placeholder art built in CSS — real app uses the cached PNGs) ── */
+.cover{position:relative;aspect-ratio:2/3;border-radius:8px;overflow:hidden;max-width:100%;
+  background:
+    radial-gradient(120% 70% at var(--cx,70%) var(--cy,18%), hsl(var(--h2) 85% 62% / .55), transparent 60%),
+    linear-gradient(165deg, hsl(var(--h1) 55% 26%), hsl(var(--h2) 50% 10%));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.cover::before{content:"";position:absolute;inset:0;opacity:.55;pointer-events:none}
+.cover.m0::before{background:radial-gradient(circle at 50% 44%, hsl(var(--h2) 90% 70% / .9) 0 18%, transparent 18.5%),linear-gradient(180deg,transparent 55%,hsl(var(--h1) 60% 8% / .9) 55%)}
+.cover.m1::before{background:repeating-linear-gradient(125deg,hsl(var(--h2) 80% 60% / .22) 0 8px,transparent 8px 22px)}
+.cover.m2::before{background:conic-gradient(from 200deg at 50% 38%,transparent 0 40deg,hsl(var(--h2) 90% 65% / .45) 40deg 80deg,transparent 80deg 170deg,hsl(var(--h1) 80% 60% / .35) 170deg 200deg,transparent 200deg)}
+.cover.m3::before{background:linear-gradient(135deg,transparent 48%,hsl(var(--h2) 70% 55% / .5) 48% 52%,transparent 52%),linear-gradient(35deg,transparent 60%,hsl(var(--h1) 70% 30% / .9) 60%)}
+.cover.m4::before{background:linear-gradient(hsl(var(--h2) 80% 60% / .18) 1px,transparent 1px) 0 0/100% 14px,linear-gradient(90deg,hsl(var(--h2) 80% 60% / .18) 1px,transparent 1px) 0 0/14px 100%;mask:linear-gradient(0deg,#000 20%,transparent 75%);-webkit-mask:linear-gradient(0deg,#000 20%,transparent 75%)}
+.cover .ct{position:absolute;left:9%;right:9%;bottom:8%;font-family:var(--cover);font-weight:800;text-transform:uppercase;line-height:.9;color:#fff;letter-spacing:.01em;text-shadow:0 2px 14px rgba(0,0,0,.5);font-size:var(--fs,22px);overflow-wrap:normal;word-break:normal}
+.cover .ct small{display:block;font-family:var(--sans);font-weight:600;font-size:.36em;letter-spacing:.14em;opacity:.8;margin-top:5px}
+.cover.xs .ct{display:none}
+.cover.xs{border-radius:4px}
+.storeb{position:absolute;top:7px;left:7px;height:19px;padding:0 6px;border-radius:5px;font-size:10px;font-weight:700;letter-spacing:.04em;display:inline-flex;align-items:center;background:rgba(10,10,12,.72);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.14);color:#e7ecea;text-transform:uppercase}
+</style>
+<style>
+/* ═════════ DASHBOARD ═════════ */
+.dash{display:grid;gap:16px;grid-template-columns:minmax(0,1fr);
+  grid-template-areas:"hero" "last" "perf" "setup" "clients" "shelf"}
+.dash>*{min-width:0}
+.a-hero{grid-area:hero}.a-last{grid-area:last}.a-perf{grid-area:perf}.a-setup{grid-area:setup}.a-clients{grid-area:clients}.a-shelf{grid-area:shelf}.a-recent{grid-area:recent;display:none}
+@container content (min-width:760px){.dash{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-areas:"hero hero" "last clients" "perf perf" "setup setup" "shelf shelf"}}
+@container content (min-width:1240px){.dash{grid-template-columns:repeat(3,minmax(0,1fr));grid-template-areas:"hero hero last" "perf perf setup" "shelf shelf clients"}}
+@container content (min-width:1800px){.dash{grid-template-columns:repeat(4,minmax(0,1fr));grid-template-areas:"hero hero last clients" "perf perf setup setup" "recent recent shelf shelf"}.a-recent{display:block}}
+@container content (min-width:2700px){.dash{grid-template-columns:repeat(6,minmax(0,1fr));grid-template-areas:"hero hero hero last perf perf" "setup setup clients recent recent recent" "shelf shelf shelf shelf shelf shelf"}}
+
+/* hero */
+.hero{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--stroke);background:#0e0f0f;min-height:300px;display:flex;flex-direction:column}
+.hero .bgart{position:absolute;inset:-40px;background-size:cover;filter:blur(38px) saturate(1.2);opacity:.55;transform:scale(1.1)}
+.hero .veil{position:absolute;inset:0;background:linear-gradient(90deg,rgba(10,11,11,.2),rgba(10,11,11,.86) 42%),linear-gradient(0deg,rgba(10,11,11,.7),transparent 50%)}
+.hero .in{position:relative;z-index:1;display:grid;grid-template-columns:auto minmax(0,1fr);gap:22px;padding:22px 24px 20px;flex:1}
+.hero.idle .in{grid-template-columns:minmax(0,1fr)}
+.hero .art{width:clamp(110px,14cqi,190px)}
+.hero.idle .art{display:none}
+.hero .body{display:flex;flex-direction:column;min-width:0}
+.eyebrow{display:flex;align-items:center;gap:9px;font-size:12px;font-weight:600;letter-spacing:.09em;color:var(--mint-2);text-transform:uppercase;flex-wrap:wrap}
+.eyebrow .muted{color:var(--text-3);font-weight:400;letter-spacing:0;text-transform:none}
+.hero h4{font-size:clamp(22px,2.5cqi,34px);font-weight:600;letter-spacing:-.025em;margin-top:8px;line-height:1.1;text-wrap:balance}
+.hero .meta{color:var(--text-3);font-size:13px;margin-top:4px}
+.vitals{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:auto;padding-top:18px}
+.vital{background:rgba(255,255,255,.035);border:1px solid var(--stroke);border-radius:10px;padding:10px 12px 8px;min-width:0}
+.vital .lbl{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vital .v{font-size:clamp(20px,1.9cqi,30px);font-weight:600;letter-spacing:-.02em;line-height:1.1;margin-top:2px;white-space:nowrap}
+.vital .v small{font-size:12px;color:var(--text-3);font-weight:500;margin-left:2px}
+.vital .s{font-size:11.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vital svg{display:block;width:100%;height:30px;margin-top:4px}
+@container content (max-width:759px){.vitals{grid-template-columns:repeat(2,minmax(0,1fr))}.vital:last-child{grid-column:1/-1}.hero .in{grid-template-columns:minmax(0,1fr)}.hero .art{display:none}}
+@container content (min-width:760px) and (max-width:1239px){.vitals{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.hero .actions{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.hero .foot{margin-top:12px}
+
+/* last session */
+.lastcovers{display:flex;gap:8px;margin:12px 0 4px}
+.lastcovers .cover{width:64px}
+.mini{display:grid;gap:9px}
+.mini .row span:first-child{color:var(--text-3);font-size:13px}
+.tiles3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.tiles3 .val{font-size:20px}
+
+/* perf */
+.distbar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px;margin:10px 0 6px}
+.distbar i{display:block;height:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.legend i.ln{height:2px;border-radius:1px;width:14px}
+.chartbox{position:relative}
+.chartbox svg{display:block;width:100%}
+.tip{position:absolute;pointer-events:none;background:#232626;border:1px solid var(--stroke-2);border-radius:8px;padding:7px 10px;font-size:12px;color:var(--text);box-shadow:0 10px 30px rgba(0,0,0,.45);white-space:nowrap;z-index:5;display:none}
+.tip b{font-weight:600}
+.tip .r{display:flex;align-items:center;gap:7px;color:var(--text-2)}
+.tip .r i{width:8px;height:8px;border-radius:2px;display:inline-block}
+
+/* setup tiles */
+.setupgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px}
+.stile{display:flex;gap:11px;align-items:center;padding:10px 12px;border-radius:9px;background:rgba(255,255,255,.03);border:1px solid var(--stroke);cursor:pointer;min-width:0}
+.stile:hover{background:rgba(255,255,255,.06)}
+.stile .t{min-width:0;flex:1;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-items:center}
+.stile .t b,.stile .t>span{grid-column:1}
+.stile .st{grid-column:2;grid-row:1/3;margin:0!important}
+.stile b{display:block;font-weight:500;font-size:13.5px}
+.stile span{font-size:12.5px;color:var(--text-3);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stile .st{display:flex;gap:5px}
+
+/* clients mini list */
+.clist{display:grid;gap:2px}
+.crow{display:flex;align-items:center;gap:11px;padding:9px 4px;border-bottom:1px solid var(--stroke)}
+.crow:last-child{border-bottom:0}
+.crow .t{flex:1;min-width:0}
+.crow b{font-weight:500;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow span{font-size:12px;color:var(--text-3)}
+
+/* shelf */
+.shelf{display:grid;grid-auto-flow:column;grid-auto-columns:clamp(96px,9cqi,150px);gap:12px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.shelf .it{cursor:pointer}
+.shelf .it .n{font-size:12.5px;margin-top:7px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shelf .it .m{font-size:11.5px;color:var(--text-3)}
+.rlist .srow{grid-template-columns:4px 104px minmax(0,1fr) 70px 70px 104px;padding:8px 4px;gap:12px}
+.rlist .srow:first-child{border-top:0}
+.statusline{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid var(--stroke);font-size:13px;color:var(--text-2);margin-top:16px;flex-wrap:wrap}
+.statusline .sp{flex:1}
+
+/* ═════════ SESSIONS ═════════ */
+.sumstrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:0;padding:0}
+.sumstrip>div{padding:14px 18px;border-right:1px solid var(--stroke)}
+.sumstrip>div:last-child{border-right:0}
+.sumstrip .gdist{grid-column:span 2;min-width:0}
+@container content (max-width:640px){.sumstrip .gdist{grid-column:1/-1}.sumstrip>div{border-right:0;border-bottom:1px solid var(--stroke)}}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:16px 0 12px}
+.toolbar .sp{flex:1}
+.md{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+.md .pane{display:none}
+@container content (min-width:1640px){.md{grid-template-columns:minmax(0,5fr) minmax(0,7fr)}.md .pane{display:block;position:sticky;top:0;align-self:start}.md.compact .sl .cgames .names{display:none}}
+@container content (min-width:2600px){.md{grid-template-columns:minmax(0,4fr) minmax(0,8fr)}}
+.sl{padding:0}
+.sl .day{padding:14px 18px 6px;font-size:12px;font-weight:600;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;display:flex;gap:10px}
+.sl .day span{font-weight:400;letter-spacing:0;text-transform:none}
+.srow{display:grid;grid-template-columns:22px 4px 118px minmax(0,1fr) 78px 86px 70px 104px 16px;align-items:center;gap:12px;padding:9px 18px;border-top:1px solid var(--stroke);cursor:pointer;position:relative}
+.srow:hover{background:rgba(255,255,255,.035)}
+.srow.sel{background:rgba(74,222,128,.07)}
+.srow .stripe{width:4px;height:34px;border-radius:2px}
+.srow .when b{font-weight:500;display:block;font-size:13.5px}
+.srow .when span{font-size:12px;color:var(--text-3)}
+.cgames{display:flex;align-items:center;gap:8px;min-width:0}
+.cgames .covs{display:flex;flex:none}
+.cgames .cover{width:26px;margin-right:-6px;box-shadow:0 0 0 2px #161818}
+.cgames .names{font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-left:8px;min-width:0}
+.srow .num{text-align:right;font-size:13.5px}
+.srow .num small{color:var(--text-3);font-size:11.5px;margin-left:2px}
+.srow .chev{color:var(--text-4)}
+.shead{display:grid;grid-template-columns:22px 4px 118px minmax(0,1fr) 78px 86px 70px 104px 16px;gap:12px;padding:10px 18px;font-size:12px;color:var(--text-3);font-weight:500}
+.shead .num{text-align:right}
+@container content (max-width:980px){
+  .srow,.shead{grid-template-columns:22px 4px minmax(0,1fr) 70px 104px}
+  .srow .c-hl,.srow .c-dr,.shead .c-hl,.shead .c-dr,.srow .chev,.shead .chev{display:none}
+  .srow .cgames{grid-column:3/4;grid-row:2}
+  .srow .when{grid-row:1}
+  .srow .stripe{grid-row:1/3;height:100%}
+  .srow .rchk{grid-row:1/3}
+  .srow .c-rtt{grid-row:1/3}.srow .c-gr{grid-row:1/3}
+  .shead .cg{display:none}
+}
+@container content (min-width:1640px){
+  .md .srow,.md .shead{grid-template-columns:22px 4px 110px minmax(0,1fr) 70px 104px}
+  .md .srow .c-hl,.md .srow .c-dr,.md .shead .c-hl,.md .shead .c-dr,.md .srow .chev,.md .shead .chev{display:none}
+}
+.cmpbar{position:sticky;bottom:12px;margin-top:14px;display:none;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:#202323;border:1px solid var(--stroke-2);box-shadow:0 12px 40px rgba(0,0,0,.5);z-index:4;flex-wrap:wrap}
+.cmpbar.show{display:flex}
+.cmpbar .sp{flex:1}
+
+/* ═════════ SESSION DETAIL ═════════ */
+.dgrid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@container detail (min-width:1100px){.dgrid.top{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr)}}
+@container detail (min-width:1700px){.dgrid.top{grid-template-columns:minmax(0,.9fr) minmax(0,1fr) minmax(0,1fr)}}
+.detailroot{container:detail / inline-size;min-width:0}
+.verdict{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.verdict .big{display:flex;flex-direction:column;gap:4px;min-width:140px}
+.verdict .big .gl{font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.1}
+.crit{display:grid;gap:0;flex:1;min-width:240px}
+.crit .cr{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--stroke);font-size:13px}
+.crit .cr:last-child{border-bottom:0}
+.crit .cr .th{color:var(--text-3);font-size:12px;text-align:right;white-space:nowrap}
+.crit .cr .gg{justify-self:end}
+.metricgrp .mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:14px 16px}
+.metricgrp .mg .v{font-size:19px;font-weight:600;letter-spacing:-.015em;margin-top:2px;white-space:nowrap}
+.metricgrp .mg .v small{font-size:12px;color:var(--text-3);font-weight:500;margin-left:2px}
+.metricgrp .mg .s{font-size:12px;color:var(--text-3)}
+.gamestrip{display:flex;gap:12px;flex-wrap:wrap}
+.gcard{display:flex;gap:12px;align-items:center;padding:8px 12px 8px 8px;border-radius:10px;background:rgba(255,255,255,.035);border:1px solid var(--stroke);cursor:pointer;min-width:0}
+.gcard:hover{background:rgba(255,255,255,.065)}
+.gcard .cover{width:40px;flex:none}
+.gcard b{font-weight:500;display:block}
+.gcard span{font-size:12px;color:var(--text-3)}
+
+/* timeline / tracks chart */
+.tl{position:relative;user-select:none}
+.tl .lanes{display:grid;grid-template-columns:clamp(128px,15cqi,190px) minmax(0,1fr);column-gap:0}
+.tl .lh{padding:8px 12px 6px 0;border-top:1px solid var(--stroke);display:flex;flex-direction:column;justify-content:center;min-width:0}
+.tl .lh .n{font-size:12.5px;color:var(--text-2);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl .lh .rv{font-size:17px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}
+.tl .lh .rv small{font-size:11.5px;color:var(--text-3);font-weight:500;margin-left:2px}
+.tl .lh .sub{font-size:11.5px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl .lh .lg{display:flex;gap:2px 10px;flex-wrap:wrap;font-size:11.5px;color:var(--text-2);margin-top:3px}
+.tl .lh .lg span{white-space:nowrap}
+.tl .lh .lg i{display:inline-block;width:10px;height:2px;border-radius:1px;vertical-align:3px;margin-right:4px}
+.tl .lc{border-top:1px solid var(--stroke);position:relative;min-width:0}
+.tl .lc svg{display:block;width:100%;height:100%}
+.tl .gl-lane .lc{height:34px}
+.tl .axis{height:24px;position:relative}
+.tl .xh{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,.55);pointer-events:none;display:none;z-index:3}
+.tl .xt{position:absolute;top:-24px;transform:translateX(-50%);font-size:11.5px;font-family:var(--mono);background:#2a2e2e;border:1px solid var(--stroke-2);padding:1px 6px;border-radius:5px;white-space:nowrap}
+.tl .hit{position:absolute;inset:0;cursor:crosshair;z-index:2}
+.gseg{position:absolute;top:5px;bottom:5px;border-radius:6px;display:flex;align-items:center;gap:6px;padding:0 8px 0 3px;overflow:hidden;cursor:zoom-in;font-size:12px;white-space:nowrap;color:#fff;z-index:4}
+.gseg .cover{width:17px;flex:none;border-radius:3px}
+.overview{position:relative;height:46px;margin-top:10px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid var(--stroke);cursor:ew-resize;overflow:hidden}
+.overview svg{display:block;width:100%;height:100%}
+.overview .win{position:absolute;top:0;bottom:0;background:rgba(74,222,128,.12);border-left:2px solid var(--mint);border-right:2px solid var(--mint);pointer-events:none}
+.focuswrap .fstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;margin-top:14px}
+.zone-note{font-size:12px;color:var(--text-3);margin-top:8px}
+
+/* compare */
+.cmpgrid{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@container content (min-width:1000px){.cmpgrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.cmppick{display:flex;gap:12px;align-items:center;padding:14px 16px}
+.cmppick .cgames .cover{width:34px}
+table.t{width:100%;border-collapse:collapse;font-size:13.5px}
+table.t th{text-align:left;font-weight:500;color:var(--text-3);font-size:12px;padding:10px 16px;border-bottom:1px solid var(--stroke)}
+table.t td{padding:10px 16px;border-bottom:1px solid var(--stroke)}
+table.t tr:last-child td{border-bottom:0}
+table.t .r{text-align:right}
+.delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap}
+.delta.good{color:var(--mint-2);background:var(--good-soft)}
+.delta.bad{color:#fca5a5;background:var(--bad-soft)}
+.delta.neu{color:var(--text-2);background:rgba(255,255,255,.06)}
+.tscroll{overflow-x:auto}
+
+/* ═════════ LIBRARY ═════════ */
+.libhero{position:relative;border-radius:14px;overflow:hidden;border:1px solid var(--stroke);min-height:230px;display:grid;grid-template-columns:minmax(0,1fr)}
+.libhero .bgart{position:absolute;inset:-40px;filter:blur(34px) saturate(1.25);opacity:.6}
+.libhero .veil{position:absolute;inset:0;background:linear-gradient(90deg,rgba(12,13,13,.92) 0%,rgba(12,13,13,.6) 55%,rgba(12,13,13,.25))}
+.libhero .in{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:24px;padding:22px 24px;align-items:end}
+.libhero .cover{width:clamp(110px,11cqi,170px)}
+.libhero h4{font-size:clamp(24px,2.6cqi,38px);font-weight:600;letter-spacing:-.025em;line-height:1.05;margin-top:6px}
+.libhero .facts{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px}
+.libhero .facts div{min-width:0}
+.libhero .facts b{display:block;font-size:18px;font-weight:600}
+.libhero .facts span{font-size:12px;color:var(--text-3)}
+.libtop{display:grid;gap:16px;grid-template-columns:minmax(0,1fr)}
+@container content (min-width:1200px){.libtop{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}}
+@container content (min-width:2200px){.libtop{grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr)}}
+.recent{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.recent .it{cursor:pointer;min-width:0}
+.recent .it .n{font-size:12px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.syncline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.storebars{display:grid;gap:7px;margin-top:12px}
+.storebars .sb{display:grid;grid-template-columns:78px minmax(0,1fr) 28px;gap:8px;align-items:center;font-size:12.5px;color:var(--text-2)}
+.storebars .sb .bar{height:6px;border-radius:3px;background:rgba(255,255,255,.06);overflow:hidden}
+.storebars .sb .bar i{display:block;height:100%;background:var(--mint);border-radius:3px}
+.storebars .sb .c{text-align:right;color:var(--text-3)}
+.tilepv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.tilepv .tp{border-radius:8px;aspect-ratio:2/3;max-height:170px;border:1px solid var(--stroke);display:grid;place-items:end start;padding:10px;font-size:12px;font-weight:600;background:linear-gradient(160deg,#27433a,#0e1714)}
+.tilepv .tp.s{background:linear-gradient(160deg,#1c3350,#0b1421)}
+.libgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 16px}
+@container content (min-width:2400px){.libgrid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}}
+@container content (max-width:520px){.libgrid{grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:14px 10px}}
+.gtile{position:relative;cursor:pointer;min-width:0;outline:none}
+.gtile .cover{transition:transform .18s ease, box-shadow .18s ease}
+.gtile:hover .cover,.gtile:focus-visible .cover{transform:translateY(-4px);box-shadow:0 16px 34px rgba(0,0,0,.55),inset 0 0 0 1px rgba(255,255,255,.18)}
+.gtile .ov{position:absolute;inset:0;border-radius:8px;display:flex;align-items:flex-end;justify-content:center;gap:6px;padding:10px;opacity:0;background:linear-gradient(0deg,rgba(0,0,0,.7),transparent 55%);transition:opacity .15s;aspect-ratio:2/3}
+.gtile:hover .ov,.gtile:focus-within .ov{opacity:1;transform:translateY(-4px)}
+.gtile .ov button{width:34px;height:34px;border-radius:17px;display:grid;place-items:center;background:rgba(255,255,255,.14);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2)}
+.gtile .ov button.play{background:var(--mint);color:var(--mint-ink);border-color:var(--mint)}
+.gtile .n{font-size:13px;margin-top:9px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gtile .m{font-size:12px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gtile.off .cover{filter:grayscale(.9) brightness(.55)}
+.gtile.off .n{color:var(--text-3)}
+.gtile .offtag{position:absolute;top:7px;right:7px}
+.gtile .mtag{position:absolute;top:7px;left:7px}
+.libtable .srow{grid-template-columns:40px minmax(0,1fr) 90px 110px 90px 80px 44px}
+.libtable .cover{width:32px}
+
+/* ═════════ DRAWERS (game sheet, glossary) ═════════ */
+.drawer{position:absolute;top:44px;right:0;bottom:0;width:min(520px,100%);z-index:28;background:#1a1c1c;border-left:1px solid var(--stroke-2);box-shadow:-24px 0 70px rgba(0,0,0,.5);transform:translateX(104%);transition:transform .22s ease;display:flex;flex-direction:column;min-height:0}
+.drawer.open{transform:none}
+.drawer .dh{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--stroke)}
+.drawer .dh h3{font-size:16px;font-weight:600}
+.drawer .dh .sp{flex:1}
+.drawer .db{overflow:auto;flex:1;min-height:0}
+.gsheet .top{position:relative;padding:22px 20px 18px;overflow:hidden}
+.gsheet .top .bgart{position:absolute;inset:-50px;filter:blur(36px) saturate(1.2);opacity:.6}
+.gsheet .top .veil{position:absolute;inset:0;background:linear-gradient(0deg,#1a1c1c 0%,rgba(26,28,28,.55) 60%,rgba(26,28,28,.3))}
+.gsheet .top .in{position:relative;display:grid;grid-template-columns:118px minmax(0,1fr);gap:16px;align-items:end}
+.gsheet .top h4{font-size:22px;font-weight:600;letter-spacing:-.02em;line-height:1.1}
+.gsheet .sec{padding:16px 20px;border-top:1px solid var(--stroke)}
+.gsheet .sec h5{font-size:12px;color:var(--text-3);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
+.glos .term{padding:12px 18px;border-bottom:1px solid var(--stroke)}
+.glos .term.hl{background:rgba(74,222,128,.08);box-shadow:inset 3px 0 0 var(--mint)}
+.glos .term b{font-weight:600;display:block}
+.glos .term p{color:var(--text-2);font-size:13px;margin-top:3px}
+.glos .gh{padding:16px 18px 6px;font-size:12px;color:var(--text-3);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+
+/* ═════════ HOST PAGES ═════════ */
+.ladder{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.ladder span{height:30px;padding:0 12px;border-radius:7px;display:inline-flex;align-items:center;font-size:13px;border:1px solid var(--stroke-2);color:var(--text-3);font-family:var(--mono)}
+.ladder span.sup{color:var(--text-2)}
+.ladder span.cur{background:var(--mint-soft);border-color:var(--mint-stroke);color:var(--mint-2);font-weight:500}
+.ladder span.dflt{border-style:dashed}
+.flow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:6px 0 4px}
+.flow .st{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 11px;border-radius:7px;background:rgba(255,255,255,.04);border:1px solid var(--stroke);font-size:12.5px;color:var(--text-2);white-space:nowrap}
+.flow .st.done{color:var(--mint-2);border-color:var(--mint-stroke);background:var(--mint-soft)}
+.flow .st.now{color:var(--text);border-color:rgba(255,255,255,.3);background:rgba(255,255,255,.08)}
+.flow .ar{color:var(--text-4)}
+.ipbox{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:rgba(0,0,0,.25);border:1px solid var(--stroke);font-family:var(--mono);font-size:15px;margin-top:10px;flex-wrap:wrap}
+.monitors{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.mon{padding:16px}
+.mon .scr{height:92px;border-radius:6px;border:2px solid #3a3f3e;background:linear-gradient(135deg,#0f1a2b,#1f1330);position:relative;margin-bottom:6px;display:grid;place-items:center;font-family:var(--mono);font-size:12px;color:var(--text-2)}
+.mon .scr.hdr{background:linear-gradient(135deg,#123d63,#6d2a7e 60%,#f59e0b);color:#fff}
+.mon .scr::after{content:"";position:absolute;left:44%;right:44%;bottom:-11px;height:9px;background:#3a3f3e;border-radius:0 0 3px 3px}
+.mon .scr.virt{border-style:dashed;background:repeating-linear-gradient(135deg,rgba(255,255,255,.03) 0 6px,transparent 6px 12px)}
+.mon .scr.virt::after{display:none}
+.opt{display:flex;gap:12px;padding:14px;border-radius:10px;border:1px solid var(--stroke-2);cursor:pointer;align-items:flex-start;min-width:0}
+.opt.on{border-color:var(--mint-stroke);background:rgba(74,222,128,.06)}
+.opt .rd{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--text-3);flex:none;margin-top:1px;display:grid;place-items:center}
+.opt.on .rd{border-color:var(--mint)}
+.opt.on .rd::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--mint)}
+.opt b{font-weight:500;display:block}
+.opt span{font-size:12.5px;color:var(--text-3)}
+.opts{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.nvhead{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.nvhead .gpu{font-size:19px;font-weight:600;letter-spacing:-.01em}
+.dlss{display:flex;gap:8px;flex-wrap:wrap}
+.dlss span{display:inline-flex;gap:6px;align-items:center;height:26px;padding:0 10px;border-radius:7px;background:rgba(255,255,255,.05);border:1px solid var(--stroke);font-size:12px}
+.dlss b{font-family:var(--mono);font-weight:500;color:var(--mint-2)}
+.nvtable td.mono,.nvtable td .mono{color:var(--text-2)}
+.applist .arow{display:grid;grid-template-columns:36px minmax(0,1fr) auto auto;gap:14px;align-items:center;padding:12px 18px;border-top:1px solid var(--stroke)}
+.applist .arow:first-child{border-top:0}
+.appico{width:36px;height:36px;border-radius:9px;display:grid;place-items:center;font-weight:700;font-size:14px}
+.applist .t{min-width:0}
+.applist .t b{font-weight:500;display:block}
+.applist .t .mono{color:var(--text-3);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.routine{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.routine .rs{padding:12px 14px;border-radius:9px;background:rgba(255,255,255,.03);border:1px solid var(--stroke)}
+.routine .rs b{display:block;font-weight:500;margin-top:4px}
+.routine .rs span{font-size:12.5px;color:var(--text-3)}
+.pinreq{border-color:rgba(251,191,36,.4);background:linear-gradient(135deg,rgba(251,191,36,.08),rgba(255,255,255,.02))}
+.pin{display:flex;gap:8px;margin:14px 0}
+.pin span{width:46px;height:56px;border-radius:9px;background:rgba(0,0,0,.3);border:1px solid var(--stroke-2);display:grid;place-items:center;font-family:var(--mono);font-size:26px;font-weight:500}
+.devgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.dev .caps{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.about{display:flex;gap:14px;align-items:center}
+.about .logo{width:44px;height:44px;border-radius:12px}
+.about .logo svg{width:24px;height:24px}
+.about.sl .logo{background:conic-gradient(from 30deg,#fbbf24,#f472b6,#fbbf24)}
+
+/* ═════════ MAP VIEW (Italian) ═════════ */
+.mapview{padding:8px 16px 40px;max-width:1500px;margin:0 auto}
+.mapview h2{font-size:24px;font-weight:600;letter-spacing:-.02em;margin:18px 0 6px}
+.mapview h3{font-size:16px;font-weight:600;margin:26px 0 10px}
+.mapview p,.mapview li{color:var(--text-2);max-width:900px}
+.mapview ul{padding-left:20px;display:grid;gap:5px}
+.mapview .card{margin-top:10px}
+.mapview td{vertical-align:top}
+.mapview td:first-child{white-space:nowrap}
+.newtag{font-size:10.5px;font-weight:700;color:var(--mint-ink);background:var(--mint);border-radius:4px;padding:1px 5px;margin-left:6px;vertical-align:1px}
+</style>
+</head>
+<body>
+
+<!-- ═════════ MOCKUP BAR (fuori dall'app) ═════════ -->
+<div class="mockbar">
+  <div>
+    <h1>StreamTweak — proposta UI 9.0.0</h1>
+    <div class="sub">Mockup navigabile · menu, righe sessione, copertine, grafici (passa il mouse, trascina sulla mini-mappa, clicca un gioco nella timeline)</div>
+  </div>
+  <div class="sp"></div>
+  <div class="grp"><span class="sub">Host:</span><div class="seg sm" id="stateSeg"><button data-s="idle">A riposo</button><button class="on" data-s="live">In streaming</button></div></div>
+  <div class="grp"><span class="sub">Schermo:</span>
+    <div class="seg sm" id="sizeSeg">
+      <button class="on" data-w="fit">Adatta</button>
+      <button data-w="900x620" title="Finestra piccola / tablet">Piccolo 900</button>
+      <button data-w="1280x800" title="Handheld 7–8&quot; 1080p/1200p al 150–200% (ROG Ally, Legion Go, Steam Deck)">Handheld 1280</button>
+      <button data-w="1920x1040" title="Monitor 1080p al 100%">1080p</button>
+      <button data-w="2560x1400" title="Monitor 1440p al 100% o 4K al 150%">1440p · 4K@150%</button>
+      <button data-w="3840x2120" title="Monitor 4K al 100%">4K@100%</button>
+    </div>
+  </div>
+  <span class="readout" id="readout">—</span>
+  <div class="seg" id="viewSeg"><button class="on" data-v="app">App</button><button data-v="map">Mappa sezioni &amp; note</button></div>
+</div>
+
+<div class="stagewrap" id="stagewrap">
+<div class="stage" id="stage">
+<div class="window" id="win">
+
+  <!-- ── Title bar ── -->
+  <div class="titlebar">
+    <button class="ham" id="hamBtn" title="Menu"><svg class="i" data-ic="menu"></svg></button>
+    <div class="logo"><svg viewBox="0 0 24 24"><path d="M5 17c3-8 6 4 9-4s4-6 5-6" stroke="#052e16" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg></div>
+    <div class="name">StreamTweak</div><span class="ver">9.0.0</span>
+    <div class="pills">
+      <span class="pill keep" id="pillState" data-go="home"><span class="dot pulse"></span><span id="pillStateTxt">Streaming · 1:12:04</span></span>
+      <span class="pill" data-go="network"><svg class="i" data-ic="network"></svg>2.5 Gbps</span>
+      <span class="pill" data-go="network"><svg class="i" data-ic="dots"></svg>100.84.12.7</span>
+    </div>
+    <div class="sp"></div>
+    <button class="tb-btn" id="helpBtn" title="Glossary (F1)"><svg class="i" data-ic="help"></svg></button>
+    <div class="caption-btns"><span>&#x2014;</span><span>&#x25A1;</span><span>&#x2715;</span></div>
+  </div>
+
+  <div class="shell">
+    <!-- ── NavigationView ── -->
+    <nav class="nav" id="nav">
+      <a data-p="home" class="on" title="Dashboard"><svg class="i" data-ic="home"></svg><span class="lbl">Dashboard</span></a>
+      <div class="grp">Streaming</div>
+      <a data-p="library" title="Library"><svg class="i" data-ic="pad"></svg><span class="lbl">Library</span><span class="bdg cnt" id="navLibCount">28</span></a>
+      <a data-p="sessions" title="Sessions"><svg class="i" data-ic="pulse"></svg><span class="lbl">Sessions</span></a>
+      <a data-p="clients" title="Clients"><svg class="i" data-ic="devices"></svg><span class="lbl">Clients</span><span class="bdg" title="1 device waiting for approval">1</span></a>
+      <div class="grp">Host</div>
+      <a data-p="network" title="Network"><svg class="i" data-ic="network"></svg><span class="lbl">Network</span></a>
+      <a data-p="display" title="Display &amp; audio"><svg class="i" data-ic="display"></svg><span class="lbl">Display &amp; audio</span></a>
+      <a data-p="nvidia" title="NVIDIA Sentinel"><svg class="i" data-ic="shield"></svg><span class="lbl">NVIDIA Sentinel</span></a>
+      <a data-p="apps" title="Managed apps"><svg class="i" data-ic="apps"></svg><span class="lbl">Managed apps</span></a>
+      <div class="sp"></div>
+      <hr>
+      <a data-glossary="" title="Glossary"><svg class="i" data-ic="help"></svg><span class="lbl">Glossary</span></a>
+      <a data-p="settings" title="Settings"><svg class="i" data-ic="gear"></svg><span class="lbl">Settings</span></a>
+      <div class="foot">9.0.0 · <b data-p="settings">9.0.1 available</b></div>
+    </nav>
+
+    <main class="frame" id="frame">
+
+<!-- ═══════════════════════════ DASHBOARD ═══════════════════════════ -->
+<section class="page on" id="p-home">
+  <div class="ph">
+    <div class="t"><h2>Dashboard</h2><p id="homeSub">Streaming Elden Ring Nightreign for 1 h 12 min · the host is keeping up with every frame</p></div>
+    <div class="sp"></div>
+    <div class="cmdbar"><button class="btn ghost" data-go="sessions"><svg class="i" data-ic="pulse"></svg>All sessions</button></div>
+  </div>
+
+  <div class="dash">
+    <div class="a-hero" id="heroHost"></div>
+
+    <div class="card a-last" id="lastCard"></div>
+
+    <div class="card a-perf">
+      <div class="cardhead"><div><h3>Performance</h3><div class="hint" id="perfSub">Last 30 days · 24 sessions · 41 h streamed</div></div><span class="sp"></span>
+        <div class="seg sm" id="perfSeg"><button data-d="7">7 d</button><button class="on" data-d="30">30 d</button><button data-d="90">90 d</button><button data-d="365">1 y</button></div></div>
+      <div class="legend" style="margin-bottom:6px"><span><i class="ln" style="background:var(--s1)"></i>Avg RTT per session</span><span><i class="ln" style="background:var(--s2)"></i>Avg host frame latency</span></div>
+      <div class="chartbox" id="trendBox"><svg id="trendSvg" viewBox="0 0 800 200" preserveAspectRatio="none" style="height:190px"></svg><div class="tip" id="trendTip"></div></div>
+      <div class="row" style="margin-top:12px;align-items:flex-start;flex-wrap:wrap;gap:18px">
+        <div style="flex:2;min-width:220px"><div class="lbl">Grades</div><div class="distbar" id="distBar"></div><div class="legend" id="distLegend"></div></div>
+        <div><div class="lbl">Avg RTT</div><div class="val s" id="pAvgRtt">4.2<small>ms</small></div></div>
+        <div><div class="lbl">Avg drops</div><div class="val s" id="pAvgDrops">0.06<small>%</small></div></div>
+        <div><div class="lbl">Streamed</div><div class="val s" id="pStreamed">41<small>h</small></div></div>
+      </div>
+    </div>
+
+    <div class="card a-setup">
+      <div class="cardhead"><div><h3>Host setup</h3><div class="hint">What a stream will find when it starts</div></div><span class="sp"></span><span class="tag good">Ready</span></div>
+      <div class="setupgrid">
+        <div class="stile" data-go="network"><div class="ico-bubble g"><svg class="i" data-ic="network"></svg></div><div class="t"><b>Link speed</b><span>2.5 Gbps · clients may switch it</span><div class="st"><span class="tag good">At default</span></div></div></div>
+        <div class="stile" data-go="display"><div class="ico-bubble b"><svg class="i" data-ic="display"></svg></div><div class="t"><b>HDR</b><span>LG OLED42C3 on · Auto HDR off</span><div class="st"><span class="tag good">On</span></div></div></div>
+        <div class="stile" data-go="display"><div class="ico-bubble b"><svg class="i" data-ic="audio"></svg></div><div class="t"><b>Spatial audio</b><span>Dolby Atmos · auto on stream</span><div class="st"><span class="tag good">Armed</span></div></div></div>
+        <div class="stile" data-go="nvidia"><div class="ico-bubble g"><svg class="i" data-ic="shield"></svg></div><div class="t"><b>NVIDIA Sentinel</b><span>38 settings · auto-restore</span><div class="st"><span class="tag good">Armed</span></div></div></div>
+        <div class="stile" data-go="apps"><div class="ico-bubble a"><svg class="i" data-ic="apps"></svg></div><div class="t"><b>Managed apps</b><span>3 close when a stream starts</span><div class="st"><span class="tag warn" id="appsTag">2 closed now</span></div></div></div>
+        <div class="stile" data-go="library"><div class="ico-bubble"><svg class="i" data-ic="pad"></svg></div><div class="t"><b>Library</b><span>28 games · synced 3 min ago</span><div class="st"><span class="tag good">In sync</span></div></div></div>
+      </div>
+    </div>
+
+    <div class="card a-clients">
+      <div class="cardhead"><div><h3>Paired clients</h3><div class="hint">3 approved · 1 waiting</div></div><span class="sp"></span><span class="link" data-go="clients">Manage ›</span></div>
+      <div class="clist">
+        <div class="crow" data-go="clients"><div class="ico-bubble a"><svg class="i" data-ic="lock"></svg></div><div class="t"><b>Steam Deck OLED</b><span>Asks for access · PIN 4817</span></div><span class="tag warn">Approve</span></div>
+        <div class="crow"><span class="dot pulse"></span><div class="t"><b>ROG Ally X</b><span>Streaming now · StreamLight 6.3.0</span></div><span class="tag good">Online</span></div>
+        <div class="crow"><span class="dot off"></span><div class="t"><b>Living-room PC</b><span>Seen yesterday 22:41 · 6.3.0</span></div><span class="tag grey">Offline</span></div>
+        <div class="crow"><span class="dot off"></span><div class="t"><b>MacBook Air</b><span>Seen 12 Sep · 6.1.2</span></div><span class="tag grey">Offline</span></div>
+      </div>
+    </div>
+
+    <div class="card a-recent">
+      <div class="cardhead"><div><h3>Recent sessions</h3><div class="hint">The last few streams with their grade</div></div><span class="sp"></span><span class="link" data-go="sessions">All sessions ›</span></div>
+      <div class="rlist" id="recentList"></div>
+    </div>
+
+    <div class="card a-shelf">
+      <div class="cardhead"><div><h3>Recently streamed</h3><div class="hint">From your library, most recent first</div></div><span class="sp"></span><span class="link" data-go="library">Library ›</span></div>
+      <div class="shelf" id="shelf"></div>
+    </div>
+  </div>
+
+  <div class="statusline"><span class="dot"></span><span><b>Everything is running</b> · Sunshine 2026.915 detected · bridge listening on 47998 · service connected</span><span class="sp"></span><span class="link" data-go="settings">Settings ›</span></div>
+</section>
+
+<!-- ═══════════════════════════ SESSIONS ═══════════════════════════ -->
+<section class="page" id="p-sessions">
+  <div class="ph">
+    <div class="t"><h2>Sessions</h2><p>Every stream this host served, graded on what the client saw and on whether the host kept up.</p></div>
+    <div class="sp"></div>
+    <div class="cmdbar"><span class="combo" id="sessPeriod">Last 30 days</span><button class="btn ghost icon" title="More: clear history"><svg class="i" data-ic="more"></svg></button></div>
+  </div>
+
+  <div class="card sumstrip" id="sessSummary"></div>
+
+  <div class="toolbar">
+    <div class="input" style="width:min(280px,100%)"><svg class="i" data-ic="search"></svg><input id="sessSearch" placeholder="Filter by game"></div>
+    <div class="chips" id="gradeChips"></div>
+    <span class="sp"></span>
+    <span class="small">Tick two sessions to compare them</span>
+  </div>
+
+  <div class="md" id="sessMD">
+    <div style="min-width:0">
+      <div class="card flat sl" id="sessList"></div>
+      <div class="cmpbar" id="cmpBar"><span id="cmpTxt">2 sessions selected</span><span class="sp"></span><button class="btn ghost" id="cmpClear">Clear</button><button class="btn primary" id="cmpGo"><svg class="i" data-ic="compare"></svg>Compare</button></div>
+    </div>
+    <div class="pane" id="sessPane"></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ SESSION DETAIL (narrow windows) ═══════════════════════════ -->
+<section class="page" id="p-detail"><div id="detailHost"></div></section>
+
+<!-- ═══════════════════════════ COMPARE ═══════════════════════════ -->
+<section class="page" id="p-compare"><div id="compareHost"></div></section>
+
+<!-- ═══════════════════════════ LIBRARY ═══════════════════════════ -->
+<section class="page" id="p-library">
+  <div class="ph">
+    <div class="t"><h2>Library</h2><p>Games found on this PC, kept in Sunshine's app list with their store cover art.</p></div>
+    <div class="sp"></div>
+    <div class="cmdbar">
+      <button class="btn ghost"><svg class="i" data-ic="plus"></svg>Add game</button>
+      <button class="btn primary"><svg class="i" data-ic="sync"></svg>Sync now</button>
+      <button class="btn ghost icon" title="More: clear sync"><svg class="i" data-ic="more"></svg></button>
+    </div>
+  </div>
+
+  <div class="libtop">
+    <div class="libhero" id="libHero"></div>
+    <div class="stack libside">
+    <div class="card">
+      <div class="cardhead"><div class="ico-bubble g"><svg class="i" data-ic="sync"></svg></div><div><h3>Sunshine sync</h3><div class="hint">Last synced today at 21:37</div></div><span class="sp"></span><span class="tsw on" data-tsw><i></i></span></div>
+      <div class="small">28 games · 26 shown in Sunshine · 2 manual entries you added</div>
+      <div class="storebars" id="storeBars"></div>
+    </div>
+    <div class="card" id="tilesCard">
+      <div class="cardhead"><div class="ico-bubble b"><svg class="i" data-ic="display"></svg></div><div><h3>Host tiles</h3><div class="hint">Desktop and Steam tiles in Sunshine</div></div><span class="sp"></span><span class="tag good">Replaced</span></div>
+      <div class="tilepv"><div class="tp">Desktop</div><div class="tp s">Steam Big Picture</div></div>
+      <div class="row" style="margin-top:12px"><span class="small">Put back after every server update</span><span class="sp"></span><button class="btn ghost">Restore tiles</button></div>
+    </div>
+    </div>
+  </div>
+
+  <div class="toolbar" style="margin-top:22px">
+    <div class="input" style="width:min(300px,100%)"><svg class="i" data-ic="search"></svg><input id="libSearch" placeholder="Search 28 games"></div>
+    <div class="chips" id="storeChips"></div>
+    <span class="sp"></span>
+    <span class="combo" id="libSort" title="Sort">Recently streamed</span>
+    <div class="seg sm" id="libView"><button class="on" data-lv="grid" title="Covers"><svg class="i" data-ic="grid"></svg></button><button data-lv="list" title="List"><svg class="i" data-ic="list"></svg></button></div>
+  </div>
+  <div id="libBody"></div>
+</section>
+
+<!-- ═══════════════════════════ NETWORK ═══════════════════════════ -->
+<section class="page" id="p-network">
+  <div class="ph"><div class="t"><h2>Network</h2><p>The wired link this host streams on, and who may change it.</p></div></div>
+  <div class="cols c3">
+    <div class="card">
+      <div class="cardhead"><div class="ico-bubble g"><svg class="i" data-ic="network"></svg></div><div><h3>Adapter</h3><div class="hint">Realtek Gaming 2.5GbE Family Controller</div></div></div>
+      <div class="lbl">Current link speed <span class="hint-i" data-term="link">i</span></div>
+      <div class="val l">2.5<small>Gbps</small></div>
+      <div class="foot">Full duplex · auto-negotiated default</div>
+      <div class="divider"></div>
+      <div class="lbl">Speeds this adapter supports</div>
+      <div class="ladder"><span class="sup">10 Mbps</span><span class="sup">100 Mbps</span><span class="sup">1 Gbps</span><span class="cur dflt">2.5 Gbps</span></div>
+      <div class="foot">Reported to clients so they can ask for the one that matches their own connection.</div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><div class="ico-bubble b"><svg class="i" data-ic="devices"></svg></div><div><h3>Client control</h3><div class="hint">StreamLight asks before it connects</div></div><span class="sp"></span><span class="tsw on" data-tsw><i></i></span></div>
+      <div class="lbl">How it works</div>
+      <div class="flow"><span class="st done">Client asks</span><span class="ar">›</span><span class="st done">Switch</span><span class="ar">›</span><span class="st now">Stream starts</span><span class="ar">›</span><span class="st">Restore</span></div>
+      <div class="divider"></div>
+      <div class="row"><div><div class="lbl">Status</div><div style="margin-top:3px">No change needed · ROG Ally X asked for 2.5 Gbps</div></div><span class="sp"></span><span class="tag good">At default</span></div>
+      <div class="divider"></div>
+      <div class="row"><div class="small">Never changed while a stream is running. Held until a client asks to put it back.</div><span class="sp"></span><button class="btn" disabled>Restore now</button></div>
+    </div>
+    <div class="stack">
+      <div class="card">
+        <div class="cardhead"><div class="ico-bubble"><svg class="i" data-ic="dots"></svg></div><div><h3>Tailscale</h3><div class="hint">Stream from outside your LAN, no port forwarding</div></div><span class="sp"></span><span class="tag good">Detected</span></div>
+        <div class="ipbox"><span>100.84.12.7</span><span class="sp" style="flex:1"></span><button class="btn ghost" id="copyIp"><svg class="i" data-ic="copy"></svg><span>Copy</span></button></div>
+        <div class="foot">Offered to StreamLight, which tracks it on this host's tile.</div>
+      </div>
+      <div class="card">
+        <div class="cardhead"><div class="ico-bubble"><svg class="i" data-ic="lock"></svg></div><div><h3>Bridge</h3><div class="hint">TCP 47998 · LAN only · signed commands</div></div><span class="sp"></span><span class="tag good">Listening</span></div>
+        <div class="small">3 approved StreamLight devices. Requests arriving over Wi-Fi or Tailscale cannot change the link speed.</div>
+        <div style="margin-top:10px"><span class="link" data-go="clients">Clients ›</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ DISPLAY & AUDIO ═══════════════════════════ -->
+<section class="page" id="p-display">
+  <div class="ph"><div class="t"><h2>Display &amp; audio</h2><p>HDR output per display, and the spatial audio a stream switches on.</p></div></div>
+  <div class="sech" style="margin-top:0"><h3>HDR output</h3><span class="hint-i" data-term="hdr">i</span><span class="sp"></span><span class="tsw" data-tsw><i></i>Auto HDR</span></div>
+  <div class="monitors">
+    <div class="card mon"><div class="scr hdr">3840 × 2160 · 120 Hz</div><div class="row" style="margin-top:14px"><div><b style="font-weight:500">LG OLED42C3</b><div class="small">Primary · HDMI 2.1</div></div><span class="sp"></span><span class="tsw on" data-tsw><i></i>HDR</span></div></div>
+    <div class="card mon"><div class="scr">2560 × 1440 · 165 Hz</div><div class="row" style="margin-top:14px"><div><b style="font-weight:500">Dell S2721DGF</b><div class="small">DisplayPort</div></div><span class="sp"></span><span class="tsw" data-tsw><i></i>HDR</span></div></div>
+    <div class="card mon"><div class="scr virt">1920 × 1080 · 120 Hz</div><div class="row" style="margin-top:14px"><div><b style="font-weight:500">SudoMaker Virtual Display</b><div class="small"><span class="tag grey">Virtual</span> created by the server</div></div><span class="sp"></span><span class="tsw on" data-tsw><i></i>HDR</span></div></div>
+  </div>
+  <div class="cols" style="margin-top:22px">
+    <div class="card">
+      <div class="cardhead"><div class="ico-bubble b"><svg class="i" data-ic="audio"></svg></div><div><h3>Spatial audio</h3><div class="hint">Switched on a few seconds after a stream starts</div></div><span class="sp"></span><span class="tsw on" data-tsw><i></i></span></div>
+      <div class="setrow"><div class="t"><b>Output device</b><span>Where the stream's audio plays on this host</span></div><span class="combo" style="min-width:230px">Steam Streaming Speakers</span></div>
+      <div class="lbl" style="margin:14px 0 8px">Format to switch on</div>
+      <div class="opts">
+        <div class="opt on" data-opt><span class="rd"></span><div><b>Dolby Atmos for Headphones</b><span>Available on this device · licence found</span></div></div>
+        <div class="opt" data-opt><span class="rd"></span><div><b>Windows Sonic for Headphones</b><span>Available on this device</span></div></div>
+      </div>
+      <div class="statusline" style="margin-top:14px"><span class="dot pulse"></span><span>Dolby Atmos is on for this stream</span></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><div class="ico-bubble"><svg class="i" data-ic="help"></svg></div><div><h3>What happens on a stream</h3><div class="hint">Display and audio, in order</div></div></div>
+      <div class="routine">
+        <div class="rs"><span>Stream starts</span><b>Server creates its display</b><span>HDR follows the switch above</span></div>
+        <div class="rs"><span>After ~3 s</span><b>Dolby Atmos switched on</b><span>on Steam Streaming Speakers</span></div>
+        <div class="rs"><span>Stream ends</span><b>Previous format restored</b><span>Stereo</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ NVIDIA ═══════════════════════════ -->
+<section class="page" id="p-nvidia">
+  <div class="ph"><div class="t"><h2>NVIDIA Sentinel</h2><p>Keep your global driver profile the way you set it, whatever NVIDIA App does.</p></div></div>
+  <div class="card" style="margin-bottom:16px">
+    <div class="nvhead">
+      <div class="ico-bubble g" style="width:44px;height:44px"><svg class="i" data-ic="chip"></svg></div>
+      <div style="flex:1;min-width:220px"><div class="gpu">GeForce RTX 4080 SUPER</div><div class="small">Game Ready Driver 581.42 · released 16 Sep 2026</div></div>
+      <div class="dlss"><span>DLSS SR <b>310.4.0</b></span><span>DLSS RR <b>310.4.0</b></span><span>Frame Gen <b>310.4.0</b></span></div>
+    </div>
+  </div>
+  <div class="cols c3">
+    <div class="card">
+      <div class="cardhead"><div class="ico-bubble g"><svg class="i" data-ic="shield"></svg></div><div><h3>My profile</h3><div class="hint">Saved 21 Sep 2026, 18:02</div></div><span class="sp"></span><span class="tag good">38 settings</span></div>
+      <div class="small">A snapshot of the global driver profile, stored as a .nip file.</div>
+      <div class="cmdbar" style="margin-top:14px"><button class="btn primary">Save current</button><button class="btn">Restore</button><button class="btn ghost">Clear</button></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><div class="ico-bubble a"><svg class="i" data-ic="sync"></svg></div><div><h3>Auto-restore</h3><div class="hint">Watches the driver settings database</div></div><span class="sp"></span><span class="tsw on" data-tsw><i></i></span></div>
+      <div class="mini">
+        <div class="row"><span>Last restore</span><span class="sp"></span><b style="font-weight:500">24 Sep, 19:02</b></div>
+        <div class="row"><span>What happened</span><span class="sp"></span><span>NVIDIA App reset 3 settings</span></div>
+        <div class="row"><span>Restores this month</span><span class="sp"></span><span>2</span></div>
+      </div>
+      <div class="divider"></div><span class="link">Open restore log ›</span>
+    </div>
+    <div class="card wide" style="padding:0">
+      <div class="cardhead" style="padding:16px 18px 0"><h3>Captured settings</h3><span class="small">38 in profile · 21 with a readable name</span><span class="sp"></span><div class="input" style="width:min(240px,100%)"><svg class="i" data-ic="search"></svg><input placeholder="Filter settings"></div></div>
+      <div class="tscroll"><table class="t nvtable" id="nvTable"></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ MANAGED APPS ═══════════════════════════ -->
+<section class="page" id="p-apps">
+  <div class="ph"><div class="t"><h2>Managed apps</h2><p>Closed when a stream starts, opened again when it ends.</p></div><div class="sp"></div><div class="cmdbar"><button class="btn primary"><svg class="i" data-ic="plus"></svg>Add app</button></div></div>
+  <div class="routine" style="margin-bottom:16px">
+    <div class="rs"><span>When a stream starts</span><b>3 apps are closed</b><span>Their state is remembered</span></div>
+    <div class="rs"><span>While streaming</span><b>2 closed now</b><span>Hue Sync, iCUE</span></div>
+    <div class="rs"><span>When it ends</span><b>They open again</b><span>Only the ones that were running</span></div>
+  </div>
+  <div class="card flat applist" id="appList"></div>
+</section>
+
+<!-- ═══════════════════════════ CLIENTS ═══════════════════════════ -->
+<section class="page" id="p-clients">
+  <div class="ph"><div class="t"><h2>Clients</h2><p>StreamLight devices allowed to read metrics and drive this host. Streaming itself never needs approval.</p></div></div>
+  <div class="cols c3">
+    <div class="card pinreq">
+      <div class="cardhead"><div class="ico-bubble a"><svg class="i" data-ic="lock"></svg></div><div><h3>Steam Deck OLED wants access</h3><div class="hint">Asked 2 min ago · StreamLight 6.3.0</div></div></div>
+      <div class="small">Check that the device shows the same PIN.</div>
+      <div class="pin"><span>4</span><span>8</span><span>1</span><span>7</span></div>
+      <div class="cmdbar"><button class="btn primary">Approve</button><button class="btn ghost">Deny</button></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><div class="ico-bubble b"><svg class="i" data-ic="clip"></svg></div><div><h3>Shared clipboard</h3><div class="hint">Approved devices, while streaming</div></div><span class="sp"></span><span class="tsw on" data-tsw><i></i></span></div>
+      <div class="small">Text up to 32 KB, sealed with a key made for each stream. Passwords are cleared within 60 seconds. The device must turn it on too.</div>
+      <div class="statusline" style="margin-top:12px"><span class="dot pulse"></span><span>Active with ROG Ally X</span></div>
+    </div>
+    <div class="wide"><div class="sech" style="margin-top:6px"><h3>Approved devices</h3><span class="sub">Every command they send is signed with their Moonlight certificate</span></div>
+      <div class="devgrid" id="devGrid"></div></div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ SETTINGS ═══════════════════════════ -->
+<section class="page" id="p-settings">
+  <div class="ph"><div class="t"><h2>Settings</h2><p>How StreamTweak starts, where it keeps its data, and what it is running alongside.</p></div></div>
+  <div class="cols c3">
+    <div class="card" style="border-color:rgba(251,191,36,.35)">
+      <div class="row"><div class="ico-bubble a"><svg class="i" data-ic="down"></svg></div><div><b style="font-weight:500">StreamTweak 9.0.1 is available</b><div class="small">You have 9.0.0</div></div><span class="sp"></span><button class="btn">Open releases page</button></div>
+    </div>
+    <div class="card">
+      <div class="about"><div class="logo"><svg viewBox="0 0 24 24"><path d="M5 17c3-8 6 4 9-4s4-6 5-6" stroke="#052e16" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg></div><div><b style="font-weight:600;font-size:15px">StreamTweak 9.0.0</b><div class="small">by FoggyBytes · GPL v3</div></div><span class="sp" style="flex:1"></span><span class="link">GitHub ›</span></div>
+    </div>
+    <div class="card">
+      <div class="about sl"><div class="logo"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" fill="#2a1a02"/></svg></div><div><b style="font-weight:600;font-size:15px">StreamLight 6.3.0</b><div class="small">The companion client · latest release</div></div><span class="sp" style="flex:1"></span><span class="link">GitHub ›</span></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><h3>Startup</h3></div>
+      <div class="setrow"><div class="t"><b>Start with Windows</b><span>Priority starts on the sign-in event, so a client waking this PC reaches it sooner.</span></div><div class="seg sm" data-seg><button>Off</button><button>Normal</button><button class="on">Priority</button></div></div>
+      <div class="setrow"><div class="t"><b>Only record sessions with a game</b><span>Sessions that never launched a game are discarded.</span></div><span class="tsw on" data-tsw><i></i></span></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><h3>Streaming server</h3></div>
+      <div class="setrow"><div class="t"><b>Detected server</b><span>Sunshine 2026.915 · C:\Program Files\Sunshine</span></div><span class="tag good">Running</span></div>
+      <div class="setrow"><div class="t"><b>Server log folder</b><span class="mono">C:\Program Files\Sunshine\config</span></div><button class="btn ghost">Open</button></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><h3>Data</h3></div>
+      <div class="setrow"><div class="t"><b>App data folder</b><span class="mono">%LOCALAPPDATA%\StreamTweak</span></div><button class="btn ghost">Open</button></div>
+      <div class="setrow"><div class="t"><b>Session history</b><span>124 sessions · 2.1 MB in sessions.json</span></div><button class="btn danger">Clear…</button></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><h3>Maintenance</h3></div>
+      <div class="setrow"><div class="t"><b>Debug mode</b><span>Simulates a live stream for UI testing. No NIC changes are made.</span></div><span class="tsw" data-tsw><i></i></span></div>
+      <div class="setrow"><div class="t"><b>Debug log</b><span>Written while debug mode is on</span></div><button class="btn ghost">Open</button></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><h3>Support the project</h3></div>
+      <div class="small">StreamTweak is free and open source. A donation keeps it going.</div>
+      <div style="margin-top:12px"><button class="btn">Donate with PayPal</button></div>
+    </div>
+  </div>
+</section>
+
+    </main>
+  </div>
+
+  <div class="scrim" id="scrim"></div>
+
+  <!-- ── Game sheet (drawer) ── -->
+  <aside class="drawer gsheet" id="gameDrawer" aria-label="Game">
+    <div class="dh"><h3>Game</h3><span class="sp"></span><button class="btn ghost icon" data-close title="Close (Esc)"><svg class="i" data-ic="x"></svg></button></div>
+    <div class="db" id="gameBody"></div>
+  </aside>
+
+  <!-- ── Glossary (drawer, reachable from every ⓘ and from F1) ── -->
+  <aside class="drawer glos" id="glosDrawer" aria-label="Glossary">
+    <div class="dh"><h3>Glossary</h3><span class="sp"></span><button class="btn ghost icon" data-close title="Close (Esc)"><svg class="i" data-ic="x"></svg></button></div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--stroke)"><div class="input"><svg class="i" data-ic="search"></svg><input id="glosSearch" placeholder="Search terms"></div></div>
+    <div class="db" id="glosBody"></div>
+  </aside>
+
+</div><!-- /window -->
+</div>
+</div>
+
+<!-- ═════════ MAPPA SEZIONI (vista del mockup, in italiano) ═════════ -->
+<div class="mapview" id="mapview" hidden></div>
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   StreamTweak 9.0 mockup — data is invented (seeded), shapes and thresholds are real:
+   grade = worst of drops / RTT / host frame latency / late frames (QualityGradeCalculator).
+═══════════════════════════════════════════════════════════════════════ */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const WIN = $('#win');
+
+/* ── icons ── */
+const IC = {
+  menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+  home:'<path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
+  pulse:'<path d="M3 12h4l3-7 4 14 3-7h4"/>',
+  pad:'<path d="M6 11h4M8 9v4M15 12h.01M18 10h.01"/><path d="M17.3 5H6.7a4 4 0 0 0-3.95 3.4L2 14.5a2.5 2.5 0 0 0 4.3 2.1L8 15h8l1.7 1.6a2.5 2.5 0 0 0 4.3-2.1l-.75-6.1A4 4 0 0 0 17.3 5z"/>',
+  network:'<rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-5h14v5"/>',
+  display:'<rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  audio:'<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3zM3 19a2 2 0 0 0 2 2h1v-6H3z"/>',
+  shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="m9 12 2 2 4-4"/>',
+  apps:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/>',
+  devices:'<rect x="2" y="5" width="14" height="10" rx="2"/><rect x="17" y="8" width="5" height="12" rx="1"/><path d="M6 19h6M9 15v4"/>',
+  gear:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 4.8 1c0 1.7-2.3 2-2.3 3.5M12 17h.01"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  play:'<path d="M7 4v16l13-8z" fill="currentColor"/>',
+  folder:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+  sync:'<path d="M4 12a8 8 0 0 1 14-5.3L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.3L4 15M4 20v-5h5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  x:'<path d="M6 6l12 12M18 6 6 18"/>',
+  chev:'<path d="m9 6 6 6-6 6"/>',
+  copy:'<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/>',
+  more:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',
+  compare:'<path d="M7 4v16M17 4v16M3 8l4-4 4 4M13 16l4 4 4-4"/>',
+  ret:'<path d="M10 9 5 13l5 4"/><path d="M5 13h10a4 4 0 0 0 0-8h-2"/>',
+  dots:'<circle cx="6" cy="6" r="1.4"/><circle cx="12" cy="6" r="1.4"/><circle cx="18" cy="6" r="1.4"/><circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/><circle cx="12" cy="18" r="1.4"/>',
+  lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  clip:'<rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/>',
+  chip:'<rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/>',
+  down:'<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
+  grid:'<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
+  list:'<path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/>',
+  reset:'<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+  ext:'<path d="M14 3h7v7M10 14 21 3M19 14v6H4V5h6"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+};
+const ic = (n, extra = '') => `<svg class="i" viewBox="0 0 24 24" ${extra}>${IC[n] || ''}</svg>`;
+function fillIcons(root = document) { $$('svg[data-ic]', root).forEach(s => { s.setAttribute('viewBox', '0 0 24 24'); s.innerHTML = IC[s.dataset.ic] || ''; s.removeAttribute('data-ic'); }); }
+
+/* ── seeded PRNG ── */
+function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const pad2 = n => String(n).padStart(2, '0');
+const hm = d => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+const hms = d => `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+const DAYS = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const MON = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const dur = m => { m = Math.round(m); const h = Math.floor(m / 60), r = m % 60; return h ? `${h} h ${pad2(r)} min` : `${r} min`; };
+const durShort = m => { m = Math.round(m); const h = Math.floor(m / 60), r = m % 60; return h ? `${h}h ${pad2(r)}` : `${r} min`; };
+const fmt = (v, d = 1) => (v == null || isNaN(v)) ? '—' : v.toFixed(d);
+
+/* ── library (cover art below is generated placeholder art) ── */
+const STORES = { steam:'Steam', epic:'Epic', gog:'GOG', ubi:'Ubisoft', xbox:'Xbox', ea:'EA', bnet:'Battle.net', man:'Manual' };
+const GAMES = [
+  ['Elden Ring|Nightreign','steam','FromSoftware','2025',28,48,0],
+  ['Clair Obscur|Expedition 33','steam','Sandfall Interactive','2025',215,32,2],
+  ['Hades II','steam','Supergiant Games','2025',150,12,0],
+  ['Cyberpunk 2077','gog','CD PROJEKT RED','2020',300,190,4],
+  ['Forza Horizon 5','xbox','Playground Games','2021',200,30,1],
+  ['Alan Wake 2','epic','Remedy Entertainment','2023',0,190,3],
+  ["Baldur's Gate 3",'steam','Larian Studios','2023',30,270,2],
+  ["Assassin's Creed|Shadows",'ubi','Ubisoft Quebec','2025',350,20,3],
+  ['Diablo IV','bnet','Blizzard Entertainment','2023',355,0,0],
+  ['Kingdom Come|Deliverance II','steam','Warhorse Studios','2025',90,40,3],
+  ['Indiana Jones^and the Great Circle','xbox','MachineGames','2024',40,15,0],
+  ['The Witcher 3|Wild Hunt','gog','CD PROJEKT RED','2015',0,210,2],
+  ['Red Dead^Redemption 2','epic','Rockstar Games','2019',15,350,0],
+  ['Split Fiction','ea','Hazelight Studios','2025',280,190,1],
+  ['Overwatch 2','bnet','Blizzard Entertainment','2022',25,210,1],
+  ['Prince of Persia|The Lost Crown','ubi','Ubisoft Montpellier','2024',45,260,2],
+  ['Hollow Knight|Silksong','steam','Team Cherry','2025',0,330,4],
+  ['Balatro','steam','LocalThunk','2024',340,120,2],
+  ['Flight Simulator^2024','xbox','Asobo Studio','2024',205,220,0],
+  ['Disco Elysium','gog','ZA/UM','2019',180,15,1],
+  ['Fortnite','epic','Epic Games','2017',270,190,1],
+  ['Monster Hunter^Wilds','steam','Capcom','2025',20,35,3],
+  ['Stellar Blade','steam','Shift Up','2025',330,200,2],
+  ['Star Wars^Outlaws','ubi','Massive Entertainment','2024',40,230,4],
+  ['Halo|The Master Chief Collection','xbox','343 Industries','2019',120,200,3],
+  ['EA Sports FC 26','ea','EA Vancouver','2025',130,100,1],
+  ['RetroArch','man',null,null,260,300,4],
+  ['Dolphin Emulator','man',null,null,200,180,1],
+].map((g, i) => {
+  const sp = g[0].includes('^') ? '^' : '|';
+  const [title, sub] = g[0].split(sp);
+  return { id: i, name: sub ? (sp === '^' ? `${title} ${sub}` : `${title}: ${sub}`) : title,
+    title, sub, store: g[1], dev: g[2], year: g[3], h1: g[4], h2: g[5], motif: g[6], enabled: !(i === 25 || i === 14), manual: g[1] === 'man' };
+});
+const G = n => GAMES.find(g => g.name.startsWith(n));
+
+function cover(g, o = {}) {
+  const words = (g.title + ' ' + (g.sub && g.sub.length < 12 ? g.sub : '')).toUpperCase().split(/\s+/).filter(Boolean);
+  const longest = Math.max(...g.title.toUpperCase().split(/\s+/).map(w => w.length));
+  const k = clamp(82 / (longest * 0.7), 10, 25);
+  const cx = 30 + (g.id * 37) % 50, cy = 10 + (g.id * 23) % 30;
+  const badge = o.badge ? `<span class="storeb">${STORES[g.store]}</span>` : '';
+  const txt = o.xs ? '' : `<div class="ct" style="font-size:${k.toFixed(1)}cqi">${g.title}${g.sub ? `<small>${g.sub}</small>` : ''}</div>`;
+  return `<div class="cover m${g.motif} ${o.xs ? 'xs' : ''}" style="--h1:${g.h1};--h2:${g.h2};--cx:${cx}%;--cy:${cy}%;container-type:inline-size" title="${o.xs ? g.name : ''}">${badge}${txt}</div>`;
+}
+const artBg = g => `background:radial-gradient(60% 80% at 30% 30%, hsl(${g.h2} 85% 58%), transparent 70%),radial-gradient(60% 70% at 80% 70%, hsl(${g.h1} 70% 40%), transparent 70%),linear-gradient(160deg,hsl(${g.h1} 60% 22%),hsl(${g.h2} 55% 12%))`;
+
+/* ── sessions (365 days, seeded) ── */
+const NOW = new Date(2026, 8, 29, 21, 40, 0);   // Tue 29 Sep 2026, 21:40
+const FPS = 120, FRAME = 1000 / FPS;
+const GRADES = [{k:'ex', l:'Excellent', c:'var(--good)'}, {k:'gd', l:'Good', c:'var(--warn)'}, {k:'pr', l:'Poor', c:'var(--bad)'}];
+const gradeTag = g => `<span class="grade ${GRADES[g].k}">${GRADES[g].l}</span>`;
+
+function makeSeries(s) {
+  const r = rng(s.seed * 7 + 3);
+  const N = clamp(Math.round(s.durMin * 5), 60, 700), dt = s.durMin / N;
+  const P = s.prof, out = [];
+  let brPhase = r() * 6, hlDrift = 0, rttDrift = 0, decD = 0, gD = 0, eD = 0, cD = 0;
+  for (let i = 0; i < N; i++) {
+    const t = i * dt;
+    const gap = s.spans.length > 1 && t > s.spans[0].b && t < s.spans[1].a;
+    if (gap) { out.push({ t, gap: true }); continue; }
+    const gameStart = s.games.some(x => t >= x.a && t < x.a + .6);
+    decD = decD * .9 + (r() - .5) * .12; gD = gD * .92 + (r() - .5) * 3; eD = eD * .92 + (r() - .5) * 2.4; cD = cD * .9 + (r() - .5) * 3;
+    rttDrift = rttDrift * .93 + (r() - .5) * P.rtt * .12;
+    const rtt = Math.max(1, P.rtt + rttDrift + (r() < .02 ? P.rtt * (1 + r() * 2) : 0));
+    const rttMax = rtt + r() * P.rtt * .6 + (r() < .03 ? P.rtt * 2 + r() * 10 : 0);
+    hlDrift = hlDrift * .95 + (r() - .5) * .22;
+    let hl = P.hl + hlDrift + (gameStart ? 3 + r() * 4 : 0) + (r() < P.hitch ? 2 + r() * 3 : 0);
+    hl = Math.max(1.6, hl);
+    const hlMax = hl + 0.6 + r() * 1.6 + (r() < P.hitch ? FRAME * (1 + r() * 1.3) : 0) + (gameStart ? 3 + r() * 5 : 0);
+    const drops = r() < P.dropP ? +(0.2 + r() * P.dropAmp).toFixed(2) : (r() < .08 ? +(r() * .15).toFixed(2) : 0);
+    const br = s.target * clamp(.86 + Math.sin(t / 3.1 + brPhase) * .08 + (r() - .5) * .06 - (drops > 1 ? .12 : 0), .55, .99);
+    out.push({ t, rtt, rttMin: Math.max(.8, rtt * (.72 + r() * .1)), rttMax, hl, hlMin: Math.max(1.2, hl - .5 - r() * .7), hlMax, drops, br, dec: 2 + decD + r() * .15 + (P.rtt > 20 ? .6 : 0),
+      gpu: clamp(P.gpu + gD + (r() - .5) * 2 + (gameStart ? -25 : 0), 5, 99), enc: clamp(P.enc + eD + (r() - .5) * 2, 5, 100), cpu: clamp(P.cpu + cD + (r() - .5) * 2 + (gameStart ? 25 : 0), 3, 100) });
+  }
+  return out;
+}
+function statsOf(ser, s) {
+  const v = ser.filter(p => !p.gap), n = v.length, avg = k => v.reduce((a, p) => a + p[k], 0) / n, mx = k => Math.max(...v.map(p => p[k]));
+  const late = v.filter(p => p.hlMax > FRAME * 2).length / n * 100;
+  const st = { rttAvg: avg('rtt'), rttMax: mx('rttMax'), jitAvg: avg('rtt') * .09 + .2, jitMax: avg('rtt') * .5 + 1.4, dropPct: avg('drops'),
+    brAvg: avg('br'), brTarget: s.target, decAvg: avg('dec'), hlAvg: avg('hl'), hlMax: mx('hlMax'), latePct: late,
+    gpuAvg: avg('gpu'), gpuPeak: mx('gpu'), encAvg: avg('enc'), encPeak: mx('enc'), cpuAvg: avg('cpu'), cpuPeak: mx('cpu'), tempAvg: 58 + avg('gpu') * .12, tempMax: 64 + mx('gpu') * .12, netTx: avg('br') * 1.04 };
+  st.drops = Math.round(st.dropPct / 100 * s.durMin * 60 * FPS * .9);
+  return st;
+}
+function gradeOf(st) {
+  const gd = st.dropPct < 1 ? 0 : st.dropPct <= 2 ? 1 : 2;
+  let gr = st.rttAvg < 25 ? 0 : st.rttAvg <= 60 ? 1 : 2; if (st.rttMax > 200 && gr < 2) gr++;
+  const gh = st.hlAvg < FRAME * .6 ? 0 : st.hlAvg <= FRAME ? 1 : 2;
+  const gl = st.latePct < 1 ? 0 : st.latePct <= 5 ? 1 : 2;
+  return { grade: Math.max(gd, gr, gh, gl), parts: { gd, gr, gh, gl } };
+}
+const SESSIONS = (() => {
+  const r = rng(90210), list = [];
+  const favs = [0, 1, 2, 3, 4, 6, 9, 13, 17, 18, 21, 5, 10, 19, 22, 24];
+  let day = new Date(NOW); day.setDate(day.getDate() - 1);
+  let id = 0;
+  for (let back = 1; back <= 365; back++) {
+    const d = new Date(NOW); d.setDate(NOW.getDate() - back);
+    const nToday = back === 1 ? 1 : back === 2 ? 2 : (r() < (back < 40 ? .62 : .32) ? (r() < .25 ? 2 : 1) : 0);
+    for (let k = 0; k < nToday; k++) {
+      const startH = k === 0 ? 20 + Math.floor(r() * 2) : 15 + Math.floor(r() * 3);
+      const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), startH, Math.floor(r() * 60));
+      const durMin = back === 1 ? 156 : 25 + Math.floor(r() * 150);
+      const q = r(), remote = r() < .07;
+      const prof = { rtt: remote ? 22 + r() * 16 : 2.6 + r() * 2.4, hl: q < .8 ? 3 + r() * 1.2 : q < .96 ? 4.9 + r() * 2.3 : 8.6 + r(), hitch: q < .8 ? .0008 : .012,
+        dropP: remote ? .2 : q < .8 ? .012 : .07, dropAmp: remote ? 6 : 2.5, gpu: 70 + r() * 25, enc: 55 + r() * 40, cpu: 18 + r() * 25 };
+      if (back === 1) Object.assign(prof, { rtt: 3.4, hl: 3.6, hitch: .001, dropP: .01, dropAmp: 1.4, gpu: 84, enc: 78, cpu: 26 });
+      const ng = back === 1 ? 2 : (r() < .22 ? 2 : r() < .06 ? 0 : 1);
+      const games = []; let cursor = 0.4;
+      for (let j = 0; j < ng; j++) {
+        const gi = back === 1 ? [1, 2][j] : favs[Math.floor(Math.pow(r(), 1.6) * favs.length)];
+        if (games.some(x => x.gi === gi)) continue;
+        const len = ng === 1 ? durMin - cursor - .5 : (j === 0 ? durMin * (.45 + r() * .2) : durMin - cursor - .5);
+        games.push({ gi, a: cursor, b: cursor + len }); cursor += len + 1.5 + r() * 3;
+      }
+      const spans = (back === 1 || r() < .14) ? (() => { const cut = durMin * (back === 1 ? .62 : .3 + r() * .4); return [{ a: 0, b: cut }, { a: cut + .35 + r() * .5, b: durMin }]; })() : [{ a: 0, b: durMin }];
+      const s = { id: id++, seed: 1000 + id * 13, start, durMin, end: new Date(+start + durMin * 60000), games, spans, prof, remote, target: remote ? 40 : (r() < .3 ? 80 : 150) };
+      s.series = makeSeries(s); s.st = statsOf(s.series, s); Object.assign(s, gradeOf(s.st));
+      if (back > 45) delete s.series;   // keep memory small; regenerated on open
+      list.push(s);
+    }
+  }
+  return list.sort((a, b) => b.start - a.start);
+})();
+const ser = s => s.series || (s.series = makeSeries(s));
+/* per-game roll-ups from the history (no new storage: computed from sessions.json) */
+GAMES.forEach(g => { g.sessions = []; g.minutes = 0; });
+SESSIONS.forEach(s => s.games.forEach(x => { const g = GAMES[x.gi]; g.sessions.push(s); g.minutes += x.b - x.a; }));
+GAMES.forEach(g => { g.last = g.sessions[0]?.start || null; });
+const LIVE_GAME = G('Elden Ring');
+</script>
+<style>
+@container detail (min-width:780px){.dgrid.top{grid-template-columns:repeat(2,minmax(0,1fr))}.dgrid.top .vcard{grid-column:1/-1}}
+@container detail (min-width:1700px){.dgrid.top{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr) minmax(0,1fr)}.dgrid.top .vcard{grid-column:auto}}
+@container content (min-width:700px) and (max-width:1199px){.libside{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@container content (min-width:2200px){.libtop{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr)}.libside{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<script>
+/* ═════════ window simulator ═════════ */
+let sizeMode = 'fit', hostState = 'live', winScale = 1;
+function layout() {
+  const wrap = $('#stagewrap'), stage = $('#stage');
+  const availW = Math.max(300, wrap.clientWidth - 32);
+  const availH = Math.max(520, window.innerHeight - wrap.getBoundingClientRect().top - window.scrollY - 16);
+  let W, H, s = 1;
+  if (sizeMode === 'fit') { W = availW; H = Math.max(availW < 600 ? 700 : 600, availH); }
+  else { [W, H] = sizeMode.split('x').map(Number); s = Math.min(1, availW / W, availH / H); }
+  WIN.style.width = W + 'px'; WIN.style.height = H + 'px';
+  WIN.style.transformOrigin = 'top left'; WIN.style.transform = s < 1 ? `scale(${s})` : '';
+  stage.style.width = W * s + 'px'; stage.style.height = H * s + 'px';
+  winScale = s;
+  const mode = W >= 1100 ? 'Expanded' : W >= 760 ? 'Compact' : 'Minimal';
+  requestAnimationFrame(() => {
+    const cw = $('#frame').clientWidth;
+    $('#readout').textContent = `finestra ${W}×${H} DIP · menu ${mode} · contenuto ${cw}px${s < 1 ? ` · anteprima al ${Math.round(s * 100)}%` : ''}`;
+  });
+}
+
+/* ═════════ router ═════════ */
+let curPage = 'home';
+const NAVOF = { detail: 'sessions', compare: 'sessions' };
+const onShow = {};
+function go(p) {
+  if (!$('#p-' + p)) return;
+  curPage = p;
+  $$('.page').forEach(x => x.classList.toggle('on', x.id === 'p-' + p));
+  $$('.nav a[data-p]').forEach(a => a.classList.toggle('on', a.dataset.p === (NAVOF[p] || p)));
+  $('#frame').scrollTop = 0;
+  WIN.classList.remove('navopen');
+  closeDrawers();
+  onShow[p] && onShow[p]();
+}
+const contentW = () => $('#frame').clientWidth;
+const wideSessions = () => contentW() >= 1640;
+
+/* ═════════ helpers ═════════ */
+const relDay = d => { const a = new Date(NOW.getFullYear(), NOW.getMonth(), NOW.getDate()), b = new Date(d.getFullYear(), d.getMonth(), d.getDate()); const n = Math.round((a - b) / 864e5);
+  return n === 0 ? 'Today' : n === 1 ? 'Yesterday' : n < 7 ? DAYS[d.getDay()] : `${d.getDate()} ${MON[d.getMonth()].slice(0, 3)}`; };
+const longDay = d => `${DAYS[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`;
+const covers = (s, cls = '') => s.games.map(x => cover(GAMES[x.gi], { xs: true })).join('');
+const gameNames = s => s.games.length ? s.games.map(x => GAMES[x.gi].name).join(', ') : 'No game detected';
+const niceMax = v => { if (v <= 0) return 1; const e = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (m * e >= v) return m * e; return 10 * e; };
+const inPeriod = days => SESSIONS.filter(s => (NOW - s.start) / 864e5 <= days);
+
+/* ═════════ DASHBOARD ═════════ */
+const VIT = {
+  live: [
+    { l: 'RTT', u: 'ms', b: 3.4, sd: .35, d: 1, sub: v => `peak ${(v + 3.1).toFixed(0)} · jitter 0.4` },
+    { l: 'Host latency', u: 'ms', b: 3.7, sd: .3, d: 1, sub: () => 'capture + encode' },
+    { l: 'Bitrate', u: 'Mbps', b: 131, sd: 7, d: 0, sub: () => 'of 150 target' },
+    { l: 'Drops', u: '%', b: 0, sd: .02, d: 2, sub: () => '3 frames so far', min: 0 },
+    { l: 'Frame rate', u: 'fps', b: 119.7, sd: .25, d: 1, sub: () => 'client decode', max: 120 }],
+  idle: [
+    { l: 'GPU temp', u: '°C', b: 46, sd: .6, d: 0, sub: () => 'max 51 today' },
+    { l: 'GPU load', u: '%', b: 7, sd: 2.5, d: 0, sub: () => 'desktop', min: 1 },
+    { l: 'VRAM', u: 'GB', b: 2.1, sd: .05, d: 1, sub: () => 'of 16 GB' },
+    { l: 'CPU', u: '%', b: 6, sd: 2, d: 0, sub: () => 'Ryzen 7 9800X3D', min: 1 },
+    { l: 'Net TX', u: 'Mbps', b: .4, sd: .25, d: 1, sub: () => 'Ethernet', min: 0 }]
+};
+let vitBuf = [];
+function seedVitals() { vitBuf = VIT[hostState].map((v, i) => { const r = rng(40 + i); let d = 0; return Array.from({ length: 60 }, () => { d = d * .75 + (r() - .5) * v.sd; return clamp(v.b + d * 1.6, v.min ?? -1e9, v.max ?? 1e9); }); }); }
+function spark(buf, W = 100, H = 30) {
+  const mn = Math.min(...buf), mx = Math.max(...buf), rg = (mx - mn) || 1;
+  const pts = buf.map((v, i) => [i / (buf.length - 1) * W, H - 3 - (v - mn) / rg * (H - 8)]);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('');
+  const last = pts[pts.length - 1];
+  return `<path d="${d}L${W} ${H}L0 ${H}Z" fill="rgba(74,222,128,.10)" stroke="none"/><path d="${d}" fill="none" stroke="var(--mint)" stroke-width="1.5" vector-effect="non-scaling-stroke"/><circle cx="${last[0]}" cy="${last[1]}" r="2" fill="var(--mint)"/>`;
+}
+function renderHero() {
+  const live = hostState === 'live', g = LIVE_GAME;
+  const v = VIT[hostState];
+  $('#heroHost').innerHTML = `<div class="hero ${live ? '' : 'idle'}">
+    <div class="bgart" style="${live ? artBg(g) : 'background:radial-gradient(45% 80% at 88% 0%, rgba(74,222,128,.32), transparent 70%),radial-gradient(40% 60% at 5% 100%, rgba(56,189,248,.16), transparent 70%)'}"></div><div class="veil"></div>
+    <div class="in"><div class="art">${cover(g, { badge: true })}</div><div class="body">
+      <div class="eyebrow">${live ? '<span class="dot pulse"></span>Streaming <span class="muted">· live, every second</span>' : '<span class="dot"></span>Host monitor <span class="muted">· live, nothing streaming</span>'}</div>
+      <h4>${live ? g.name : 'Ready to stream'}</h4>
+      <div class="meta">${live ? '<span id="liveDur">1:12:04</span> · 120 fps · 150 Mbps target · Stream S1' : 'GeForce RTX 4080 SUPER · Ryzen 7 9800X3D · Sunshine 2026.915 running'}</div>
+      ${live ? `<div class="actions"><button class="btn amber" title="Ends the stream and hands control back to the client">${ic('ret')}Return to client</button><span class="tag good">HDR</span><span class="tag good">Dolby Atmos on</span><span class="tag warn" title="Hue Sync, iCUE">2 apps closed</span></div>` : `<div class="actions"><span class="tag good">Link 2.5 Gbps</span><span class="tag good">Sentinel armed</span><span class="tag grey">Last stream yesterday, 22:41</span></div>`}
+      <div class="vitals">${v.map((x, i) => `<div class="vital"><div class="lbl">${x.l}</div><div class="v"><span id="vv${i}">—</span><small>${x.u}</small></div><div class="s" id="vs${i}"></div><svg id="vg${i}" viewBox="0 0 100 30" preserveAspectRatio="none"></svg></div>`).join('')}</div>
+    </div></div></div>`;
+  seedVitals(); tickVitals(false);
+  $('#homeSub').textContent = live ? `Streaming ${g.name} · the host is keeping up with every frame` : 'Nothing streaming · the host is ready, and 3 clients may wake it';
+  $('#pillStateTxt').textContent = live ? 'Streaming · 1:12:04' : 'Host ready';
+  $('#pillState .dot').className = 'dot' + (live ? ' pulse' : '');
+  $('#pillState').classList.toggle('live', live);
+  $('#appsTag').textContent = live ? '2 closed now' : 'Idle'; $('#appsTag').className = 'tag ' + (live ? 'warn' : 'grey');
+}
+let liveSec = 72 * 60 + 4;
+function tickVitals(push = true) {
+  const v = VIT[hostState];
+  v.forEach((x, i) => {
+    const b = vitBuf[i]; if (!b) return;
+    if (push) { const r = Math.random(); b.push(clamp(b[b.length - 1] * .75 + (x.b + (r - .5) * 2 * x.sd) * .25, x.min ?? -1e9, x.max ?? 1e9)); b.shift(); }
+    const val = b[b.length - 1], e = $('#vv' + i); if (!e) return;
+    e.textContent = val.toFixed(x.d); $('#vs' + i).textContent = x.sub(val); $('#vg' + i).innerHTML = spark(b);
+  });
+  if (push && hostState === 'live') { liveSec++; const t = `${Math.floor(liveSec / 3600)}:${pad2(Math.floor(liveSec / 60) % 60)}:${pad2(liveSec % 60)}`; const d = $('#liveDur'); if (d) d.textContent = t; $('#pillStateTxt').textContent = 'Streaming · ' + t; }
+}
+function renderLast() {
+  const s = SESSIONS[0];
+  $('#lastCard').innerHTML = `<div class="cardhead"><div><h3>Last session</h3><div class="hint">${relDay(s.start)} · ${hm(s.start)} → ${hm(s.end)}</div></div><span class="sp"></span>${gradeTag(s.grade)}</div>
+    <div class="lastcovers">${s.games.map(x => `<div style="width:64px">${cover(GAMES[x.gi])}</div>`).join('')}</div>
+    <div class="small" style="margin-top:6px">${gameNames(s)}</div>
+    <div class="tiles3"><div><div class="lbl">Duration</div><div class="val">${durShort(s.durMin)}</div></div><div><div class="lbl">RTT</div><div class="val">${fmt(s.st.rttAvg)}<small>ms</small></div></div><div><div class="lbl">Host latency</div><div class="val">${fmt(s.st.hlAvg)}<small>ms</small></div></div></div>
+    <div class="divider"></div><div class="row"><span class="small">${s.spans.length > 1 ? 'Client reconnected once · 2 streams' : 'One stream'}</span><span class="sp"></span><span class="link" data-open="${s.id}">Open session ›</span></div>`;
+}
+let perfDays = 30;
+function renderPerf() {
+  const list = inPeriod(perfDays).slice().reverse();
+  const hrs = list.reduce((a, s) => a + s.durMin, 0) / 60;
+  $('#perfSub').textContent = `Last ${perfDays === 365 ? 'year' : perfDays + ' days'} · ${list.length} sessions · ${Math.round(hrs)} h streamed`;
+  const avg = k => list.reduce((a, s) => a + s.st[k], 0) / (list.length || 1);
+  $('#pAvgRtt').innerHTML = `${fmt(avg('rttAvg'))}<small>ms</small>`; $('#pAvgDrops').innerHTML = `${fmt(avg('dropPct'), 2)}<small>%</small>`; $('#pStreamed').innerHTML = `${Math.round(hrs)}<small>h</small>`;
+  const cnt = [0, 0, 0]; list.forEach(s => cnt[s.grade]++);
+  $('#distBar').innerHTML = cnt.map((c, i) => c ? `<i style="flex:${c};background:${GRADES[i].c}" title="${GRADES[i].l}: ${c}"></i>` : '').join('');
+  $('#distLegend').innerHTML = cnt.map((c, i) => `<span><span class="grade ${GRADES[i].k}" style="height:20px">${GRADES[i].l} ${c}</span></span>`).join('');
+  drawTrend(list);
+}
+function drawTrend(list) {
+  const box = $('#trendBox'), svg = $('#trendSvg'), W = Math.max(260, box.clientWidth), H = clamp(Math.round(W * .26), 190, 340);
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.style.height = H + 'px';
+  const L = 34, R = 34, T = 10, B = 22, n = list.length;
+  if (n < 2) { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" fill="var(--text-3)" font-size="13" text-anchor="middle">At least two graded sessions are needed to draw a trend.</text>`; return; }
+  const ymax = niceMax(Math.max(...list.map(s => Math.max(s.st.rttAvg, s.st.hlAvg))) * 1.1);
+  const x = i => L + i / (n - 1) * (W - L - R), y = v => T + (1 - v / ymax) * (H - T - B);
+  let g = '';
+  [0, .5, 1].forEach(f => { const yy = y(ymax * f); g += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="var(--grid)"/><text x="${L - 6}" y="${yy + 4}" fill="var(--text-3)" font-size="11" text-anchor="end">${+(ymax * f).toFixed(1)}</text>`; });
+  const first = list[0].start, last = list[n - 1].start;
+  g += `<text x="${L}" y="${H - 5}" fill="var(--text-3)" font-size="11">${first.getDate()} ${MON[first.getMonth()].slice(0, 3)}</text><text x="${W - R}" y="${H - 5}" fill="var(--text-3)" font-size="11" text-anchor="end">${last.getDate()} ${MON[last.getMonth()].slice(0, 3)}</text><text x="${L - 6}" y="${H - 5}" fill="var(--text-4)" font-size="10.5" text-anchor="end">ms</text>`;
+  const line = (k, col) => { const d = list.map((s, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(s.st[k]).toFixed(1)).join(''); return `<path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/>` + (n <= 70 ? list.map((s, i) => `<circle cx="${x(i)}" cy="${y(s.st[k])}" r="3" fill="${col}" stroke="#141616" stroke-width="1.5"/>`).join('') : ''); };
+  g += line('rttAvg', 'var(--s1)') + line('hlAvg', 'var(--s2)');
+  let yR = y(list[n - 1].st.rttAvg) + 4, yH = y(list[n - 1].st.hlAvg) + 4;
+  if (Math.abs(yR - yH) < 12) { const up = yR <= yH; const mid = (yR + yH) / 2; yR = mid + (up ? -6 : 6); yH = mid + (up ? 6 : -6); }
+  g += `<text x="${W - R + 5}" y="${yR}" fill="var(--text-2)" font-size="11">RTT</text><text x="${W - R + 5}" y="${yH}" fill="var(--text-2)" font-size="11">Host</text>`;
+  g += `<line id="trGuide" x1="0" x2="0" y1="${T}" y2="${H - B}" stroke="rgba(255,255,255,.35)" style="display:none"/>`;
+  svg.innerHTML = g;
+  const tip = $('#trendTip');
+  box.onpointermove = e => {
+    const rc = svg.getBoundingClientRect(), px = (e.clientX - rc.left) / rc.width * W;
+    const i = clamp(Math.round((px - L) / (W - L - R) * (n - 1)), 0, n - 1), s = list[i];
+    const gd = $('#trGuide'); gd.style.display = ''; gd.setAttribute('x1', x(i)); gd.setAttribute('x2', x(i));
+    tip.style.display = 'block';
+    tip.innerHTML = `<b>${relDay(s.start)} · ${hm(s.start)}</b> ${gradeTag(s.grade)}<div class="small" style="margin:3px 0 5px;max-width:240px;white-space:normal">${gameNames(s)}</div><div class="r"><i style="background:var(--s1)"></i>RTT <b style="margin-left:auto">${fmt(s.st.rttAvg)} ms</b></div><div class="r"><i style="background:var(--s2)"></i>Host latency&nbsp;&nbsp;<b style="margin-left:auto">${fmt(s.st.hlAvg)} ms</b></div>`;
+    const bx = box.getBoundingClientRect(), lx = (x(i) / W) * bx.width / winScale;
+    tip.style.left = Math.min(lx + 12, bx.width / winScale - tip.offsetWidth - 4) + 'px'; tip.style.top = '8px';
+  };
+  box.onpointerleave = () => { tip.style.display = 'none'; const gd = $('#trGuide'); if (gd) gd.style.display = 'none'; };
+  box.onclick = () => { const gd = $('#trGuide'); if (!gd || gd.style.display === 'none') return; const i = list.findIndex(s => Math.abs(x(list.indexOf(s)) - +gd.getAttribute('x1')) < .5); if (i >= 0) openSession(list[i].id); };
+}
+function renderRecent() {
+  $('#recentList').innerHTML = SESSIONS.slice(0, 6).map(s => `<div class="srow" data-open="${s.id}"><span class="stripe" style="background:${GRADES[s.grade].c}"></span><div class="when"><b>${relDay(s.start)} ${hm(s.start)}</b><span>${dur(s.durMin)}</span></div><div class="cgames"><span class="covs">${covers(s)}</span><span class="names">${gameNames(s)}</span></div><div class="num">${fmt(s.st.rttAvg)}<small>ms</small></div><div class="num">${fmt(s.st.hlAvg)}<small>ms</small></div><div style="justify-self:end">${gradeTag(s.grade)}</div></div>`).join('');
+}
+function renderShelf() {
+  const gs = GAMES.filter(g => g.last).sort((a, b) => b.last - a.last).slice(0, 14);
+  $('#shelf').innerHTML = gs.map(g => `<div class="it" data-game="${g.id}" tabindex="0">${cover(g, { badge: true })}<div class="n">${g.name}</div><div class="m">${relDay(g.last)} · ${durShort(g.minutes)} total</div></div>`).join('');
+}
+
+/* ═════════ SESSIONS ═════════ */
+let gradeFilter = -1, sessQuery = '', selected = [], openId = null;
+function renderSessSummary() {
+  const list = inPeriod(30), hrs = list.reduce((a, s) => a + s.durMin, 0) / 60, avg = k => list.reduce((a, s) => a + s.st[k], 0) / list.length;
+  const cnt = [0, 0, 0]; list.forEach(s => cnt[s.grade]++);
+  $('#sessSummary').innerHTML = `<div><div class="lbl">Sessions</div><div class="val">${list.length}</div></div><div><div class="lbl">Streamed</div><div class="val">${Math.round(hrs)}<small>h</small></div></div><div><div class="lbl">Avg RTT</div><div class="val">${fmt(avg('rttAvg'))}<small>ms</small></div></div><div><div class="lbl">Avg host latency</div><div class="val">${fmt(avg('hlAvg'))}<small>ms</small></div></div>
+    <div class="gdist"><div class="lbl">Grades</div><div class="distbar">${cnt.map((c, i) => c ? `<i style="flex:${c};background:${GRADES[i].c}"></i>` : '').join('')}</div><div class="legend">${cnt.map((c, i) => `<span class="grade ${GRADES[i].k}" style="height:20px">${GRADES[i].l} ${c}</span>`).join('')}</div></div>`;
+  $('#gradeChips').innerHTML = [`<span class="chip ${gradeFilter < 0 ? 'on' : ''}" data-gf="-1">All <span class="n">${list.length}</span></span>`, ...GRADES.map((g, i) => `<span class="chip ${gradeFilter === i ? 'on' : ''}" data-gf="${i}">${g.l} <span class="n">${cnt[i]}</span></span>`)].join('');
+}
+function sessRow(s) {
+  const chk = selected.includes(s.id);
+  return `<div class="srow ${openId === s.id && wideSessions() ? 'sel' : ''}" data-open="${s.id}">
+    <span class="chk ${chk ? 'on' : ''} rchk" data-pick="${s.id}" role="checkbox" aria-checked="${chk}" title="Select to compare"></span>
+    <span class="stripe" style="background:${GRADES[s.grade].c}"></span>
+    <div class="when"><b>${hm(s.start)} – ${hm(s.end)}</b><span>${dur(s.durMin)}${s.spans.length > 1 ? ' · 2 streams' : ''}</span></div>
+    <div class="cgames"><span class="covs">${covers(s)}</span><span class="names">${gameNames(s)}</span></div>
+    <div class="num c-rtt">${fmt(s.st.rttAvg)}<small>ms</small></div>
+    <div class="num c-hl">${fmt(s.st.hlAvg)}<small>ms</small></div>
+    <div class="num c-dr">${fmt(s.st.dropPct, 2)}<small>%</small></div>
+    <div class="c-gr" style="justify-self:end">${gradeTag(s.grade)}</div>
+    <span class="chev">${ic('chev')}</span></div>`;
+}
+function renderSessList() {
+  const q = sessQuery.toLowerCase();
+  const list = inPeriod(30).filter(s => (gradeFilter < 0 || s.grade === gradeFilter) && (!q || gameNames(s).toLowerCase().includes(q)));
+  let html = `<div class="shead"><span></span><span></span><span>When</span><span class="cg">Games</span><span class="num c-rtt">RTT</span><span class="num c-hl">Host latency</span><span class="num c-dr">Drops</span><span class="num c-gr">Grade</span><span class="chev"></span></div>`;
+  if (hostState === 'live' && !q && gradeFilter < 0) html += `<div class="sl"><div class="day">Now</div></div><div class="srow" data-go="home" style="background:rgba(74,222,128,.05)"><span></span><span class="stripe" style="background:var(--mint)"></span><div class="when"><b>21:28 – now</b><span id="liveRowDur">Live</span></div><div class="cgames"><span class="covs">${cover(LIVE_GAME, { xs: true })}</span><span class="names">${LIVE_GAME.name}</span></div><div class="num c-rtt">3.4<small>ms</small></div><div class="num c-hl">3.7<small>ms</small></div><div class="num c-dr">0.01<small>%</small></div><div class="c-gr" style="justify-self:end"><span class="tag good"><span class="dot pulse"></span>Live</span></div><span class="chev">${ic('chev')}</span></div>`;
+  let lastDay = '';
+  list.forEach(s => {
+    const k = s.start.toDateString();
+    if (k !== lastDay) { lastDay = k; const same = list.filter(x => x.start.toDateString() === k); const rd = relDay(s.start); html += `<div class="day">${rd === 'Today' || rd === 'Yesterday' ? rd + ' · ' + s.start.getDate() + ' ' + MON[s.start.getMonth()] : longDay(s.start)} <span>${same.length} session${same.length > 1 ? 's' : ''} · ${dur(same.reduce((a, x) => a + x.durMin, 0))}</span></div>`; }
+    html += sessRow(s);
+  });
+  if (!list.length) html += `<div style="padding:30px 18px" class="small">No sessions match this filter.</div>`;
+  $('#sessList').innerHTML = html;
+  const bar = $('#cmpBar');
+  bar.classList.toggle('show', selected.length > 0);
+  $('#cmpTxt').textContent = selected.length === 1 ? '1 session selected · tick one more' : '2 sessions selected';
+  $('#cmpGo').disabled = selected.length < 2;
+  $('#sessMD').classList.toggle('compact', true);
+}
+onShow.sessions = () => {
+  renderSessSummary(); renderSessList();
+  if (wideSessions()) { if (openId == null) openId = SESSIONS[0].id; renderSessList(); renderDetail($('#sessPane'), SESSIONS.find(s => s.id === openId), true); }
+};
+function openSession(id) {
+  id = +id; openId = id; const s = SESSIONS.find(x => x.id === id);
+  if (curPage === 'sessions' && wideSessions()) { renderSessList(); renderDetail($('#sessPane'), s, true); return; }
+  go('detail'); renderDetail($('#detailHost'), s, false);
+}
+
+/* ═════════ COMPARE ═════════ */
+function renderCompare() {
+  const [a, b] = (selected.length === 2 ? selected : [SESSIONS[0].id, SESSIONS[1].id]).map(id => SESSIONS.find(s => s.id === id));
+  const pick = (s, n) => `<div class="card cmppick"><div class="cgames"><span class="covs">${s.games.map(x => `<div style="width:34px;margin-right:-8px">${cover(GAMES[x.gi], { xs: true })}</div>`).join('')}</span></div><div style="min-width:0;flex:1;margin-left:10px"><div class="lbl">Session ${n}</div><b style="font-weight:500">${longDay(s.start)}, ${hm(s.start)}</b><div class="small" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${dur(s.durMin)} · ${gameNames(s)}</div></div>${gradeTag(s.grade)}<span class="combo" style="min-width:0">Change</span></div>`;
+  const row = (l, va, vb, u, d, better) => {
+    let dl = '<span class="delta neu">—</span>';
+    if (va != null && vb != null) { const df = va - vb; const cls = better === 0 || Math.abs(df) < Math.pow(10, -d) ? 'neu' : ((better < 0 ? df < 0 : df > 0) ? 'good' : 'bad'); dl = `<span class="delta ${cls}">${df > 0 ? '▲' : df < 0 ? '▼' : ''} ${Math.abs(df).toFixed(d)} ${u}</span>`; }
+    return `<tr><td>${l}</td><td class="r">${fmt(va, d)} <span class="small">${u}</span></td><td class="r">${fmt(vb, d)} <span class="small">${u}</span></td><td class="r">${dl}</td></tr>`;
+  };
+  const A = a.st, B = b.st, th = `<tr><th>Metric</th><th class="r">Session 1</th><th class="r">Session 2</th><th class="r">Δ 1 vs 2</th></tr>`;
+  $('#compareHost').innerHTML = `<div class="ph"><div class="t"><div class="crumb"><span class="up" data-go="sessions">Sessions</span><span class="chev">›</span><span>Compare</span></div><p>Session 1 read against session 2. Green means session 1 did better.</p></div></div>
+    <div class="cmpgrid">${pick(a, 1)}${pick(b, 2)}</div>
+    <div class="cmpgrid" style="margin-top:16px">
+      <div class="card flat"><div class="cardhead" style="padding:16px 16px 0"><h3>Client</h3><span class="small">StreamLight</span></div><div class="tscroll"><table class="t">${th}
+        ${row('RTT avg', A.rttAvg, B.rttAvg, 'ms', 1, -1)}${row('RTT max', A.rttMax, B.rttMax, 'ms', 1, -1)}${row('Jitter avg', A.jitAvg, B.jitAvg, 'ms', 1, -1)}${row('Drops', A.dropPct, B.dropPct, '%', 2, -1)}${row('Total dropped frames', A.drops, B.drops, '', 0, 0)}${row('Bitrate delivered', A.brAvg, B.brAvg, 'Mbps', 0, 0)}${row('Decode avg', A.decAvg, B.decAvg, 'ms', 1, -1)}</table></div></div>
+      <div class="card flat"><div class="cardhead" style="padding:16px 16px 0"><h3>Host</h3><span class="small">StreamTweak</span></div><div class="tscroll"><table class="t">${th}
+        ${row('Frame latency avg', A.hlAvg, B.hlAvg, 'ms', 1, -1)}${row('Frame latency max', A.hlMax, B.hlMax, 'ms', 1, -1)}${row('Late frames', A.latePct, B.latePct, '%', 2, -1)}${row('GPU', A.gpuAvg, B.gpuAvg, '%', 0, 0)}${row('Encoder', A.encAvg, B.encAvg, '%', 0, 0)}${row('GPU temp', A.tempAvg, B.tempAvg, '°C', 0, -1)}${row('CPU', A.cpuAvg, B.cpuAvg, '%', 0, 0)}${row('Net TX', A.netTx, B.netTx, 'Mbps', 0, 0)}</table></div></div>
+    </div>`;
+}
+onShow.compare = renderCompare;
+</script>
+<script>
+/* ═════════ SESSION DETAIL ═════════ */
+const LANES = [
+  { k: 'rtt', n: 'RTT', u: 'ms', env: ['rttMin', 'rttMax'], col: 'var(--s1)', d: 1, th: [{ v: 25, l: 'Excellent below 25 ms' }], term: 'rtt' },
+  { k: 'hl', n: 'Host frame latency', u: 'ms', env: ['hlMin', 'hlMax'], col: 'var(--s1)', d: 1, th: [{ v: FRAME * .6, l: '0.6 frame' }, { v: FRAME, l: '1 frame' }, { v: FRAME * 2, l: 'late' }], term: 'hl' },
+  { k: 'drops', n: 'Drops', u: '%', bars: true, col: 'var(--s2)', d: 2, term: 'drops' },
+  { k: 'br', n: 'Bitrate', u: 'Mbps', col: 'var(--s1)', d: 0, target: true, term: 'bitrate' },
+  { k: 'dec', n: 'Decode', u: 'ms', col: 'var(--s1)', d: 1, term: 'decode' },
+  { k: 'compute', n: 'Host compute', u: '%', multi: [['gpu', 'GPU', 'var(--s1)'], ['enc', 'Enc', 'var(--s2)'], ['cpu', 'CPU', 'var(--s3)']], d: 0, fixedMax: 100, term: 'compute' }
+];
+let TL = null;   // current timeline state
+
+function critRows(s) {
+  const st = s.st, p = s.parts;
+  const txt = (g, ex, gd) => g === 0 ? `Excellent below ${ex}` : g === 1 ? `Good up to ${gd}` : `Poor above ${gd}`;
+  return [
+    ['Drops', `${fmt(st.dropPct, 2)} %`, txt(p.gd, '1 %', '2 %'), p.gd],
+    ['RTT', `${fmt(st.rttAvg)} ms avg`, txt(p.gr, '25 ms', '60 ms'), p.gr],
+    ['Host frame latency', `${fmt(st.hlAvg)} ms avg`, txt(p.gh, `${fmt(FRAME * .6)} ms`, `${fmt(FRAME)} ms`) + ' at 120 fps', p.gh],
+    ['Late frames', `${fmt(st.latePct, 2)} %`, txt(p.gl, '1 %', '5 %'), p.gl]
+  ].map(r => `<div class="cr"><div><b style="font-weight:500">${r[0]}</b> <span class="small">· ${r[1]}</span></div><span class="th">${r[2]}</span><span class="gg">${gradeTag(r[3])}</span></div>`).join('');
+}
+function renderDetail(host, s, inPane) {
+  if (!s) return;
+  const st = s.st, G0 = GRADES[s.grade];
+  const why = ['drops', 'RTT', 'host frame latency', 'late frames'][Object.values(s.parts).indexOf(s.grade)];
+  host.innerHTML = `<div class="detailroot">
+    <div class="ph">
+      <div class="t">${inPane ? `<h2 style="font-size:23px">${longDay(s.start)}</h2>` : `<div class="crumb"><span class="up" data-go="sessions">Sessions</span><span class="chev">›</span><span>${longDay(s.start)}</span></div>`}
+        <p>${hm(s.start)} → ${hm(s.end)} · ${dur(s.durMin)} · ${s.spans.length > 1 ? '2 streams, the client reconnected once' : 'one stream'} · 120 fps · ${s.target} Mbps target</p></div>
+      <div class="sp"></div>
+      <div class="cmdbar"><button class="btn ghost" data-cmpwith="${s.id}">${ic('compare')}Compare with…</button><button class="btn ghost icon" title="Delete this session">${ic('trash')}</button></div>
+    </div>
+    <div class="dgrid top">
+      <div class="card vcard">
+        <div class="cardhead"><h3>Verdict</h3><span class="hint-i" data-term="grade">i</span><span class="sp"></span><span class="small">decided by the worst of four checks</span></div>
+        <div class="verdict"><div class="big"><div class="gl" style="color:${G0.c}">${G0.l}</div><div class="small">${s.grade === 0 ? 'Every check passed' : `Held back by ${why}`}</div>
+          <div class="gamestrip" style="margin-top:12px">${s.games.map(x => `<div style="width:46px" data-game="${x.gi}" title="${GAMES[x.gi].name}">${cover(GAMES[x.gi])}</div>`).join('')}</div></div>
+        <div class="crit">${critRows(s)}</div></div>
+      </div>
+      <div class="card metricgrp"><div class="cardhead"><h3>Client</h3><span class="small">what StreamLight saw</span></div><div class="mg">
+        <div><div class="lbl">RTT</div><div class="v">${fmt(st.rttAvg)}<small>ms</small></div><div class="s">max ${fmt(st.rttMax)} ms</div></div>
+        <div><div class="lbl">Jitter</div><div class="v">${fmt(st.jitAvg)}<small>ms</small></div><div class="s">max ${fmt(st.jitMax)} ms</div></div>
+        <div><div class="lbl">Drops</div><div class="v">${fmt(st.dropPct, 2)}<small>%</small></div><div class="s">${st.drops} frames</div></div>
+        <div><div class="lbl">Bitrate</div><div class="v">${fmt(st.brAvg, 0)}<small>Mbps</small></div><div class="s">of ${st.brTarget} target · ${Math.round(st.brAvg / st.brTarget * 100)}%</div></div>
+        <div><div class="lbl">Decode</div><div class="v">${fmt(st.decAvg)}<small>ms</small></div><div class="s">average</div></div></div></div>
+      <div class="card metricgrp"><div class="cardhead"><h3>Host</h3><span class="small">what this PC did</span></div><div class="mg">
+        <div><div class="lbl">Frame latency</div><div class="v">${fmt(st.hlAvg)}<small>ms</small></div><div class="s">max ${fmt(st.hlMax)} ms</div></div>
+        <div><div class="lbl">Late frames</div><div class="v">${fmt(st.latePct, 2)}<small>%</small></div><div class="s">over 2 frames</div></div>
+        <div><div class="lbl">GPU</div><div class="v">${fmt(st.gpuAvg, 0)}<small>%</small></div><div class="s">peak ${fmt(st.gpuPeak, 0)} %</div></div>
+        <div><div class="lbl">Encoder</div><div class="v">${fmt(st.encAvg, 0)}<small>%</small></div><div class="s">peak ${fmt(st.encPeak, 0)} %</div></div>
+        <div><div class="lbl">GPU temp</div><div class="v">${fmt(st.tempAvg, 0)}<small>°C</small></div><div class="s">max ${fmt(st.tempMax, 0)} °C</div></div>
+        <div><div class="lbl">CPU</div><div class="v">${fmt(st.cpuAvg, 0)}<small>%</small></div><div class="s">peak ${fmt(st.cpuPeak, 0)} %</div></div>
+        <div><div class="lbl">Net TX</div><div class="v">${fmt(st.netTx, 0)}<small>Mbps</small></div><div class="s">average</div></div></div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="cardhead"><div><h3>Timeline</h3><div class="hint">One clock for every chart · hover to read all values at once · drag on the strip below to zoom · click a game to zoom to it</div></div><span class="sp"></span>
+        <button class="btn ghost" id="tlReset" hidden>${ic('reset')}Whole session</button>
+        <div class="seg sm" id="tlMode"><button class="on" data-m="tracks">All tracks</button><button data-m="focus">Focus</button></div></div>
+      <div id="tlBody"></div>
+    </div>
+  </div>`;
+  TL = { s, host, z0: 0, z1: s.durMin, mode: 'tracks', focus: 'hl' };
+  drawTL();
+}
+
+function buckets(s, z0, z1, nb) {
+  const src = ser(s).filter(p => p.t >= z0 - 1e-9 && p.t <= z1 + 1e-9);
+  if (src.length <= nb) return src;
+  const out = [], per = src.length / nb;
+  for (let b = 0; b < nb; b++) {
+    const seg = src.slice(Math.floor(b * per), Math.floor((b + 1) * per)); if (!seg.length) continue;
+    if (seg.some(p => p.gap)) { out.push({ t: seg[0].t, gap: true }); continue; }
+    const o = { t: seg[Math.floor(seg.length / 2)].t };
+    for (const k of ['rtt', 'hl', 'br', 'dec', 'gpu', 'enc', 'cpu']) o[k] = seg.reduce((a, p) => a + p[k], 0) / seg.length;
+    for (const k of ['rttMin', 'hlMin']) o[k] = Math.min(...seg.map(p => p[k]));
+    for (const k of ['rttMax', 'hlMax', 'drops']) o[k] = Math.max(...seg.map(p => p[k]));
+    out.push(o);
+  }
+  return out;
+}
+function tickStep(spanMin, W) { const want = spanMin / Math.max(2, W / 120); for (const s of [1, 2, 5, 10, 15, 20, 30, 60, 120]) if (s >= want) return s; return 240; }
+const clockAt = (s, t) => new Date(+s.start + t * 60000);
+
+function laneSVG(lane, data, W, H, big) {
+  const { s, z0, z1 } = TL, L = big ? 40 : 0, R = big ? 8 : 0, T = big ? 10 : 6, B = big ? 4 : 3;
+  const x = t => L + (t - z0) / (z1 - z0) * (W - L - R);
+  const vals = data.filter(p => !p.gap);
+  const tops = vals.map(p => lane.multi ? Math.max(...lane.multi.map(m => p[m[0]])) : lane.env ? p[lane.env[1]] : p[lane.k]);
+  let dmax = lane.fixedMax || Math.max(lane.bars ? Math.max(...tops) : pctl(tops, 97) * 1.12, lane.target ? s.target : 0, .01);
+  const ths = (lane.th || []).filter(t => t.v <= dmax * 1.25);
+  const ymax = lane.fixedMax || niceMax(Math.max(dmax, ...ths.map(t => t.v)) * 1.08);
+  const y = v => T + (1 - Math.min(v, ymax) / ymax) * (H - T - B);
+  let g = `<defs><pattern id="hatch${lane.k}${big ? 'b' : ''}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="rgba(255,255,255,.015)"/><line x1="0" y1="0" x2="0" y2="6" stroke="rgba(255,255,255,.09)" stroke-width="2"/></pattern></defs>`;
+  // grid: time ticks + half/top value lines
+  const step = tickStep(z1 - z0, W), base = s.start.getHours() * 60 + s.start.getMinutes() + s.start.getSeconds() / 60;
+  for (let c = Math.ceil((base + z0) / step) * step; c <= base + z1; c += step) g += `<line x1="${x(c - base)}" x2="${x(c - base)}" y1="${T}" y2="${H - B}" stroke="var(--grid)"/>`;
+  [.5, 1].forEach(f => g += `<line x1="${L}" x2="${W - R}" y1="${y(ymax * f)}" y2="${y(ymax * f)}" stroke="var(--grid)"/>`);
+  g += `<line x1="${L}" x2="${W - R}" y1="${y(0)}" y2="${y(0)}" stroke="rgba(255,255,255,.12)"/>`;
+  if (big) [0, .5, 1].forEach(f => g += `<text x="${L - 6}" y="${y(ymax * f) + 4}" fill="var(--text-3)" font-size="11" text-anchor="end">${+(ymax * f).toFixed(ymax < 10 ? 1 : 0)}</text>`);
+  else g += `<text x="4" y="${T + 9}" fill="var(--text-4)" font-size="10">${+ymax.toFixed(ymax < 10 ? 1 : 0)} ${lane.u}</text>`;
+  // disconnected gap
+  if (s.spans.length > 1) { const a = Math.max(z0, s.spans[0].b), b = Math.min(z1, s.spans[1].a); if (b > a) g += `<rect x="${x(a)}" y="0" width="${Math.max(2, x(b) - x(a))}" height="${H}" fill="url(#hatch${lane.k}${big ? 'b' : ''})"/>`; }
+  // thresholds
+  ths.forEach(t => g += `<line x1="${L}" x2="${W - R}" y1="${y(t.v)}" y2="${y(t.v)}" stroke="${t.l === 'late' ? 'rgba(248,113,113,.55)' : 'rgba(251,191,36,.45)'}" stroke-dasharray="4 4"/><text x="${W - R - 4}" y="${y(t.v) - 3}" fill="var(--text-3)" font-size="10" text-anchor="end">${t.l === 'late' ? 'late frame · ' + fmt(FRAME * 2) + ' ms' : t.l}</text>`);
+  const path = k => { let d = '', pen = false; data.forEach(p => { if (p.gap) { pen = false; return; } d += (pen ? 'L' : 'M') + x(p.t).toFixed(1) + ' ' + y(p[k]).toFixed(1); pen = true; }); return d; };
+  const band = (lo, hi) => { let d = '', run = []; const flush = () => { if (run.length > 1) d += 'M' + run.map(p => x(p.t).toFixed(1) + ' ' + y(p[hi]).toFixed(1)).join('L') + 'L' + run.slice().reverse().map(p => x(p.t).toFixed(1) + ' ' + y(p[lo]).toFixed(1)).join('L') + 'Z'; run = []; }; data.forEach(p => p.gap ? flush() : run.push(p)); flush(); return d; };
+  if (lane.bars) { const bw = Math.max(1.5, (W - L - R) / data.length - .5); data.forEach(p => { if (!p.gap && p.drops > 0) g += `<rect x="${(x(p.t) - bw / 2).toFixed(1)}" y="${y(p.drops).toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1, y(0) - y(p.drops)).toFixed(1)}" rx="${bw > 5 ? 2 : 0}" fill="${lane.col}"/>`; }); }
+  else if (lane.multi) lane.multi.forEach(m => g += `<path d="${path(m[0])}" fill="none" stroke="${m[2]}" stroke-width="${big ? 2 : 1.5}" stroke-linejoin="round"/>`);
+  else {
+    if (lane.env) g += `<path d="${band(lane.env[0], lane.env[1])}" fill="rgba(57,135,229,.18)"/>`;
+    else { let d = '', run = []; const flush = () => { if (run.length > 1) d += 'M' + run.map(p => x(p.t).toFixed(1) + ' ' + y(p[lane.k]).toFixed(1)).join('L') + `L${x(run[run.length - 1].t).toFixed(1)} ${y(0)}L${x(run[0].t).toFixed(1)} ${y(0)}Z`; run = []; }; data.forEach(p => p.gap ? flush() : run.push(p)); flush(); g += `<path d="${d}" fill="rgba(57,135,229,.10)"/>`; }
+    if (lane.target) g += `<line x1="${L}" x2="${W - R}" y1="${y(s.target)}" y2="${y(s.target)}" stroke="var(--text-3)" stroke-dasharray="2 4"/><text x="${L + 4 + (big ? 0 : 60)}" y="${y(s.target) - 3}" fill="var(--text-3)" font-size="10">target ${s.target}</text>`;
+    g += `<path d="${path(lane.k)}" fill="none" stroke="${lane.col}" stroke-width="${big ? 2 : 1.5}" stroke-linejoin="round"/>`;
+  }
+  g += `<g class="cur"></g>`;
+  return { g, x, y, ymax };
+}
+
+function laneValueAt(lane, p) {
+  if (!p || p.gap) return null;
+  if (lane.multi) return lane.multi.map(m => `${m[1]} ${Math.round(p[m[0]])}`).join(' · ');
+  return fmt(p[lane.k], lane.d);
+}
+function laneAvg(lane) {
+  const st = TL.s.st;
+  return { rtt: [fmt(st.rttAvg), `avg · max ${fmt(st.rttMax)}`], hl: [fmt(st.hlAvg), `avg · max ${fmt(st.hlMax)}`], drops: [fmt(st.dropPct, 2), `avg · ${st.drops} frames`], br: [fmt(st.brAvg, 0), `avg · target ${TL.s.target}`], dec: [fmt(st.decAvg), 'avg'], compute: [null, 'avg'] }[lane.k];
+}
+function pctl(arr, p) { const a = arr.slice().sort((x, y) => x - y); return a[Math.min(a.length - 1, Math.floor(p / 100 * a.length))]; }
+
+function drawTL() {
+  if (!TL) return;
+  const { s } = TL, body = $('#tlBody', TL.host); if (!body) return;
+  $('#tlReset', TL.host).hidden = TL.z0 === 0 && TL.z1 === s.durMin;
+  $$('#tlMode button', TL.host).forEach(b => b.classList.toggle('on', b.dataset.m === TL.mode));
+  const inGames = s.games.map(x => ({ ...x, g: GAMES[x.gi] }));
+  const pctOf = t => (t - TL.z0) / (TL.z1 - TL.z0) * 100;
+  const gameLane = `<div class="lh" style="padding-top:6px;padding-bottom:6px"><div class="n">Games &amp; streams</div></div><div class="lc gl-lane-c" style="height:34px">${inGames.map(x => { const a = Math.max(TL.z0, x.a), b = Math.min(TL.z1, x.b); if (b <= a) return ''; return `<div class="gseg" data-zoom="${x.a},${x.b}" title="${x.g.name} · ${hm(clockAt(s, x.a))}–${hm(clockAt(s, x.b))} · click to zoom" style="left:${pctOf(a)}%;width:${pctOf(b) - pctOf(a)}%;background:linear-gradient(90deg,hsl(${x.g.h1} 45% 30%),hsl(${x.g.h2} 40% 22%))"><span style="width:17px">${cover(x.g, { xs: true })}</span>${x.g.name}</div>`; }).join('')}
+    ${s.spans.length > 1 ? (() => { const a = Math.max(TL.z0, s.spans[0].b), b = Math.min(TL.z1, s.spans[1].a); return b > a ? `<div title="Client disconnected and came back" style="position:absolute;top:0;bottom:0;left:${pctOf(a)}%;width:max(2px,${pctOf(b) - pctOf(a)}%);background:repeating-linear-gradient(135deg,rgba(255,255,255,.12) 0 3px,transparent 3px 6px)"></div>` : ''; })() : ''}</div>`;
+  if (TL.mode === 'tracks') {
+    body.innerHTML = `<div class="tl" id="tl"><div class="lanes">${gameLane}${LANES.map(l => `<div class="lh" data-lh="${l.k}"><div class="n">${l.n} <span class="hint-i" data-term="${l.term}">i</span></div>${l.multi ? `<div class="lg">${l.multi.map(m => `<span><i style="background:${m[2]}"></i>${m[1]} <b data-mv="${m[0]}" style="font-weight:600"></b></span>`).join('')}</div>` : `<div class="rv"><span data-rv></span><small>${l.u}</small></div><div class="sub" data-sub></div>`}</div><div class="lc" data-lc="${l.k}"><svg></svg></div>`).join('')}<div></div><div class="axis" id="tlAxis"></div></div>
+      <div class="xh" id="tlXh"><span class="xt" id="tlXt"></span></div><div class="hit" id="tlHit"></div></div>
+      <div class="overview" id="tlOv" title="Drag to zoom into part of the session"><svg></svg><div class="win" id="tlWin" hidden></div></div>`;
+    const firstLc = $('[data-lc]', body), W = Math.max(200, firstLc.clientWidth);
+    const H = clamp(Math.round(W * .07), 58, 140);
+    const data = buckets(s, TL.z0, TL.z1, Math.floor(W / 2));
+    TL.data = data; TL.scales = {};
+    LANES.forEach(l => {
+      const lc = $(`[data-lc="${l.k}"]`, body); lc.style.height = H + 'px';
+      const svg = $('svg', lc); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      const r = laneSVG(l, data, W, H, false); svg.innerHTML = r.g; TL.scales[l.k] = r;
+    });
+    // axis labels + stream labels
+    const step = tickStep(TL.z1 - TL.z0, W), base = s.start.getHours() * 60 + s.start.getMinutes() + s.start.getSeconds() / 60;
+    let ax = '';
+    for (let c = Math.ceil((base + TL.z0) / step) * step; c <= base + TL.z1; c += step) { const p = pctOf(c - base); if (p > 3 && p < 97) ax += `<span style="position:absolute;left:${p}%;top:5px;transform:translateX(-50%);font-size:11px;color:var(--text-3);font-family:var(--mono)">${pad2(Math.floor(c / 60) % 24)}:${pad2(Math.round(c % 60))}</span>`; }
+    ax += `<span style="position:absolute;left:0;top:5px;font-size:11px;color:var(--text-2);font-family:var(--mono)">${hm(clockAt(s, TL.z0))}</span><span style="position:absolute;right:0;top:5px;font-size:11px;color:var(--text-2);font-family:var(--mono)">${hm(clockAt(s, TL.z1))}</span>`;
+    s.spans.forEach((sp, i) => { if (s.spans.length > 1 && sp.a >= TL.z0 && sp.a < TL.z1) ax += `<span class="tag grey" style="position:absolute;left:${pctOf(sp.a)}%;top:26px;height:18px;font-size:10.5px">S${i + 1}</span>`; });
+    $('#tlAxis', body).innerHTML = ax; if (s.spans.length > 1) $('#tlAxis', body).style.height = '48px';
+    resetReadouts(body);
+    wireCrosshair(body, firstLc);
+    drawOverview(body);
+  } else {
+    const lane = LANES.find(l => l.k === TL.focus);
+    body.innerHTML = `<div class="focuswrap"><div class="row" style="margin-bottom:10px;flex-wrap:wrap"><div class="seg sm" id="tlFocus">${LANES.map(l => `<button data-f="${l.k}" class="${l.k === TL.focus ? 'on' : ''}">${l.n}</button>`).join('')}</div><span class="sp"></span>${lane.multi ? `<div class="legend">${lane.multi.map(m => `<span><i class="ln" style="background:${m[2]}"></i>${m[1]}</span>`).join('')}</div>` : ''}</div>
+      <div class="tl" id="tl"><div class="lanes" style="grid-template-columns:0 minmax(0,1fr)">${gameLane.replace('<div class="n">Games &amp; streams</div>', '')}<div></div><div class="lc" data-lc="${lane.k}"><svg></svg></div><div></div><div class="axis" id="tlAxis"></div></div><div class="xh" id="tlXh"><span class="xt" id="tlXt"></span></div><div class="hit" id="tlHit"></div><div class="tip" id="tlTip"></div></div>
+      <div class="overview" id="tlOv"><svg></svg><div class="win" id="tlWin" hidden></div></div>
+      <div class="fstats" id="fStats"></div>
+      <div class="zone-note">${lane.k === 'hl' ? `Dashed lines: 0.6 frame (${fmt(FRAME * .6)} ms, the Excellent limit for the average), one frame (${fmt(FRAME)} ms) and a late frame (${fmt(FRAME * 2)} ms) at 120 fps. The band is the lowest and highest frame in each slice.` : lane.k === 'rtt' ? 'The band spans the lowest and highest round trip in each slice. The Excellent limit (25 ms average) is drawn only when the chart reaches it.' : lane.k === 'drops' ? 'Each bar is the share of frames dropped in that slice. The grade looks at the session average: Excellent below 1 %.' : lane.k === 'br' ? 'Delivered bitrate against the target the client asked for (dotted line).' : 'Percentages of this PC\'s GPU, video encoder and CPU. Encoder load is context, not part of the grade.'}</div></div>`;
+    const lc = $('[data-lc]', body), W = Math.max(240, lc.clientWidth), H = clamp(Math.round(W * .3), 240, 520);
+    lc.style.height = H + 'px';
+    const data = buckets(s, TL.z0, TL.z1, Math.floor(W / 2)); TL.data = data; TL.scales = {};
+    const svg = $('svg', lc); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const r = laneSVG(lane, data, W, H, true); svg.innerHTML = r.g; TL.scales[lane.k] = r;
+    const step = tickStep(TL.z1 - TL.z0, W - 48), base = s.start.getHours() * 60 + s.start.getMinutes();
+    let ax = ''; for (let c = Math.ceil((base + TL.z0) / step) * step; c <= base + TL.z1; c += step) { const p = (r.x(c - base) / W) * 100; ax += `<span style="position:absolute;left:${p}%;top:5px;transform:translateX(-50%);font-size:11px;color:var(--text-3);font-family:var(--mono)">${pad2(Math.floor(c / 60) % 24)}:${pad2(Math.round(c % 60))}</span>`; }
+    $('#tlAxis', body).innerHTML = ax;
+    // stats from raw samples in range
+    const raw = ser(s).filter(p => !p.gap && p.t >= TL.z0 && p.t <= TL.z1);
+    const pick = lane.multi ? 'gpu' : lane.k, arr = raw.map(p => p[pick]);
+    const u = lane.u, d = lane.d;
+    $('#fStats', body).innerHTML = [['Average', arr.reduce((a, b) => a + b, 0) / arr.length], ['Median', pctl(arr, 50)], ['95th percentile', pctl(arr, 95)], ['99th percentile', pctl(arr, 99)], ['Worst', lane.env ? Math.max(...raw.map(p => p[lane.env[1]])) : Math.max(...arr)]]
+      .map(([l, v]) => `<div><div class="lbl">${l}${lane.multi ? ' · GPU' : ''}</div><div class="val s">${fmt(v, d)}<small>${u}</small></div></div>`).join('');
+    wireCrosshair(body, lc, true);
+    drawOverview(body);
+  }
+}
+function resetReadouts(body) {
+  LANES.forEach(l => { const lh = $(`[data-lh="${l.k}"]`, body); if (!lh) return; const [v, sub] = laneAvg(l);
+    if (l.multi) l.multi.forEach(m => $(`[data-mv="${m[0]}"]`, lh).textContent = Math.round(TL.s.st[m[0] + 'Avg']) + '%');
+    else { $('[data-rv]', lh).textContent = v; $('[data-sub]', lh).textContent = sub; } });
+}
+function wireCrosshair(body, firstLc, focus = false) {
+  const tl = $('#tl', body), hit = $('#tlHit', body), xh = $('#tlXh', body), xt = $('#tlXt', body);
+  const lanesEl = $('.lanes', tl);
+  const top = firstLc.offsetTop - (focus ? 0 : $('.gl-lane-c', body).offsetHeight), left = firstLc.offsetLeft, w = firstLc.offsetWidth;
+  const axis = $('#tlAxis', body);
+  Object.assign(hit.style, { left: left + 'px', width: w + 'px', top: top + 'px', height: (axis.offsetTop - top) + 'px', right: 'auto', bottom: 'auto' });
+  Object.assign(xh.style, { top: top + 'px', height: (axis.offsetTop - top) + 'px' });
+  hit.onpointermove = e => {
+    const rc = hit.getBoundingClientRect(), f = clamp((e.clientX - rc.left) / rc.width, 0, 1);
+    const t = TL.z0 + f * (TL.z1 - TL.z0);
+    const svgW = firstLc.clientWidth, sc = Object.values(TL.scales)[0], px = focus ? sc.x(t) : f * svgW;
+    xh.style.display = 'block'; xh.style.left = (left + px) + 'px';
+    const raw = ser(TL.s); let i = raw.findIndex(p => p.t >= t); if (i < 0) i = raw.length - 1; const p = raw[i];
+    xt.textContent = hms(clockAt(TL.s, t));
+    if (focus) {
+      const lane = LANES.find(l => l.k === TL.focus), tip = $('#tlTip', body);
+      tip.style.display = 'block';
+      tip.innerHTML = p.gap ? '<b>Client disconnected</b>' : lane.multi ? lane.multi.map(m => `<div class="r"><i style="background:${m[2]}"></i>${m[1]} <b style="margin-left:auto;padding-left:12px">${Math.round(p[m[0]])} %</b></div>`).join('') : `<b>${fmt(p[lane.k], lane.d)} ${lane.u}</b>${lane.env ? `<div class="small">range ${fmt(p[lane.env[0]], 1)}–${fmt(p[lane.env[1]], 1)}</div>` : ''}`;
+      tip.style.left = Math.min(left + px + 12, tl.clientWidth - tip.offsetWidth - 4) + 'px'; tip.style.top = (top + 8) + 'px';
+      return;
+    }
+    LANES.forEach(l => { const lh = $(`[data-lh="${l.k}"]`, body); const v = laneValueAt(l, p);
+      if (l.multi) l.multi.forEach(m => $(`[data-mv="${m[0]}"]`, lh).textContent = v ? Math.round(p[m[0]]) + '%' : '—');
+      else { $('[data-rv]', lh).textContent = v ?? '—'; $('[data-sub]', lh).textContent = v == null ? 'client disconnected' : (l.env ? `range ${fmt(p[l.env[0]])}–${fmt(p[l.env[1]])}` : 'at cursor'); } });
+  };
+  hit.onpointerleave = () => { xh.style.display = 'none'; if (focus) { const t = $('#tlTip', body); if (t) t.style.display = 'none'; } else resetReadouts(body); };
+  // game segments sit above the hit layer, so they remain clickable
+}
+function drawOverview(body) {
+  const ov = $('#tlOv', body), svg = $('svg', ov), W = Math.max(200, ov.clientWidth), H = 46, s = TL.s;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const data = buckets(s, 0, s.durMin, Math.floor(W / 3)), mx = niceMax(Math.max(...data.filter(p => !p.gap).map(p => p.hl)) * 1.2);
+  const x = t => t / s.durMin * W, y = v => 4 + (1 - v / mx) * (H - 12);
+  let d = '', pen = false; data.forEach(p => { if (p.gap) { pen = false; return; } d += (pen ? 'L' : 'M') + x(p.t).toFixed(1) + ' ' + y(p.hl).toFixed(1); pen = true; });
+  svg.innerHTML = s.games.map(gm => { const g = GAMES[gm.gi]; return `<rect x="${x(gm.a)}" y="${H - 5}" width="${x(gm.b) - x(gm.a)}" height="5" fill="hsl(${g.h1} 45% 42%)"/>`; }).join('') + `<path d="${d}" fill="none" stroke="var(--text-3)" stroke-width="1.2"/>`;
+  const win = $('#tlWin', body);
+  const showWin = (a, b) => { win.hidden = false; win.style.left = (a / s.durMin * 100) + '%'; win.style.width = ((b - a) / s.durMin * 100) + '%'; };
+  if (TL.z0 > 0 || TL.z1 < s.durMin) showWin(TL.z0, TL.z1);
+  let drag = null;
+  const tOf = e => { const rc = ov.getBoundingClientRect(); return clamp((e.clientX - rc.left) / rc.width, 0, 1) * s.durMin; };
+  ov.onpointerdown = e => { drag = tOf(e); ov.setPointerCapture(e.pointerId); showWin(drag, drag); };
+  ov.onpointermove = e => { if (drag == null) return; const t = tOf(e); showWin(Math.min(drag, t), Math.max(drag, t)); };
+  ov.onpointerup = e => { if (drag == null) return; const t = tOf(e), a = Math.min(drag, t), b = Math.max(drag, t); drag = null;
+    if (b - a > s.durMin * .02) { TL.z0 = a; TL.z1 = b; } else { const half = (TL.z1 - TL.z0) / 2; if (TL.z1 - TL.z0 < s.durMin) { TL.z0 = clamp(t - half, 0, s.durMin - 2 * half); TL.z1 = TL.z0 + 2 * half; } }
+    drawTL(); };
+}
+</script>
+<script>
+/* ═════════ LIBRARY ═════════ */
+let storeFilter = 'all', libQuery = '', libView = 'grid', libSortI = 0;
+const SORTS = ['Recently streamed', 'Most streamed', 'Name', 'Release year'];
+const avgGrade = g => { if (!g.sessions.length) return null; return Math.round(g.sessions.reduce((a, s) => a + s.grade, 0) / g.sessions.length); };
+function libMeta(g) { if (g.manual) return 'Added by you'; if (g.last) return `${relDay(g.last)} · ${durShort(g.minutes)} streamed`; return `${g.dev} · ${g.year}`; }
+function renderLibHero() {
+  const live = hostState === 'live';
+  const g = live ? LIVE_GAME : GAMES.filter(x => x.last).sort((a, b) => b.last - a.last)[0];
+  const ag = avgGrade(g);
+  $('#libHero').innerHTML = `<div class="bgart" style="${artBg(g)}"></div><div class="veil"></div>
+    <div class="in"><div>${cover(g, { badge: true })}</div><div style="min-width:0">
+      <div class="eyebrow">${live ? '<span class="dot pulse"></span>Streaming now' : 'Last streamed · ' + relDay(g.last)}</div>
+      <h4>${g.name}</h4><div class="small" style="margin-top:4px">${g.dev} · ${g.year} · ${STORES[g.store]}</div>
+      <div class="facts"><div><b>${durShort(g.minutes + (live ? 72 : 0))}</b><span>streamed in total</span></div><div><b>${g.sessions.length + (live ? 1 : 0)}</b><span>sessions</span></div><div><b>${ag == null ? '—' : GRADES[ag].l}</b><span>typical grade</span></div></div>
+      <div class="cmdbar" style="margin-top:14px">${live ? `<button class="btn" data-go="home">${ic('pulse')}Live session</button>` : `<button class="btn primary">${ic('play')}Play on host</button>`}<button class="btn ghost" data-game="${g.id}">Details</button></div>
+    </div></div>`;
+}
+function renderStoreBars() {
+  const cnt = {}; GAMES.forEach(g => cnt[g.store] = (cnt[g.store] || 0) + 1); const mx = Math.max(...Object.values(cnt));
+  $('#storeBars').innerHTML = Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<div class="sb"><span>${STORES[k]}</span><span class="bar"><i style="width:${n / mx * 100}%"></i></span><span class="c">${n}</span></div>`).join('');
+}
+function libList() {
+  const q = libQuery.toLowerCase();
+  let l = GAMES.filter(g => (storeFilter === 'all' || (storeFilter === 'hidden' ? !g.enabled : g.store === storeFilter)) && (!q || g.name.toLowerCase().includes(q) || (g.dev || '').toLowerCase().includes(q)));
+  const by = [(a, b) => (b.last || 0) - (a.last || 0) || a.name.localeCompare(b.name), (a, b) => b.minutes - a.minutes, (a, b) => a.name.localeCompare(b.name), (a, b) => (b.year || 0) - (a.year || 0)][libSortI];
+  return l.sort(by);
+}
+function renderLib() {
+  const cnt = {}; GAMES.forEach(g => cnt[g.store] = (cnt[g.store] || 0) + 1);
+  const hidden = GAMES.filter(g => !g.enabled).length;
+  $('#storeChips').innerHTML = [`<span class="chip ${storeFilter === 'all' ? 'on' : ''}" data-sf="all">All <span class="n">${GAMES.length}</span></span>`, ...Object.keys(STORES).filter(k => cnt[k]).map(k => `<span class="chip ${storeFilter === k ? 'on' : ''}" data-sf="${k}">${STORES[k]} <span class="n">${cnt[k]}</span></span>`), `<span class="chip ${storeFilter === 'hidden' ? 'on' : ''}" data-sf="hidden">Hidden from Sunshine <span class="n">${hidden}</span></span>`].join('');
+  $('#libSort').textContent = SORTS[libSortI];
+  const list = libList();
+  if (libView === 'grid') {
+    $('#libBody').innerHTML = `<div class="libgrid">${list.map(g => `<div class="gtile ${g.enabled ? '' : 'off'}" data-game="${g.id}" tabindex="0">
+      ${cover(g, { badge: true })}${g.enabled ? '' : '<span class="tag grey offtag">Hidden</span>'}
+      <div class="ov"><button class="play" title="Play on host" data-stop>${ic('play')}</button><button title="Open install folder" data-stop>${ic('folder')}</button><button title="Details">${ic('more')}</button></div>
+      <div class="n">${g.name}</div><div class="m">${libMeta(g)}</div></div>`).join('')}</div>${list.length ? '' : '<div class="small" style="padding:30px 0">No games match.</div>'}`;
+  } else {
+    $('#libBody').innerHTML = `<div class="card flat libtable"><div class="shead" style="grid-template-columns:40px minmax(0,1fr) 90px 110px 90px 80px 44px"><span></span><span>Game</span><span>Store</span><span class="num">Streamed</span><span class="num">Sessions</span><span>In Sunshine</span><span></span></div>
+      ${list.map(g => `<div class="srow" data-game="${g.id}" style="grid-template-columns:40px minmax(0,1fr) 90px 110px 90px 80px 44px"><div style="width:32px">${cover(g, { xs: true })}</div><div style="min-width:0"><b style="font-weight:500;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.name}</b><span class="small">${g.dev || 'Manual entry'}${g.year ? ' · ' + g.year : ''}</span></div><span class="small">${STORES[g.store]}</span><span class="num">${g.minutes ? durShort(g.minutes) : '—'}</span><span class="num">${g.sessions.length || '—'}</span><span class="tsw ${g.enabled ? 'on' : ''}" data-tsw data-stop><i></i></span><span class="btn ghost icon" data-stop title="Play on host">${ic('play')}</span></div>`).join('')}</div>`;
+  }
+}
+onShow.library = () => { renderLibHero(); renderStoreBars(); renderLib(); };
+function openGame(id) {
+  const g = GAMES[+id], ag = avgGrade(g);
+  $('#gameBody').innerHTML = `<div class="top"><div class="bgart" style="${artBg(g)}"></div><div class="veil"></div><div class="in"><div>${cover(g, { badge: true })}</div><div style="min-width:0"><div class="small">${STORES[g.store]}${g.manual ? '' : ' · ' + g.year}</div><h4>${g.name}</h4><div class="small" style="margin-top:3px">${g.dev || 'Added by you'}</div>
+      <div class="cmdbar" style="margin-top:12px"><button class="btn primary">${ic('play')}Play on host</button><button class="btn ghost icon" title="Open install folder">${ic('folder')}</button></div></div></div></div>
+    <div class="sec"><div class="kv"><div><div class="k">Streamed</div><div class="v">${g.minutes ? dur(g.minutes) : 'Never'}</div></div><div><div class="k">Sessions</div><div class="v">${g.sessions.length}</div></div><div><div class="k">Typical grade</div><div class="v">${ag == null ? '—' : gradeTag(ag)}</div></div><div><div class="k">Last streamed</div><div class="v">${g.last ? relDay(g.last) : '—'}</div></div></div></div>
+    <div class="sec"><div class="setrow"><div class="t"><b>Show in Sunshine</b><span>Kept in the app list across re-syncs</span></div><span class="tsw ${g.enabled ? 'on' : ''}" data-tsw><i></i></span></div>
+      <div class="setrow"><div class="t"><b>Launched through</b><span class="mono">${{ steam: 'steam://rungameid/' + (2622380 + g.id), epic: 'com.epicgames.launcher://apps/' + g.title.replace(/\W/g, '').toLowerCase() + '?action=launch', xbox: 'shell:AppsFolder\\' + g.title.replace(/\W/g, '') + '_8wekyb3d8bbwe!Game', bnet: 'Battle.net.exe --exec="launch ' + g.title.slice(0, 3).toUpperCase() + '"', gog: 'D:\\GOG Games\\' + g.title + '\\' + g.title.replace(/\W/g, '') + '.exe', ubi: 'uplay://launch/' + (3000 + g.id) + '/0', ea: 'origin2://game/launch?offerIds=' + (190000 + g.id), man: 'C:\\Emulators\\' + g.title.replace(/\W/g, '') + '\\' + g.title.replace(/\W/g, '') + '.exe' }[g.store]}</span></div></div></div>
+    <div class="sec"><h5>Recent sessions</h5>${g.sessions.length ? g.sessions.slice(0, 6).map(s => `<div class="crow" data-open="${s.id}" style="cursor:pointer"><span class="stripe" style="width:4px;height:28px;border-radius:2px;background:${GRADES[s.grade].c}"></span><div class="t"><b>${longDay(s.start)}</b><span>${hm(s.start)} · ${dur(s.durMin)} · RTT ${fmt(s.st.rttAvg)} ms</span></div>${gradeTag(s.grade)}</div>`).join('') : '<div class="small">Not streamed yet.</div>'}</div>
+    <div class="sec"><div class="row"><span class="small">${g.manual ? 'Manual entries stay across re-syncs.' : 'Found by the library scan.'}</span><span class="sp"></span><button class="btn danger">${ic('trash')}Remove</button></div></div>`;
+  closeDrawers(); $('#gameDrawer').classList.add('open'); WIN.classList.add('draweropen');
+}
+
+/* ═════════ HOST PAGES ═════════ */
+function renderHostPages() {
+  const NV = [['Vertical Sync', '0x00A879CF', 'Force off'], ['Low Latency Mode', '0x10835000', 'Ultra'], ['Max Frame Rate', '0x10835002', '118 FPS'], ['Power management mode', '0x1057EB71', 'Prefer maximum performance'], ['Shader Cache Size', '0x00AC8497', 'Unlimited'], ['Texture filtering - Quality', '0x00CE2691', 'High performance'], ['Threaded Optimization', '0x20C1221E', 'On'], ['G-SYNC', '0x1194F158', 'Fullscreen and windowed'], ['DLSS - Forced preset letter (SR)', '0x10E41DF3', 'Preset K'], ['DLSS - Forced preset letter (RR)', '0x10BD9423', 'Preset E'], ['DLSS-FG - Override', '0x10E41DF6', 'Latest'], ['rBAR - Feature', '0x000F00BA', 'Enabled'], ['Anisotropic filtering', '0x101E61A9', '16x'], ['Preferred refresh rate', '0x0064B541', 'Highest available']];
+  $('#nvTable').innerHTML = `<tr><th>Setting</th><th>ID</th><th>Value</th></tr>` + NV.map(r => `<tr><td>${r[0]}</td><td class="mono">${r[1]}</td><td>${r[2]}</td></tr>`).join('');
+  const APPS = [['Philips Hue Sync', 'C:\\Program Files\\Hue Sync\\HueSync.exe', '#1f6feb', 'H', 1, 'Closed by StreamTweak'], ['Corsair iCUE', 'C:\\Program Files\\Corsair\\CORSAIR iCUE 5 Software\\iCUE.exe', '#eab308', 'C', 1, 'Closed by StreamTweak'], ['Wallpaper Engine', 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine\\wallpaper64.exe', '#0ea5e9', 'W', 1, 'Was not running'], ['OneDrive', 'C:\\Program Files\\Microsoft OneDrive\\OneDrive.exe', '#64748b', 'O', 0, 'Excluded · stays open']];
+  $('#appList').innerHTML = APPS.map(a => `<div class="arow"><div class="appico" style="background:${a[2]}33;color:${a[2]}">${a[3]}</div><div class="t"><b>${a[0]}</b><span class="mono">${a[1]}</span><span class="small">${hostState === 'live' ? a[5] : (a[4] ? 'Closes when a stream starts' : 'Excluded')}</span></div><div class="cmdbar"><button class="btn ghost">${hostState === 'live' && a[5].startsWith('Closed') ? 'Restart' : 'End now'}</button><button class="btn ghost icon" title="Remove">${ic('trash')}</button></div><span class="tsw ${a[4] ? 'on' : ''}" data-tsw title="Include in the routine"><i></i></span></div>`).join('');
+  const DEV = [['ROG Ally X', 'Streaming now', '6.3.0', 'good', 'Online'], ['Living-room PC', 'Seen yesterday 22:41', '6.3.0', 'grey', 'Offline'], ['MacBook Air', 'Seen 12 Sep', '6.1.2', 'grey', 'Offline']];
+  $('#devGrid').innerHTML = DEV.map((d, i) => `<div class="card dev"><div class="row"><div class="ico-bubble ${i ? '' : 'g'}">${ic('devices')}</div><div style="min-width:0"><b style="font-weight:500">${d[0]}</b><div class="small">${d[1]} · StreamLight ${d[2]}</div></div><span class="sp"></span><span class="tag ${d[3]}">${d[4]}</span></div>
+    <div class="caps">${['Link speed', 'Launch state', 'PIN unlock', 'Power', 'Updates', 'Clipboard'].map((c, j) => `<span class="tag ${d[2] === '6.1.2' && j === 5 ? 'grey' : 'info'}">${c}</span>`).join('')}</div>
+    <div class="row" style="margin-top:12px"><span class="small">Approved 3 Aug 2026</span><span class="sp"></span><button class="btn danger">Revoke</button></div></div>`).join('');
+}
+
+/* ═════════ GLOSSARY ═════════ */
+const TERMS = [
+  ['Network', [['link', 'Link speed', 'The speed the host and the switch agree on for the cable. When the host links faster than the client, frames leave in bursts the slower side cannot drain, and packets are lost.'], ['tailscale', 'Tailscale', 'A private network between your devices. Its 100.x.y.z address lets StreamLight reach the host from outside your LAN with no port forwarding.'], ['bridge', 'Bridge', 'The TCP connection on port 47998 that StreamLight uses for everything beyond the stream itself. Commands are signed with the device\'s Moonlight certificate.']]],
+  ['Streaming · client', [['rtt', 'RTT', 'Round-trip time: how long a packet takes to reach the host and come back, as measured by the client. On a wired LAN it sits in single digits.'], ['drops', 'Drops', 'Frames the client never shows because they arrived late or broken, as a share of all frames.'], ['bitrate', 'Bitrate', 'How much video the client actually received, next to the target it asked for.'], ['decode', 'Decode', 'Time the client takes to turn a received frame into a picture.']]],
+  ['Host', [['hl', 'Host frame latency', 'Capture plus encode time for each frame on this PC. At 120 fps one frame lasts 8.3 ms.'], ['late', 'Late frame', 'A frame the host needed more than two frame periods for (16.7 ms at 120 fps). Rare late frames are normal around loading screens.'], ['compute', 'Host compute', 'GPU, video encoder and CPU load during the stream. Encoder load near 100 % is healthy at 4K120 and is not part of the grade.']]],
+  ['Session quality', [['grade', 'Grade', 'Each session gets the worst of four checks: drops (Excellent below 1 %), RTT (below 25 ms), host frame latency (below 0.6 frame) and late frames (below 1 %). It is decided once, when the session ends.']]],
+  ['Display & audio', [['hdr', 'HDR', 'High dynamic range output. Switched per display here. Auto HDR lets Windows expand supported SDR games to HDR.'], ['atmos', 'Spatial audio', 'Dolby Atmos for Headphones or Windows Sonic, switched on a few seconds after a stream starts on the output you choose.']]],
+  ['NVIDIA', [['drs', 'Driver profile', 'The global settings NVIDIA\'s driver applies to every game. NVIDIA App can reset it after an update; Sentinel puts yours back.'], ['dlss', 'DLSS SR / RR / FG', 'Super Resolution, Ray Reconstruction and Frame Generation. The versions shown are the DLLs actually installed.']]]
+];
+function renderGlossary(hl) {
+  const q = ($('#glosSearch').value || '').toLowerCase();
+  $('#glosBody').innerHTML = TERMS.map(([h, ts]) => { const f = ts.filter(t => !q || (t[1] + t[2]).toLowerCase().includes(q)); return f.length ? `<div class="gh">${h}</div>` + f.map(t => `<div class="term ${t[0] === hl ? 'hl' : ''}" id="term-${t[0]}"><b>${t[1]}</b><p>${t[2]}</p></div>`).join('') : ''; }).join('') || '<div class="small" style="padding:18px">No terms match.</div>';
+}
+function openGlossary(term) {
+  closeDrawers(); renderGlossary(term); $('#glosDrawer').classList.add('open'); WIN.classList.add('draweropen');
+  if (term) { const e = $('#term-' + term); if (e) $('#glosBody').scrollTop = e.offsetTop - 40; }
+}
+function closeDrawers() { $$('.drawer').forEach(d => d.classList.remove('open')); WIN.classList.remove('draweropen'); }
+</script>
+<script>
+/* ═════════ MAPPA SEZIONI (vista del mockup, in italiano) ═════════ */
+$('#mapview').innerHTML = `
+<h2>Mappa sezioni &amp; note per la 9.0.0</h2>
+<p>Dove finisce ogni funzione della 8.7, come la UI si adatta alla finestra, e cosa serve per realizzarla in WinUI 3. Il tema resta solo scuro; font (DM Sans, JetBrains Mono) e accento menta invariati.</p>
+
+<h3>Cosa cambia, in breve</h3>
+<div class="card"><ul>
+<li><b>La finestra decide il layout</b>, non lo schermo: tre modalità di menu (Minimal, Compact, Expanded) e griglie che aggiungono colonne fino al 4K. Nessuna larghezza massima fissa: dove c'è spazio, le pagine lo usano.</li>
+<li><b>Libreria promossa</b> a seconda voce del menu: galleria di copertine, filtri per store, ordinamenti, scheda gioco laterale con ore di streaming, sessioni e voto tipico ricavati dalla cronologia.</li>
+<li><b>Dettaglio sessione con una timeline unica</b>: un solo asse orario per tutti i grafici, lettura simultanea di tutti i valori sotto il cursore, zoom trascinando sulla mini-mappa, giochi e riconnessioni (S1/S2) sulla linea del tempo. Una modalità <i>Focus</i> ingrandisce una serie con soglie e percentili.</li>
+<li><b>Verdetto spiegato</b>: il voto mostra i quattro controlli di QualityGradeCalculator con valore, soglia e voto parziale, quindi si capisce subito perché una sessione è «Good».</li>
+<li><b>Glossario come pannello laterale</b>, aperto da ogni ⓘ, dal pulsante ? nella barra del titolo o con F1, senza lasciare la pagina.</li>
+<li><b>Barra del titolo informativa</b>: stato dell'host (con timer durante lo streaming), link speed e IP Tailscale, cliccabili.</li>
+</ul></div>
+
+<h3>Menu: 8.7 → 9.0</h3>
+<div class="card flat tscroll"><table class="t">
+<tr><th>8.7</th><th>9.0</th><th>Perché</th></tr>
+<tr><td>Dashboard</td><td>Dashboard</td><td>Stesso ruolo, una sola disposizione per i due stati: in streaming il riquadro principale prende la copertina del gioco (sfocata) e le metriche live con mini-grafici. Le tessere di <i>Host setup</i> portano alle rispettive pagine. Nuovo scaffale <i>Recently streamed</i>.</td></tr>
+<tr><td>Insight › Sessions</td><td>Streaming › Sessions</td><td>Il gruppo <i>Streaming</i> raccoglie cosa giochi, come è andata e chi si collega. Dettaglio e Compare restano dentro Sessions (breadcrumb). Con contenuto ≥ 1640 px lista e dettaglio stanno affiancati.</td></tr>
+<tr><td>Host setup › Library</td><td>Streaming › Library <span class="newtag">2ª voce</span></td><td>Non è configurazione dell'host: è il catalogo che si guarda ogni giorno. Diventa una galleria; la sincronizzazione con Sunshine e le tile host passano in due schede laterali.</td></tr>
+<tr><td>Host setup › Clients</td><td>Streaming › Clients</td><td>Riguarda i dispositivi che giocano. Un badge nel menu segnala le richieste in attesa; il PIN è grande e in evidenza.</td></tr>
+<tr><td>Host setup › Network · Display &amp; audio · NVIDIA Sentinel · Managed apps</td><td>Host › stesse voci</td><td>Contenuto invariato, ridisegnato a schede che occupano da 1 a 4 colonne. Aggiunte solo letture già disponibili (velocità supportate come «scala», stato del bridge, sequenza di cosa succede a inizio/fine stream).</td></tr>
+<tr><td>Footer › Glossary (pagina)</td><td>Pannello laterale <span class="newtag">nuovo</span></td><td>Si apre sul termine giusto da ogni ⓘ (InfoHint esistente) e ha la ricerca. Rimane una voce nel footer.</td></tr>
+<tr><td>Footer › Settings</td><td>Footer › Settings</td><td>Aggiornamento disponibile come prima scheda; About di StreamTweak e StreamLight affiancati; «Clear session history» spostato in <i>Data</i> come azione distruttiva.</td></tr>
+<tr><td>Session detail · 6 grafici impilati</td><td>Timeline a corsie + Focus</td><td>Vedi sotto.</td></tr>
+<tr><td>Compare</td><td>Compare</td><td>Si sceglie spuntando due righe nella lista (barra fissa in basso) o da «Compare with…» nel dettaglio. Solo tabelle, come deciso in 8.5.0, con Δ colorato e freccia.</td></tr>
+</table></div>
+
+<h3>Come scala</h3>
+<p>Le soglie sono sulla larghezza del <b>contenuto</b> (finestra meno menu), che il selettore «Schermo» in alto mostra in tempo reale. Nell'app si ottiene con uno stato visuale scelto da <code class="mono">SizeChanged</code> della pagina, come già fa LogsView per l'altezza dei grafici.</p>
+<div class="card flat tscroll"><table class="t">
+<tr><th>Finestra (DIP)</th><th>Esempi</th><th>Menu</th><th>Dashboard</th><th>Sessions</th><th>Library</th></tr>
+<tr><td>&lt; 760</td><td>finestra affiancata, telefono via Remote Desktop</td><td>Minimal: hamburger, pannello sovrapposto</td><td>1 colonna, metriche 2×3</td><td>righe su due livelli, dettaglio a pagina intera</td><td>copertine da 112 px</td></tr>
+<tr><td>760 – 1099</td><td>finestra a metà di un 1440p</td><td>Compact: sole icone</td><td>2 colonne</td><td>colonne essenziali</td><td>copertine da 150 px</td></tr>
+<tr><td>1100 – 1470</td><td>handheld 1280×800 (Ally e Legion Go al 150–200 %, Steam Deck al 100 %)</td><td>Expanded</td><td>2 colonne</td><td>tutte le colonne, dettaglio a pagina</td><td>~6 per riga</td></tr>
+<tr><td>1470 – 1870</td><td>1080p al 125 %, finestra non massimizzata</td><td>Expanded</td><td>3 colonne</td><td>dettaglio a pagina</td><td>~8 per riga</td></tr>
+<tr><td>1870 – 2930</td><td>1080p al 100 %, 1440p, 4K al 150 %</td><td>Expanded</td><td>3–4 colonne + scaffale a tutta larghezza</td><td>lista + dettaglio affiancati</td><td>10–14 per riga</td></tr>
+<tr><td>≥ 2930</td><td>4K al 100 %</td><td>Expanded</td><td>6 colonne su due righe</td><td>lista 1/3, dettaglio 2/3; corsie alte fino a 140 px</td><td>copertine da 180 px</td></tr>
+</table></div>
+
+<h3>Dettaglio sessione: i grafici</h3>
+<div class="card"><ul>
+<li><b>Tutte le serie su un solo orologio.</b> Ogni corsia (RTT, host frame latency, drops, bitrate, decode, host compute) ha la propria scala verticale, mai due unità sullo stesso asse. L'asse orario è unico e il cursore scorre su tutte le corsie insieme: i valori al punto si leggono nella colonna a sinistra, senza tooltip che coprono i dati.</li>
+<li><b>Bande min–max</b> su RTT e host latency (come l'EnvelopeMode attuale); <b>soglie tratteggiate</b> dove contano: 0,6 frame, 1 frame e frame in ritardo (2 frame) per la latenza host; il limite di 25 ms dell'RTT compare solo se il grafico ci arriva.</li>
+<li><b>Giochi e stream sulla timeline.</b> Una corsia in cima mostra quando è stato giocato ogni titolo (clic = zoom su quel tratto); le disconnessioni sono tratteggiate su tutte le corsie e gli stream sono etichettati S1, S2.</li>
+<li><b>Zoom</b> trascinando sulla mini-mappa in basso; «Whole session» torna alla vista intera. Il ricampionamento per pixel (media, minimo e massimo per fascia) mantiene visibili i picchi anche su sessioni di ore.</li>
+<li><b>Focus</b>: una serie alla volta, grande, con asse Y, legenda e percentili (mediana, 95°, 99°, peggiore) calcolati sul tratto visibile.</li>
+<li>Colori delle serie verificati per daltonismo sulla superficie scura (blu, arancio, acqua); verde, ambra e rosso restano riservati ai voti e sempre accompagnati da forma e testo.</li>
+</ul></div>
+
+<h3>Note di realizzazione (WinUI 3)</h3>
+<div class="card"><ul>
+<li><b>NavigationView</b>: <code class="mono">PaneDisplayMode="Auto"</code>, <code class="mono">CompactModeThresholdWidth="760"</code>, <code class="mono">ExpandedModeThresholdWidth="1100"</code>. Voce selezionata con barra menta come oggi.</li>
+<li><b>Pagine reattive</b>: un piccolo helper allegato (es. <code class="mono">ResponsiveStates</code>) che su <code class="mono">SizeChanged</code> del contenuto chiama <code class="mono">VisualStateManager.GoToState</code> con le soglie della tabella; i Setter spostano Grid.Row/Column e cambiano le ColumnDefinitions. È l'equivalente delle container query del mockup.</li>
+<li><b>Libreria</b>: <code class="mono">ItemsRepeater</code> + <code class="mono">UniformGridLayout</code> (MinItemWidth 150/180, ItemsStretch Fill), virtualizzato, riempie il 4K da solo. Sfondo sfocato di hero e scheda gioco: <code class="mono">GaussianBlurEffect</code> di Composition sulla copertina già in cache (nessuna immagine nuova).</li>
+<li><b>Sessions master-detail</b>: il dettaglio diventa un UserControl (<code class="mono">SessionDetailView</code>) usato sia nella pagina sia nel riquadro destro.</li>
+<li><b>Timeline</b>: nuovo controllo <code class="mono">TimelineTracks</code> (Win2D CanvasControl, oppure SparklineControl esteso) che riusa <code class="mono">ChartTimeAxis</code> e <code class="mono">StreamSpans</code>; gestisce il puntatore a livello di contenitore e pubblica il campione sotto il cursore.</li>
+<li><b>Dato nuovo</b>: la corsia «Games &amp; streams» richiede di salvare per ogni gioco <i>primo e ultimo istante visto</i> (oggi <code class="mono">GamesDetected</code> contiene solo i nomi). Le sessioni già registrate mostrano i giochi come copertine senza posizione.</li>
+<li><b>Verdetto</b>: i quattro voti parziali si ricalcolano nel ViewModel da <code class="mono">QualityStats</code> con le stesse soglie di <code class="mono">QualityGradeCalculator</code> (o si espongono da Evaluate). Il voto salvato resta quello deciso a fine sessione.</li>
+<li><b>Statistiche della libreria</b> (ore, sessioni, voto tipico, ultima volta) calcolate da <code class="mono">sessions.json</code> al caricamento, fuori dal thread UI: nessun nuovo file.</li>
+<li><b>Glossario</b>: il contenuto di GlossaryView dentro un pannello a destra (SplitView overlay); <code class="mono">InfoHint</code> apre il pannello sul termine invece di navigare.</li>
+<li>Le copertine del mockup sono segnaposto disegnati in CSS; l'app usa i PNG già scaricati.</li>
+</ul></div>
+
+<h3>Decisioni da prendere</h3>
+<div class="card"><ul>
+<li>Clients sotto <i>Streaming</i> (proposta) oppure in un gruppo a sé.</li>
+<li>Master-detail di Sessions già da 1080p al 100 % (contenuto ≥ 1640 px) o solo da 1440p.</li>
+<li>Ordine predefinito della libreria: «Recently streamed» (proposta) o alfabetico.</li>
+<li>Registrare gli orari dei giochi nella sessione, necessari per la corsia dei giochi nella timeline.</li>
+<li>Pagina Glossario: tenerla oltre al pannello, o solo pannello.</li>
+</ul></div>`;
+
+/* ═════════ events ═════════ */
+document.addEventListener('click', e => {
+  const t = e.target;
+  const q = sel => t.closest(sel);
+  let el;
+  if ((el = q('#sizeSeg button'))) { $$('#sizeSeg button').forEach(b => b.classList.toggle('on', b === el)); sizeMode = el.dataset.w; layout(); return; }
+  if ((el = q('#stateSeg button'))) { $$('#stateSeg button').forEach(b => b.classList.toggle('on', b === el)); hostState = el.dataset.s; renderHero(); renderHostPages(); if (curPage === 'library') renderLibHero(); if (curPage === 'sessions') renderSessList(); return; }
+  if ((el = q('#viewSeg button'))) { $$('#viewSeg button').forEach(b => b.classList.toggle('on', b === el)); const map = el.dataset.v === 'map'; $('#mapview').hidden = !map; $('#stagewrap').hidden = map; if (!map) layout(); return; }
+  if (q('#hamBtn')) { WIN.classList.toggle('navopen'); return; }
+  if (q('#scrim')) { WIN.classList.remove('navopen'); closeDrawers(); return; }
+  if (q('[data-close]')) { closeDrawers(); return; }
+  if (q('#helpBtn') || q('[data-glossary]')) { openGlossary(); return; }
+  if ((el = q('.hint-i[data-term]'))) { openGlossary(el.dataset.term); return; }
+  if ((el = q('[data-tsw]'))) { el.classList.toggle('on'); return; }
+  if ((el = q('[data-opt]'))) { $$('[data-opt]', el.parentElement).forEach(o => o.classList.toggle('on', o === el)); return; }
+  if ((el = q('[data-seg] button'))) { $$('button', el.parentElement).forEach(b => b.classList.toggle('on', b === el)); return; }
+  if ((el = q('#perfSeg button'))) { $$('#perfSeg button').forEach(b => b.classList.toggle('on', b === el)); perfDays = +el.dataset.d; renderPerf(); return; }
+  if ((el = q('#tlMode button'))) { TL.mode = el.dataset.m; drawTL(); return; }
+  if ((el = q('#tlFocus button'))) { TL.focus = el.dataset.f; drawTL(); return; }
+  if (q('#tlReset')) { TL.z0 = 0; TL.z1 = TL.s.durMin; drawTL(); return; }
+  if ((el = q('[data-zoom]'))) { const [a, b] = el.dataset.zoom.split(',').map(Number); TL.z0 = Math.max(0, a - .5); TL.z1 = Math.min(TL.s.durMin, b + .5); drawTL(); return; }
+  if ((el = q('[data-pick]'))) { const id = +el.dataset.pick; selected = selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id].slice(-2); renderSessList(); return; }
+  if ((el = q('[data-cmpwith]'))) { const id = +el.dataset.cmpwith; selected = [id, SESSIONS.find(s => s.id !== id).id]; go('compare'); return; }
+  if (q('#cmpGo')) { go('compare'); return; }
+  if (q('#cmpClear')) { selected = []; renderSessList(); return; }
+  if ((el = q('[data-gf]'))) { gradeFilter = +el.dataset.gf; renderSessSummary(); renderSessList(); return; }
+  if ((el = q('[data-sf]'))) { storeFilter = el.dataset.sf; renderLib(); return; }
+  if (q('#libSort')) { libSortI = (libSortI + 1) % SORTS.length; renderLib(); return; }
+  if ((el = q('#libView button'))) { $$('#libView button').forEach(b => b.classList.toggle('on', b === el)); libView = el.dataset.lv; renderLib(); return; }
+  if (q('[data-stop]')) return;
+  if ((el = q('[data-open]'))) { closeDrawers(); if (curPage !== 'sessions' && wideSessions()) go('sessions'); openSession(el.dataset.open); return; }
+  if ((el = q('[data-game]'))) { openGame(el.dataset.game); return; }
+  if ((el = q('#copyIp'))) { const lbl = $('span', el); try { navigator.clipboard.writeText('100.84.12.7').then(() => lbl.textContent = 'Copied', () => lbl.textContent = 'Select to copy'); } catch (_) { lbl.textContent = 'Select to copy'; } setTimeout(() => lbl.textContent = 'Copy', 2000); return; }
+  if ((el = q('[data-go]')) || (el = q('.nav [data-p]'))) { go(el.dataset.go || el.dataset.p); return; }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeDrawers(); WIN.classList.remove('navopen'); }
+  if (e.key === 'F1') { e.preventDefault(); openGlossary(); }
+  if (e.key === 'Enter' && document.activeElement && document.activeElement.matches('[data-game],[data-open]')) document.activeElement.click();
+});
+$('#sessSearch').addEventListener('input', e => { sessQuery = e.target.value; renderSessList(); });
+$('#libSearch').addEventListener('input', e => { libQuery = e.target.value; renderLib(); });
+$('#glosSearch').addEventListener('input', () => renderGlossary());
+
+let roT = 0, lastWide = null;
+new ResizeObserver(() => { clearTimeout(roT); roT = setTimeout(() => {
+  if (curPage === 'home') renderPerf();
+  const w = wideSessions();
+  if (curPage === 'sessions' && w !== lastWide) onShow.sessions();
+  else if (TL && TL.host.isConnected && TL.host.offsetParent) drawTL();
+  lastWide = w; layoutReadout();
+}, 120); }).observe(WIN);
+function layoutReadout() { const r = $('#readout'); if (r && !r.textContent.includes('contenuto ' + contentW())) r.textContent = r.textContent.replace(/contenuto \d+px/, 'contenuto ' + contentW() + 'px'); }
+window.addEventListener('resize', layout);
+setInterval(tickVitals, 1000);
+
+/* ═════════ init ═════════ */
+fillIcons();
+renderHero(); renderLast(); renderShelf(); renderRecent(); renderHostPages();
+layout();
+requestAnimationFrame(() => { renderPerf(); lastWide = wideSessions(); const h = (location.hash || '').slice(1); if (h && $('#p-' + h)) go(h); });
+</script>
+</body>
+</html>
