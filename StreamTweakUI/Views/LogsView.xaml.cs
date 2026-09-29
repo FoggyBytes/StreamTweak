@@ -38,6 +38,13 @@ namespace StreamTweak.Views
                     case nameof(LogsViewModel.SelectedSession):
                         DetailScroll.ChangeView(null, 0, null, disableAnimation: true);
                         break;
+                    case nameof(LogsViewModel.GradeFilter):
+                        // The chips are checked by hand (GradeChip_Click); a deep link that
+                        // clears the filter must move the check back to "All" as well.
+                        string tag = ViewModel.GradeFilter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        foreach (var child in GradeChips.Children)
+                            if (child is ToggleButton tb) tb.IsChecked = (tb.Tag as string) == tag;
+                        break;
                 }
             };
         }

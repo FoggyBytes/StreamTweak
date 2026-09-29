@@ -289,10 +289,21 @@ namespace StreamTweak.Controls
             }
             if (s.DropsTimeSeries is { Count: >= 2 })
             {
+                // A stored series longer than 600 samples is kept as bucket AVERAGES
+                // (SessionTelemetry.Downsample), so adding it up undercounted a long session
+                // several times over (317 shown for 1,795 dropped). Scaled to the recorded total,
+                // each point is the frames dropped in its slice and the lane adds up again.
+                IReadOnlyList<float> drops = s.DropsTimeSeries;
+                float stored = s.DropsTimeSeries.Sum();
+                if (q is { TotalDrops: > 0 } && stored > 0)
+                {
+                    float scale = q.TotalDrops / stored;
+                    drops = s.DropsTimeSeries.Select(v => v * scale).ToList();
+                }
                 var l = new Lane { Key = "drops", Name = "Frame drops", Unit = "frames", Term = "Frame Drops", Bars = true, Decimals = 0,
-                                   Tip = "Frames the client dropped in each sample." };
-                l.Series.Add(new Series { Label = "Drops", Color = S2, Data = s.DropsTimeSeries });
-                l.Note = "Frames dropped by the client in each sample. The grade reads the drop rate over the whole session: Excellent below 1 %, Good up to 2 %.";
+                                   Tip = "Frames the client dropped in each slice of the session." };
+                l.Series.Add(new Series { Label = "Drops", Color = S2, Data = drops });
+                l.Note = "Frames dropped by the client in each slice of the session. The grade reads the drop rate over the whole session: Excellent below 1 %, Good up to 2 %.";
                 _lanes.Add(l);
             }
             if (s.BitrateTimeSeries is { Count: >= 2 })
@@ -718,23 +729,39 @@ namespace StreamTweak.Controls
             var covers = s.GameCoversForDisplay.ToDictionary(c => c.Name, c => c.CoverPath, StringComparer.OrdinalIgnoreCase);
             var conv = new Converters.CoverPathToBitmapConverter { DecodeWidth = 34 };
 
-            // Stream boundaries: dashed, with S1, S2… when there were several.
+            // Stream boundaries: dashed, with S1, S2… when there were several. The labels are
+            // added after the games so they sit on top of them, and one that would land on the
+            // previous is skipped: a reconnect seconds after the start drew S1 and S2 on top of
+            // each other, under the game's cover.
+            var streamLabels = new List<UIElement>();
             if (_axis is { StreamCount: > 1 })
             {
                 var starts = new List<double> { 0 };
                 starts.AddRange(_axis.GapFractions());
+                double lastRight = double.NegativeInfinity;
                 for (int i = 0; i < starts.Count; i++)
                 {
                     double f = starts[i];
                     if (i > 0 && f > _z0 && f < _z1) cv.Children.Add(VLine(X(f), 0, h, GapLine, new DoubleCollection { 3, 3 }));
                     if (f >= _z0 - 1e-9 && f < _z1)
                     {
-                        var t = Label($"S{i + 1}", 10.5, Text4, medium: true);
-                        Canvas.SetLeft(t, X(f) + 3); Canvas.SetTop(t, 0);
-                        cv.Children.Add(t);
+                        double left = Math.Max(0, X(f)) + 2;
+                        if (left < lastRight + 4) continue;
+                        var tag = new Border
+                        {
+                            Background = B(C(0xCC, 0x14, 0x16, 0x16)), CornerRadius = new CornerRadius(3),
+                            Padding = new Thickness(3, 0, 3, 1),
+                            Child = Label($"S{i + 1}", 10.5, Text4, medium: true),
+                        };
+                        tag.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                        lastRight = left + tag.DesiredSize.Width;
+                        Canvas.SetLeft(tag, left); Canvas.SetTop(tag, 0);
+                        streamLabels.Add(tag);
                     }
                 }
             }
+            // Where the first label ends, so the pre-9.0 list of games can start after it.
+            double listLeft = streamLabels.Count > 0 && _z0 <= 1e-9 ? 30 : 6;
 
             if (s.GameSpans is { Count: > 0 } spans)
             {
@@ -778,9 +805,11 @@ namespace StreamTweak.Controls
                     sp.Children.Add(item);
                 }
                 sp.Children.Add(Label("· times not recorded for this session", 11.5, Text4));
-                Canvas.SetLeft(sp, 6); Canvas.SetTop(sp, 9);
+                Canvas.SetLeft(sp, listLeft); Canvas.SetTop(sp, 9);
                 cv.Children.Add(sp);
             }
+
+            foreach (var tag in streamLabels) cv.Children.Add(tag);
         }
 
         // ── Time axis ─────────────────────────────────────────────────────────
@@ -1131,7 +1160,7 @@ namespace StreamTweak.Controls
                 int withDrops = vals.Count(v => v > 0);
                 _focusStats.Children.Add(Stat("Dropped", FormatValue(vals.Sum(), 0), "frames"));
                 _focusStats.Children.Add(Stat("Samples with drops", FormatValue(100.0 * withDrops / vals.Count, 1), "%"));
-                _focusStats.Children.Add(Stat("Worst sample", FormatValue(vals.Max(), 0), "frames"));
+                _focusStats.Children.Add(Stat("Worst slice", FormatValue(vals.Max(), 0), "frames"));
                 return;
             }
             var sorted = vals.OrderBy(v => v).ToList();

@@ -1530,8 +1530,8 @@ namespace StreamTweak.ViewModels
                 HomeSubtitle = n switch
                 {
                     0 => "Nothing is streaming · no StreamLight device is approved yet",
-                    1 => "Nothing is streaming · 1 approved StreamLight device can wake this host",
-                    _ => $"Nothing is streaming · {n} approved StreamLight devices can wake this host",
+                    1 => "Nothing is streaming · 1 approved StreamLight device",
+                    _ => $"Nothing is streaming · {n} approved StreamLight devices",
                 };
             }
         }

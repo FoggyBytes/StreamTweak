@@ -222,7 +222,7 @@ namespace StreamTweak.ViewModels
                 {
                     (string status, string color, string bg, string border) = c.Status switch
                     {
-                        "approved" => ("Authorized",       "#4ade80", "#1F4ade80", "#4D4ade80"),
+                        "approved" => ("Approved",         "#4ade80", "#1F4ade80", "#4D4ade80"),
                         "denied"   => ("Denied",           "#ef4444", "#1Aef4444", "#40ef4444"),
                         _          => ("Pending approval", "#f59e0b", "#1Af59e0b", "#40f59e0b"),
                     };
@@ -452,7 +452,7 @@ namespace StreamTweak.ViewModels
         public string StatusLabel { get; init; } = "";
         public bool   CanApprove  { get; init; }   // pending OR denied → can be (re)approved
 
-        // Status pill colours (green Authorized / amber Pending / red Denied),
+        // Status pill colours (green Approved / amber Pending / red Denied),
         // matching the app-wide badge palette.
         public string StatusColorHex  { get; init; } = "#9E9E9E";
         public string StatusBgHex     { get; init; } = "#1A9E9E9E";

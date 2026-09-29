@@ -12,9 +12,10 @@
 
     <!-- Dark translucent veil over the Mica backdrop: keeps the Mica depth but
          pulls the whole app toward a darker tone uniformly (sidebar + content). -->
-    <Grid x:Name="RootGrid" Background="#59080809">
+    <Grid x:Name="RootGrid" Background="#59080809" KeyboardAcceleratorPlacementMode="Hidden">
         <Grid.KeyboardAccelerators>
-            <!-- F1 opens the Glossary panel from anywhere -->
+            <!-- F1 opens the Glossary panel from anywhere. Placement Hidden: an accelerator on
+                 the root shows its "F1" tip wherever the pointer rests in the window. -->
             <KeyboardAccelerator Key="F1" Invoked="GlossaryAccelerator_Invoked"/>
         </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
