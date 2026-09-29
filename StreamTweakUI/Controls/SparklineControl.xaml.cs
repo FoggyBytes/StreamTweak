@@ -717,6 +717,27 @@ namespace StreamTweak.Controls
             return _spans[^1].End;
         }
 
+        /// <summary>
+        /// Position in 0..1 of a wall-clock time — the inverse of <see cref="TimeAt"/>. A time
+        /// that falls in an idle gap maps to the boundary where the next stream starts; times
+        /// outside the session clamp to its edges. Used to place the game ranges (9.0).
+        /// </summary>
+        public double FractionAt(DateTime t)
+        {
+            if (!IsUsable) return 0;
+            double acc = 0;
+            foreach (var s in _spans)
+            {
+                if (t <= s.Start) return acc / ActiveSeconds;
+                if (t <= s.End) return (acc + (t - s.Start).TotalSeconds) / ActiveSeconds;
+                acc += s.Seconds;
+            }
+            return 1;
+        }
+
+        /// <summary>Number of live streams the session was made of.</summary>
+        public int StreamCount => _spans.Count;
+
         /// <summary>Positions in 0..1 where one stream ended and the next began.</summary>
         public IEnumerable<double> GapFractions()
         {

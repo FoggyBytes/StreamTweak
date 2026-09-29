@@ -93,6 +93,14 @@ namespace StreamTweak
         public int   HostNetTxAvg    { get; set; } = -1;
 
         public int   SampleCount     { get; set; }
+
+        /// <summary>
+        /// Frame rate the client was asked to stream at (9.0). The frame-latency limits of the
+        /// grade are expressed in frames of this rate, so the session detail needs it to show
+        /// them in milliseconds. 0 = not recorded (sessions before 9.0, or a client that never
+        /// reported it) — <see cref="QualityGradeCalculator.FramePeriodMs"/> then assumes 60.
+        /// </summary>
+        public int   TargetFps       { get; set; }
     }
 
     // ── In-memory accumulator for the active session ──────────────────────────
@@ -238,6 +246,7 @@ namespace StreamTweak
                     HostCpuAvg      = _cpuSamples.Count     > 0 ? (int)_cpuSamples.Average()     : -1,
                     HostCpuPeak     = _cpuSamples.Count     > 0 ? _cpuSamples.Max()               : -1,
                     HostNetTxAvg    = _netTxSamples.Count   > 0 ? (int)_netTxSamples.Average()   : -1,
+                    TargetFps       = _targetFps,
                 };
 
                 const int MaxSeriesPoints = 600;
@@ -392,11 +401,28 @@ namespace StreamTweak
         public static float FramePeriodMs(int targetFps)
             => 1000f / (targetFps > 0 ? targetFps : 60);
 
+        /// <summary>
+        /// The four checks a session is graded on, each with its own verdict. The overall grade
+        /// is the worst of the four (<see cref="Evaluate"/>); the session detail shows all four
+        /// so it is clear which one decided it.
+        /// </summary>
+        public readonly record struct GradeParts(
+            QualityGrade Drops, QualityGrade Rtt, QualityGrade HostLatency, QualityGrade LateFrames)
+        {
+            public QualityGrade Overall => (QualityGrade)Math.Max(
+                Math.Max((int)Drops, (int)Rtt), Math.Max((int)HostLatency, (int)LateFrames));
+        }
+
         public static QualityGrade Evaluate(SessionQualityStats stats, int targetFps)
         {
             if (stats.SampleCount < 2)
                 return QualityGrade.NoData;
+            return EvaluateParts(stats, targetFps).Overall;
+        }
 
+        /// <summary>Per-check verdicts behind <see cref="Evaluate"/>. Same thresholds, same order.</summary>
+        public static GradeParts EvaluateParts(SessionQualityStats stats, int targetFps)
+        {
             // FPS intentionally excluded: affected by static screens / loading screens,
             // which produce artificially low fps that doesn't reflect streaming quality.
 
@@ -461,9 +487,7 @@ namespace StreamTweak
             // Its consequence, when there is one, shows up in gradeLate above.
             // HostGpuEncAvg is still collected and displayed as context.
 
-            return (QualityGrade)Math.Max(
-                Math.Max((int)gradeDrop, (int)gradeRtt),
-                Math.Max((int)gradeHostLat, (int)gradeLate));
+            return new GradeParts(gradeDrop, gradeRtt, gradeHostLat, gradeLate);
         }
     }
 }
