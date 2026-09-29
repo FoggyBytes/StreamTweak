@@ -6,21 +6,24 @@
     xmlns:ctrl="using:StreamTweak.Controls"
     Background="{StaticResource STBackground}">
 
-    <!-- 8.0: each Host-setup subsection is its own sidebar item; this page is a
+    <!-- 9.0: the section cards flow into two columns once the page is wide enough
+         (ResponsiveGrid, MinColumnWidth 560) and the gutters follow the window width.
+         8.0: each Host-setup subsection is its own sidebar item; this page is a
          parametric single-panel host. The nav parameter (TuneNet / TuneAV /
          TuneNv / TuneApps) picks the visible panel (see ShowSection). The page
          container is transparent — each section provides its own card(s). -->
-    <Grid Margin="28,24,28,28">
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-          <Grid>
+    <Grid>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled">
+          <Grid x:Name="PanelsHost" Padding="32,24,32,40">
 
             <!-- ═══ NETWORK — card-per-group + hover hints ════════════════════ -->
             <StackPanel x:Name="PanelNet" Style="{StaticResource ST8_PanelRoot}">
                 <StackPanel Spacing="3">
-                    <TextBlock Text="Network" Style="{StaticResource ST8_PanelTitle}"/>
-                    <TextBlock Text="Switch the host NIC link speed for streaming." Style="{StaticResource ST_PageSubtitle}"/>
+                    <TextBlock Text="Network" Style="{StaticResource ST9_PageTitle}"/>
+                    <TextBlock Text="The wired link this host streams on, and who may change it." Style="{StaticResource ST9_PageSubtitle}" TextWrapping="Wrap"/>
                 </StackPanel>
 
+                <ctrl:ResponsiveGrid MinColumnWidth="560" MaxColumns="2" ColumnSpacing="20" RowSpacing="22">
                 <!-- ADAPTER -->
                 <StackPanel Spacing="8">
                     <TextBlock Text="ADAPTER" Style="{StaticResource ST_SectionLabel}"/>
@@ -203,19 +206,21 @@
                         </Border>
                     </Border>
                 </StackPanel>
+                </ctrl:ResponsiveGrid>
             </StackPanel>
 
             <!-- ═══ DISPLAY & AUDIO — card-per-group + hover hints ═════════════ -->
             <StackPanel x:Name="PanelDispAud" Style="{StaticResource ST8_PanelRoot}" Visibility="Collapsed">
                 <StackPanel Spacing="3">
-                    <TextBlock Text="Display &amp; audio" Style="{StaticResource ST8_PanelTitle}"/>
-                    <TextBlock Text="HDR output per display, and spatial audio for streaming." Style="{StaticResource ST_PageSubtitle}"/>
+                    <TextBlock Text="Display &amp; audio" Style="{StaticResource ST9_PageTitle}"/>
+                    <TextBlock Text="HDR output per display, and the audio format a stream gets." Style="{StaticResource ST9_PageSubtitle}" TextWrapping="Wrap"/>
                 </StackPanel>
 
                 <InfoBar Visibility="{x:Bind Disp.HasError, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
                          IsOpen="{x:Bind Disp.HasError, Mode=OneWay}" Severity="Error"
                          Message="{x:Bind Disp.ErrorText, Mode=OneWay}" IsClosable="False"/>
 
+                <ctrl:ResponsiveGrid MinColumnWidth="560" MaxColumns="2" ColumnSpacing="20" RowSpacing="22">
                 <!-- HDR OUTPUT (per-display cards) -->
                 <StackPanel Spacing="8">
                     <Grid>
@@ -373,15 +378,17 @@
                         </StackPanel>
                     </Border>
                 </StackPanel>
+                </ctrl:ResponsiveGrid>
             </StackPanel>
 
             <!-- ═══ NVIDIA SENTINEL — card-per-group + hover hints ════════════ -->
             <StackPanel x:Name="PanelNv" Style="{StaticResource ST8_PanelRoot}" Visibility="Collapsed">
                 <StackPanel Spacing="3">
-                    <TextBlock Text="NVIDIA Sentinel" Style="{StaticResource ST8_PanelTitle}"/>
-                    <TextBlock Text="{x:Bind Nv.GpuHeader, Mode=OneWay}" Style="{StaticResource ST_PageSubtitle}"/>
+                    <TextBlock Text="NVIDIA Sentinel" Style="{StaticResource ST9_PageTitle}"/>
+                    <TextBlock Text="{x:Bind Nv.GpuHeader, Mode=OneWay}" Style="{StaticResource ST9_PageSubtitle}" TextWrapping="Wrap"/>
                 </StackPanel>
 
+                <ctrl:ResponsiveGrid MinColumnWidth="560" MaxColumns="2" ColumnSpacing="20" RowSpacing="22">
                 <!-- USER PROFILE -->
                 <StackPanel Spacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="7">
@@ -452,6 +459,7 @@
                         </StackPanel>
                     </Border>
                 </StackPanel>
+                </ctrl:ResponsiveGrid>
 
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           IsExpanded="{x:Bind Nv.CapturedExpanded, Mode=TwoWay}">
@@ -506,8 +514,8 @@
             <!-- ═══ MANAGED APPS — Library-style single container ═════════════ -->
             <StackPanel x:Name="PanelApps" Style="{StaticResource ST8_PanelRoot}" Visibility="Collapsed">
                 <StackPanel Spacing="3">
-                    <TextBlock Text="Managed apps" Style="{StaticResource ST8_PanelTitle}"/>
-                    <TextBlock Text="Closed when a stream starts, relaunched when it ends." Style="{StaticResource ST_PageSubtitle}"/>
+                    <TextBlock Text="Managed apps" Style="{StaticResource ST9_PageTitle}"/>
+                    <TextBlock Text="Apps closed when a stream starts and relaunched when it ends, so they cannot steal frames or bandwidth." Style="{StaticResource ST9_PageSubtitle}" TextWrapping="Wrap"/>
                 </StackPanel>
 
                 <InfoBar Visibility="{x:Bind AppsVm.HasStatus, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"

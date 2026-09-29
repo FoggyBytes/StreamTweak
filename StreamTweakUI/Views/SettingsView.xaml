@@ -3,32 +3,31 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:StreamTweak.ViewModels"
+    xmlns:ctrl="using:StreamTweak.Controls"
     Background="{StaticResource STBackground}">
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>  <!-- status bar -->
-            <RowDefinition Height="*"/>     <!-- cards -->
-        </Grid.RowDefinitions>
+    <!-- 9.0: page header, then the cards in two columns once the page is wide enough. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled">
+            <StackPanel x:Name="PageRoot" Padding="32,24,32,40" Spacing="16">
 
-        <!-- Dynamic status InfoBar (keep — closable) -->
-        <InfoBar Grid.Row="0"
-                 Margin="28,24,28,0"
-                 IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
-                 Severity="{x:Bind ViewModel.StatusIsError, Mode=OneWay,
-                            Converter={StaticResource BoolToInfoBarSeverityConverter}}"
-                 Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                 IsClosable="True"
-                 Closed="StatusInfoBar_Closed">
-            <InfoBar.Resources>
-                <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#4ade80"/>
-            </InfoBar.Resources>
-        </InfoBar>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Settings" Style="{StaticResource ST9_PageTitle}"/>
+                    <TextBlock Text="About, data, the streaming server this host uses, and how StreamTweak behaves."
+                               Style="{StaticResource ST9_PageSubtitle}" TextWrapping="Wrap"/>
+                </StackPanel>
 
-        <ScrollViewer Grid.Row="1"
-                      VerticalScrollBarVisibility="Auto"
-                      Margin="28,12,28,28">
-            <StackPanel Spacing="16">
+                <!-- Dynamic status InfoBar (keep — closable) -->
+                <InfoBar Visibility="{x:Bind ViewModel.HasStatus, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                         IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
+                         Severity="{x:Bind ViewModel.StatusIsError, Mode=OneWay,
+                                    Converter={StaticResource BoolToInfoBarSeverityConverter}}"
+                         Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                         IsClosable="True"
+                         Closed="StatusInfoBar_Closed">
+                    <InfoBar.Resources>
+                        <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#4ade80"/>
+                    </InfoBar.Resources>
+                </InfoBar>
 
                 <!-- ── Update notice ─────────────────────────────────────────
                      Visible only when AppStateService reports a newer GitHub release
@@ -37,6 +36,7 @@
                      the next session naturally re-shows the bar if the update is
                      still pending. -->
                 <InfoBar Title="Update available"
+                         Visibility="{x:Bind ViewModel.IsUpdateAvailable, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
                          Severity="Informational"
                          IsClosable="False"
                          IsOpen="{x:Bind ViewModel.IsUpdateAvailable, Mode=OneWay}"
@@ -50,8 +50,9 @@
                     </InfoBar.ActionButton>
                 </InfoBar>
 
+                <ctrl:ResponsiveGrid MinColumnWidth="520" MaxColumns="2" ColumnSpacing="16" RowSpacing="16">
                 <!-- ── About ─────────────────────────────────────────────── -->
-                <Border Style="{StaticResource ST_Card}">
+                <Border Style="{StaticResource ST9_Card}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -60,7 +61,7 @@
 
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="StreamTweak"
-                                       Style="{StaticResource ST_PageTitle}"/>
+                                       Style="{StaticResource ST9_SectionTitle}"/>
                             <TextBlock Text="{x:Bind ViewModel.AppVersion}"
                                        Style="{StaticResource ST_MonoValueSmall}"/>
                             <TextBlock Text="by FoggyBytes"
@@ -96,7 +97,7 @@
                 </Border>
 
                 <!-- ── StreamLight ────────────────────────────────────────── -->
-                <Border Style="{StaticResource ST_Card}">
+                <Border Style="{StaticResource ST9_Card}">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
@@ -105,7 +106,7 @@
 
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Text="StreamLight"
-                                       Style="{StaticResource ST_PageTitle}"/>
+                                       Style="{StaticResource ST9_SectionTitle}"/>
                             <TextBlock Text="{x:Bind ViewModel.StreamLightVersion, Mode=OneWay}"
                                        Style="{StaticResource ST_MonoValueSmall}"/>
                             <TextBlock Text="by FoggyBytes"
@@ -120,8 +121,11 @@
                     </Grid>
                 </Border>
 
+                </ctrl:ResponsiveGrid>
+
+                <ctrl:ResponsiveGrid MinColumnWidth="560" MaxColumns="2" ColumnSpacing="16" RowSpacing="16">
                 <!-- ── Data ──────────────────────────────────────────────── -->
-                <Border Style="{StaticResource ST_Card}">
+                <Border Style="{StaticResource ST9_Card}">
                     <StackPanel Spacing="14">
                         <TextBlock Text="DATA" Style="{StaticResource ST_SectionLabel}"/>
 
@@ -174,7 +178,7 @@
                 </Border>
 
                 <!-- ── Streaming server ──────────────────────────────────── -->
-                <Border Style="{StaticResource ST_Card}">
+                <Border Style="{StaticResource ST9_Card}">
                     <StackPanel Spacing="14">
                         <TextBlock Text="STREAMING SERVER" Style="{StaticResource ST_SectionLabel}"/>
 
@@ -203,7 +207,7 @@
                 </Border>
 
                 <!-- ── Behavior ──────────────────────────────────────────── -->
-                <Border Style="{StaticResource ST_Card}">
+                <Border Style="{StaticResource ST9_Card}">
                     <StackPanel Spacing="14">
                         <TextBlock Text="BEHAVIOR" Style="{StaticResource ST_SectionLabel}"/>
 
@@ -260,7 +264,7 @@
                 <!-- Bridge security moved to its own "Clients" section in 8.0. -->
 
                 <!-- ── Maintenance ───────────────────────────────────────── -->
-                <Border Style="{StaticResource ST_Card}">
+                <Border Style="{StaticResource ST9_Card}">
                     <StackPanel Spacing="14">
                         <TextBlock Text="MAINTENANCE" Style="{StaticResource ST_SectionLabel}"/>
 
@@ -303,9 +307,9 @@
                                    Style="{StaticResource ST_RowDescription}"/>
                     </StackPanel>
                 </Border>
+                </ctrl:ResponsiveGrid>
 
             </StackPanel>
-        </ScrollViewer>
-    </Grid>
+    </ScrollViewer>
 
 </Page>

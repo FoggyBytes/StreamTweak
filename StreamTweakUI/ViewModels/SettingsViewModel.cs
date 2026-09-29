@@ -217,7 +217,8 @@ namespace StreamTweak.ViewModels
             var auth = AppStateService.Instance.BridgeAuth;
             if (auth != null)
             {
-                foreach (var c in auth.GetClients())
+                // Devices waiting for a decision first: they are the ones that need one.
+                foreach (var c in auth.GetClients().OrderBy(c => c.Status == "pending" ? 0 : c.Status == "approved" ? 1 : 2))
                 {
                     (string status, string color, string bg, string border) = c.Status switch
                     {
@@ -234,10 +235,37 @@ namespace StreamTweak.ViewModels
                         StatusColorHex   = color,
                         StatusBgHex      = bg,
                         StatusBorderHex  = border,
+                        SubText          = DeviceSubText(c),
+                        PinText          = c.Status == "pending" ? c.Pin ?? "" : "",
+                        IsApproved       = c.Status == "approved",
                     });
                 }
             }
             OnPropertyChanged(nameof(HasNoBridgeClients));
+        }
+
+        private static string DeviceSubText(BridgeClient c)
+        {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            static DateTime? Parse(string? iso) =>
+                DateTime.TryParse(iso, System.Globalization.CultureInfo.InvariantCulture,
+                                  System.Globalization.DateTimeStyles.RoundtripKind, out var d) ? d.ToLocalTime() : null;
+            var parts = new List<string>();
+            if (Parse(c.LastSeenUtc) is { } seen)
+            {
+                int days = (DateTime.Today - seen.Date).Days;
+                parts.Add(days switch
+                {
+                    <= 0 => $"Seen today {seen.ToString("HH:mm", inv)}",
+                    1    => $"Seen yesterday {seen.ToString("HH:mm", inv)}",
+                    _    => $"Seen {seen.ToString(seen.Year == DateTime.Today.Year ? "d MMM" : "d MMM yyyy", inv)}",
+                });
+            }
+            if (c.Status == "approved" && Parse(c.ApprovedUtc) is { } approved)
+                parts.Add($"approved {approved.ToString("d MMM yyyy", inv)}");
+            if (c.Status == "pending")
+                parts.Add("asked for access");
+            return parts.Count > 0 ? string.Join(" · ", parts) : "Never connected";
         }
 
         public void ApproveBridgeClient(string uniqueId)
@@ -429,5 +457,15 @@ namespace StreamTweak.ViewModels
         public string StatusColorHex  { get; init; } = "#9E9E9E";
         public string StatusBgHex     { get; init; } = "#1A9E9E9E";
         public string StatusBorderHex { get; init; } = "#409E9E9E";
+
+        // 9.0 device cards
+        /// <summary>"Seen yesterday 22:41 · approved 3 Aug 2026".</summary>
+        public string SubText { get; init; } = "";
+        /// <summary>The 4-digit PIN a pending device shows, to be matched before approving.</summary>
+        public string PinText { get; init; } = "";
+        public bool   HasPin  => !string.IsNullOrEmpty(PinText);
+        public bool   IsApproved { get; init; }
+        public string IconBgHex  => IsApproved ? "#214ade80" : "#14FFFFFF";
+        public string IconFgHex  => IsApproved ? "#86efac" : "#C8CFCB";
     }
 }
