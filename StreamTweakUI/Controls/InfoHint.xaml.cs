@@ -9,7 +9,7 @@ namespace StreamTweak.Controls
 {
     /// <summary>
     /// A small ⓘ affordance: hovering shows the concise <see cref="Tip"/> tooltip; clicking
-    /// navigates to the Glossary and scrolls to <see cref="Term"/> (when set), so the full
+    /// opens the Glossary panel and scrolls it to <see cref="Term"/> (when set), so the full
     /// explanation lives in one place instead of as prose on every settings row.
     /// </summary>
     public sealed partial class InfoHint : UserControl
@@ -45,8 +45,8 @@ namespace StreamTweak.Controls
 
         private void OnTapped(object sender, TappedRoutedEventArgs e)
         {
-            AppStateService.Instance.PendingGlossaryTerm = Term;
-            App.MainWindow?.NavigateTo("Glossary");
+            // 9.0: the Glossary opens as a panel over the current page.
+            App.MainWindow?.OpenGlossary(string.IsNullOrEmpty(Term) ? null : Term);
         }
 
         private void OnPointerEntered(object sender, PointerRoutedEventArgs e)

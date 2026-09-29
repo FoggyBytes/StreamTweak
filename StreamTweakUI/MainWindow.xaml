@@ -12,139 +12,236 @@
 
     <!-- Dark translucent veil over the Mica backdrop: keeps the Mica depth but
          pulls the whole app toward a darker tone uniformly (sidebar + content). -->
-    <Grid Background="#59080809">
+    <Grid x:Name="RootGrid" Background="#59080809" KeyboardAcceleratorPlacementMode="Hidden">
+        <Grid.KeyboardAccelerators>
+            <!-- F1 opens the Glossary panel from anywhere. Placement Hidden: an accelerator on
+                 the root shows its "F1" tip wherever the pointer rests in the window. -->
+            <KeyboardAccelerator Key="F1" Invoked="GlossaryAccelerator_Invoked"/>
+        </Grid.KeyboardAccelerators>
         <Grid.RowDefinitions>
-            <RowDefinition Height="32"/>  <!-- custom title bar strip -->
+            <RowDefinition Height="44"/>  <!-- title bar: identity + live state pills -->
             <RowDefinition Height="*"/>   <!-- sidebar + content -->
         </Grid.RowDefinitions>
 
-        <!-- ── ROW 1: NavigationView ─────────────────────────────────────── -->
-        <NavigationView x:Name="NavView"
-            Grid.Row="1"
-            PaneDisplayMode="Left"
-            OpenPaneLength="200"
-            CompactPaneLength="52"
-            IsPaneToggleButtonVisible="True"
-            IsSettingsVisible="False"
-            IsBackButtonVisible="Collapsed"
-            AlwaysShowHeader="False"
-            IsTitleBarAutoPaddingEnabled="False"
-            FontFamily="{StaticResource DMSans}"
-            SelectionChanged="NavView_SelectionChanged">
+        <!-- ── ROW 1: Glossary panel (right, overlay) around the NavigationView ── -->
+        <SplitView x:Name="GlossarySplit"
+                   Grid.Row="1"
+                   PanePlacement="Right"
+                   DisplayMode="Overlay"
+                   OpenPaneLength="460"
+                   LightDismissOverlayMode="On"
+                   PaneBackground="{StaticResource ST9Pane}"
+                   IsPaneOpen="False">
+            <SplitView.Pane>
+                <Grid BorderBrush="{StaticResource ST9Stroke2}" BorderThickness="1,0,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid Padding="18,12,10,10" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="0,0,0,1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="1" VerticalAlignment="Center">
+                            <TextBlock Text="Glossary" Style="{StaticResource ST9_CardTitle}"/>
+                            <TextBlock Text="Terms used across StreamTweak and StreamLight · F1" Style="{StaticResource ST9_Hint}"/>
+                        </StackPanel>
+                        <Button Grid.Column="1" Style="{StaticResource ST9_IconButton}" Content="&#xE711;"
+                                Click="CloseGlossary_Click"
+                                AutomationProperties.Name="Close glossary"
+                                ToolTipService.ToolTip="Close (Esc)"/>
+                    </Grid>
+                    <Frame x:Name="GlossaryFrame" Grid.Row="1" Background="Transparent"/>
+                </Grid>
+            </SplitView.Pane>
 
-            <!-- ── MAIN NAV ITEMS (8.0 grouped IA) ─────────────────────────── -->
-            <NavigationView.MenuItems>
+            <NavigationView x:Name="NavView"
+                PaneDisplayMode="Auto"
+                CompactModeThresholdWidth="760"
+                ExpandedModeThresholdWidth="1100"
+                OpenPaneLength="232"
+                CompactPaneLength="56"
+                IsPaneToggleButtonVisible="True"
+                IsSettingsVisible="False"
+                IsBackButtonVisible="Collapsed"
+                AlwaysShowHeader="False"
+                IsTitleBarAutoPaddingEnabled="False"
+                FontFamily="{StaticResource DMSans}"
+                SelectionChanged="NavView_SelectionChanged"
+                ItemInvoked="NavView_ItemInvoked">
 
-                <NavigationViewItem x:Name="NavHome" Tag="Home" Content="Dashboard">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE80F;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                <!-- ── MAIN NAV ITEMS (9.0 IA) ─────────────────────────────────
+                     Streaming = what you play, how it went, who streams it.
+                     Host = the machine the stream comes from. -->
+                <NavigationView.MenuItems>
 
-                <NavigationViewItemHeader Content="Insight"/>
+                    <NavigationViewItem x:Name="NavHome" Tag="Home" Content="Dashboard">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE80F;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
 
-                <NavigationViewItem Tag="Logs" Content="Sessions">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE9F9;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                    <NavigationViewItemHeader Content="Streaming"/>
 
-                <NavigationViewItemHeader Content="Host setup"/>
+                    <NavigationViewItem Tag="GameLibrary" Content="Library">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE7FC;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
 
-                <!-- Host-setup subsections as flat items (all navigate to the parametric TuningView) -->
-                <NavigationViewItem Tag="TuneNet" Content="Network">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE701;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                    <NavigationViewItem Tag="Logs" Content="Sessions">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE9F9;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
 
-                <NavigationViewItem Tag="TuneAV" Content="Display &amp; audio">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                    <NavigationViewItem Tag="Clients" Content="Clients">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE8CC;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                        <!-- Devices waiting for approval -->
+                        <NavigationViewItem.InfoBadge>
+                            <InfoBadge x:Name="ClientsBadge" Visibility="Collapsed"
+                                       Background="{StaticResource ST9Amber}"
+                                       Foreground="#FF2A1A02"/>
+                        </NavigationViewItem.InfoBadge>
+                    </NavigationViewItem>
 
-                <NavigationViewItem x:Name="NavTuneNv" Tag="TuneNv" Content="NVIDIA Sentinel">
-                    <NavigationViewItem.Icon>
-                        <ImageIcon>
-                            <ImageIcon.Source>
-                                <SvgImageSource UriSource="ms-appx:///Resources/nvidia-eye.svg"/>
-                            </ImageIcon.Source>
-                        </ImageIcon>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                    <NavigationViewItemHeader Content="Host"/>
 
-                <NavigationViewItem Tag="TuneApps" Content="Managed apps">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE71D;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                    <NavigationViewItem Tag="TuneNet" Content="Network">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE701;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
 
-                <NavigationViewItem Tag="GameLibrary" Content="Library">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE7FC;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                    <NavigationViewItem Tag="TuneAV" Content="Display &amp; audio">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
 
-                <NavigationViewItem Tag="Clients" Content="Clients">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE72E;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
+                    <NavigationViewItem x:Name="NavTuneNv" Tag="TuneNv" Content="NVIDIA Sentinel">
+                        <NavigationViewItem.Icon>
+                            <ImageIcon>
+                                <ImageIcon.Source>
+                                    <SvgImageSource UriSource="ms-appx:///Resources/nvidia-eye.svg"/>
+                                </ImageIcon.Source>
+                            </ImageIcon>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
 
-            </NavigationView.MenuItems>
+                    <NavigationViewItem Tag="TuneApps" Content="Managed apps">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE71D;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
 
-            <!-- ── FOOTER NAV ITEMS ──────────────────────────────────────── -->
-            <NavigationView.FooterMenuItems>
-                <NavigationViewItem Tag="Glossary" Content="Glossary">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE82D;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem Tag="Settings" Content="Settings">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE713;" FontFamily="Segoe MDL2 Assets"/>
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-            </NavigationView.FooterMenuItems>
+                </NavigationView.MenuItems>
 
-            <!-- Version + update link at the very bottom of the pane (bottom-left) -->
-            <NavigationView.PaneFooter>
-                <StackPanel Margin="16,6,12,12" Spacing="2">
-                    <TextBlock x:Name="SidebarVersionText"
-                               Style="{StaticResource ST_FooterText}"/>
-                    <HyperlinkButton x:Name="SidebarUpdateLink"
-                                     Visibility="Collapsed"
-                                     Padding="0"
-                                     FontFamily="{StaticResource DMSans}"
-                                     FontSize="11"
-                                     Foreground="{StaticResource STWarning}"
-                                     Click="SidebarUpdateLink_Click"
-                                     ToolTipService.ToolTip="Open the GitHub releases page"/>
-                </StackPanel>
-            </NavigationView.PaneFooter>
+                <!-- ── FOOTER NAV ITEMS ──────────────────────────────────────── -->
+                <NavigationView.FooterMenuItems>
+                    <!-- Opens the Glossary panel without leaving the current page -->
+                    <NavigationViewItem Tag="Glossary" Content="Glossary" SelectsOnInvoked="False">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE82D;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+                    <NavigationViewItem Tag="Settings" Content="Settings">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE713;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+                </NavigationView.FooterMenuItems>
 
-            <!-- Content frame — Transparent so Mica bleeds through the page bg -->
-            <Frame x:Name="ContentFrame" Background="Transparent"/>
+                <!-- Version + update link at the very bottom of the pane (bottom-left) -->
+                <NavigationView.PaneFooter>
+                    <StackPanel Margin="16,6,12,12" Spacing="2">
+                        <TextBlock x:Name="SidebarVersionText"
+                                   Style="{StaticResource ST_FooterText}"/>
+                        <HyperlinkButton x:Name="SidebarUpdateLink"
+                                         Visibility="Collapsed"
+                                         Padding="0"
+                                         FontFamily="{StaticResource DMSans}"
+                                         FontSize="11"
+                                         Foreground="{StaticResource STWarning}"
+                                         Click="SidebarUpdateLink_Click"
+                                         ToolTipService.ToolTip="Open the GitHub releases page"/>
+                    </StackPanel>
+                </NavigationView.PaneFooter>
 
-        </NavigationView>
+                <!-- Content layer: a faint lighter sheet with a rounded top-left corner, so the
+                     page reads as one surface next to the sidebar. Transparent enough for Mica. -->
+                <Border Background="{StaticResource ST9Frame}"
+                        BorderBrush="{StaticResource ST9Stroke}"
+                        BorderThickness="1,1,0,0"
+                        CornerRadius="10,0,0,0">
+                    <Frame x:Name="ContentFrame" Background="Transparent"/>
+                </Border>
 
-        <!-- ── ROW 0: custom title bar ───────────────────────────────────── -->
+            </NavigationView>
+        </SplitView>
+
+        <!-- ── ROW 0: custom title bar ───────────────────────────────────────
+             The whole strip is the window's drag region, so everything in it is
+             informational (IsHitTestVisible=False): identity on the left, then the
+             host's live state — what it is doing, its link speed, its Tailscale IP. -->
         <Grid x:Name="AppTitleBar"
               Grid.Row="0"
               Background="{StaticResource STTitlebar}">
             <StackPanel Orientation="Horizontal"
                         VerticalAlignment="Center"
-                        Spacing="8" Margin="16,0,0,0"
+                        Spacing="10" Margin="16,0,0,0"
                         IsHitTestVisible="False">
                 <Image Source="ms-appx:///Resources/streamtweak.ico"
-                       Width="14" Height="14"
+                       Width="16" Height="16"
                        VerticalAlignment="Center"/>
                 <TextBlock Text="StreamTweak"
-                           FontFamily="{StaticResource DMSans}"
-                           FontSize="12"
-                           Foreground="{StaticResource STTextPrimary}"
+                           FontFamily="{StaticResource DMSansSemiBold}"
+                           FontSize="13"
+                           Foreground="{StaticResource ST9Text}"
                            VerticalAlignment="Center"/>
+                <TextBlock x:Name="TitleVersionText"
+                           FontFamily="{StaticResource JetBrainsMono}"
+                           FontSize="11"
+                           Foreground="{StaticResource ST9Text4}"
+                           VerticalAlignment="Center"/>
+
+                <StackPanel x:Name="TitlePills" Orientation="Horizontal" Spacing="6" Margin="10,0,0,0" VerticalAlignment="Center">
+                    <!-- Host state: "Host ready" or the game being streamed + duration -->
+                    <Border x:Name="StatePill" CornerRadius="12" Padding="10,3,11,4" BorderThickness="1"
+                            Background="#0DFFFFFF" BorderBrush="{StaticResource ST9Stroke}">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <Ellipse x:Name="StateDot" Width="7" Height="7" Fill="{StaticResource ST9Mint}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="StatePillText" Text="Host ready"
+                                       FontFamily="{StaticResource DMSans}" FontSize="12"
+                                       Foreground="{StaticResource ST9Text2}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Link speed of the configured adapter -->
+                    <Border x:Name="LinkPill" CornerRadius="12" Padding="10,3,11,4" BorderThickness="1"
+                            Background="#0DFFFFFF" BorderBrush="{StaticResource ST9Stroke}" Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE839;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                      Foreground="{StaticResource ST9Text3}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="LinkPillText"
+                                       FontFamily="{StaticResource DMSans}" FontSize="12"
+                                       Foreground="{StaticResource ST9Text2}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Tailscale address, when Tailscale is up -->
+                    <Border x:Name="TailscalePill" CornerRadius="12" Padding="10,3,11,4" BorderThickness="1"
+                            Background="#0DFFFFFF" BorderBrush="{StaticResource ST9Stroke}" Visibility="Collapsed">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                      Foreground="{StaticResource ST9Text3}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="TailscalePillText"
+                                       FontFamily="{StaticResource JetBrainsMono}" FontSize="11.5"
+                                       Foreground="{StaticResource ST9Text2}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
             </StackPanel>
         </Grid>
 

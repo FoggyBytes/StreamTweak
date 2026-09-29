@@ -105,6 +105,8 @@ namespace StreamTweak
         // Fast dedup: same set of names, used only for Contains() check
         private readonly HashSet<string> _detectedNamesSet = new(StringComparer.OrdinalIgnoreCase);
         private readonly object _lock = new();
+        // First and last time each game was seen (9.0) — the session timeline's game lane.
+        private readonly Dictionary<string, (DateTime First, DateTime Last)> _seen = new(StringComparer.OrdinalIgnoreCase);
         private Timer? _timer;
         private bool _disposed;
 
@@ -129,6 +131,23 @@ namespace StreamTweak
         {
             lock (_lock)
                 return new List<string>(_detectedNames);
+        }
+
+        /// <summary>
+        /// When each detected game was running, in detection order: from the first scan that
+        /// saw it to the last. A game seen once (e.g. only credited from the server log) gets a
+        /// zero-length range at that moment.
+        /// </summary>
+        public List<GameSpan> GetGameSpans()
+        {
+            lock (_lock)
+            {
+                var list = new List<GameSpan>(_detectedNames.Count);
+                foreach (var name in _detectedNames)
+                    if (_seen.TryGetValue(name, out var t))
+                        list.Add(new GameSpan { Name = name, Start = t.First, End = t.Last });
+                return list;
+            }
         }
 
         public void Dispose()
@@ -348,13 +367,20 @@ namespace StreamTweak
             if (!string.IsNullOrWhiteSpace(gameName)) AddDetected(gameName);
         }
 
-        /// <summary>Thread-safe insert into the detected-games list. No-op if already present.</summary>
+        /// <summary>
+        /// Thread-safe sighting of a game: added to the detected list the first time, and its
+        /// time range (<see cref="GetGameSpans"/>) extended every time.
+        /// </summary>
         private void AddDetected(string gameName)
         {
             lock (_lock)
             {
                 if (_detectedNamesSet.Add(gameName))
                     _detectedNames.Add(gameName);
+
+                // Every sighting moves the end of the range forward; the first one opens it.
+                var now = DateTime.Now;
+                _seen[gameName] = _seen.TryGetValue(gameName, out var t) ? (t.First, now) : (now, now);
             }
         }
 

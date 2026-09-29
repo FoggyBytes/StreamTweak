@@ -15,6 +15,11 @@ namespace StreamTweak.Views
         public SettingsView()
         {
             this.InitializeComponent();
+            SizeChanged += (_, e) =>
+            {
+                double side = Math.Clamp(Math.Round(e.NewSize.Width * 0.032), 16, 48);
+                PageRoot.Padding = new Thickness(side, 24, side, 40);
+            };
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)

@@ -86,12 +86,13 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched on the Clients page here, and on the device too
 
-## ✨ What's New in 8.7.0 — "The Copy Paste Update"
+## ✨ What's New in 9.0.0 — "The New Look Update"
 
-- **Shared clipboard with StreamLight** — copy on the host, paste on the device you stream to, and the other way round. Text up to 32 KB, any streaming server
-- **Encrypted per stream** — a new key for every stream, readable only by that device, dropped when the stream ends
-- **Passwords don't linger** — anything a password manager marks is kept out of Win+V history and cleared within 60 seconds
-- ⚠️ Needs StreamLight 6.3.0; the switch is on the Clients page, and the device must turn it on as well
+- **A new look, built to scale** — every page redrawn, from a 7" handheld at 1080p to 4K, with cards side by side where there is room
+- **Grouped menu and a live title bar** — Streaming and Host sections; stream state, game, link speed and Tailscale address always in view; the glossary opens as a side panel (F1)
+- **Dashboard** — the game being streamed with its cover and live figures, the last session and its grade, and a shelf of recently played games
+- **Sessions** — grouped by day with filters and a period summary, list and session side by side on wide screens, a Verdict card that explains the grade, and one timeline for every chart with zoom and a Focus view
+- **Library** — a wall of covers with time played, sessions and typical grade per game, search, store filters, sorting and a side sheet for each game
 
 *Older releases are in [changelog.txt](changelog.txt).*
 

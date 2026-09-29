@@ -428,6 +428,9 @@ namespace StreamTweak
                 _sessionProcessMonitor = new SessionProcessMonitor(games);
                 _sessionProcessMonitor.Start();
                 SeedLaunchedGameIntoMonitor();  // credit the game named in the server log
+                // 9.0: the session remembers when each game ran (timeline game lane) and the
+                // Dashboard asks it which game is on screen right now.
+                SessionLogger.ActiveGameSpansProvider = _sessionProcessMonitor.GetGameSpans;
 
                 // Armed for every session, unlike the heartbeat one, which waits for telemetry
                 // that a non-StreamLight client never sends.
@@ -536,16 +539,22 @@ namespace StreamTweak
                     HostLatencyAvgMs = 6.4f,
                     HostLatencyMaxMs = 11.2f,
                     HostLatencyOverBudgetPct = 0.4f,
+                    TargetFps       = 60,
+                    TargetBitrateMbps = 80f,
                 };
 
-                var rttSeries     = Enumerable.Range(0, 30).Select(i => 8f  + i % 3).ToList();
-                var dropsSeries   = Enumerable.Range(0, 30).Select(i => i % 15 == 0 ? 1f : 0f).ToList();
-                var bitrateSeries = Enumerable.Range(0, 30).Select(i => 68f + i % 5).ToList();
-                var decodeSeries  = Enumerable.Range(0, 30).Select(i => 2f  + (i % 4) * 0.1f).ToList();
-                var hostLatSeries = Enumerable.Range(0, 30).Select(i => 5f  + (i % 6) * 0.5f).ToList();
-                var hostGpuSeries = Enumerable.Range(0, 30).Select(i => 70f + (i % 8) * 2f).ToList();
-                var hostEncSeries = Enumerable.Range(0, 30).Select(i => 30f + (i % 5) * 3f).ToList();
-                var hostCpuSeries = Enumerable.Range(0, 30).Select(i => 15f + (i % 7) * 2f).ToList();
+                // 240 points with a little shape (slow drift + the odd spike), so the 9.0
+                // timeline, its zoom and its readouts have something worth looking at.
+                const int n = 240;
+                static float Wave(int i, double period, double amp) => (float)(Math.Sin(i * 2 * Math.PI / period) * amp);
+                var rttSeries     = Enumerable.Range(0, n).Select(i => 8f  + Wave(i, 60, 1.5) + (i % 47 == 0 ? 9f : 0f)).ToList();
+                var dropsSeries   = Enumerable.Range(0, n).Select(i => i % 53 == 0 ? 2f : 0f).ToList();
+                var bitrateSeries = Enumerable.Range(0, n).Select(i => 68f + Wave(i, 90, 6)).ToList();
+                var decodeSeries  = Enumerable.Range(0, n).Select(i => 2.1f + Wave(i, 35, 0.2)).ToList();
+                var hostLatSeries = Enumerable.Range(0, n).Select(i => 6f  + Wave(i, 70, 1.2) + (i == 5 || i == 130 ? 8f : 0f)).ToList();
+                var hostGpuSeries = Enumerable.Range(0, n).Select(i => 72f + Wave(i, 80, 8)).ToList();
+                var hostEncSeries = Enumerable.Range(0, n).Select(i => 35f + Wave(i, 50, 6)).ToList();
+                var hostCpuSeries = Enumerable.Range(0, n).Select(i => 18f + Wave(i, 40, 5)).ToList();
 
                 var fakeGames = GameLibraryState.Current.Games
                     .OrderBy(_ => Random.Shared.Next())
@@ -579,6 +588,28 @@ namespace StreamTweak
                         SessionLogger.SavePublic(sessions);
                     }
                 });
+
+                // Simulated game ranges for the 9.0 timeline: the first game for the first
+                // half of the debug session, the second from just after it until now — so the
+                // Dashboard also has a "current game" to show.
+                if (fakeGames.Count > 0)
+                {
+                    // The debug record is backdated 30 minutes (above), so the games start there too.
+                    var debugStart = DateTime.Now.AddMinutes(-30);
+                    var debugGames = fakeGames.Take(2).ToList();
+                    SessionLogger.ActiveGameSpansProvider = () =>
+                    {
+                        var now = DateTime.Now;
+                        var half = debugStart + TimeSpan.FromTicks((now - debugStart).Ticks / 2);
+                        var list = new List<GameSpan>
+                        {
+                            new() { Name = debugGames[0], Start = debugStart.AddSeconds(5), End = debugGames.Count > 1 ? half : now },
+                        };
+                        if (debugGames.Count > 1)
+                            list.Add(new GameSpan { Name = debugGames[1], Start = half.AddSeconds(10), End = now });
+                        return list;
+                    };
+                }
 
                 _isAutoSessionActive = true;
                 AppStateService.Instance.IsSessionActive = true;

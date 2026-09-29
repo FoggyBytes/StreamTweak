@@ -1,361 +1,360 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.IO;
-using Microsoft.UI.Xaml.Media.Imaging;
-using StreamTweak.Controls;
-using Windows.Storage;
-using Windows.UI;
+using Microsoft.UI.Xaml;
+using StreamTweak.Services;
 
 namespace StreamTweak.ViewModels
 {
     /// <summary>One metric row in the Compare view: the two sessions' values + a delta.</summary>
     public sealed class CompareMetric
     {
-        public string Label         { get; set; } = "";
-        public string ValueA        { get; set; } = "";
-        public string ValueB        { get; set; } = "";
-        public string Delta         { get; set; } = "";
-        public string DeltaColorHex { get; set; } = "#FF908C88";
+        public string Label      { get; set; } = "";
+        public string ValueA     { get; set; } = "";
+        public string ValueB     { get; set; } = "";
+        public string Delta      { get; set; } = "";
+        public string DeltaFgHex { get; set; } = "#C8CFCB";
+        public string DeltaBgHex { get; set; } = "#0FFFFFFF";
+    }
+
+    /// <summary>One of the four checks behind a session's grade, as the Verdict card lists them.</summary>
+    public sealed class CriterionRow
+    {
+        public string Name          { get; init; } = "";
+        public string ValueText     { get; init; } = "";
+        public string ThresholdText { get; init; } = "";
+        public string GradeLabel    { get; init; } = "";
+        public string GradeFgHex    { get; init; } = "";
+        public string GradeBgHex    { get; init; } = "";
+        public string GradeBorderHex { get; init; } = "";
+    }
+
+    /// <summary>
+    /// Column visibility shared by every session row. The rows are DataTemplate items, so they
+    /// cannot see the page; they bind to this one object instead, and the page flips it when
+    /// the list gets too narrow for the metric columns (master–detail on a 1080p handheld).
+    /// </summary>
+    public sealed class SessionRowLayout : ViewModelBase
+    {
+        private Visibility _metrics = Visibility.Visible;
+        public Visibility MetricsVisibility { get => _metrics; set => SetProperty(ref _metrics, value); }
+
+        private Visibility _games = Visibility.Visible;
+        public Visibility GamesVisibility { get => _games; set => SetProperty(ref _games, value); }
+    }
+
+    /// <summary>A row of the Sessions list; the first row of each day also carries the day header.</summary>
+    public sealed class SessionRow : ViewModelBase
+    {
+        public SessionEntry Entry { get; init; } = null!;
+        public string Id => Entry.Id;
+        public SessionRowLayout Layout { get; init; } = null!;
+
+        public bool ShowDay { get; init; }
+        public Visibility DayVisibility => ShowDay ? Visibility.Visible : Visibility.Collapsed;
+        public string DayText    { get; init; } = "";
+        public string DaySubText { get; init; } = "";
+
+        public string WhenText  { get; init; } = "";
+        public string SubText   { get; init; } = "";
+        public IReadOnlyList<GameCoverItem> Covers { get; init; } = Array.Empty<GameCoverItem>();
+        public string GamesText { get; init; } = "";
+        public string RttText   { get; init; } = "—";
+        public string HostLatText { get; init; } = "—";
+        public string DropsText { get; init; } = "—";
+
+        public string GradeLabel     { get; init; } = "";
+        public string GradeFgHex     { get; init; } = "";
+        public string GradeBgHex     { get; init; } = "";
+        public string GradeBorderHex { get; init; } = "";
+        public string StripeHex      { get; init; } = "";
+
+        public bool IsLive { get; init; }
+        public Visibility PickVisibility => Entry.QualityStats != null && !IsLive ? Visibility.Visible : Visibility.Collapsed;
+
+        internal Action<SessionRow>? CheckedChanged;
+        private bool _isChecked;
+        public bool IsChecked
+        {
+            get => _isChecked;
+            set { if (SetProperty(ref _isChecked, value)) CheckedChanged?.Invoke(this); }
+        }
+
+        private bool _isSelected;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set { if (SetProperty(ref _isSelected, value)) OnPropertyChanged(nameof(RowBackgroundHex)); }
+        }
+        public string RowBackgroundHex => IsSelected ? "#144ade80" : IsLive ? "#0C4ade80" : "#00FFFFFF";
     }
 
     public sealed class LogsViewModel : ViewModelBase
     {
-        // ── Session list ──────────────────────────────────────────────────────
+        private static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
-        public ObservableCollection<SessionEntry> Sessions { get; } = new();
+        // ═════════════════════════════ LIST ═════════════════════════════════
+
+        private readonly List<SessionEntry> _all = new();
+        public ObservableCollection<SessionRow> Rows { get; } = new();
+        public SessionRowLayout RowLayout { get; } = new();
 
         private bool _hasSessions;
-        public bool HasSessions
+        public bool HasSessions { get => _hasSessions; private set => SetProperty(ref _hasSessions, value); }
+
+        private bool _hasRows;
+        public bool HasRows { get => _hasRows; private set => SetProperty(ref _hasRows, value); }
+
+        private string _emptyText = "";
+        public string EmptyText { get => _emptyText; private set => SetProperty(ref _emptyText, value); }
+
+        public string[] PeriodOptions { get; } = { "Last 7 days", "Last 30 days", "Last 90 days", "All time" };
+
+        private int _periodIndex = 3;
+        public int PeriodIndex
         {
-            get => _hasSessions;
-            private set => SetProperty(ref _hasSessions, value);
+            get => _periodIndex;
+            set { if (SetProperty(ref _periodIndex, value)) Rebuild(); }
         }
 
-        // ── Detail: header subtitle ("09/04/2026 21:58  ·  1h52m26s") ─────────
-
-        private string _detailHeaderSubtitle = string.Empty;
-        public string DetailHeaderSubtitle
+        private string _searchText = "";
+        public string SearchText
         {
-            get => _detailHeaderSubtitle;
-            private set => SetProperty(ref _detailHeaderSubtitle, value);
+            get => _searchText;
+            set { if (SetProperty(ref _searchText, value ?? "")) RebuildRows(); }
         }
 
-        // ── Detail overlay ────────────────────────────────────────────────────
-
-        private bool _isDetailVisible;
-        public bool IsDetailVisible
+        /// <summary>-1 = all, otherwise the <see cref="QualityGrade"/> value to keep.</summary>
+        private int _gradeFilter = -1;
+        public int GradeFilter
         {
-            get => _isDetailVisible;
-            private set => SetProperty(ref _isDetailVisible, value);
+            get => _gradeFilter;
+            set { if (SetProperty(ref _gradeFilter, value)) RebuildRows(); }
         }
 
-        private SessionEntry? _selectedSession;
-        public SessionEntry? SelectedSession
-        {
-            get => _selectedSession;
-            private set
-            {
-                SetProperty(ref _selectedSession, value);
-                RefreshDetailProperties();
-            }
-        }
+        // ── Summary strip ─────────────────────────────────────────────────────
 
-        // ── Detail: grade ─────────────────────────────────────────────────────
+        private string _sumSessions = "0", _sumHours = "0", _sumRtt = "—", _sumHostLat = "—", _periodLabel = "";
+        public string SummarySessions { get => _sumSessions; private set => SetProperty(ref _sumSessions, value); }
+        public string SummaryHours    { get => _sumHours;    private set => SetProperty(ref _sumHours, value); }
+        public string SummaryRtt      { get => _sumRtt;      private set => SetProperty(ref _sumRtt, value); }
+        public string SummaryHostLat  { get => _sumHostLat;  private set => SetProperty(ref _sumHostLat, value); }
+        public string PeriodLabel     { get => _periodLabel; private set => SetProperty(ref _periodLabel, value); }
 
-        private string _gradeLabel = string.Empty;
-        public string GradeLabel
-        {
-            get => _gradeLabel;
-            private set => SetProperty(ref _gradeLabel, value);
-        }
+        private int _cntExcellent, _cntGood, _cntPoor;
+        public int CountExcellent { get => _cntExcellent; private set => SetProperty(ref _cntExcellent, value); }
+        public int CountGood      { get => _cntGood;      private set => SetProperty(ref _cntGood, value); }
+        public int CountPoor      { get => _cntPoor;      private set => SetProperty(ref _cntPoor, value); }
 
-        private string _gradeColorHex = "#FF808080";
-        public string GradeColorHex
-        {
-            get => _gradeColorHex;
-            private set => SetProperty(ref _gradeColorHex, value);
-        }
+        private string _chipAll = "All", _chipExcellent = "Excellent", _chipGood = "Good", _chipPoor = "Poor";
+        public string ChipAllText       { get => _chipAll;       private set => SetProperty(ref _chipAll, value); }
+        public string ChipExcellentText { get => _chipExcellent; private set => SetProperty(ref _chipExcellent, value); }
+        public string ChipGoodText      { get => _chipGood;      private set => SetProperty(ref _chipGood, value); }
+        public string ChipPoorText      { get => _chipPoor;      private set => SetProperty(ref _chipPoor, value); }
 
-        // ── Detail: header ────────────────────────────────────────────────────
+        // ── Compare picks (ticked rows) ───────────────────────────────────────
 
-        private string _detailTitle = string.Empty;
-        public string DetailTitle
-        {
-            get => _detailTitle;
-            private set => SetProperty(ref _detailTitle, value);
-        }
+        private readonly List<SessionEntry> _picked = new();
 
+        private bool _isCompareBarVisible;
+        public bool IsCompareBarVisible { get => _isCompareBarVisible; private set => SetProperty(ref _isCompareBarVisible, value); }
 
-        // One axis object for every chart in the detail view, built once here so the
-        // nine call sites cannot drift apart. Null until a session is selected.
-        private ChartTimeAxis? _detailTimeAxis;
-        public ChartTimeAxis? DetailTimeAxis
-        {
-            get => _detailTimeAxis;
-            private set => SetProperty(ref _detailTimeAxis, value);
-        }
-        private string _detailDuration = string.Empty;
-        public string DetailDuration
-        {
-            get => _detailDuration;
-            private set => SetProperty(ref _detailDuration, value);
-        }
+        private bool _canComparePicked;
+        public bool CanComparePicked { get => _canComparePicked; private set => SetProperty(ref _canComparePicked, value); }
 
-        // ── Detail: CLIENT stats ──────────────────────────────────────────────
+        private string _compareBarText = "";
+        public string CompareBarText { get => _compareBarText; private set => SetProperty(ref _compareBarText, value); }
 
-        private string _detailRttAvg = "N/A";
-        public string DetailRttAvg
-        {
-            get => _detailRttAvg;
-            private set => SetProperty(ref _detailRttAvg, value);
-        }
-
-        private string _detailRttMax = "N/A";
-        public string DetailRttMax
-        {
-            get => _detailRttMax;
-            private set => SetProperty(ref _detailRttMax, value);
-        }
-
-        private string _detailJitterAvg = "N/A";
-        public string DetailJitterAvg
-        {
-            get => _detailJitterAvg;
-            private set => SetProperty(ref _detailJitterAvg, value);
-        }
-
-        private string _detailJitterMax = "N/A";
-        public string DetailJitterMax
-        {
-            get => _detailJitterMax;
-            private set => SetProperty(ref _detailJitterMax, value);
-        }
-
-        private string _detailDrops = "N/A";
-        public string DetailDrops
-        {
-            get => _detailDrops;
-            private set => SetProperty(ref _detailDrops, value);
-        }
-
-        private string _detailDropRate = "N/A";
-        public string DetailDropRate
-        {
-            get => _detailDropRate;
-            private set => SetProperty(ref _detailDropRate, value);
-        }
-
-        private string _detailDecodeAvg = "N/A";
-        public string DetailDecodeAvg
-        {
-            get => _detailDecodeAvg;
-            private set => SetProperty(ref _detailDecodeAvg, value);
-        }
-
-        private string _detailBitrateAvg = "N/A";
-        public string DetailBitrateAvg
-        {
-            get => _detailBitrateAvg;
-            private set => SetProperty(ref _detailBitrateAvg, value);
-        }
-
-        // ── Detail: HOST stats ────────────────────────────────────────────────
-
-        private string _detailHostGpu = "N/A";
-        public string DetailHostGpu
-        {
-            get => _detailHostGpu;
-            private set => SetProperty(ref _detailHostGpu, value);
-        }
-
-        private string _detailHostEncoder = "N/A";
-        public string DetailHostEncoder
-        {
-            get => _detailHostEncoder;
-            private set => SetProperty(ref _detailHostEncoder, value);
-        }
-
-        private string _detailHostTemp = "N/A";
-        public string DetailHostTemp
-        {
-            get => _detailHostTemp;
-            private set => SetProperty(ref _detailHostTemp, value);
-        }
-
-        private string _detailHostCpu = "N/A";
-        public string DetailHostCpu
-        {
-            get => _detailHostCpu;
-            private set => SetProperty(ref _detailHostCpu, value);
-        }
-
-        private string _detailHostNetTx = "N/A";
-        public string DetailHostNetTx
-        {
-            get => _detailHostNetTx;
-            private set => SetProperty(ref _detailHostNetTx, value);
-        }
-
-        private string _detailHostLatency = "N/A";
-        public string DetailHostLatency
-        {
-            get => _detailHostLatency;
-            private set => SetProperty(ref _detailHostLatency, value);
-        }
-
-        // Secondary (peak / max) values for the HOST box — rendered dimmer next to the primary.
-        private string _detailHostGpuSec = "";
-        public string DetailHostGpuSec { get => _detailHostGpuSec; private set => SetProperty(ref _detailHostGpuSec, value); }
-        private string _detailHostEncoderSec = "";
-        public string DetailHostEncoderSec { get => _detailHostEncoderSec; private set => SetProperty(ref _detailHostEncoderSec, value); }
-        private string _detailHostTempSec = "";
-        public string DetailHostTempSec { get => _detailHostTempSec; private set => SetProperty(ref _detailHostTempSec, value); }
-        private string _detailHostCpuSec = "";
-        public string DetailHostCpuSec { get => _detailHostCpuSec; private set => SetProperty(ref _detailHostCpuSec, value); }
-        private string _detailHostLatencySec = "";
-        public string DetailHostLatencySec { get => _detailHostLatencySec; private set => SetProperty(ref _detailHostLatencySec, value); }
-
-        private bool _hasHostStats;
-        public bool HasHostStats
-        {
-            get => _hasHostStats;
-            private set => SetProperty(ref _hasHostStats, value);
-        }
-
-        // ── Detail: sparkline series ──────────────────────────────────────────
-
-        private bool _hasChartData;
-        public bool HasChartData
-        {
-            get => _hasChartData;
-            private set => SetProperty(ref _hasChartData, value);
-        }
-
-        private IReadOnlyList<float>? _rttSeries;
-        public IReadOnlyList<float>? RttSeries
-        {
-            get => _rttSeries;
-            private set => SetProperty(ref _rttSeries, value);
-        }
-
-        private IReadOnlyList<float>? _dropsSeries;
-        public IReadOnlyList<float>? DropsSeries
-        {
-            get => _dropsSeries;
-            private set => SetProperty(ref _dropsSeries, value);
-        }
-
-        private IReadOnlyList<float>? _bitrateSeries;
-        public IReadOnlyList<float>? BitrateSeries
-        {
-            get => _bitrateSeries;
-            private set => SetProperty(ref _bitrateSeries, value);
-        }
-
-        private IReadOnlyList<float>? _decodeSeries;
-        public IReadOnlyList<float>? DecodeSeries
-        {
-            get => _decodeSeries;
-            private set => SetProperty(ref _decodeSeries, value);
-        }
-
-        private IReadOnlyList<float>? _hostLatencySeries;
-        public IReadOnlyList<float>? HostLatencySeries
-        {
-            get => _hostLatencySeries;
-            private set => SetProperty(ref _hostLatencySeries, value);
-        }
-
-        // Host compute, overlaid as one multi-line chart (GPU / Encoder / CPU).
-        private IReadOnlyList<SparklineSeries>? _hostComputeLines;
-        public IReadOnlyList<SparklineSeries>? HostComputeLines
-        {
-            get => _hostComputeLines;
-            private set => SetProperty(ref _hostComputeLines, value);
-        }
-
-        private bool _hasHostComputeChart;
-        public bool HasHostComputeChart
-        {
-            get => _hasHostComputeChart;
-            private set => SetProperty(ref _hasHostComputeChart, value);
-        }
-
-        // Per-chart height in the detail overlay. The charts are stacked in a single
-        // scrollable column; this grows with the window height (set from the view's
-        // SizeChanged) so charts stay readable from the minimum window up to 4K.
-        private double _detailChartHeight = 185;
-        public double DetailChartHeight
-        {
-            get => _detailChartHeight;
-            set => SetProperty(ref _detailChartHeight, value);
-        }
-
-        // ── Fullscreen chart ──────────────────────────────────────────────────
-
-        private bool _isChartFullscreen;
-        public bool IsChartFullscreen
-        {
-            get => _isChartFullscreen;
-            private set => SetProperty(ref _isChartFullscreen, value);
-        }
-
-        private string _fullscreenChartTitle = string.Empty;
-        public string FullscreenChartTitle
-        {
-            get => _fullscreenChartTitle;
-            private set => SetProperty(ref _fullscreenChartTitle, value);
-        }
-
-        private IReadOnlyList<float>? _fullscreenChartData;
-        public IReadOnlyList<float>? FullscreenChartData
-        {
-            get => _fullscreenChartData;
-            private set => SetProperty(ref _fullscreenChartData, value);
-        }
-
-        private Color _fullscreenLineColor = Color.FromArgb(0xFF, 0x00, 0xB4, 0xD8);
-        public Color FullscreenLineColor
-        {
-            get => _fullscreenLineColor;
-            private set => SetProperty(ref _fullscreenLineColor, value);
-        }
-
-        // Multi-line variant (e.g. "Host compute %"): when set, SparklineControl.LinesData
-        // takes precedence over the single FullscreenChartData line. Cleared on a single-line
-        // open so a prior multi-line chart never leaks into the next fullscreen.
-        private IReadOnlyList<SparklineSeries>? _fullscreenChartLines;
-        public IReadOnlyList<SparklineSeries>? FullscreenChartLines
-        {
-            get => _fullscreenChartLines;
-            private set => SetProperty(ref _fullscreenChartLines, value);
-        }
-
-        // ── Detail: game covers ───────────────────────────────────────────────
-
-        public ObservableCollection<SessionGameCover> DetailGameCovers { get; } = new();
-
-        private bool _hasDetailGameCovers;
-        public bool HasDetailGameCovers
-        {
-            get => _hasDetailGameCovers;
-            private set => SetProperty(ref _hasDetailGameCovers, value);
-        }
-
-        // (HasNoDetailGames / HasDetailGamesSection lived here to drive the detail overlay's
-        //  GAMES box. That box went away in 7.4.0 when the covers moved into the header, and
-        //  the two properties have been written but never read since.)
-
-        // ── Public API ────────────────────────────────────────────────────────
+        // ── Load / filter ─────────────────────────────────────────────────────
 
         public void Load()
         {
-            var list = SessionLogger.Load();
-            Sessions.Clear();
-            foreach (var s in list)
-                Sessions.Add(s);
-            HasSessions = Sessions.Count > 0;
+            _all.Clear();
+            _all.AddRange(SessionLogger.Load().OrderByDescending(s => s.StartTime));
+            HasSessions = _all.Count > 0;
+            // Picks that no longer exist (deleted, cleared) fall away.
+            _picked.RemoveAll(p => _all.All(s => s.Id != p.Id));
+            Rebuild();
+
+            if (_selectedSession != null)
+                SelectedSession = _all.FirstOrDefault(s => s.Id == _selectedSession.Id);
         }
+
+        private IEnumerable<SessionEntry> InPeriod()
+        {
+            TimeSpan? window = _periodIndex switch
+            {
+                0 => TimeSpan.FromDays(7),
+                1 => TimeSpan.FromDays(30),
+                2 => TimeSpan.FromDays(90),
+                _ => null,
+            };
+            if (window == null) return _all;
+            var cutoff = DateTime.Now - window.Value;
+            return _all.Where(s => s.StartTime >= cutoff);
+        }
+
+        private void Rebuild()
+        {
+            RebuildSummary();
+            RebuildRows();
+        }
+
+        private void RebuildSummary()
+        {
+            var list = InPeriod().Where(s => s.EndTime != null).ToList();
+            PeriodLabel = PeriodOptions[Math.Clamp(_periodIndex, 0, PeriodOptions.Length - 1)];
+            SummarySessions = list.Count.ToString(Inv);
+            double hours = list.Sum(s => (s.EndTime!.Value - s.StartTime).TotalHours);
+            SummaryHours = hours >= 10 ? hours.ToString("0", Inv) : hours.ToString("0.#", Inv);
+
+            var rtt = list.Where(s => s.QualityStats is { RttAvgMs: > 0 }).Select(s => s.QualityStats!.RttAvgMs).ToList();
+            var hl  = list.Where(s => s.QualityStats is { HostLatencyAvgMs: >= 0 }).Select(s => s.QualityStats!.HostLatencyAvgMs).ToList();
+            SummaryRtt     = rtt.Count > 0 ? rtt.Average().ToString("0.0", Inv) : "—";
+            SummaryHostLat = hl.Count  > 0 ? hl.Average().ToString("0.0", Inv)  : "—";
+
+            var graded = list.Where(s => !s.IsDebugSession).ToList();
+            CountExcellent = graded.Count(s => s.Grade == QualityGrade.High);
+            CountGood      = graded.Count(s => s.Grade == QualityGrade.Medium);
+            CountPoor      = graded.Count(s => s.Grade == QualityGrade.Low);
+            ChipAllText       = $"All  {list.Count}";
+            ChipExcellentText = $"Excellent  {CountExcellent}";
+            ChipGoodText      = $"Good  {CountGood}";
+            ChipPoorText      = $"Poor  {CountPoor}";
+        }
+
+        private void RebuildRows()
+        {
+            string q = _searchText.Trim();
+            var list = InPeriod().Where(s =>
+                (_gradeFilter < 0 || (int?)s.Grade == _gradeFilter) &&
+                (q.Length == 0 || (s.GamesDetected?.Any(g => g.Contains(q, StringComparison.OrdinalIgnoreCase)) ?? false)))
+                .ToList();
+
+            foreach (var r in Rows) r.CheckedChanged = null;
+            Rows.Clear();
+
+            var byDay = list.GroupBy(s => s.StartTime.Date).ToDictionary(g => g.Key, g => g.ToList());
+            DateTime? lastDay = null;
+            foreach (var s in list)
+            {
+                bool first = lastDay != s.StartTime.Date;
+                lastDay = s.StartTime.Date;
+                var day = byDay[s.StartTime.Date];
+                var row = MakeRow(s, first, first ? DayTitle(s.StartTime) : "", first ? DaySub(day) : "");
+                row.IsChecked = _picked.Any(p => p.Id == s.Id);
+                row.IsSelected = _selectedSession?.Id == s.Id;
+                row.CheckedChanged = OnRowChecked;
+                Rows.Add(row);
+            }
+
+            HasRows = Rows.Count > 0;
+            EmptyText = !HasSessions
+                ? "No sessions yet. They appear here as soon as a client streams from this PC."
+                : q.Length > 0 || _gradeFilter >= 0
+                    ? "No sessions match this filter."
+                    : $"No sessions in the period chosen ({PeriodLabel.ToLowerInvariant()}).";
+            RefreshCompareBar();
+        }
+
+        private SessionRow MakeRow(SessionEntry s, bool showDay, string dayText, string daySub)
+        {
+            bool live = s.EndTime == null && s.Id == SessionLogger.ActiveSessionId;
+            var q = s.QualityStats;
+
+            (string label, string fg, string bg, string border) = s.IsDebugSession
+                ? ("Debug", "#C8CFCB", "#0FFFFFFF", "#24FFFFFF")
+                : live ? ("Live", "#86efac", "#214ade80", "#594ade80")
+                : GameStatsService.GradeColors(s.Grade);
+            if (!live && !s.IsDebugSession && s.Grade is null or QualityGrade.NoData)
+                label = q == null ? "No data" : "—";
+
+            string end = live ? "now" : s.EndTime is { } e ? e.ToString("HH:mm", Inv) : "?";
+            var parts = new List<string>();
+            if (live) parts.Add("Live");
+            else if (s.EndTime != null) parts.Add(FormatDuration(s.EndTime.Value - s.StartTime));
+            int streams = s.StreamSpans?.Count ?? 0;
+            if (streams > 1) parts.Add($"{streams} streams");
+            if (s.EndReason == "Interrupted") parts.Add("interrupted");
+
+            string games = s.GamesDetected is { Count: > 0 } g ? string.Join(", ", g)
+                         : s.GamesDetected != null ? "Desktop" : "—";
+
+            return new SessionRow
+            {
+                Entry = s,
+                Layout = RowLayout,
+                ShowDay = showDay, DayText = dayText, DaySubText = daySub,
+                WhenText = $"{s.StartTime.ToString("HH:mm", Inv)} – {end}",
+                SubText = string.Join(" · ", parts),
+                Covers = s.GameCoversForDisplay,
+                GamesText = games,
+                RttText = q is { RttAvgMs: > 0 } ? q.RttAvgMs.ToString("0.0", Inv) : "—",
+                HostLatText = q is { HostLatencyAvgMs: >= 0 } ? q.HostLatencyAvgMs.ToString("0.0", Inv) : "—",
+                DropsText = q != null ? q.DropRatePct.ToString("0.00", Inv) : "—",
+                GradeLabel = label, GradeFgHex = fg, GradeBgHex = bg, GradeBorderHex = border,
+                StripeHex = live ? "#4ade80" : s.IsDebugSession ? "#646B67" : GameStatsService.GradeStripe(s.Grade),
+                IsLive = live,
+            };
+        }
+
+        private static string DayTitle(DateTime d)
+        {
+            string date = d.ToString(d.Year == DateTime.Today.Year ? "d MMMM" : "d MMMM yyyy", Inv);
+            int days = (DateTime.Today - d.Date).Days;
+            return days switch
+            {
+                0 => $"Today · {date}",
+                1 => $"Yesterday · {date}",
+                _ => $"{d.ToString("dddd", Inv)} {date}",
+            };
+        }
+
+        private static string DaySub(List<SessionEntry> day)
+        {
+            double min = day.Where(s => s.EndTime != null).Sum(s => (s.EndTime!.Value - s.StartTime).TotalMinutes);
+            string n = day.Count == 1 ? "1 session" : $"{day.Count} sessions";
+            return min > 0 ? $"{n} · {GameStatsService.FormatMinutes(min)}" : n;
+        }
+
+        /// <summary>"2 h 05" / "45 min" / "50 s".</summary>
+        public static string FormatDuration(TimeSpan d)
+            => d.TotalMinutes >= 1 ? GameStatsService.FormatMinutes(d.TotalMinutes) : $"{Math.Max(0, (int)d.TotalSeconds)} s";
+
+        // ── Compare picks ─────────────────────────────────────────────────────
+
+        private void OnRowChecked(SessionRow row)
+        {
+            if (row.IsChecked)
+            {
+                if (_picked.All(p => p.Id != row.Id)) _picked.Add(row.Entry);
+                // Two at most: ticking a third replaces the oldest pick.
+                while (_picked.Count > 2)
+                {
+                    var drop = _picked[0];
+                    _picked.RemoveAt(0);
+                    var other = Rows.FirstOrDefault(r => r.Id == drop.Id);
+                    if (other != null) { other.CheckedChanged = null; other.IsChecked = false; other.CheckedChanged = OnRowChecked; }
+                }
+            }
+            else _picked.RemoveAll(p => p.Id == row.Id);
+            RefreshCompareBar();
+        }
+
+        public void ClearPicks()
+        {
+            _picked.Clear();
+            foreach (var r in Rows) { r.CheckedChanged = null; r.IsChecked = false; r.CheckedChanged = OnRowChecked; }
+            RefreshCompareBar();
+        }
+
+        private void RefreshCompareBar()
+        {
+            IsCompareBarVisible = _picked.Count > 0;
+            CanComparePicked = _picked.Count == 2;
+            CompareBarText = _picked.Count == 1 ? "1 session selected · tick one more" : $"{_picked.Count} sessions selected";
+        }
+
+        // ── Maintenance ───────────────────────────────────────────────────────
 
         /// <summary>
         /// Clears session history within a time window (browser-style). A null window
@@ -373,120 +372,284 @@ namespace StreamTweak.ViewModels
             try
             {
                 var sessions = SessionLogger.Load();
-                int removed = sessions.RemoveAll(s => s.Id == entry.Id);
-                if (removed > 0)
-                {
+                if (sessions.RemoveAll(s => s.Id == entry.Id) > 0)
                     SessionLogger.SavePublic(sessions);
-                    Sessions.Remove(entry);
-                    HasSessions = Sessions.Count > 0;
-                }
             }
             catch { }
+            if (_selectedSession?.Id == entry.Id) SelectedSession = null;
+            _picked.RemoveAll(p => p.Id == entry.Id);
+            Load();
         }
+
+        // ═════════════════════════════ DETAIL ═══════════════════════════════
+
+        private bool _isDetailVisible;
+        /// <summary>Narrow windows: the detail covers the list. Wide windows show both.</summary>
+        public bool IsDetailVisible { get => _isDetailVisible; private set => SetProperty(ref _isDetailVisible, value); }
+
+        private SessionEntry? _selectedSession;
+        public SessionEntry? SelectedSession
+        {
+            get => _selectedSession;
+            private set
+            {
+                _selectedSession = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(HasSelection));
+                RefreshDetail();
+                foreach (var r in Rows) r.IsSelected = value != null && r.Id == value.Id;
+            }
+        }
+        public bool HasSelection => _selectedSession != null;
 
         public void OpenDetail(SessionEntry entry)
         {
-            if (entry.Grade == null) return;
             SelectedSession = entry;
             IsDetailVisible = true;
         }
 
-        public void CloseDetail()
+        public bool OpenDetailById(string id)
         {
-            IsDetailVisible = false;
-            SelectedSession = null;
-            DetailGameCovers.Clear();
-            HasDetailGameCovers  = false;
-        }
-
-        public async Task LoadDetailCoversAsync()
-        {
-            DetailGameCovers.Clear();
-            HasDetailGameCovers   = false;
-
-            var s = _selectedSession;
-            if (s?.GamesDetected == null) return; // pre-feature session — nothing to show
-
-            if (s.GamesDetected.Count == 0)
-                return;
-
-            HasDetailGameCovers = true;
-            await LoadCoversForAsync(s, DetailGameCovers);
-        }
-
-        /// <summary>
-        /// Populates <paramref name="target"/> with the detected-game covers of a session.
-        /// Name-only entries appear immediately; images load asynchronously, snapshot-first
-        /// then live GameLibraryState fallback. Shared by Session Detail and Compare.
-        /// </summary>
-        private static async Task LoadCoversForAsync(SessionEntry s, ObservableCollection<SessionGameCover> target)
-        {
-            target.Clear();
-            if (s.GamesDetected == null || s.GamesDetected.Count == 0) return;
-
-            foreach (var name in s.GamesDetected)
-                target.Add(new SessionGameCover(name));
-
-            var gameMap = GameLibraryState.Current.Games
-                .ToDictionary(g => g.Name, g => g, StringComparer.OrdinalIgnoreCase);
-
-            for (int i = 0; i < s.GamesDetected.Count; i++)
+            var s = _all.FirstOrDefault(x => x.Id == id);
+            if (s == null) return false;
+            // The filters could hide it: clear them so the list shows what the detail shows.
+            if (!Rows.Any(r => r.Id == id))
             {
-                string? path = null;
-                if (s.GamesDetectedCoverPaths?.TryGetValue(s.GamesDetected[i], out var snap) == true
-                    && File.Exists(snap))
-                {
-                    path = snap;
-                }
-                else if (gameMap.TryGetValue(s.GamesDetected[i], out var entry))
-                {
-                    path = entry.CoverImagePath;
-                }
-                if (path == null) continue;
-                try
-                {
-                    var file = await StorageFile.GetFileFromPathAsync(path);
-                    var bmp  = new BitmapImage { DecodePixelWidth = 134 };
-                    using var stream = await file.OpenReadAsync();
-                    await bmp.SetSourceAsync(stream);
-                    target[i].CoverImage = bmp;
-                }
-                catch { /* non-fatal */ }
+                _periodIndex = 3; OnPropertyChanged(nameof(PeriodIndex));
+                _gradeFilter = -1; OnPropertyChanged(nameof(GradeFilter));
+                _searchText = ""; OnPropertyChanged(nameof(SearchText));
+                Rebuild();
             }
+            OpenDetail(s);
+            return true;
         }
 
-        public void OpenFullscreenChart(string title, IReadOnlyList<float>? data, Color lineColor)
+        public void CloseDetail() => IsDetailVisible = false;
+
+        /// <summary>Wide windows always show a session: the newest ended one when none is chosen.</summary>
+        public void EnsureSelection()
         {
-            if (data == null || data.Count < 2) return;
-            FullscreenChartLines = null;          // single-line: drop any prior multi-line set
-            FullscreenChartTitle = title;
-            FullscreenChartData  = data;
-            FullscreenLineColor  = lineColor;
-            IsChartFullscreen    = true;
+            if (_selectedSession != null && _all.Any(s => s.Id == _selectedSession.Id)) return;
+            var first = Rows.Select(r => r.Entry).FirstOrDefault(s => s.EndTime != null)
+                     ?? _all.FirstOrDefault(s => s.EndTime != null);
+            if (first != null) SelectedSession = first;
         }
 
-        public void OpenFullscreenChart(string title, IReadOnlyList<SparklineSeries>? lines)
+        // ── Detail: header ────────────────────────────────────────────────────
+
+        private string _detailTitle = "", _detailSubtitle = "";
+        public string DetailTitle    { get => _detailTitle;    private set => SetProperty(ref _detailTitle, value); }
+        public string DetailSubtitle { get => _detailSubtitle; private set => SetProperty(ref _detailSubtitle, value); }
+
+        private IReadOnlyList<GameCoverItem> _detailCovers = Array.Empty<GameCoverItem>();
+        public IReadOnlyList<GameCoverItem> DetailCovers { get => _detailCovers; private set => SetProperty(ref _detailCovers, value); }
+
+        private bool _hasDetailCovers;
+        public bool HasDetailCovers { get => _hasDetailCovers; private set => SetProperty(ref _hasDetailCovers, value); }
+
+        // ── Detail: verdict ───────────────────────────────────────────────────
+
+        private string _verdictLabel = "", _verdictFg = "#C8CFCB", _verdictReason = "", _verdictNote = "";
+        public string VerdictLabel  { get => _verdictLabel;  private set => SetProperty(ref _verdictLabel, value); }
+        public string VerdictFgHex  { get => _verdictFg;     private set => SetProperty(ref _verdictFg, value); }
+        public string VerdictReason { get => _verdictReason; private set => SetProperty(ref _verdictReason, value); }
+        public string VerdictNote   { get => _verdictNote;   private set { SetProperty(ref _verdictNote, value); OnPropertyChanged(nameof(HasVerdictNote)); } }
+        public bool HasVerdictNote => !string.IsNullOrEmpty(_verdictNote);
+
+        public ObservableCollection<CriterionRow> Criteria { get; } = new();
+
+        private bool _hasStats;
+        public bool HasStats { get => _hasStats; private set => SetProperty(ref _hasStats, value); }
+
+        // ── Detail: client ────────────────────────────────────────────────────
+
+        private string _rtt = "—", _rttSub = "", _jit = "—", _jitSub = "", _drop = "—", _dropSub = "",
+                       _br = "—", _brSub = "", _dec = "—", _decSub = "";
+        public string DetailRtt       { get => _rtt;    private set => SetProperty(ref _rtt, value); }
+        public string DetailRttSub    { get => _rttSub; private set => SetProperty(ref _rttSub, value); }
+        public string DetailJitter    { get => _jit;    private set => SetProperty(ref _jit, value); }
+        public string DetailJitterSub { get => _jitSub; private set => SetProperty(ref _jitSub, value); }
+        public string DetailDrops     { get => _drop;   private set => SetProperty(ref _drop, value); }
+        public string DetailDropsSub  { get => _dropSub; private set => SetProperty(ref _dropSub, value); }
+        public string DetailBitrate   { get => _br;     private set => SetProperty(ref _br, value); }
+        public string DetailBitrateSub { get => _brSub; private set => SetProperty(ref _brSub, value); }
+        public string DetailDecode    { get => _dec;    private set => SetProperty(ref _dec, value); }
+        public string DetailDecodeSub { get => _decSub; private set => SetProperty(ref _decSub, value); }
+
+        // ── Detail: host ──────────────────────────────────────────────────────
+
+        private string _hl = "—", _hlSub = "", _late = "—", _lateSub = "", _gpu = "—", _gpuSub = "",
+                       _enc = "—", _encSub = "", _temp = "—", _tempSub = "", _cpu = "—", _cpuSub = "", _net = "—";
+        public string DetailHostLat     { get => _hl;      private set => SetProperty(ref _hl, value); }
+        public string DetailHostLatSub  { get => _hlSub;   private set => SetProperty(ref _hlSub, value); }
+        public string DetailLate        { get => _late;    private set => SetProperty(ref _late, value); }
+        public string DetailLateSub     { get => _lateSub; private set => SetProperty(ref _lateSub, value); }
+        public string DetailGpu         { get => _gpu;     private set => SetProperty(ref _gpu, value); }
+        public string DetailGpuSub      { get => _gpuSub;  private set => SetProperty(ref _gpuSub, value); }
+        public string DetailEncoder     { get => _enc;     private set => SetProperty(ref _enc, value); }
+        public string DetailEncoderSub  { get => _encSub;  private set => SetProperty(ref _encSub, value); }
+        public string DetailTemp        { get => _temp;    private set => SetProperty(ref _temp, value); }
+        public string DetailTempSub     { get => _tempSub; private set => SetProperty(ref _tempSub, value); }
+        public string DetailCpu         { get => _cpu;     private set => SetProperty(ref _cpu, value); }
+        public string DetailCpuSub      { get => _cpuSub;  private set => SetProperty(ref _cpuSub, value); }
+        public string DetailNetTx       { get => _net;     private set => SetProperty(ref _net, value); }
+
+        private bool _hasHostStats;
+        public bool HasHostStats { get => _hasHostStats; private set => SetProperty(ref _hasHostStats, value); }
+
+        private void RefreshDetail()
         {
-            if (lines == null || lines.Count == 0) return;
-            FullscreenChartData  = null;          // multi-line: LinesData takes precedence
-            FullscreenChartTitle = title;
-            FullscreenChartLines = lines;
-            IsChartFullscreen    = true;
+            var s = _selectedSession;
+            Criteria.Clear();
+            if (s == null)
+            {
+                DetailTitle = DetailSubtitle = VerdictLabel = VerdictReason = "";
+                VerdictNote = "";
+                DetailCovers = Array.Empty<GameCoverItem>();
+                HasDetailCovers = false;
+                HasStats = HasHostStats = false;
+                return;
+            }
+
+            var q = s.QualityStats;
+            int fps = q?.TargetFps ?? 0;
+
+            // ── Header
+            DetailTitle = s.StartTime.ToString(s.StartTime.Year == DateTime.Today.Year ? "dddd d MMMM" : "dddd d MMMM yyyy", Inv);
+            var sub = new List<string>();
+            string end = s.EndTime is { } e ? e.ToString("HH:mm", Inv) : (s.Id == SessionLogger.ActiveSessionId ? "now" : "?");
+            sub.Add($"{s.StartTime.ToString("HH:mm", Inv)} → {end}");
+            if (s.EndTime != null) sub.Add(FormatDuration(s.EndTime.Value - s.StartTime));
+            int streams = s.StreamSpans?.Count ?? 0;
+            if (streams > 1) sub.Add($"{streams} streams, the client reconnected {(streams == 2 ? "once" : $"{streams - 1} times")}");
+            else if (streams == 1) sub.Add("one stream");
+            if (fps > 0) sub.Add($"{fps} fps");
+            if (q is { TargetBitrateMbps: > 0 }) sub.Add($"{q.TargetBitrateMbps.ToString("0", Inv)} Mbps target");
+            if (s.EndReason == "Interrupted") sub.Add("interrupted");
+            if (s.IsDebugSession) sub.Add("debug session, synthetic data");
+            DetailSubtitle = string.Join(" · ", sub);
+
+            DetailCovers = s.GameCoversForDisplay;
+            HasDetailCovers = DetailCovers.Count > 0;
+
+            // ── Verdict
+            HasStats = q != null;
+            if (q == null)
+            {
+                VerdictLabel = "No data";
+                VerdictFgHex = "#C8CFCB";
+                VerdictReason = "The client sent no telemetry for this session";
+                VerdictNote = "StreamLight reports quality while it streams. Sessions from other clients, or ones that ended before the first report, have nothing to grade.";
+                ClearMetrics();
+                return;
+            }
+
+            var parts = QualityGradeCalculator.EvaluateParts(q, fps);
+            var recorded = s.Grade is QualityGrade.High or QualityGrade.Medium or QualityGrade.Low ? s.Grade : null;
+            var shown = recorded ?? (q.SampleCount >= 2 ? parts.Overall : (QualityGrade?)null);
+            var gc = GameStatsService.GradeColors(shown);
+            VerdictLabel = shown == null ? "No data" : gc.Label;
+            VerdictFgHex = shown == null ? "#C8CFCB" : gc.Fg;
+
+            float frame = QualityGradeCalculator.FramePeriodMs(fps);
+            bool hlReported = q.HostLatencyAvgMs >= 0, lateReported = q.HostLatencyOverBudgetPct >= 0;
+            var checks = new List<(string Name, QualityGrade G, bool Rated)>
+            {
+                ("drops", parts.Drops, true),
+                ("RTT", parts.Rtt, q.RttAvgMs > 0),
+                ("host frame latency", parts.HostLatency, hlReported),
+                ("late frames", parts.LateFrames, lateReported),
+            };
+            var worst = checks.Where(c => c.Rated && c.G == parts.Overall && c.G != QualityGrade.High).Select(c => c.Name).ToList();
+            VerdictReason = shown == null ? "Too few samples to grade"
+                          : worst.Count == 0 ? "Every check passed"
+                          : $"Held back by {string.Join(" and ", worst)}";
+
+            var notes = new List<string>();
+            if (recorded != null && q.SampleCount >= 2 && parts.Overall != recorded)
+                notes.Add($"Graded {GameStatsService.GradeColors(recorded).Label} when it ended; with the current limits it would read {GameStatsService.GradeColors(parts.Overall).Label}.");
+            if (fps <= 0)
+                notes.Add("The frame rate was not recorded for this session: the frame-latency limits assume 60 fps.");
+            VerdictNote = string.Join(" ", notes);
+
+            string fpsAt = $" at {(fps > 0 ? fps : 60)} fps";
+            Criteria.Add(Criterion("Drops", $"{Fmt(q.DropRatePct, 2)} %", parts.Drops, true,
+                Limits(parts.Drops, "1 %", "2 %")));
+            string rttLimits = Limits(parts.Rtt, "25 ms", "60 ms");
+            if (q.RttMaxMs > 200) rttLimits += $" · a {Fmt(q.RttMaxMs, 0)} ms spike costs a level";
+            Criteria.Add(Criterion("RTT", q.RttAvgMs > 0 ? $"{Fmt(q.RttAvgMs, 1)} ms avg" : "not reported", parts.Rtt, q.RttAvgMs > 0, rttLimits));
+            string hlLimits = hlReported ? Limits(parts.HostLatency, $"{Fmt(frame * 0.6f, 1)} ms", $"{Fmt(frame, 1)} ms") + fpsAt : "not graded";
+            if (hlReported && q.HostLatencyMaxMs > frame * 2.5f && q.HostLatencyOverBudgetPct >= 1f)
+                hlLimits += $" · {Fmt(q.HostLatencyMaxMs, 1)} ms spikes cost a level";
+            Criteria.Add(Criterion("Host frame latency", hlReported ? $"{Fmt(q.HostLatencyAvgMs, 1)} ms avg" : "not reported",
+                parts.HostLatency, hlReported, hlLimits));
+            Criteria.Add(Criterion("Late frames", lateReported ? $"{Fmt(q.HostLatencyOverBudgetPct, 2)} %" : "not reported",
+                parts.LateFrames, lateReported, lateReported ? Limits(parts.LateFrames, "1 %", "5 %") : "not graded"));
+
+            // ── Client
+            DetailRtt = q.RttAvgMs > 0 ? Fmt(q.RttAvgMs, 1) : "—";
+            DetailRttSub = q.RttAvgMs > 0 ? $"max {Fmt(q.RttMaxMs, 1)} ms" : "not reported";
+            DetailJitter = q.JitterAvgMs > 0 ? Fmt(q.JitterAvgMs, 1) : "—";
+            DetailJitterSub = q.JitterMaxMs > 0 ? $"max {Fmt(q.JitterMaxMs, 1)} ms" : "not reported";
+            DetailDrops = Fmt(q.DropRatePct, 2);
+            DetailDropsSub = q.TotalDrops == 1 ? "1 frame" : $"{q.TotalDrops.ToString("N0", Inv)} frames";
+            DetailBitrate = Fmt(q.BitrateAvgMbps, 0);
+            DetailBitrateSub = q.TargetBitrateMbps > 0
+                ? $"of {Fmt(q.TargetBitrateMbps, 0)} target · {Fmt(q.BitrateAvgMbps / q.TargetBitrateMbps * 100, 0)} %"
+                : "delivered, average";
+            DetailDecode = Fmt(q.DecodeAvgMs, 1);
+            DetailDecodeSub = "average";
+
+            // ── Host
+            HasHostStats = q.HostGpuAvg >= 0 || q.HostCpuAvg >= 0 || hlReported;
+            DetailHostLat    = hlReported ? Fmt(q.HostLatencyAvgMs, 1) : "—";
+            DetailHostLatSub = hlReported ? $"max {Fmt(q.HostLatencyMaxMs, 1)} ms" : "not reported";
+            DetailLate       = lateReported ? Fmt(q.HostLatencyOverBudgetPct, 2) : "—";
+            DetailLateSub    = lateReported ? $"over {Fmt(frame * QualityGradeCalculator.LateFrameMultiplier, 1)} ms (2 frames)" : "not reported";
+            DetailGpu        = q.HostGpuAvg >= 0 ? q.HostGpuAvg.ToString(Inv) : "—";
+            DetailGpuSub     = q.HostGpuAvg >= 0 ? $"peak {q.HostGpuPeak} %" : "not recorded";
+            DetailEncoder    = q.HostGpuEncAvg >= 0 ? q.HostGpuEncAvg.ToString(Inv) : "—";
+            DetailEncoderSub = q.HostGpuEncAvg >= 0 ? $"peak {q.HostGpuEncPeak} %" : "not recorded";
+            DetailTemp       = q.HostGpuTempAvg >= 0 ? q.HostGpuTempAvg.ToString(Inv) : "—";
+            DetailTempSub    = q.HostGpuTempAvg >= 0 ? $"max {q.HostGpuTempMax} °C" : "not recorded";
+            DetailCpu        = q.HostCpuAvg >= 0 ? q.HostCpuAvg.ToString(Inv) : "—";
+            DetailCpuSub     = q.HostCpuAvg >= 0 ? $"peak {q.HostCpuPeak} %" : "not recorded";
+            DetailNetTx      = q.HostNetTxAvg >= 0 ? q.HostNetTxAvg.ToString(Inv) : "—";
         }
 
-        public void CloseFullscreenChart()
+        private static string Limits(QualityGrade g, string excellent, string good) => g switch
         {
-            IsChartFullscreen = false;
+            QualityGrade.High   => $"Excellent below {excellent}",
+            QualityGrade.Medium => $"Good up to {good}",
+            _                   => $"Poor above {good}",
+        };
+
+        private static CriterionRow Criterion(string name, string value, QualityGrade g, bool rated, string limits)
+        {
+            var c = rated ? GameStatsService.GradeColors(g) : ("n/a", "#929A96", "#0AFFFFFF", "#1AFFFFFF");
+            return new CriterionRow
+            {
+                Name = name, ValueText = value, ThresholdText = limits,
+                GradeLabel = c.Item1, GradeFgHex = c.Item2, GradeBgHex = c.Item3, GradeBorderHex = c.Item4,
+            };
         }
 
-        // ── Compare ───────────────────────────────────────────────────────────
+        private void ClearMetrics()
+        {
+            DetailRtt = DetailJitter = DetailDrops = DetailBitrate = DetailDecode = "—";
+            DetailRttSub = DetailJitterSub = DetailDropsSub = DetailBitrateSub = DetailDecodeSub = "";
+            DetailHostLat = DetailLate = DetailGpu = DetailEncoder = DetailTemp = DetailCpu = DetailNetTx = "—";
+            DetailHostLatSub = DetailLateSub = DetailGpuSub = DetailEncoderSub = DetailTempSub = DetailCpuSub = "";
+            HasHostStats = false;
+        }
 
-        // Reference colours: Session 1 = cyan, Session 2 = amber (equal-weight, neutral).
-        public string CompareColorAHex => "#FF26C6DA";
-        public string CompareColorBHex => "#FFFFA726";
-        private const string GreenHex   = "#FF4ade80";
-        private const string RedHex     = "#FFEF4444";
-        private const string NeutralHex = "#FF908C88";
+        private static string Fmt(float v, int dec) => v.ToString("F" + dec, Inv);
+
+        // ═════════════════════════════ COMPARE ══════════════════════════════
+
+        private const string GoodFg = "#86efac", GoodBg = "#214ade80";
+        private const string BadFg  = "#fca5a5", BadBg  = "#21f87171";
+        private const string NeuFg  = "#C8CFCB", NeuBg  = "#0FFFFFFF";
 
         private enum Dir { LowerBetter, HigherBetter, Neutral }
 
@@ -497,70 +660,53 @@ namespace StreamTweak.ViewModels
         public ObservableCollection<SessionEntry> CompareCandidatesB { get; } = new();
         public ObservableCollection<CompareMetric> CompareClientMetrics { get; } = new();
         public ObservableCollection<CompareMetric> CompareHostMetrics { get; } = new();
-        public ObservableCollection<SessionGameCover> CompareCoversA { get; } = new();
-        public ObservableCollection<SessionGameCover> CompareCoversB { get; } = new();
 
         private bool _isCompareVisible;
-        public bool IsCompareVisible
-        {
-            get => _isCompareVisible;
-            private set => SetProperty(ref _isCompareVisible, value);
-        }
+        public bool IsCompareVisible { get => _isCompareVisible; private set => SetProperty(ref _isCompareVisible, value); }
 
-        private SessionEntry? _compareA;
-        public SessionEntry? CompareA
-        {
-            get => _compareA;
-            set => SetProperty(ref _compareA, value);
-        }
-
-        private SessionEntry? _compareB;
-        public SessionEntry? CompareB
-        {
-            get => _compareB;
-            set => SetProperty(ref _compareB, value);
-        }
+        private SessionEntry? _compareA, _compareB;
+        public SessionEntry? CompareA { get => _compareA; set => SetProperty(ref _compareA, value); }
+        public SessionEntry? CompareB { get => _compareB; set => SetProperty(ref _compareB, value); }
 
         private bool _hasCompareData;
-        public bool HasCompareData
-        {
-            get => _hasCompareData;
-            private set => SetProperty(ref _hasCompareData, value);
-        }
-
-        private bool _hasCompareCoversA;
-        public bool HasCompareCoversA
-        {
-            get => _hasCompareCoversA;
-            private set => SetProperty(ref _hasCompareCoversA, value);
-        }
-
-        private bool _hasCompareCoversB;
-        public bool HasCompareCoversB
-        {
-            get => _hasCompareCoversB;
-            private set => SetProperty(ref _hasCompareCoversB, value);
-        }
-
-        private bool _hasCompareGames;
-        public bool HasCompareGames
-        {
-            get => _hasCompareGames;
-            private set => SetProperty(ref _hasCompareGames, value);
-        }
+        public bool HasCompareData { get => _hasCompareData; private set => SetProperty(ref _hasCompareData, value); }
 
         private bool _hasTwoCandidates;
-        public bool HasTwoCandidates
+        public bool HasTwoCandidates { get => _hasTwoCandidates; private set => SetProperty(ref _hasTwoCandidates, value); }
+
+        private IReadOnlyList<GameCoverItem> _coversA = Array.Empty<GameCoverItem>(), _coversB = Array.Empty<GameCoverItem>();
+        public IReadOnlyList<GameCoverItem> CompareCoversA { get => _coversA; private set => SetProperty(ref _coversA, value); }
+        public IReadOnlyList<GameCoverItem> CompareCoversB { get => _coversB; private set => SetProperty(ref _coversB, value); }
+
+        private string _cmpTitleA = "", _cmpTitleB = "", _cmpSubA = "", _cmpSubB = "";
+        public string CompareTitleA { get => _cmpTitleA; private set => SetProperty(ref _cmpTitleA, value); }
+        public string CompareTitleB { get => _cmpTitleB; private set => SetProperty(ref _cmpTitleB, value); }
+        public string CompareSubA   { get => _cmpSubA;   private set => SetProperty(ref _cmpSubA, value); }
+        public string CompareSubB   { get => _cmpSubB;   private set => SetProperty(ref _cmpSubB, value); }
+
+        private string _gA = "", _gAFg = NeuFg, _gABg = NeuBg, _gB = "", _gBFg = NeuFg, _gBBg = NeuBg;
+        public string CompareGradeA   { get => _gA;   private set => SetProperty(ref _gA, value); }
+        public string CompareGradeAFg { get => _gAFg; private set => SetProperty(ref _gAFg, value); }
+        public string CompareGradeABg { get => _gABg; private set => SetProperty(ref _gABg, value); }
+        public string CompareGradeB   { get => _gB;   private set => SetProperty(ref _gB, value); }
+        public string CompareGradeBFg { get => _gBFg; private set => SetProperty(ref _gBFg, value); }
+        public string CompareGradeBBg { get => _gBBg; private set => SetProperty(ref _gBBg, value); }
+
+        /// <summary>Opens Compare on the two ticked rows.</summary>
+        public void ComparePicked()
         {
-            get => _hasTwoCandidates;
-            private set => SetProperty(ref _hasTwoCandidates, value);
+            if (_picked.Count < 2) return;
+            // Session 1 is the one being judged, so the newer pick goes first, as in the list.
+            var pair = _picked.OrderByDescending(s => s.StartTime).ToList();
+            OpenCompare(pair[0], pair[1]);
         }
 
-        public void OpenCompare()
+        /// <summary>Opens Compare with <paramref name="a"/> as session 1 and, if not given, the session before it.</summary>
+        public void OpenCompare(SessionEntry? a = null, SessionEntry? b = null)
         {
             // Only sessions with telemetry can be compared.
             _allCandidates.Clear();
-            _allCandidates.AddRange(Sessions.Where(s => s.QualityStats != null));
+            _allCandidates.AddRange(_all.Where(s => s.QualityStats != null && s.EndTime != null));
             HasTwoCandidates = _allCandidates.Count >= 2;
 
             // Pre-fill both lists fully so the SelectedItem bindings resolve before we set
@@ -569,8 +715,16 @@ namespace StreamTweak.ViewModels
             CompareCandidatesB.Clear();
             foreach (var s in _allCandidates) { CompareCandidatesA.Add(s); CompareCandidatesB.Add(s); }
 
-            CompareA = _allCandidates.Count > 0 ? _allCandidates[0] : null;
-            CompareB = _allCandidates.Count > 1 ? _allCandidates[1] : null;
+            a = a != null ? _allCandidates.FirstOrDefault(s => s.Id == a.Id) : null;
+            b = b != null ? _allCandidates.FirstOrDefault(s => s.Id == b.Id) : null;
+            a ??= _allCandidates.FirstOrDefault();
+            if (b == null || b == a)
+            {
+                int ia = a != null ? _allCandidates.IndexOf(a) : -1;
+                b = _allCandidates.Skip(ia + 1).FirstOrDefault(s => s != a) ?? _allCandidates.FirstOrDefault(s => s != a);
+            }
+            CompareA = a;
+            CompareB = b;
 
             ReconcileCandidateLists();
             RebuildComparison();
@@ -597,12 +751,10 @@ namespace StreamTweak.ViewModels
 
         private void Reconcile(ObservableCollection<SessionEntry> list, SessionEntry? exclude)
         {
-            // Drop the excluded item (and anything stale).
             for (int i = list.Count - 1; i >= 0; i--)
                 if (ReferenceEquals(list[i], exclude) || !_allCandidates.Contains(list[i]))
                     list.RemoveAt(i);
 
-            // Insert any missing item at its position in the full ordering.
             int idx = 0;
             foreach (var s in _allCandidates)
             {
@@ -618,8 +770,6 @@ namespace StreamTweak.ViewModels
             IsCompareVisible = false;
             CompareClientMetrics.Clear();
             CompareHostMetrics.Clear();
-            CompareCoversA.Clear();
-            CompareCoversB.Clear();
             CompareCandidatesA.Clear();
             CompareCandidatesB.Clear();
             _allCandidates.Clear();
@@ -629,187 +779,76 @@ namespace StreamTweak.ViewModels
         {
             CompareClientMetrics.Clear();
             CompareHostMetrics.Clear();
+            DescribePick(_compareA, out var tA, out var sA, out var cA, out var g1);
+            DescribePick(_compareB, out var tB, out var sB, out var cB, out var g2);
+            CompareTitleA = tA; CompareSubA = sA; CompareCoversA = cA;
+            CompareTitleB = tB; CompareSubB = sB; CompareCoversB = cB;
+            (CompareGradeA, CompareGradeAFg, CompareGradeABg) = g1;
+            (CompareGradeB, CompareGradeBFg, CompareGradeBBg) = g2;
 
             var a = _compareA?.QualityStats;
             var b = _compareB?.QualityStats;
             HasCompareData = a != null && b != null;
             if (!HasCompareData) return;
 
-            // CLIENT metrics
-            CompareClientMetrics.Add(M("RTT avg",   a!.RttAvgMs,    b!.RttAvgMs,    1, " ms",   Dir.LowerBetter,  a.RttAvgMs    > 0, b.RttAvgMs    > 0));
-            CompareClientMetrics.Add(M("RTT max",   a.RttMaxMs,     b.RttMaxMs,     1, " ms",   Dir.LowerBetter,  a.RttMaxMs    > 0, b.RttMaxMs    > 0));
-            CompareClientMetrics.Add(M("Jitter avg",a.JitterAvgMs,  b.JitterAvgMs,  1, " ms",   Dir.LowerBetter,  a.JitterAvgMs > 0, b.JitterAvgMs > 0));
+            CompareClientMetrics.Add(M("RTT avg",    a!.RttAvgMs,    b!.RttAvgMs,    1, " ms",   Dir.LowerBetter,  a.RttAvgMs    > 0, b.RttAvgMs    > 0));
+            CompareClientMetrics.Add(M("RTT max",    a.RttMaxMs,     b.RttMaxMs,     1, " ms",   Dir.LowerBetter,  a.RttMaxMs    > 0, b.RttMaxMs    > 0));
+            CompareClientMetrics.Add(M("Jitter avg", a.JitterAvgMs,  b.JitterAvgMs,  1, " ms",   Dir.LowerBetter,  a.JitterAvgMs > 0, b.JitterAvgMs > 0));
+            CompareClientMetrics.Add(M("Drop rate",  a.DropRatePct,  b.DropRatePct,  2, " %",    Dir.LowerBetter));
             // Neutral, not LowerBetter: a raw count favours the shorter session, so
             // judging it green/red asserts something false when the two differ in
             // length. Drop rate carries the comparable signal.
-            CompareClientMetrics.Add(M("Drops",     a.TotalDrops,   b.TotalDrops,   0, "",      Dir.Neutral));
-            CompareClientMetrics.Add(M("Drop rate", a.DropRatePct,  b.DropRatePct,  2, "%",     Dir.LowerBetter));
-            CompareClientMetrics.Add(M("Decode avg",a.DecodeAvgMs,  b.DecodeAvgMs,  1, " ms",   Dir.LowerBetter));
-            CompareClientMetrics.Add(M("Bitrate avg",a.BitrateAvgMbps, b.BitrateAvgMbps, 1, " Mbps", Dir.HigherBetter));
+            CompareClientMetrics.Add(M("Dropped frames", a.TotalDrops, b.TotalDrops, 0, "",      Dir.Neutral));
+            CompareClientMetrics.Add(M("Bitrate avg", a.BitrateAvgMbps, b.BitrateAvgMbps, 1, " Mbps", Dir.HigherBetter));
+            CompareClientMetrics.Add(M("Decode avg", a.DecodeAvgMs,  b.DecodeAvgMs,  1, " ms",   Dir.LowerBetter));
 
-            // HOST metrics (load telemetry is neutral; only frame latency is quality-directional)
-            CompareHostMetrics.Add(M("GPU avg",      a.HostGpuAvg,     b.HostGpuAvg,     0, "%",    Dir.Neutral, a.HostGpuAvg    >= 0, b.HostGpuAvg    >= 0));
-            CompareHostMetrics.Add(M("Encoder avg",  a.HostGpuEncAvg,  b.HostGpuEncAvg,  0, "%",    Dir.Neutral, a.HostGpuEncAvg >= 0, b.HostGpuEncAvg >= 0));
-            CompareHostMetrics.Add(M("GPU Temp avg", a.HostGpuTempAvg, b.HostGpuTempAvg, 0, " °C",  Dir.Neutral, a.HostGpuTempAvg>= 0, b.HostGpuTempAvg>= 0));
-            CompareHostMetrics.Add(M("CPU avg",      a.HostCpuAvg,     b.HostCpuAvg,     0, "%",    Dir.Neutral, a.HostCpuAvg    >= 0, b.HostCpuAvg    >= 0));
+            // Load telemetry is neutral; only frame latency is quality-directional.
+            CompareHostMetrics.Add(M("Frame latency avg", a.HostLatencyAvgMs, b.HostLatencyAvgMs, 1, " ms", Dir.LowerBetter, a.HostLatencyAvgMs >= 0, b.HostLatencyAvgMs >= 0));
+            CompareHostMetrics.Add(M("Frame latency max", a.HostLatencyMaxMs, b.HostLatencyMaxMs, 1, " ms", Dir.LowerBetter, a.HostLatencyMaxMs >= 0, b.HostLatencyMaxMs >= 0));
+            CompareHostMetrics.Add(M("Late frames",  a.HostLatencyOverBudgetPct, b.HostLatencyOverBudgetPct, 2, " %", Dir.LowerBetter, a.HostLatencyOverBudgetPct >= 0, b.HostLatencyOverBudgetPct >= 0));
+            CompareHostMetrics.Add(M("GPU avg",      a.HostGpuAvg,     b.HostGpuAvg,     0, " %",   Dir.Neutral, a.HostGpuAvg    >= 0, b.HostGpuAvg    >= 0));
+            CompareHostMetrics.Add(M("Encoder avg",  a.HostGpuEncAvg,  b.HostGpuEncAvg,  0, " %",   Dir.Neutral, a.HostGpuEncAvg >= 0, b.HostGpuEncAvg >= 0));
+            CompareHostMetrics.Add(M("GPU temp avg", a.HostGpuTempAvg, b.HostGpuTempAvg, 0, " °C",  Dir.Neutral, a.HostGpuTempAvg>= 0, b.HostGpuTempAvg>= 0));
+            CompareHostMetrics.Add(M("CPU avg",      a.HostCpuAvg,     b.HostCpuAvg,     0, " %",   Dir.Neutral, a.HostCpuAvg    >= 0, b.HostCpuAvg    >= 0));
             CompareHostMetrics.Add(M("Net TX avg",   a.HostNetTxAvg,   b.HostNetTxAvg,   0, " Mbps",Dir.Neutral, a.HostNetTxAvg  >= 0, b.HostNetTxAvg  >= 0));
-            CompareHostMetrics.Add(M("Frame latency",a.HostLatencyAvgMs, b.HostLatencyAvgMs, 1, " ms", Dir.LowerBetter, a.HostLatencyAvgMs >= 0, b.HostLatencyAvgMs >= 0));
-            CompareHostMetrics.Add(M("Late frames", a.HostLatencyOverBudgetPct, b.HostLatencyOverBudgetPct, 1, "%", Dir.LowerBetter, a.HostLatencyOverBudgetPct >= 0, b.HostLatencyOverBudgetPct >= 0));
         }
 
-        public async Task LoadCompareCoversAsync()
+        private static void DescribePick(SessionEntry? s, out string title, out string sub,
+                                         out IReadOnlyList<GameCoverItem> covers, out (string, string, string) grade)
         {
-            HasCompareCoversA = _compareA?.GamesDetected is { Count: > 0 };
-            HasCompareCoversB = _compareB?.GamesDetected is { Count: > 0 };
-            HasCompareGames   = HasCompareCoversA || HasCompareCoversB;
-            CompareCoversA.Clear();
-            CompareCoversB.Clear();
-            if (_compareA != null) await LoadCoversForAsync(_compareA, CompareCoversA);
-            if (_compareB != null) await LoadCoversForAsync(_compareB, CompareCoversB);
+            if (s == null)
+            {
+                title = "—"; sub = ""; covers = Array.Empty<GameCoverItem>(); grade = ("", NeuFg, NeuBg);
+                return;
+            }
+            title = s.StartTime.ToString("ddd d MMM, HH:mm", Inv);
+            var bits = new List<string>();
+            if (s.EndTime != null) bits.Add(FormatDuration(s.EndTime.Value - s.StartTime));
+            if (s.GamesDetected is { Count: > 0 } g) bits.Add(string.Join(", ", g));
+            sub = string.Join(" · ", bits);
+            covers = s.GameCoversForDisplay;
+            var c = GameStatsService.GradeColors(s.Grade);
+            grade = (c.Label, c.Fg, c.Bg);
         }
 
         private static CompareMetric M(string label, float a, float b, int dec, string unit, Dir dir, bool aOk = true, bool bOk = true)
         {
-            string Fmt(float v) => v.ToString("F" + dec, CultureInfo.InvariantCulture) + unit;
-            string va = aOk ? Fmt(a) : "N/A";
-            string vb = bOk ? Fmt(b) : "N/A";
+            string F(float v) => v.ToString("F" + dec, Inv) + unit;
+            var m = new CompareMetric { Label = label, ValueA = aOk ? F(a) : "N/A", ValueB = bOk ? F(b) : "N/A" };
+            if (!aOk || !bOk) { m.Delta = "—"; return m; }
 
-            string delta, color;
-            if (!aOk || !bOk)
+            // Delta reads "Session 1 relative to Session 2": the left column is the
+            // one being evaluated, so the sign answers "how does A differ from B".
+            float d = a - b;
+            float eps = 0.5f * (float)Math.Pow(10, -dec);
+            string arrow = d > eps ? "▲ " : d < -eps ? "▼ " : "";
+            m.Delta = arrow + Math.Abs(d).ToString("F" + dec, Inv) + unit;
+            if (dir != Dir.Neutral && Math.Abs(d) >= eps)
             {
-                delta = "—";
-                color = NeutralHex;
+                bool improved = dir == Dir.LowerBetter ? d < 0 : d > 0;
+                (m.DeltaFgHex, m.DeltaBgHex) = improved ? (GoodFg, GoodBg) : (BadFg, BadBg);
             }
-            else
-            {
-                // Delta reads "Session 1 relative to Session 2": the left column is the
-                // one being evaluated, so the sign answers "how does A differ from B".
-                // The improved/regressed colour follows from the same subtraction.
-                float d   = a - b;
-                float eps = 0.5f * (float)System.Math.Pow(10, -dec);
-                string sign = d > 0 ? "+" : (d < 0 ? "−" : "");   // real minus sign
-                delta = sign + System.Math.Abs(d).ToString("F" + dec, CultureInfo.InvariantCulture) + unit;
-                if (dir == Dir.Neutral || System.Math.Abs(d) < eps)
-                    color = NeutralHex;
-                else
-                {
-                    bool improved = dir == Dir.LowerBetter ? d < 0 : d > 0;
-                    color = improved ? GreenHex : RedHex;
-                }
-            }
-            return new CompareMetric { Label = label, ValueA = va, ValueB = vb, Delta = delta, DeltaColorHex = color };
-        }
-
-        // ── Private ───────────────────────────────────────────────────────────
-
-        private void RefreshDetailProperties()
-        {
-            var s = _selectedSession;
-            if (s == null)
-            {
-                GradeLabel = string.Empty;
-                GradeColorHex = "#FF808080";
-                DetailTitle = string.Empty;
-                DetailDuration = string.Empty;
-                DetailTimeAxis = null;
-                DetailHeaderSubtitle = string.Empty;
-                ClearClientStats();
-                ClearHostStats();
-                RttSeries = null;
-                DropsSeries = null;
-                BitrateSeries = null;
-                DecodeSeries = null;
-                HostLatencySeries = null;
-                HostComputeLines = null;
-                HasHostComputeChart = false;
-                HasChartData = false;
-                return;
-            }
-
-            DetailTitle    = s.StartTimeDisplay;
-            DetailDuration = s.TelemetryDurationDisplay;
-            DetailTimeAxis = new ChartTimeAxis(s.StreamSpans, s.EndTime);
-            DetailHeaderSubtitle = $"{s.StartTimeDisplay}  ·  {s.TelemetryDurationDisplay}";
-
-            // Grade
-            (GradeLabel, GradeColorHex) = s.Grade switch
-            {
-                QualityGrade.High   => ("Excellent", "#FF4ade80"),
-                QualityGrade.Medium => ("Good",      "#FFFFC107"),
-                QualityGrade.Low    => ("Poor",       "#FFDC4632"),
-                _                   => ("—",          "#FF808080")
-            };
-
-            var q = s.QualityStats;
-            if (q != null)
-            {
-                // Unified format: primary value + a dimmer "max/peak/count" secondary.
-                DetailRttAvg    = $"{q.RttAvgMs:F1} ms";
-                DetailRttMax    = $"max {q.RttMaxMs:F1} ms";
-                DetailJitterAvg = q.JitterAvgMs > 0 ? $"{q.JitterAvgMs:F1} ms" : "N/A";
-                DetailJitterMax = q.JitterMaxMs > 0 ? $"max {q.JitterMaxMs:F1} ms" : "";
-                DetailDropRate  = $"{q.DropRatePct:F2} %";
-                DetailDrops     = $"{q.TotalDrops} frames";
-                DetailDecodeAvg = $"{q.DecodeAvgMs:F1} ms";
-                DetailBitrateAvg = $"{q.BitrateAvgMbps:F1} Mbps";
-
-                // HOST
-                HasHostStats = q.HostGpuAvg >= 0 || q.HostCpuAvg >= 0;
-                DetailHostGpu        = q.HostGpuAvg     >= 0 ? $"{q.HostGpuAvg} %"      : "N/A";
-                DetailHostGpuSec     = q.HostGpuAvg     >= 0 ? $"peak {q.HostGpuPeak} %"    : "";
-                DetailHostEncoder    = q.HostGpuEncAvg  >= 0 ? $"{q.HostGpuEncAvg} %"   : "N/A";
-                DetailHostEncoderSec = q.HostGpuEncAvg  >= 0 ? $"peak {q.HostGpuEncPeak} %" : "";
-                DetailHostTemp       = q.HostGpuTempAvg >= 0 ? $"{q.HostGpuTempAvg} °C" : "N/A";
-                DetailHostTempSec    = q.HostGpuTempAvg >= 0 ? $"max {q.HostGpuTempMax} °C"  : "";
-                DetailHostCpu        = q.HostCpuAvg     >= 0 ? $"{q.HostCpuAvg} %"      : "N/A";
-                DetailHostCpuSec     = q.HostCpuAvg     >= 0 ? $"peak {q.HostCpuPeak} %"    : "";
-                DetailHostNetTx      = q.HostNetTxAvg   >= 0 ? $"{q.HostNetTxAvg} Mbps" : "N/A";
-                DetailHostLatency    = q.HostLatencyAvgMs >= 0 ? $"{q.HostLatencyAvgMs:F1} ms" : "N/A";
-                // Only the max: the late-frame share that used to follow it was cut off in a
-                // narrow window. It is still in Compare, as "Late frames".
-                DetailHostLatencySec = q.HostLatencyAvgMs >= 0 ? $"max {q.HostLatencyMaxMs:F1} ms" : "";
-            }
-            else
-            {
-                ClearClientStats();
-                ClearHostStats();
-            }
-
-            RttSeries     = s.RttTimeSeries     as IReadOnlyList<float>;
-            DropsSeries   = s.DropsTimeSeries   as IReadOnlyList<float>;
-            BitrateSeries = s.BitrateTimeSeries as IReadOnlyList<float>;
-            DecodeSeries  = s.DecodeTimeSeries  as IReadOnlyList<float>;
-            HostLatencySeries = s.HostLatencyTimeSeries as IReadOnlyList<float>;
-
-            // Host compute: overlay whichever of GPU / Encoder / CPU are present.
-            var computeLines = new List<SparklineSeries>();
-            if (s.HostGpuTimeSeries is { Count: >= 2 })
-                computeLines.Add(new SparklineSeries { Label = "GPU", Color = Color.FromArgb(0xFF, 0x42, 0xA5, 0xF5), Data = s.HostGpuTimeSeries });
-            if (s.HostEncTimeSeries is { Count: >= 2 })
-                computeLines.Add(new SparklineSeries { Label = "Encoder", Color = Color.FromArgb(0xFF, 0xFF, 0xA7, 0x26), Data = s.HostEncTimeSeries });
-            if (s.HostCpuTimeSeries is { Count: >= 2 })
-                computeLines.Add(new SparklineSeries { Label = "CPU", Color = Color.FromArgb(0xFF, 0xAB, 0x47, 0xBC), Data = s.HostCpuTimeSeries });
-            HostComputeLines    = computeLines.Count > 0 ? computeLines : null;
-            HasHostComputeChart = computeLines.Count > 0;
-
-            HasChartData  = _rttSeries != null || _dropsSeries != null
-                         || _bitrateSeries != null || _decodeSeries != null
-                         || _hostLatencySeries != null || _hasHostComputeChart;
-        }
-
-        private void ClearClientStats()
-        {
-            DetailRttAvg = DetailRttMax = DetailJitterAvg = DetailJitterMax =
-            DetailDrops  = DetailDropRate = DetailDecodeAvg = DetailBitrateAvg = "N/A";
-        }
-
-        private void ClearHostStats()
-        {
-            HasHostStats = false;
-            DetailHostGpu = DetailHostEncoder = DetailHostTemp =
-            DetailHostCpu = DetailHostNetTx = DetailHostLatency = "N/A";
-            DetailHostGpuSec = DetailHostEncoderSec = DetailHostTempSec =
-            DetailHostCpuSec = DetailHostLatencySec = "";
+            return m;
         }
     }
 }

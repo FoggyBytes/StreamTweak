@@ -6,91 +6,110 @@
     xmlns:ctrl="using:StreamTweak.Controls"
     Background="{StaticResource STBackground}">
 
-    <Grid Margin="28,24,28,28">
-        <ScrollViewer VerticalScrollBarVisibility="Auto">
-            <StackPanel Style="{StaticResource ST8_PanelRoot}">
+    <!-- 9.0: one card per StreamLight device, as many side by side as the width allows;
+         devices waiting for approval come first and show the PIN to check against. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled">
+        <StackPanel x:Name="PageRoot" Padding="32,24,32,40" Spacing="20">
 
-                <StackPanel Spacing="3">
-                    <TextBlock Text="Clients" Style="{StaticResource ST8_PanelTitle}"/>
-                    <TextBlock Text="Approved StreamLight devices that may read metrics and drive the host."
-                               Style="{StaticResource ST_PageSubtitle}"/>
-                </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Clients" Style="{StaticResource ST9_PageTitle}"/>
+                <TextBlock Text="StreamLight devices allowed to read this host's metrics and drive it: link speed, launch, power."
+                           Style="{StaticResource ST9_PageSubtitle}" TextWrapping="Wrap"/>
+            </StackPanel>
 
-                <!-- Clipboard shared with StreamLight (8.7.0, §79). Above the list it applies to:
-                     one switch for every approved device. -->
-                <StackPanel Spacing="8">
-                    <TextBlock Text="CLIPBOARD" Style="{StaticResource ST_SectionLabel}"/>
-                    <Border Style="{StaticResource ST8_GroupCard}">
-                        <Border Style="{StaticResource ST8_Row}" BorderThickness="0">
-                            <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center" Margin="0,0,16,0">
-                                    <StackPanel Orientation="Horizontal" Spacing="7">
-                                        <TextBlock Text="Share clipboard with StreamLight" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
-                                        <ctrl:InfoHint Term="Shared clipboard" Tip="Text copied on this PC can be pasted on the device, and the other way round, while it streams. Encrypted with a key that lasts one stream. Passwords are cleared within 60 seconds. The device must turn it on too; StreamLight 6.3.0 or later."/>
-                                    </StackPanel>
-                                    <TextBlock Text="Approved devices, while streaming" Style="{StaticResource ST_RowDescription}"/>
-                                </StackPanel>
-                                <ToggleSwitch Grid.Column="1" Style="{StaticResource ST_Toggle}" VerticalAlignment="Center"
-                                              AutomationProperties.Name="Share clipboard with StreamLight"
-                                              IsOn="{x:Bind ViewModel.ShareClipboard, Mode=TwoWay}"/>
-                            </Grid>
-                        </Border>
+            <!-- Clipboard shared with StreamLight (8.7.0, §79): one switch for every approved device. -->
+            <Border Style="{StaticResource ST9_Card}">
+                <Grid ColumnSpacing="14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Style="{StaticResource ST9_IconBubble}" Background="{StaticResource ST9BlueSoft}">
+                        <FontIcon Glyph="&#xE77F;" FontSize="15" Foreground="{StaticResource ST9Blue}"/>
                     </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <TextBlock Text="Share clipboard with StreamLight" Style="{StaticResource ST9_RowTitle}" VerticalAlignment="Center"/>
+                            <ctrl:InfoHint Term="Shared clipboard" Tip="Text copied on this PC can be pasted on the device, and the other way round, while it streams. Encrypted with a key that lasts one stream. Passwords are cleared within 60 seconds. The device must turn it on too; StreamLight 6.3.0 or later."/>
+                        </StackPanel>
+                        <TextBlock Text="Approved devices, while streaming · StreamLight 6.3.0 or later" Style="{StaticResource ST9_Hint}"/>
+                    </StackPanel>
+                    <ToggleSwitch Grid.Column="2" Style="{StaticResource ST_Toggle}" MinWidth="0" OnContent="" OffContent="" VerticalAlignment="Center"
+                                  AutomationProperties.Name="Share clipboard with StreamLight"
+                                  IsOn="{x:Bind ViewModel.ShareClipboard, Mode=TwoWay}"/>
+                </Grid>
+            </Border>
+
+            <StackPanel Spacing="10">
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                    <TextBlock Text="Devices" Style="{StaticResource ST9_SectionTitle}" VerticalAlignment="Center"/>
+                    <ctrl:InfoHint Term="Client approval" Tip="Only approved StreamLight devices can use the advanced integration (host metrics, link-speed switch, power-off, …); streaming itself is never affected. New devices request access on first connection — approve them once here. Requires StreamLight 3.2.0 or later."/>
                 </StackPanel>
 
-                <StackPanel Spacing="8">
-                    <StackPanel Orientation="Horizontal" Spacing="7">
-                        <TextBlock Text="STREAMLIGHT DEVICES" Style="{StaticResource ST_SectionLabel}" VerticalAlignment="Center"/>
-                        <ctrl:InfoHint Term="Client approval" Tip="Only approved StreamLight devices can use the advanced integration (host metrics, link-speed switch, power-off, …); streaming itself is never affected. New devices request access on first connection — approve them once here. Requires StreamLight 3.2.0 or later."/>
-                    </StackPanel>
-
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.BridgeClients, Mode=OneWay}">
-                        <ItemsControl.ItemContainerStyle>
-                            <Style TargetType="ContentPresenter">
-                                <Setter Property="HorizontalAlignment" Value="Stretch"/>
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            </Style>
-                        </ItemsControl.ItemContainerStyle>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="vm:BridgeClientItem">
-                                <Border Style="{StaticResource ST8_GroupCard}" Padding="18,12" Margin="0,0,0,8">
-                                    <Grid>
+                <ItemsControl ItemsSource="{x:Bind ViewModel.BridgeClients, Mode=OneWay}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <ctrl:ResponsiveGrid MinColumnWidth="340" MaxColumns="4" ColumnSpacing="16" RowSpacing="16"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:BridgeClientItem">
+                            <Border Style="{StaticResource ST9_Card}">
+                                <StackPanel Spacing="14">
+                                    <Grid ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
-                                        <StackPanel Grid.Column="0" Spacing="6" VerticalAlignment="Center" Margin="0,0,16,0">
-                                            <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST_RowLabel}"/>
-                                            <Border HorizontalAlignment="Left" CornerRadius="4" BorderThickness="1" Padding="8,2"
-                                                    Background="{x:Bind StatusBgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                                    BorderBrush="{x:Bind StatusBorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
-                                                <TextBlock Text="{x:Bind StatusLabel}" FontFamily="{StaticResource DMSansSemiBold}" FontSize="11"
-                                                           Foreground="{x:Bind StatusColorHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                                            </Border>
+                                        <Border Style="{StaticResource ST9_IconBubble}"
+                                                Background="{x:Bind IconBgHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                            <FontIcon Glyph="&#xE8EA;" FontSize="15"
+                                                      Foreground="{x:Bind IconFgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST9_RowTitle}"/>
+                                            <TextBlock Text="{x:Bind SubText}" Style="{StaticResource ST9_Hint}"/>
                                         </StackPanel>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                            <Button Content="Approve" Style="{StaticResource ST_ButtonGreen}" Tag="{x:Bind UniqueId}" Click="ApproveClient_Click"
-                                                    Visibility="{x:Bind CanApprove, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                            <Button Content="Revoke" Style="{StaticResource ST_ButtonDanger}" Tag="{x:Bind UniqueId}" Click="RevokeClient_Click"/>
-                                        </StackPanel>
+                                        <Border Grid.Column="2" VerticalAlignment="Top" CornerRadius="11" Padding="8,2,8,3" BorderThickness="1"
+                                                Background="{x:Bind StatusBgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                BorderBrush="{x:Bind StatusBorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                            <TextBlock Text="{x:Bind StatusLabel}" Style="{StaticResource ST9_TagText}"
+                                                       Foreground="{x:Bind StatusColorHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                        </Border>
                                     </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
 
-                    <Border Style="{StaticResource ST8_GroupCard}"
-                            Visibility="{x:Bind ViewModel.HasNoBridgeClients, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <Border Style="{StaticResource ST8_Row}" BorderThickness="0">
-                            <TextBlock Text="No devices yet. Update StreamLight to 3.2.0 and open a paired host — it will request access here."
-                                       Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"/>
-                        </Border>
-                    </Border>
-                </StackPanel>
+                                    <Border Style="{StaticResource ST9_Inset}" Padding="14,10"
+                                            Visibility="{x:Bind HasPin, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Grid ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="Approve only if the device shows this PIN" Style="{StaticResource ST9_Small}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{x:Bind PinText}" Style="{StaticResource ST9_Mono}" FontSize="20"
+                                                       Foreground="{StaticResource ST9Text}" CharacterSpacing="200" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </Border>
 
+                                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                        <Button Style="{StaticResource ST9_ButtonPrimary}" Content="Approve" Tag="{x:Bind UniqueId}" Click="ApproveClient_Click"
+                                                Visibility="{x:Bind CanApprove, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                        <Button Style="{StaticResource ST9_ButtonDanger}" Content="Revoke" Tag="{x:Bind UniqueId}" Click="RevokeClient_Click"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Border Style="{StaticResource ST9_Card}"
+                        Visibility="{x:Bind ViewModel.HasNoBridgeClients, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <TextBlock Text="No devices yet. Open this host in StreamLight 3.2.0 or later: it asks for access here the first time it connects."
+                               Style="{StaticResource ST9_Body}"/>
+                </Border>
             </StackPanel>
-        </ScrollViewer>
-    </Grid>
-
+        </StackPanel>
+    </ScrollViewer>
 </Page>

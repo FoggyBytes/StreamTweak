@@ -1,5 +1,8 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Globalization;
+using System.Text.RegularExpressions;
+using Microsoft.UI.Xaml;
 using StreamTweak.Services;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -56,6 +59,8 @@ namespace StreamTweak.ViewModels
             OnPropertyChanged(nameof(MetaDeveloper));
             OnPropertyChanged(nameof(MetaReleaseDate));
             OnPropertyChanged(nameof(HasMeta));
+            OnPropertyChanged(nameof(DevLine));
+            OnPropertyChanged(nameof(MetaText));
         }
 
         private bool _enabled;
@@ -65,23 +70,79 @@ namespace StreamTweak.ViewModels
             set
             {
                 if (SetProperty(ref _enabled, value))
+                {
                     Entry.Enabled = value;
+                    OnPropertyChanged(nameof(CoverOpacity));
+                    OnPropertyChanged(nameof(HiddenVisibility));
+                    EnabledChanged?.Invoke(this);
+                }
             }
         }
 
-        private BitmapImage? _coverImage;
-        public BitmapImage? CoverImage
+        /// <summary>Raised when the sync toggle flips, so the page can refresh its counts.</summary>
+        internal Action<ObservableGameEntry>? EnabledChanged;
+
+        // ── Cover (9.0) ───────────────────────────────────────────────────────
+        // Bound through CoverPathToBitmapConverter in the tile template instead of being
+        // decoded up front for every game: the GridView virtualises, so only the covers on
+        // screen are decoded — at tile size — and a 400-game library stays light.
+
+        public string? CoverPath => Entry.CoverImagePath;
+        public Visibility NameFallbackVisibility => string.IsNullOrEmpty(Entry.CoverImagePath) ? Visibility.Visible : Visibility.Collapsed;
+
+        /// <summary>Games left out of the sync are dimmed, not hidden: they are still on this PC.</summary>
+        public double CoverOpacity => _enabled ? 1.0 : 0.4;
+        public Visibility HiddenVisibility => _enabled ? Visibility.Collapsed : Visibility.Visible;
+        public Visibility ManualVisibility => Entry.IsManual ? Visibility.Visible : Visibility.Collapsed;
+
+        // ── Session history (9.0) ─────────────────────────────────────────────
+
+        private GameStats? _stats;
+        public GameStats? Stats
         {
-            get => _coverImage;
+            get => _stats;
             set
             {
-                SetProperty(ref _coverImage, value);
-                OnPropertyChanged(nameof(HasNoCover));
+                _stats = value;
+                OnPropertyChanged(nameof(MetaText));
+                OnPropertyChanged(nameof(StreamedText));
+                OnPropertyChanged(nameof(SessionsText));
             }
         }
 
-        // True when cover has not yet loaded — used to show the name fallback
-        public bool HasNoCover => _coverImage == null;
+        public double   StreamedMinutes => _stats?.Minutes ?? 0;
+        public DateTime? LastPlayed     => _stats?.LastPlayed;
+
+        /// <summary>Line under the tile: when it was last streamed and for how long in total.</summary>
+        public string MetaText => _stats?.LastPlayed is { } last
+            ? $"{GameStatsService.RelativeDay(last)} · {GameStatsService.FormatMinutes(_stats.Minutes)}"
+            : DevLine;
+
+        public string StreamedText => _stats is { Minutes: > 0 } st ? GameStatsService.FormatMinutes(st.Minutes) : "—";
+        public string SessionsText => _stats is { Sessions: > 0 } st ? st.Sessions.ToString(CultureInfo.InvariantCulture) : "—";
+
+        /// <summary>"Remedy Entertainment · 2023", or the store when nothing else is known.</summary>
+        public string DevLine
+        {
+            get
+            {
+                var parts = new List<string>();
+                if (!string.IsNullOrEmpty(MetaDeveloper)) parts.Add(MetaDeveloper!);
+                if (ReleaseYear > 0) parts.Add(ReleaseYear.ToString(CultureInfo.InvariantCulture));
+                if (parts.Count == 0) parts.Add(IsManual ? "Added by you" : Store);
+                return string.Join(" · ", parts);
+            }
+        }
+
+        /// <summary>Year out of the free-form release date the metadata service returns.</summary>
+        public int ReleaseYear
+        {
+            get
+            {
+                var m = MetaReleaseDate is { } d ? Regex.Match(d, @"(19|20)\d{2}") : null;
+                return m is { Success: true } ? int.Parse(m.Value, CultureInfo.InvariantCulture) : 0;
+            }
+        }
 
         // Badge URI for SvgImageSource (e.g. "ms-appx:///Resources/Badges/store_steam.svg")
         public Uri? BadgeUri { get; }
@@ -107,6 +168,34 @@ namespace StreamTweak.ViewModels
             "EA App"          => new Uri("ms-appx:///Resources/Badges/store_ea.svg"),
             _                 => null
         };
+    }
+
+    /// <summary>A store filter chip: "Steam 18".</summary>
+    public sealed class StoreChip
+    {
+        public string Key   { get; init; } = "";
+        public string Label { get; init; } = "";
+    }
+
+    /// <summary>One line of the per-store breakdown in the sync card.</summary>
+    public sealed class StoreBar
+    {
+        public string Name  { get; init; } = "";
+        public int    Count { get; init; }
+        public int    Max   { get; init; }
+    }
+
+    /// <summary>A session in the game sheet's "Recent sessions".</summary>
+    public sealed class GameSessionRow
+    {
+        public string Id        { get; init; } = "";
+        public string Title     { get; init; } = "";
+        public string Sub       { get; init; } = "";
+        public string StripeHex { get; init; } = "";
+        public string GradeLabel { get; init; } = "";
+        public string GradeFgHex { get; init; } = "";
+        public string GradeBgHex { get; init; } = "";
+        public string GradeBorderHex { get; init; } = "";
     }
 
     // ── ViewModel ─────────────────────────────────────────────────────────────
@@ -138,6 +227,133 @@ namespace StreamTweak.ViewModels
         // ── Game collection ───────────────────────────────────────────────────
 
         public ObservableCollection<ObservableGameEntry> Games { get; } = new();
+
+        // ── 9.0: what the page shows (search, store, sort) ────────────────────
+
+        public ObservableCollection<ObservableGameEntry> FilteredGames { get; } = new();
+        public ObservableCollection<StoreChip> StoreChips { get; } = new();
+        public ObservableCollection<StoreBar> StoreBars { get; } = new();
+
+        public string[] SortOptions { get; } = { "Recently streamed", "Most streamed", "Name", "Release year" };
+
+        private int _sortIndex;
+        public int SortIndex
+        {
+            get => _sortIndex;
+            set { if (SetProperty(ref _sortIndex, value)) ApplyFilter(); }
+        }
+
+        private string _searchText = "";
+        public string SearchText
+        {
+            get => _searchText;
+            set { if (SetProperty(ref _searchText, value ?? "")) ApplyFilter(); }
+        }
+
+        /// <summary>"all", "hidden" (left out of the sync) or a store name.</summary>
+        private string _storeFilter = "all";
+        public string StoreFilter
+        {
+            get => _storeFilter;
+            set { if (SetProperty(ref _storeFilter, value)) ApplyFilter(); }
+        }
+
+        private string _searchPlaceholder = "Search games";
+        public string SearchPlaceholder { get => _searchPlaceholder; private set => SetProperty(ref _searchPlaceholder, value); }
+
+        private string _countsText = "";
+        public string CountsText { get => _countsText; private set => SetProperty(ref _countsText, value); }
+
+        private bool _hasGames;
+        public bool HasGames
+        {
+            get => _hasGames;
+            private set { SetProperty(ref _hasGames, value); OnPropertyChanged(nameof(HasNoMatch)); }
+        }
+
+        private bool _hasFiltered = true;
+        public bool HasFiltered
+        {
+            get => _hasFiltered;
+            private set { SetProperty(ref _hasFiltered, value); OnPropertyChanged(nameof(HasNoMatch)); }
+        }
+        public bool HasNoMatch => _hasGames && !_hasFiltered;
+
+        public string ShowInText => $"Show in {DetectedServerName}";
+
+        private string _pageSubtitle = "";
+        public string PageSubtitle { get => _pageSubtitle; private set => SetProperty(ref _pageSubtitle, value); }
+
+        private string _syncTitle = "Sunshine sync";
+        public string SyncTitle { get => _syncTitle; private set => SetProperty(ref _syncTitle, value); }
+
+        private string _hostTilesHint = "";
+        public string HostTilesHint { get => _hostTilesHint; private set => SetProperty(ref _hostTilesHint, value); }
+
+        // ── 9.0: hero (the game being streamed, else the last one streamed) ────
+
+        private ObservableGameEntry? _heroGame;
+        public ObservableGameEntry? HeroGame
+        {
+            get => _heroGame;
+            private set { SetProperty(ref _heroGame, value); OnPropertyChanged(nameof(HasHero)); OnPropertyChanged(nameof(HeroCoverPath)); }
+        }
+        public bool HasHero => _heroGame != null;
+        public string? HeroCoverPath => _heroGame?.CoverPath;
+
+        private string _heroEyebrow = "", _heroTitle = "", _heroMeta = "", _heroStreamed = "—", _heroSessions = "—", _heroGrade = "—", _heroGradeFg = "#C8CFCB";
+        public string HeroEyebrow  { get => _heroEyebrow;  private set => SetProperty(ref _heroEyebrow, value); }
+        public string HeroTitle    { get => _heroTitle;    private set => SetProperty(ref _heroTitle, value); }
+        public string HeroMeta     { get => _heroMeta;     private set => SetProperty(ref _heroMeta, value); }
+        public string HeroStreamed { get => _heroStreamed; private set => SetProperty(ref _heroStreamed, value); }
+        public string HeroSessions { get => _heroSessions; private set => SetProperty(ref _heroSessions, value); }
+        public string HeroGrade    { get => _heroGrade;    private set => SetProperty(ref _heroGrade, value); }
+        public string HeroGradeFg  { get => _heroGradeFg;  private set => SetProperty(ref _heroGradeFg, value); }
+
+        private bool _heroIsLive;
+        public bool HeroIsLive { get => _heroIsLive; private set { SetProperty(ref _heroIsLive, value); OnPropertyChanged(nameof(HeroIsNotLive)); } }
+        public bool HeroIsNotLive => !_heroIsLive;
+
+        // ── 9.0: game sheet ───────────────────────────────────────────────────
+
+        private ObservableGameEntry? _selectedGame;
+        public ObservableGameEntry? SelectedGame
+        {
+            get => _selectedGame;
+            private set
+            {
+                SetProperty(ref _selectedGame, value);
+                OnPropertyChanged(nameof(SelectedCoverPath));
+                RefreshSheet();
+            }
+        }
+        public string? SelectedCoverPath => _selectedGame?.CoverPath;
+
+        private string _sheetTitle = "", _sheetStore = "", _sheetDev = "", _sheetStreamed = "", _sheetSessions = "", _sheetLast = "",
+                       _sheetGrade = "—", _sheetGradeFg = "#C8CFCB", _sheetGradeBg = "#0FFFFFFF", _sheetGradeBorder = "#24FFFFFF",
+                       _sheetLaunch = "", _sheetOrigin = "", _sheetSyncHint = "";
+        public string SheetTitle     { get => _sheetTitle;    private set => SetProperty(ref _sheetTitle, value); }
+        public string SheetStore     { get => _sheetStore;    private set => SetProperty(ref _sheetStore, value); }
+        public string SheetDev       { get => _sheetDev;      private set => SetProperty(ref _sheetDev, value); }
+        public string SheetStreamed  { get => _sheetStreamed; private set => SetProperty(ref _sheetStreamed, value); }
+        public string SheetSessions  { get => _sheetSessions; private set => SetProperty(ref _sheetSessions, value); }
+        public string SheetLast      { get => _sheetLast;     private set => SetProperty(ref _sheetLast, value); }
+        public string SheetGrade     { get => _sheetGrade;    private set => SetProperty(ref _sheetGrade, value); }
+        public string SheetGradeFg   { get => _sheetGradeFg;  private set => SetProperty(ref _sheetGradeFg, value); }
+        public string SheetGradeBg   { get => _sheetGradeBg;  private set => SetProperty(ref _sheetGradeBg, value); }
+        public string SheetGradeBorder { get => _sheetGradeBorder; private set => SetProperty(ref _sheetGradeBorder, value); }
+        public string SheetLaunch    { get => _sheetLaunch;   private set => SetProperty(ref _sheetLaunch, value); }
+        public string SheetOrigin    { get => _sheetOrigin;   private set => SetProperty(ref _sheetOrigin, value); }
+        public string SheetSyncHint  { get => _sheetSyncHint; private set => SetProperty(ref _sheetSyncHint, value); }
+        public ObservableCollection<GameSessionRow> SheetRecent { get; } = new();
+
+        private bool _hasSheetRecent;
+        public bool HasSheetRecent { get => _hasSheetRecent; private set => SetProperty(ref _hasSheetRecent, value); }
+
+        private bool _sheetHasFolder;
+        public bool SheetHasFolder { get => _sheetHasFolder; private set => SetProperty(ref _sheetHasFolder, value); }
+
+        private Dictionary<string, GameStats> _stats = new(StringComparer.OrdinalIgnoreCase);
 
         // ── Detected server name (static — readable from ObservableGameEntry DataTemplate) ───
         internal static string DetectedServerName { get; private set; } = "Sunshine";
@@ -250,6 +466,10 @@ namespace StreamTweak.ViewModels
             var hostInfo = LogParser.FindStreamingAppInfo();
             DetectedServerName = hostInfo?.AppName ?? "Sunshine";
             SyncLabel = $"Sync to {DetectedServerName}";
+            SyncTitle = $"{DetectedServerName} sync";
+            PageSubtitle = $"Games found on this PC, kept in {DetectedServerName}'s app list with their store cover art.";
+            HostTilesHint = $"Desktop and Steam tiles in {DetectedServerName}";
+            OnPropertyChanged(nameof(ShowInText));
 
             // Host tile-swap state: derive the <HostInstallDir>\assets folder and check
             // whether a previous swap is still applied (a *_backup.png is present).
@@ -498,6 +718,10 @@ namespace StreamTweak.ViewModels
                 string result = await GameLibraryService.RemoveGameAsync(entry.Entry);
                 ShowStatus(result, isError: false);
                 Games.Remove(entry);
+                FilteredGames.Remove(entry);
+                if (_selectedGame == entry) SelectedGame = null;
+                RefreshSummary();
+                RefreshHero();
             }
             catch (Exception ex)
             {
@@ -510,35 +734,178 @@ namespace StreamTweak.ViewModels
 
         private void RefreshGameList(GameLibraryState state)
         {
+            foreach (var g in Games) g.EnabledChanged = null;
             Games.Clear();
             foreach (var g in state.Games)
             {
-                var entry = new ObservableGameEntry(g);
+                var entry = new ObservableGameEntry(g) { EnabledChanged = _ => RefreshSummary() };
+                if (_stats.TryGetValue(g.Name, out var st)) entry.Stats = st;
                 Games.Add(entry);
             }
-            _ = LoadCoversAsync();
+            RefreshSummary();
+            ApplyFilter();
+            RefreshHero();
+            _ = LoadStatsAsync();
         }
 
-        private async Task LoadCoversAsync()
+        /// <summary>
+        /// Reads the session history off the UI thread and attaches to every game how long,
+        /// how often and how well it was streamed. Nothing new is stored for this.
+        /// </summary>
+        private async Task LoadStatsAsync()
         {
-            var snapshot = Games.ToList();
-            foreach (var entry in snapshot)
+            Dictionary<string, GameStats> stats;
+            try { stats = await Task.Run(() => GameStatsService.Compute(SessionLogger.Load())); }
+            catch { return; }
+            _stats = stats;
+            foreach (var g in Games)
+                g.Stats = _stats.TryGetValue(g.Name, out var st) ? st : null;
+            ApplyFilter();
+            RefreshHero();
+            if (_selectedGame != null) RefreshSheet();
+        }
+
+        // ── Filter / sort ─────────────────────────────────────────────────────
+
+        public void ApplyFilter()
+        {
+            string q = _searchText.Trim();
+            IEnumerable<ObservableGameEntry> list = Games.Where(g =>
+                (_storeFilter == "all" || (_storeFilter == "hidden" ? !g.Enabled : g.Store == _storeFilter)) &&
+                (q.Length == 0 || g.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
+                               || (g.MetaDeveloper?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)));
+
+            list = _sortIndex switch
             {
-                string? path = entry.Entry.CoverImagePath;
-                if (path == null) continue;
-                try
-                {
-                    var file = await StorageFile.GetFileFromPathAsync(path);
-                    var bmp = new BitmapImage();
-                    // DecodePixelWidth = 2× display width (67 px) so WIC uses its high-quality
-                    // Fant resampler instead of letting the GPU do bilinear downscaling.
-                    bmp.DecodePixelWidth = 134;
-                    using var stream = await file.OpenReadAsync();
-                    await bmp.SetSourceAsync(stream);
-                    entry.CoverImage = bmp;
-                }
-                catch { /* non-fatal */ }
+                1 => list.OrderByDescending(g => g.StreamedMinutes).ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
+                2 => list.OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
+                3 => list.OrderByDescending(g => g.ReleaseYear).ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
+                _ => list.OrderByDescending(g => g.LastPlayed ?? DateTime.MinValue).ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
+            };
+
+            // Edited in place, never cleared: a Clear() is a Reset, and a Reset sends the
+            // GridView back to the top — the store chips live in its header, so every click on
+            // one used to scroll them out of sight.
+            var result = list.ToList();
+            var keep = new HashSet<ObservableGameEntry>(result);
+            for (int i = FilteredGames.Count - 1; i >= 0; i--)
+                if (!keep.Contains(FilteredGames[i])) FilteredGames.RemoveAt(i);
+            for (int i = 0; i < result.Count; i++)
+            {
+                int at = FilteredGames.IndexOf(result[i]);
+                if (at < 0) FilteredGames.Insert(i, result[i]);
+                else if (at != i) FilteredGames.Move(at, i);
             }
+            HasFiltered = FilteredGames.Count > 0;
+        }
+
+        private void RefreshSummary()
+        {
+            HasGames = Games.Count > 0;
+            SearchPlaceholder = Games.Count == 1 ? "Search 1 game" : $"Search {Games.Count} games";
+
+            int shown = Games.Count(g => g.Enabled), manual = Games.Count(g => g.IsManual);
+            var bits = new List<string> { Games.Count == 1 ? "1 game" : $"{Games.Count} games", $"{shown} shown in {DetectedServerName}" };
+            if (manual > 0) bits.Add(manual == 1 ? "1 manual entry you added" : $"{manual} manual entries you added");
+            CountsText = string.Join(" · ", bits);
+
+            var byStore = Games.GroupBy(g => g.Store).Select(grp => (Store: grp.Key, Count: grp.Count()))
+                               .OrderByDescending(x => x.Count).ToList();
+            int max = byStore.Count > 0 ? byStore.Max(x => x.Count) : 1;
+            StoreBars.Clear();
+            foreach (var (store, count) in byStore)
+                StoreBars.Add(new StoreBar { Name = store, Count = count, Max = max });
+
+            StoreChips.Clear();
+            StoreChips.Add(new StoreChip { Key = "all", Label = $"All  {Games.Count}" });
+            foreach (var (store, count) in byStore)
+                StoreChips.Add(new StoreChip { Key = store, Label = $"{store}  {count}" });
+            int hidden = Games.Count - shown;
+            if (hidden > 0)
+                StoreChips.Add(new StoreChip { Key = "hidden", Label = $"Hidden from {DetectedServerName}  {hidden}" });
+            if (_storeFilter != "all" && StoreChips.All(c => c.Key != _storeFilter))
+                StoreFilter = "all";
+        }
+
+        // ── Hero ──────────────────────────────────────────────────────────────
+
+        public void RefreshHero()
+        {
+            string? live = AppStateService.Instance.IsSessionActive
+                ? SessionLogger.CurrentGameName(TimeSpan.FromMinutes(2)) : null;
+            ObservableGameEntry? g = live != null
+                ? Games.FirstOrDefault(x => string.Equals(x.Name, live, StringComparison.OrdinalIgnoreCase))
+                : null;
+            HeroIsLive = g != null;
+            g ??= Games.Where(x => x.LastPlayed != null).OrderByDescending(x => x.LastPlayed).FirstOrDefault();
+            bool played = g?.LastPlayed != null;
+            g ??= Games.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase).FirstOrDefault();
+            HeroGame = g;
+            if (g == null) return;
+
+            HeroEyebrow = HeroIsLive ? "STREAMING NOW"
+                        : played ? $"LAST STREAMED · {GameStatsService.RelativeDay(g.LastPlayed!.Value).ToUpperInvariant()}"
+                        : "IN YOUR LIBRARY";
+            HeroTitle = g.Name;
+            HeroMeta = g.IsManual ? "Added by you" : string.Join(" · ", new[] { g.MetaDeveloper, g.ReleaseYear > 0 ? g.ReleaseYear.ToString(CultureInfo.InvariantCulture) : null, g.Store }.Where(x => !string.IsNullOrEmpty(x)));
+            HeroStreamed = g.StreamedText;
+            HeroSessions = g.SessionsText;
+            var gc = GameStatsService.GradeColors(g.Stats?.TypicalGrade);
+            HeroGrade = gc.Label;
+            HeroGradeFg = gc.Fg;
+        }
+
+        // ── Game sheet ────────────────────────────────────────────────────────
+
+        public void OpenSheet(ObservableGameEntry g) => SelectedGame = g;
+
+        public void CloseSheet() => SelectedGame = null;
+
+        public ObservableGameEntry? FindGame(string name)
+            => Games.FirstOrDefault(g => string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        private void RefreshSheet()
+        {
+            SheetRecent.Clear();
+            var g = _selectedGame;
+            if (g == null) { HasSheetRecent = false; return; }
+            var e = g.Entry;
+
+            SheetTitle = g.Name;
+            SheetStore = g.IsManual ? "Manual entry" : g.Store + (g.ReleaseYear > 0 ? $" · {g.ReleaseYear}" : "");
+            SheetDev = g.MetaDeveloper ?? (g.IsManual ? "Added by you" : "");
+            var st = g.Stats;
+            SheetStreamed = st is { Minutes: > 0 } ? GameStatsService.FormatMinutes(st.Minutes) : "Never";
+            SheetSessions = (st?.Sessions ?? 0).ToString(CultureInfo.InvariantCulture);
+            SheetLast = st?.LastPlayed is { } lp ? GameStatsService.RelativeDay(lp) : "—";
+            var gc = GameStatsService.GradeColors(st?.TypicalGrade);
+            (SheetGrade, SheetGradeFg, SheetGradeBg, SheetGradeBorder) = gc;
+
+            SheetLaunch = e.SteamAppId != null ? $"steam://rungameid/{e.SteamAppId}"
+                        : e.Store == "Xbox" && !string.IsNullOrEmpty(e.StoreId) ? $"shell:appsFolder\\{e.StoreId}"
+                        : SunshineSync.StoreLaunchUri(e.Store, e.LaunchId) ?? e.ExePath ?? "—";
+            SheetOrigin = g.IsManual ? "Manual entries stay across re-syncs." : "Found by the library scan.";
+            SheetSyncHint = $"Kept in {DetectedServerName}'s app list across re-syncs";
+            SheetHasFolder = g.ShowFolderButton;
+
+            if (st != null)
+            {
+                foreach (var s in st.RecentSessions.Take(6))
+                {
+                    var c = GameStatsService.GradeColors(s.Grade);
+                    string dur = s.EndTime is { } end ? GameStatsService.FormatMinutes((end - s.StartTime).TotalMinutes) : "";
+                    string rtt = s.QualityStats is { RttAvgMs: > 0 } q ? $" · RTT {q.RttAvgMs.ToString("0.0", CultureInfo.InvariantCulture)} ms" : "";
+                    SheetRecent.Add(new GameSessionRow
+                    {
+                        Id = s.Id,
+                        Title = s.StartTime.ToString("dddd d MMMM", CultureInfo.InvariantCulture),
+                        Sub = $"{s.StartTime.ToString("HH:mm", CultureInfo.InvariantCulture)} · {dur}{rtt}",
+                        StripeHex = GameStatsService.GradeStripe(s.Grade),
+                        GradeLabel = c.Label, GradeFgHex = c.Fg, GradeBgHex = c.Bg, GradeBorderHex = c.Border,
+                    });
+                }
+            }
+            HasSheetRecent = SheetRecent.Count > 0;
         }
 
         private void RefreshLastSyncText(GameLibraryState state)

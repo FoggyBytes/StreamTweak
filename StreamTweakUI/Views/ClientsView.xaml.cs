@@ -7,6 +7,7 @@ using StreamTweak.ViewModels;
 namespace StreamTweak.Views
 {
     /// <summary>
+    /// 9.0: device cards in a responsive grid, pending devices first with their PIN.
     /// 8.0 "Clients &amp; security" page — promotes the bridge-client approval list out of
     /// Settings into its own section. Reuses SettingsViewModel's bridge members (the list is
     /// sourced from the shared AppStateService.BridgeAuth, so it stays consistent with Settings).
@@ -20,6 +21,11 @@ namespace StreamTweak.Views
         public ClientsView()
         {
             this.InitializeComponent();
+            SizeChanged += (_, e) =>
+            {
+                double side = Math.Clamp(Math.Round(e.NewSize.Width * 0.032), 16, 48);
+                PageRoot.Padding = new Thickness(side, 24, side, 40);
+            };
         }
 
         protected override void OnNavigatedTo(NavigationEventArgs e)

@@ -30,6 +30,17 @@ namespace StreamTweak
         public DateTime? End { get; set; }
     }
 
+    /// <summary>
+    /// When one game was running during a session (9.0): from the first process scan that saw
+    /// it to the last. Drives the "Games &amp; streams" lane of the session timeline.
+    /// </summary>
+    public class GameSpan
+    {
+        public string   Name  { get; set; } = "";
+        public DateTime Start { get; set; }
+        public DateTime End   { get; set; }
+    }
+
     public class SessionEntry
     {
         public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
@@ -77,6 +88,14 @@ namespace StreamTweak
         /// </summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<StreamSpan>? StreamSpans { get; set; }
+
+        /// <summary>
+        /// When each detected game was running (9.0). Null for sessions recorded before 9.0 and
+        /// for sessions where no game was seen; the timeline then shows the covers without a
+        /// position on the clock.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<GameSpan>? GameSpans { get; set; }
 
         /// <summary>
         /// Display names of games detected as running during this session (process monitor).
@@ -295,6 +314,30 @@ namespace StreamTweak
         public static string?  ActiveSessionId        => _activeSessionId;
         public static DateTime ActiveSessionStartTime => _activeSessionStartTime;
 
+        /// <summary>
+        /// Source of the game time ranges for the active session — set by the app to the
+        /// running <see cref="SessionProcessMonitor"/>, read once at <see cref="EndSession"/>
+        /// and cleared there. A delegate rather than a reference so the Core does not need to
+        /// know which monitor instance (or the debug simulation) supplies them.
+        /// </summary>
+        public static Func<List<GameSpan>>? ActiveGameSpansProvider { get; set; }
+
+        /// <summary>
+        /// The game the active session is playing right now: the most recently seen one, if it
+        /// was seen within the last <paramref name="freshness"/>. Null when nothing is running.
+        /// </summary>
+        public static string? CurrentGameName(TimeSpan freshness)
+        {
+            try
+            {
+                var spans = ActiveGameSpansProvider?.Invoke();
+                if (spans == null || spans.Count == 0) return null;
+                var latest = spans.OrderByDescending(s => s.End).First();
+                return DateTime.Now - latest.End <= freshness ? latest.Name : null;
+            }
+            catch { return null; }
+        }
+
         // Live-stream intervals for the active session. Held in memory and written at
         // session end (and into the checkpoint) rather than on every event, so a
         // reconnect storm does not rewrite the whole history file each time.
@@ -351,6 +394,7 @@ namespace StreamTweak
 
                     _activeSessionId        = entry.Id;
                     _activeSessionStartTime = entry.StartTime;
+                    ActiveGameSpansProvider = null;   // the app attaches the new monitor after this
 
                     // A session opens with a live stream by definition; later reconnects
                     // append their own spans via RecordStreamStart.
@@ -600,6 +644,13 @@ namespace StreamTweak
                         entry.EndReason = endReason;
                         RecordStreamStop(entry.EndTime.Value);
                         entry.StreamSpans = SnapshotStreamSpans();
+                        try
+                        {
+                            var gameSpans = ActiveGameSpansProvider?.Invoke();
+                            if (gameSpans is { Count: > 0 }) entry.GameSpans = gameSpans;
+                        }
+                        catch { /* the ranges are a nicety; never lose the session over them */ }
+                        ActiveGameSpansProvider = null;
 
                         // Too short to be a real session — drop it from history entirely
                         // rather than finalising it (see MinSessionSeconds).
