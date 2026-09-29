@@ -496,6 +496,7 @@ namespace StreamTweak
                     HostLatencyMaxMs = 11.2f,
                     HostLatencyOverBudgetPct = 0.4f,
                     TargetFps       = 60,
+                    TargetBitrateMbps = 80f,
                 };
 
                 // 240 points with a little shape (slow drift + the odd spike), so the 9.0
@@ -549,7 +550,8 @@ namespace StreamTweak
                 // Dashboard also has a "current game" to show.
                 if (fakeGames.Count > 0)
                 {
-                    var debugStart = DateTime.Now;
+                    // The debug record is backdated 30 minutes (above), so the games start there too.
+                    var debugStart = DateTime.Now.AddMinutes(-30);
                     var debugGames = fakeGames.Take(2).ToList();
                     SessionLogger.ActiveGameSpansProvider = () =>
                     {
