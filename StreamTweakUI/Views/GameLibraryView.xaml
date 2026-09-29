@@ -3,322 +3,561 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:StreamTweak.ViewModels"
+    xmlns:ctrl="using:StreamTweak.Controls"
     Background="{StaticResource STBackground}">
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>  <!-- page header -->
-            <RowDefinition Height="Auto"/>  <!-- status bar -->
-            <RowDefinition Height="*"/>     <!-- main card -->
-        </Grid.RowDefinitions>
+    <!-- ═══════════════════════════════════════════════════════════════════════
+         9.0 Library. The page is one GridView (virtualised: only the covers on screen
+         are decoded), with everything above the covers in its Header so it all scrolls
+         as one. The cover size is worked out from the width in code-behind: two columns
+         on a 7" handheld, a wall of covers at 4K. A game opens in a sheet on the right.
+    ════════════════════════════════════════════════════════════════════════ -->
 
-        <!-- Page title (matches Network / Display / Audio pattern) -->
-        <StackPanel Grid.Row="0" Margin="28,24,28,4">
-            <TextBlock Text="Game Library" Style="{StaticResource ST_PageTitle}"/>
-        </StackPanel>
-
-        <!-- Dynamic status InfoBar (keep as InfoBar — closable).
-             Visibility is bound explicitly so the control is removed from the layout
-             when there is no status — IsOpen alone only collapses the InfoBar's inner
-             content, not the control itself, which would otherwise leave an 8px
-             phantom gap above the main card. -->
-        <InfoBar Grid.Row="1"
-                 Margin="28,8,28,0"
-                 Visibility="{x:Bind ViewModel.HasStatus, Mode=OneWay,
-                              Converter={StaticResource BoolToVisibilityConverter}}"
-                 IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
-                 Severity="{x:Bind ViewModel.StatusIsError, Mode=OneWay,
-                            Converter={StaticResource BoolToInfoBarSeverityConverter}}"
-                 Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
-                 IsClosable="True"
-                 Closed="StatusInfoBar_Closed">
-            <InfoBar.Resources>
-                <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#4ade80"/>
-            </InfoBar.Resources>
-        </InfoBar>
-
-        <!-- ── Main card ─────────────────────────────────────────────────── -->
-        <Border Grid.Row="2"
-                Style="{StaticResource ST_CardNoPad}"
-                Margin="28,16,28,28">
-            <Grid>
+    <Page.Resources>
+        <!-- Cover tile -->
+        <DataTemplate x:Key="GameTileTemplate" x:DataType="vm:ObservableGameEntry">
+            <Grid Padding="6,6,6,2" Background="Transparent"
+                  PointerEntered="Tile_PointerEntered" PointerExited="Tile_PointerExited" PointerCanceled="Tile_PointerExited">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>  <!-- sync row (last-sync label + sync toggle) -->
-                    <RowDefinition Height="Auto"/>  <!-- separator -->
-                    <RowDefinition Height="Auto"/>  <!-- toolbar -->
-                    <RowDefinition Height="*"/>     <!-- game list -->
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Border CornerRadius="8" Background="{StaticResource ST9Inset}" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="1">
+                    <Grid>
+                        <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST9_Small}" TextAlignment="Center"
+                                   VerticalAlignment="Center" Margin="10" Visibility="{x:Bind NameFallbackVisibility}"/>
+                        <Image Source="{x:Bind CoverPath, Converter={StaticResource CoverPathToBitmapTileConverter}}"
+                               Stretch="UniformToFill" Opacity="{x:Bind CoverOpacity, Mode=OneWay}"/>
+
+                        <!-- Store badge / manual tag -->
+                        <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="7" Width="24" Height="24" CornerRadius="7"
+                                Background="#B3141616" Visibility="{x:Bind ShowBadge, Converter={StaticResource BoolToVisibilityConverter}}"
+                                ToolTipService.ToolTip="{x:Bind BadgeLabel}">
+                            <Image Width="14" Height="14">
+                                <Image.Source><SvgImageSource UriSource="{x:Bind BadgeUri}"/></Image.Source>
+                            </Image>
+                        </Border>
+                        <Border Style="{StaticResource ST9_TagGreen}" Margin="7" VerticalAlignment="Top" Background="#E6141616"
+                                Visibility="{x:Bind ManualVisibility}">
+                            <TextBlock Text="Manual" Style="{StaticResource ST9_TagTextGreen}"/>
+                        </Border>
+                        <Border Style="{StaticResource ST9_TagGrey}" Margin="7" HorizontalAlignment="Right" VerticalAlignment="Top" Background="#E6141616"
+                                Visibility="{x:Bind HiddenVisibility, Mode=OneWay}">
+                            <TextBlock Text="Hidden" Style="{StaticResource ST9_TagText}"/>
+                        </Border>
+
+                        <!-- Hover actions (mouse). Touch and controller open the sheet, which has them all. -->
+                        <Grid x:Name="Overlay" Opacity="0" IsHitTestVisible="False">
+                            <Rectangle>
+                                <Rectangle.Fill>
+                                    <LinearGradientBrush StartPoint="0.5,1" EndPoint="0.5,0">
+                                        <GradientStop Color="#C0000000" Offset="0"/>
+                                        <GradientStop Color="#00000000" Offset="0.6"/>
+                                    </LinearGradientBrush>
+                                </Rectangle.Fill>
+                            </Rectangle>
+                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,10">
+                                <Button Style="{StaticResource ST9_ButtonPrimary}" Width="36" Height="36" Padding="0" CornerRadius="18"
+                                        Click="TilePlay_Click" ToolTipService.ToolTip="Play on this PC" AutomationProperties.Name="Play on this PC">
+                                    <FontIcon Glyph="&#xE768;" FontSize="13"/>
+                                </Button>
+                                <Button Style="{StaticResource ST9_IconButton}" Width="36" Height="36" CornerRadius="18" Background="#33FFFFFF"
+                                        Content="&#xED43;" Click="TileFolder_Click" ToolTipService.ToolTip="Open install folder"
+                                        Visibility="{x:Bind ShowFolderButton, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <Button Style="{StaticResource ST9_IconButton}" Width="36" Height="36" CornerRadius="18" Background="#33FFFFFF"
+                                        Content="&#xE712;" Click="TileDetails_Click" ToolTipService.ToolTip="Details"/>
+                            </StackPanel>
+                        </Grid>
+                    </Grid>
+                </Border>
+                <TextBlock Grid.Row="1" Text="{x:Bind Name}" Style="{StaticResource ST9_RowTitle}" FontSize="13" Margin="2,8,2,0"
+                           ToolTipService.ToolTip="{x:Bind Name}"/>
+                <TextBlock Grid.Row="2" Text="{x:Bind MetaText, Mode=OneWay}" Style="{StaticResource ST9_Hint}" FontSize="12" Margin="2,0,2,0"/>
+            </Grid>
+        </DataTemplate>
+
+        <!-- List row -->
+        <DataTemplate x:Key="GameRowTemplate" x:DataType="vm:ObservableGameEntry">
+            <Grid Padding="10,6,6,6" ColumnSpacing="14" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="0,0,0,1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="34"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="110"/>
+                    <ColumnDefinition Width="80"/>
+                    <ColumnDefinition Width="64"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Border Width="32" Height="48" CornerRadius="4" Background="{StaticResource ST9Inset}">
+                    <Image Source="{x:Bind CoverPath, Converter={StaticResource CoverPathToBitmapConverter}}" Stretch="UniformToFill"
+                           Opacity="{x:Bind CoverOpacity, Mode=OneWay}"/>
+                </Border>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST9_RowTitle}"/>
+                    <TextBlock Text="{x:Bind DevLine, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
+                </StackPanel>
+                <TextBlock Grid.Column="2" Text="{x:Bind Store}" Style="{StaticResource ST9_Hint}" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="3" Text="{x:Bind StreamedText, Mode=OneWay}" Style="{StaticResource ST9_Body}" TextAlignment="Right" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="4" Text="{x:Bind SessionsText, Mode=OneWay}" Style="{StaticResource ST9_Body}" TextAlignment="Right" VerticalAlignment="Center"/>
+                <ToggleSwitch Grid.Column="5" Style="{StaticResource ST_Toggle}" MinWidth="0" OnContent="" OffContent="" VerticalAlignment="Center"
+                              IsOn="{x:Bind Enabled, Mode=TwoWay}" AutomationProperties.Name="{x:Bind SyncTooltip}"
+                              ToolTipService.ToolTip="{x:Bind SyncTooltip}"/>
+                <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                    <Button Style="{StaticResource ST9_IconButton}" Content="&#xE768;" Click="TilePlay_Click" ToolTipService.ToolTip="Play on this PC"/>
+                    <Button Style="{StaticResource ST9_IconButton}" Content="&#xE712;" Click="TileDetails_Click" ToolTipService.ToolTip="Details"/>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <SplitView x:Name="Sheet" PanePlacement="Right" DisplayMode="Overlay" IsPaneOpen="False" OpenPaneLength="440"
+               LightDismissOverlayMode="On" PaneBackground="{StaticResource ST9Pane}" PaneClosed="Sheet_PaneClosed">
+
+        <!-- ═════════════════════════════ GAME SHEET ═════════════════════════════ -->
+        <SplitView.Pane>
+            <Grid BorderBrush="{StaticResource ST9Stroke2}" BorderThickness="1,0,0,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <!-- Sync row: last-sync info (left) + sync-to-host toggle (right). The
-                     section title is no longer rendered here — it now appears as the
-                     page title outside the card, like every other view. -->
-                <Grid Grid.Row="0" Margin="20,16,20,12">
-                    <TextBlock Text="{x:Bind ViewModel.LastSyncText, Mode=OneWay}"
-                               Style="{StaticResource ST_RowDescription}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,120,0"/>
-
-                    <!-- Sync enable toggle -->
-                    <StackPanel Orientation="Horizontal"
-                                VerticalAlignment="Center"
-                                HorizontalAlignment="Right"
-                                Spacing="10">
-                        <TextBlock Text="{x:Bind ViewModel.SyncLabel, Mode=OneWay}"
-                                   Style="{StaticResource ST_RowDescription}"
-                                   VerticalAlignment="Center"/>
-                        <ToggleSwitch Style="{StaticResource ST_Toggle}"
-                                      AutomationProperties.AutomationId="GameLibrarySyncToggle"
-                                      AutomationProperties.Name="Sync game library to Sunshine"
-                                      IsOn="{x:Bind ViewModel.SyncEnabled, Mode=TwoWay}"
-                                      VerticalAlignment="Center"
-                                      IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"/>
-                    </StackPanel>
+                <Grid>
+                    <Image Source="{x:Bind ViewModel.SelectedCoverPath, Mode=OneWay, Converter={StaticResource CoverPathToBackdropConverter}}"
+                           Stretch="UniformToFill" Opacity="0.55"/>
+                    <Rectangle>
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0.5,1" EndPoint="0.5,0">
+                                <GradientStop Color="#FF1B1D1D" Offset="0"/>
+                                <GradientStop Color="#8C1B1D1D" Offset="0.6"/>
+                                <GradientStop Color="#4D1B1D1D" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    <Grid Padding="20,18,16,18" ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="118"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Width="118" Height="177" CornerRadius="8" Background="{StaticResource ST9Inset}"
+                                BorderBrush="{StaticResource ST9Stroke2}" BorderThickness="1">
+                            <Image Source="{x:Bind ViewModel.SelectedCoverPath, Mode=OneWay, Converter={StaticResource CoverPathToBitmapLargeConverter}}" Stretch="UniformToFill"/>
+                        </Border>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Spacing="3">
+                            <TextBlock Text="{x:Bind ViewModel.SheetStore, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
+                            <TextBlock Text="{x:Bind ViewModel.SheetTitle, Mode=OneWay}" FontSize="22" FontFamily="{StaticResource DMSansSemiBold}"
+                                       Foreground="{StaticResource ST9Text}" TextWrapping="Wrap" MaxLines="3"/>
+                            <TextBlock Text="{x:Bind ViewModel.SheetDev, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,10,0,0">
+                                <Button Style="{StaticResource ST9_ButtonPrimary}" Click="SheetPlay_Click">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE768;" FontSize="13"/>
+                                        <TextBlock Text="Play on this PC"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource ST9_IconButton}" Content="&#xED43;" Click="SheetFolder_Click"
+                                        ToolTipService.ToolTip="Open install folder"
+                                        Visibility="{x:Bind ViewModel.SheetHasFolder, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <Button Grid.Column="2" Style="{StaticResource ST9_IconButton}" VerticalAlignment="Top" Content="&#xE711;"
+                                ToolTipService.ToolTip="Close (Esc)" Click="SheetClose_Click"/>
+                    </Grid>
                 </Grid>
 
-                <Border Grid.Row="1" Style="{StaticResource ST_Separator}"/>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled">
+                    <StackPanel>
+                        <!-- Stats -->
+                        <Border Padding="20,16" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="0,1,0,0">
+                            <ctrl:ResponsiveGrid MinColumnWidth="90" MaxColumns="4" ColumnSpacing="14" RowSpacing="12">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="Streamed" Style="{StaticResource ST9_Label}"/>
+                                    <TextBlock Text="{x:Bind ViewModel.SheetStreamed, Mode=OneWay}" Style="{StaticResource ST9_RowTitle}"/>
+                                </StackPanel>
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="Sessions" Style="{StaticResource ST9_Label}"/>
+                                    <TextBlock Text="{x:Bind ViewModel.SheetSessions, Mode=OneWay}" Style="{StaticResource ST9_RowTitle}"/>
+                                </StackPanel>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Typical grade" Style="{StaticResource ST9_Label}"/>
+                                    <Border HorizontalAlignment="Left" CornerRadius="11" Padding="8,2,8,3" BorderThickness="1"
+                                            Background="{x:Bind ViewModel.SheetGradeBg, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                            BorderBrush="{x:Bind ViewModel.SheetGradeBorder, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                        <TextBlock Text="{x:Bind ViewModel.SheetGrade, Mode=OneWay}" Style="{StaticResource ST9_TagText}"
+                                                   Foreground="{x:Bind ViewModel.SheetGradeFg, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                    </Border>
+                                </StackPanel>
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="Last streamed" Style="{StaticResource ST9_Label}"/>
+                                    <TextBlock Text="{x:Bind ViewModel.SheetLast, Mode=OneWay}" Style="{StaticResource ST9_RowTitle}"/>
+                                </StackPanel>
+                            </ctrl:ResponsiveGrid>
+                        </Border>
 
-                <!-- Toolbar. The bottom margin is what keeps scrolled rows off the
-                     buttons: it sits OUTSIDE the list's scroll viewport, so unlike the
-                     ListView's own top padding (which scrolls away with the content) it
-                     stays a permanent gap while the library scrolls underneath. -->
-                <Grid Grid.Row="2" Margin="20,12,20,14">
-                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
+                        <!-- Settings -->
+                        <Border Padding="20,6" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="0,1,0,0">
+                            <StackPanel>
+                                <Grid Padding="0,10" ColumnSpacing="12" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="0,0,0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{x:Bind ViewModel.ShowInText, Mode=OneWay}" Style="{StaticResource ST9_RowTitle}"/>
+                                        <TextBlock Text="{x:Bind ViewModel.SheetSyncHint, Mode=OneWay}" Style="{StaticResource ST9_Hint}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch x:Name="SheetEnabledToggle" Grid.Column="1" Style="{StaticResource ST_Toggle}" MinWidth="0"
+                                                  OnContent="" OffContent="" VerticalAlignment="Center" Toggled="SheetEnabled_Toggled"/>
+                                </Grid>
+                                <StackPanel Padding="0,10" Spacing="4">
+                                    <TextBlock Text="Launched through" Style="{StaticResource ST9_RowTitle}"/>
+                                    <TextBlock Text="{x:Bind ViewModel.SheetLaunch, Mode=OneWay}" Style="{StaticResource ST9_Mono}" FontSize="12"
+                                               TextWrapping="Wrap" TextTrimming="None" IsTextSelectionEnabled="True"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
 
-                        <Button Content="Sync now"
-                                Style="{StaticResource ST_ButtonGreen}"
-                                IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
-                                Click="SyncNow_Click"/>
+                        <!-- Recent sessions -->
+                        <Border Padding="20,16" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="0,1,0,0">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="RECENT SESSIONS" Style="{StaticResource ST9_Eyebrow}"/>
+                                <TextBlock Text="Not streamed yet." Style="{StaticResource ST9_Small}"
+                                           Visibility="{x:Bind ViewModel.HasSheetRecent, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.SheetRecent}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:GameSessionRow">
+                                            <Button Style="{StaticResource ST9_ButtonGhost}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                    Padding="4,7" Tag="{x:Bind Id}" Click="SheetSession_Click">
+                                                <Grid ColumnSpacing="12">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="4"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Rectangle Width="4" Height="30" RadiusX="2" RadiusY="2"
+                                                               Fill="{x:Bind StripeHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{x:Bind Title}" Style="{StaticResource ST9_RowTitle}"/>
+                                                        <TextBlock Text="{x:Bind Sub}" Style="{StaticResource ST9_Hint}"/>
+                                                    </StackPanel>
+                                                    <Border Grid.Column="2" VerticalAlignment="Center" CornerRadius="11" Padding="8,2,8,3" BorderThickness="1"
+                                                            Background="{x:Bind GradeBgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                            BorderBrush="{x:Bind GradeBorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                                        <TextBlock Text="{x:Bind GradeLabel}" Style="{StaticResource ST9_TagText}"
+                                                                   Foreground="{x:Bind GradeFgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                                    </Border>
+                                                </Grid>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </Border>
 
-                        <Button Content="Add game"
-                                Style="{StaticResource ST_ButtonSecondary}"
-                                IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
-                                Click="AddGame_Click"
-                                ToolTipService.ToolTip="Add an executable manually"/>
-
-                        <Button Content="Clear sync"
-                                Style="{StaticResource ST_ButtonDanger}"
-                                IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
-                                Click="ClearSync_Click"
-                                ToolTipService.ToolTip="Remove all managed entries from Sunshine and reset game list"/>
-
-                        <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
-                                      Width="20" Height="20"
-                                      VerticalAlignment="Center"
-                                      Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay,
-                                                   Converter={StaticResource BoolToVisibilityConverter}}"/>
-
+                        <!-- Origin + remove -->
+                        <Border Padding="20,14,20,24" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="0,1,0,0">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{x:Bind ViewModel.SheetOrigin, Mode=OneWay}" Style="{StaticResource ST9_Small}" VerticalAlignment="Center"/>
+                                <Button Grid.Column="1" Style="{StaticResource ST9_ButtonDanger}" Click="SheetRemove_Click"
+                                        IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE74D;" FontSize="13"/>
+                                        <TextBlock Text="Remove"/>
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </Border>
                     </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </SplitView.Pane>
 
-                    <!-- Host tile swap: replaces the default desktop.png/steam.png in
-                         <HostInstallDir>\assets with StreamTweak's bundled tiles.
-                         Visible only when a streaming-server install is detected. -->
-                    <StackPanel Orientation="Horizontal" Spacing="10"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Center"
-                                Visibility="{x:Bind ViewModel.HostAssetsAvailable, Mode=OneWay,
-                                             Converter={StaticResource BoolToVisibilityConverter}}">
-                        <TextBlock Text="{x:Bind ViewModel.HostAssetsHelpText, Mode=OneWay}"
-                                   Style="{StaticResource ST_RowDescription}"
-                                   VerticalAlignment="Center"
-                                   TextWrapping="NoWrap"/>
-                        <Button Content="{x:Bind ViewModel.HostAssetsButtonText, Mode=OneWay}"
-                                Style="{StaticResource ST_ButtonSecondary}"
-                                IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
-                                Click="ToggleHostAssets_Click"/>
-                    </StackPanel>
-                </Grid>
+        <!-- ═════════════════════════════ PAGE ═════════════════════════════ -->
+        <GridView x:Name="LibraryGrid"
+                  ItemsSource="{x:Bind ViewModel.FilteredGames}"
+                  ItemTemplate="{StaticResource GameTileTemplate}"
+                  ItemContainerStyle="{StaticResource ST9_CoverItem}"
+                  SelectionMode="None" IsItemClickEnabled="True" ItemClick="Game_ItemClick"
+                  SizeChanged="LibraryGrid_SizeChanged"
+                  Padding="26,24,26,40">
+            <GridView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsWrapGrid Orientation="Horizontal" ItemWidth="168" ItemHeight="290"/>
+                </ItemsPanelTemplate>
+            </GridView.ItemsPanel>
 
-                <!-- Game list — virtualized ListView so large libraries (hundreds of
-                     titles) only realize the rows and covers actually on screen,
-                     instead of an ItemsControl that materializes every entry at once. -->
-                <ListView Grid.Row="3"
-                          ItemsSource="{x:Bind ViewModel.Games}"
-                          SelectionMode="None"
-                          IsItemClickEnabled="False"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto"
-                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                          Padding="20,0,20,16">
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem" BasedOn="{StaticResource DefaultListViewItemStyle}">
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                            <Setter Property="Padding" Value="0"/>
-                            <Setter Property="Margin" Value="0"/>
-                        </Style>
-                    </ListView.ItemContainerStyle>
-                    <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="vm:ObservableGameEntry">
+            <GridView.Header>
+                <StackPanel Spacing="16" Margin="6,0,6,14">
+                    <!-- Header -->
+                    <Grid ColumnSpacing="12" RowSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Library" Style="{StaticResource ST9_PageTitle}"/>
+                            <TextBlock Text="{x:Bind ViewModel.PageSubtitle, Mode=OneWay}" Style="{StaticResource ST9_PageSubtitle}" TextWrapping="Wrap"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Bottom">
+                            <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="20" Height="20"
+                                          Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <Button Style="{StaticResource ST9_ButtonGhost}" Click="AddGame_Click" IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"
+                                    ToolTipService.ToolTip="Add an executable by hand">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE710;" FontSize="13"/>
+                                    <TextBlock Text="Add game"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ST9_ButtonPrimary}" Click="SyncNow_Click" IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE895;" FontSize="13"/>
+                                    <TextBlock Text="Sync now"/>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ST9_IconButton}" Content="&#xE712;" ToolTipService.ToolTip="More">
+                                <Button.Flyout>
+                                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                        <MenuFlyoutItem Text="Clear sync…" Click="ClearSync_Click">
+                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;"/></MenuFlyoutItem.Icon>
+                                        </MenuFlyoutItem>
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
 
-                                <Border Margin="0,0,0,6"
-                                        Background="{StaticResource STInput}"
-                                        BorderBrush="{StaticResource STBorder}"
-                                        BorderThickness="1" CornerRadius="8"
-                                        Padding="12,10,16,10">
-                                    <Grid>
+                    <!-- Status (kept an InfoBar: closable). Visibility bound so a closed one leaves no gap. -->
+                    <InfoBar Visibility="{x:Bind ViewModel.HasStatus, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                             IsOpen="{x:Bind ViewModel.HasStatus, Mode=OneWay}"
+                             Severity="{x:Bind ViewModel.StatusIsError, Mode=OneWay, Converter={StaticResource BoolToInfoBarSeverityConverter}}"
+                             Message="{x:Bind ViewModel.StatusText, Mode=OneWay}"
+                             IsClosable="True" Closed="StatusInfoBar_Closed">
+                        <InfoBar.Resources>
+                            <SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#4ade80"/>
+                        </InfoBar.Resources>
+                    </InfoBar>
+
+                    <!-- Hero + side cards -->
+                    <ctrl:ResponsiveGrid Breakpoints="0,1200" Columns="1,3" ColumnSpacing="16" RowSpacing="16"
+                                         Visibility="{x:Bind ViewModel.HasGames, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <!-- Hero -->
+                        <Border x:Name="HeroCard" Style="{StaticResource ST9_Hero}" MinHeight="250" ctrl:ResponsiveGrid.Span="1,2"
+                                SizeChanged="HeroCard_SizeChanged">
+                            <Grid>
+                                <Image Source="{x:Bind ViewModel.HeroCoverPath, Mode=OneWay, Converter={StaticResource CoverPathToBackdropConverter}}"
+                                       Stretch="UniformToFill" Opacity="0.6"/>
+                                <Rectangle>
+                                    <Rectangle.Fill>
+                                        <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                            <GradientStop Color="#EB0C0D0D" Offset="0"/>
+                                            <GradientStop Color="#990C0D0D" Offset="0.55"/>
+                                            <GradientStop Color="#400C0D0D" Offset="1"/>
+                                        </LinearGradientBrush>
+                                    </Rectangle.Fill>
+                                </Rectangle>
+                                <Grid x:Name="HeroContent" Padding="24,22" ColumnSpacing="24" VerticalAlignment="Bottom">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="HeroCover" Width="150" Height="225" CornerRadius="8" Background="{StaticResource ST9Inset}"
+                                            BorderBrush="{StaticResource ST9Stroke2}" BorderThickness="1">
+                                        <Image Source="{x:Bind ViewModel.HeroCoverPath, Mode=OneWay, Converter={StaticResource CoverPathToBitmapLargeConverter}}" Stretch="UniformToFill"/>
+                                    </Border>
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Spacing="4">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Ellipse Width="7" Height="7" Fill="{StaticResource ST9Mint}" VerticalAlignment="Center"
+                                                     Visibility="{x:Bind ViewModel.HeroIsLive, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                            <TextBlock Text="{x:Bind ViewModel.HeroEyebrow, Mode=OneWay}" Style="{StaticResource ST9_Eyebrow}"/>
+                                        </StackPanel>
+                                        <TextBlock x:Name="HeroTitleText" Text="{x:Bind ViewModel.HeroTitle, Mode=OneWay}" FontSize="32"
+                                                   FontFamily="{StaticResource DMSansSemiBold}" Foreground="{StaticResource ST9Text}"
+                                                   TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" LineHeight="36"/>
+                                        <TextBlock Text="{x:Bind ViewModel.HeroMeta, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="26" Margin="0,10,0,0">
+                                            <StackPanel>
+                                                <TextBlock Text="{x:Bind ViewModel.HeroStreamed, Mode=OneWay}" Style="{StaticResource ST9_RowTitle}" FontSize="18"/>
+                                                <TextBlock Text="streamed in total" Style="{StaticResource ST9_Hint}"/>
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBlock Text="{x:Bind ViewModel.HeroSessions, Mode=OneWay}" Style="{StaticResource ST9_RowTitle}" FontSize="18"/>
+                                                <TextBlock Text="sessions" Style="{StaticResource ST9_Hint}"/>
+                                            </StackPanel>
+                                            <StackPanel>
+                                                <TextBlock Text="{x:Bind ViewModel.HeroGrade, Mode=OneWay}" Style="{StaticResource ST9_RowTitle}" FontSize="18"
+                                                           Foreground="{x:Bind ViewModel.HeroGradeFg, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                                <TextBlock Text="typical grade" Style="{StaticResource ST9_Hint}"/>
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,14,0,0">
+                                            <Button Style="{StaticResource ST9_ButtonPrimary}" Click="HeroPlay_Click"
+                                                    Visibility="{x:Bind ViewModel.HeroIsNotLive, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <FontIcon Glyph="&#xE768;" FontSize="13"/>
+                                                    <TextBlock Text="Play on this PC"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource ST9_ButtonSubtle}" Click="HeroLive_Click"
+                                                    Visibility="{x:Bind ViewModel.HeroIsLive, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <FontIcon Glyph="&#xE9D9;" FontSize="13"/>
+                                                    <TextBlock Text="Live session"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource ST9_ButtonGhost}" Content="Details" Click="HeroDetails_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+
+                        <!-- Sync + host tiles -->
+                        <StackPanel Spacing="16">
+                            <Border Style="{StaticResource ST9_Card}">
+                                <StackPanel Spacing="10">
+                                    <Grid ColumnSpacing="12">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/> <!-- cover   -->
-                                            <ColumnDefinition Width="*"/>    <!-- info    -->
-                                            <ColumnDefinition Width="400"/>  <!-- meta    -->
-                                            <ColumnDefinition Width="Auto"/> <!-- toggle  -->
-                                            <ColumnDefinition Width="Auto"/> <!-- play    -->
-                                            <ColumnDefinition Width="Auto"/> <!-- folder  -->
-                                            <ColumnDefinition Width="Auto"/> <!-- remove  -->
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
+                                        <Border Style="{StaticResource ST9_IconBubble}" Background="{StaticResource ST9MintSoft}">
+                                            <FontIcon Glyph="&#xE895;" FontSize="15" Foreground="{StaticResource ST9Mint2}"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind ViewModel.SyncTitle, Mode=OneWay}" Style="{StaticResource ST9_CardTitle}"/>
+                                            <TextBlock Text="{x:Bind ViewModel.LastSyncText, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="2" Style="{StaticResource ST_Toggle}" MinWidth="0" OnContent="" OffContent=""
+                                                      AutomationProperties.AutomationId="GameLibrarySyncToggle"
+                                                      AutomationProperties.Name="{x:Bind ViewModel.SyncLabel, Mode=OneWay}"
+                                                      ToolTipService.ToolTip="{x:Bind ViewModel.SyncLabel, Mode=OneWay}"
+                                                      IsOn="{x:Bind ViewModel.SyncEnabled, Mode=TwoWay}"
+                                                      IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"/>
+                                    </Grid>
+                                    <TextBlock Text="{x:Bind ViewModel.CountsText, Mode=OneWay}" Style="{StaticResource ST9_Small}"/>
+                                    <ItemsControl ItemsSource="{x:Bind ViewModel.StoreBars}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:StoreBar">
+                                                <Grid ColumnSpacing="8" Margin="0,3">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="110"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="30"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST9_Hint}" Foreground="{StaticResource ST9Text2}"/>
+                                                    <ProgressBar Grid.Column="1" Minimum="0" Maximum="{x:Bind Max}" Value="{x:Bind Count}"
+                                                                 MinHeight="6" Height="6" CornerRadius="3" VerticalAlignment="Center"
+                                                                 Foreground="{StaticResource ST9Mint}" Background="#0FFFFFFF"/>
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind Count}" Style="{StaticResource ST9_Hint}" TextAlignment="Right"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
 
-                                        <!-- Cover thumbnail (67×100, 2:3) -->
-                                        <Border Grid.Column="0"
-                                                Width="67" Height="100"
-                                                CornerRadius="5"
-                                                Margin="0,0,14,0"
-                                                Background="{StaticResource STBackground}">
+                            <Border Style="{StaticResource ST9_Card}"
+                                    Visibility="{x:Bind ViewModel.HostAssetsAvailable, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <StackPanel Spacing="12">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Style="{StaticResource ST9_IconBubble}" Background="{StaticResource ST9BlueSoft}">
+                                            <FontIcon Glyph="&#xE7F4;" FontSize="15" Foreground="{StaticResource ST9Blue}"/>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="Host tiles" Style="{StaticResource ST9_CardTitle}"/>
+                                            <TextBlock Text="{x:Bind ViewModel.HostTilesHint, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
+                                        </StackPanel>
+                                        <Border Grid.Column="2" Style="{StaticResource ST9_TagGreen}"
+                                                Visibility="{x:Bind ViewModel.HostAssetsApplied, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                                            <TextBlock Text="Replaced" Style="{StaticResource ST9_TagTextGreen}"/>
+                                        </Border>
+                                        <Border Grid.Column="2" Style="{StaticResource ST9_TagGrey}"
+                                                Visibility="{x:Bind ViewModel.HostAssetsApplied, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                            <TextBlock Text="Original" Style="{StaticResource ST9_TagText}"/>
+                                        </Border>
+                                    </Grid>
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Border Height="140" CornerRadius="8" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="1" Background="{StaticResource ST9Inset}">
                                             <Grid>
-                                                <Image Source="{x:Bind CoverImage, Mode=OneWay}"
-                                                       Stretch="UniformToFill"
-                                                       HorizontalAlignment="Center"
-                                                       VerticalAlignment="Center"/>
-                                                <TextBlock Text="{x:Bind Name}"
-                                                           TextWrapping="Wrap"
-                                                           TextAlignment="Center"
-                                                           FontSize="8"
-                                                           Foreground="{StaticResource STTextMuted}"
-                                                           Margin="3"
-                                                           VerticalAlignment="Center"
-                                                           HorizontalAlignment="Center"
-                                                           Visibility="{x:Bind HasNoCover, Mode=OneWay,
-                                                                        Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                                <Image Source="ms-appx:///Resources/desktop.png" Stretch="UniformToFill"/>
+                                                <TextBlock Text="Desktop" Style="{StaticResource ST9_Label}" Foreground="{StaticResource ST9Text}"
+                                                           VerticalAlignment="Bottom" Margin="10,0,10,8"/>
                                             </Grid>
                                         </Border>
-
-                                        <!-- Game info -->
-                                        <StackPanel Grid.Column="1"
-                                                    VerticalAlignment="Center"
-                                                    Spacing="4"
-                                                    Margin="0,0,12,0">
-
-                                            <!-- Store badge -->
-                                            <StackPanel Orientation="Horizontal" Spacing="5"
-                                                        Visibility="{x:Bind ShowBadge,
-                                                                     Converter={StaticResource BoolToVisibilityConverter}}">
-                                                <Image Width="14" Height="14" VerticalAlignment="Center">
-                                                    <Image.Source>
-                                                        <SvgImageSource UriSource="{x:Bind BadgeUri}"/>
-                                                    </Image.Source>
-                                                </Image>
-                                                <TextBlock Text="{x:Bind BadgeLabel}"
-                                                           Style="{StaticResource ST_RowDescription}"
-                                                           FontSize="11"
-                                                           Foreground="{StaticResource STTextPrimary}"
-                                                           VerticalAlignment="Center"/>
-                                            </StackPanel>
-
-                                            <!-- Game name -->
-                                            <TextBlock Text="{x:Bind Name}"
-                                                       Style="{StaticResource ST_RowLabel}"
-                                                       FontSize="14"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       ToolTipService.ToolTip="{x:Bind Name}"/>
-
-                                            <!-- Manual badge -->
-                                            <Border CornerRadius="4" Padding="6,2"
-                                                    Background="{StaticResource STBadgeGreenBg}"
-                                                    BorderBrush="{StaticResource STBadgeGreenBdr}"
-                                                    BorderThickness="1"
-                                                    Visibility="{x:Bind IsManual,
-                                                                 Converter={StaticResource BoolToVisibilityConverter}}"
-                                                    VerticalAlignment="Center"
-                                                    HorizontalAlignment="Left">
-                                                <TextBlock Text="Manual"
-                                                           Style="{StaticResource ST_BadgeText}"
-                                                           FontSize="10"
-                                                           Foreground="{StaticResource STSuccess}"/>
-                                            </Border>
-
-                                        </StackPanel>
-
-                                        <!-- Developer & Release date -->
-                                        <StackPanel Grid.Column="2"
-                                                    VerticalAlignment="Center"
-                                                    Spacing="4"
-                                                    Margin="8,0"
-                                                    Visibility="{x:Bind HasMeta, Mode=OneWay,
-                                                                 Converter={StaticResource BoolToVisibilityConverter}}">
-                                            <TextBlock Style="{StaticResource ST_RowDescription}"
-                                                       TextWrapping="NoWrap">
-                                                <Run Text="Developers: "
-                                                     Foreground="{StaticResource STTextMuted}"/>
-                                                <Run Text="{x:Bind MetaDeveloper, Mode=OneWay}"
-                                                     Foreground="{StaticResource STTextPrimary}"/>
-                                            </TextBlock>
-                                            <TextBlock Style="{StaticResource ST_RowDescription}"
-                                                       TextWrapping="NoWrap">
-                                                <Run Text="Release Date: "
-                                                     Foreground="{StaticResource STTextMuted}"/>
-                                                <Run Text="{x:Bind MetaReleaseDate, Mode=OneWay}"
-                                                     Foreground="{StaticResource STTextPrimary}"/>
-                                            </TextBlock>
-                                        </StackPanel>
-
-                                        <!-- Enable toggle -->
-                                        <ToggleSwitch Grid.Column="3"
-                                                      Style="{StaticResource ST_Toggle}"
-                                                      AutomationProperties.Name="{x:Bind Name}"
-                                                      IsOn="{x:Bind Enabled, Mode=TwoWay}"
-                                                      VerticalAlignment="Center"
-                                                      HorizontalAlignment="Right"
-                                                      ToolTipService.ToolTip="{x:Bind SyncTooltip}"/>
-
-                                        <!-- Play button -->
-                                        <Button Grid.Column="4"
-                                                Style="{StaticResource ST_ButtonGhost}"
-                                                Content="&#xE768;"
-                                                FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                                FontSize="12"
-                                                Width="30" Height="30"
-                                                Padding="0"
-                                                VerticalAlignment="Center"
-                                                Margin="6,0,0,0"
-                                                Click="PlayGame_Click"
-                                                AutomationProperties.Name="Launch game"
-                                                ToolTipService.ToolTip="Launch game"/>
-
-                                        <!-- Open folder button -->
-                                        <Button Grid.Column="5"
-                                                Style="{StaticResource ST_ButtonGhost}"
-                                                Content="&#xED43;"
-                                                FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                                FontSize="12"
-                                                Width="30" Height="30"
-                                                Padding="0"
-                                                VerticalAlignment="Center"
-                                                Margin="4,0,0,0"
-                                                Click="OpenFolder_Click"
-                                                AutomationProperties.Name="Open install folder"
-                                                ToolTipService.ToolTip="{x:Bind InstallFolder}"
-                                                Visibility="{x:Bind ShowFolderButton,
-                                                             Converter={StaticResource BoolToVisibilityConverter}}"/>
-
-                                        <!-- Remove button -->
-                                        <Button Grid.Column="6"
-                                                Style="{StaticResource ST_ButtonGhost}"
-                                                Content="&#xE711;"
-                                                FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                                FontSize="12"
-                                                Width="30" Height="30"
-                                                Padding="0"
-                                                VerticalAlignment="Center"
-                                                Margin="4,0,0,0"
-                                                Click="RemoveGame_Click"
-                                                AutomationProperties.Name="Remove from list"
-                                                ToolTipService.ToolTip="Remove from list"/>
-
+                                        <Border Grid.Column="1" Height="140" CornerRadius="8" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="1" Background="{StaticResource ST9Inset}">
+                                            <Grid>
+                                                <Image Source="ms-appx:///Resources/steam.png" Stretch="UniformToFill"/>
+                                                <TextBlock Text="Steam Big Picture" Style="{StaticResource ST9_Label}" Foreground="{StaticResource ST9Text}"
+                                                           VerticalAlignment="Bottom" Margin="10,0,10,8"/>
+                                            </Grid>
+                                        </Border>
                                     </Grid>
-                                </Border>
+                                    <Grid ColumnSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind ViewModel.HostAssetsHelpText, Mode=OneWay}" Style="{StaticResource ST9_Small}" VerticalAlignment="Center"/>
+                                        <Button Grid.Column="1" Style="{StaticResource ST9_ButtonSubtle}" Content="{x:Bind ViewModel.HostAssetsButtonText, Mode=OneWay}"
+                                                IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}" Click="ToggleHostAssets_Click"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ctrl:ResponsiveGrid>
 
-                            </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
+                    <!-- Toolbar -->
+                    <StackPanel Spacing="10" Margin="0,8,0,0"
+                                Visibility="{x:Bind ViewModel.HasGames, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox Style="{StaticResource ST9_SearchBox}" MaxWidth="320" HorizontalAlignment="Left"
+                                     PlaceholderText="{x:Bind ViewModel.SearchPlaceholder, Mode=OneWay}"
+                                     Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                            <ComboBox Grid.Column="1" MinWidth="170" ItemsSource="{x:Bind ViewModel.SortOptions}"
+                                      SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" ToolTipService.ToolTip="Sort"/>
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+                                <ToggleButton x:Name="ViewGridChip" Style="{StaticResource ST9_Chip}" IsChecked="True" Click="ViewMode_Click"
+                                              ToolTipService.ToolTip="Covers" AutomationProperties.Name="Covers">
+                                    <FontIcon Glyph="&#xE8A9;" FontSize="14"/>
+                                </ToggleButton>
+                                <ToggleButton x:Name="ViewListChip" Style="{StaticResource ST9_Chip}" Click="ViewMode_Click"
+                                              ToolTipService.ToolTip="List" AutomationProperties.Name="List">
+                                    <FontIcon Glyph="&#xE8FD;" FontSize="14"/>
+                                </ToggleButton>
+                            </StackPanel>
+                        </Grid>
+                        <ScrollViewer HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Hidden" VerticalScrollMode="Disabled">
+                            <StackPanel x:Name="StoreChipsPanel" Orientation="Horizontal" Spacing="6"/>
+                        </ScrollViewer>
+                    </StackPanel>
 
-            </Grid>
-        </Border>
-    </Grid>
-
+                    <TextBlock Text="No games yet. Sync now scans the stores installed on this PC; Add game takes any executable."
+                               Style="{StaticResource ST9_Body}"
+                               Visibility="{x:Bind ViewModel.HasGames, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                    <TextBlock Text="No games match." Style="{StaticResource ST9_Body}"
+                               Visibility="{x:Bind ViewModel.HasNoMatch, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                </StackPanel>
+            </GridView.Header>
+        </GridView>
+    </SplitView>
 </Page>

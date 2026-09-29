@@ -540,6 +540,7 @@
     <!-- Cover loaders: the big one for tiles, the tiny one is stretched on purpose — a
          24 px decode scaled up is a soft blur for the backdrop behind the hero. -->
     <converters:CoverPathToBitmapConverter x:Key="CoverPathToBitmapLargeConverter" DecodeWidth="360"/>
+    <converters:CoverPathToBitmapConverter x:Key="CoverPathToBitmapTileConverter" DecodeWidth="320"/>
     <converters:CoverPathToBitmapConverter x:Key="CoverPathToBackdropConverter" DecodeWidth="24"/>
 
 </ResourceDictionary>
