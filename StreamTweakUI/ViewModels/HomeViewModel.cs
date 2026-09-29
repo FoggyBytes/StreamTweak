@@ -48,6 +48,32 @@ namespace StreamTweak.ViewModels
         public string StatusBorderHex { get; init; } = "#404ade80";
     }
 
+    // ── One row of the Dashboard "Recent sessions" card (9.0) ────────────────
+    public sealed class HomeSessionRow
+    {
+        public string Id          { get; init; } = "";
+        public string WhenText    { get; init; } = "";
+        public string SubText     { get; init; } = "";
+        public string GamesText   { get; init; } = "";
+        public IReadOnlyList<GameCoverItem> Covers { get; init; } = Array.Empty<GameCoverItem>();
+        public string RttText     { get; init; } = "—";
+        public string HostLatText { get; init; } = "—";
+        public string GradeLabel  { get; init; } = "—";
+        public string GradeFgHex  { get; init; } = "#C8CFCB";
+        public string GradeBgHex  { get; init; } = "#0FFFFFFF";
+        public string GradeBorderHex { get; init; } = "#24FFFFFF";
+        public string StripeHex   { get; init; } = "#646B67";
+    }
+
+    // ── One cover of the Dashboard "Recently streamed" shelf (9.0) ───────────
+    public sealed class HomeShelfItem
+    {
+        public string  Name      { get; init; } = "";
+        public string? CoverPath { get; init; }
+        public string  MetaText  { get; init; } = "";
+        public bool    HasNoCover => string.IsNullOrEmpty(CoverPath);
+    }
+
     // ── ViewModel ─────────────────────────────────────────────────────────────
 
     public sealed class HomeViewModel : ViewModelBase
@@ -855,6 +881,87 @@ namespace StreamTweak.ViewModels
 
         public bool HasStreamHostIcon => _streamHostIcon != null;
 
+        // ── 9.0 Dashboard additions ───────────────────────────────────────────
+
+        // The game on screen right now (from the session's process monitor) and its art.
+        private string _liveGameName = string.Empty;
+        public string LiveGameName { get => _liveGameName; private set => SetProperty(ref _liveGameName, value); }
+
+        private bool _hasLiveGame;
+        public bool HasLiveGame { get => _hasLiveGame; private set => SetProperty(ref _hasLiveGame, value); }
+
+        private string? _liveGameCoverPath;
+        public string? LiveGameCoverPath { get => _liveGameCoverPath; private set => SetProperty(ref _liveGameCoverPath, value); }
+
+        private string _heroTitle = "Ready to stream";
+        public string HeroTitle { get => _heroTitle; private set => SetProperty(ref _heroTitle, value); }
+
+        private string _heroMeta = string.Empty;
+        public string HeroMeta { get => _heroMeta; private set => SetProperty(ref _heroMeta, value); }
+
+        private string _homeSubtitle = string.Empty;
+        public string HomeSubtitle { get => _homeSubtitle; private set => SetProperty(ref _homeSubtitle, value); }
+
+        // Trends for the live tiles that had no series before.
+        private IReadOnlyList<float> _liveDropsSeries = Array.Empty<float>();
+        public IReadOnlyList<float> LiveDropsSeries { get => _liveDropsSeries; private set => SetProperty(ref _liveDropsSeries, value); }
+
+        private IReadOnlyList<float> _liveFpsSeries = Array.Empty<float>();
+        public IReadOnlyList<float> LiveFpsSeries { get => _liveFpsSeries; private set => SetProperty(ref _liveFpsSeries, value); }
+
+        // Idle host vitals, last minute (one point a second) — the tiles' sparklines.
+        private const int VitalsWindow = 60;
+        private readonly List<float> _vGpuTemp = new(), _vGpuLoad = new(), _vVram = new(), _vCpu = new(), _vNet = new();
+
+        private IReadOnlyList<float> _hostGpuTempSeries = Array.Empty<float>();
+        public IReadOnlyList<float> HostGpuTempSeries { get => _hostGpuTempSeries; private set => SetProperty(ref _hostGpuTempSeries, value); }
+        private IReadOnlyList<float> _hostGpuLoadSeries = Array.Empty<float>();
+        public IReadOnlyList<float> HostGpuLoadSeries { get => _hostGpuLoadSeries; private set => SetProperty(ref _hostGpuLoadSeries, value); }
+        private IReadOnlyList<float> _hostVramSeries = Array.Empty<float>();
+        public IReadOnlyList<float> HostVramSeries { get => _hostVramSeries; private set => SetProperty(ref _hostVramSeries, value); }
+        private IReadOnlyList<float> _hostCpuSeries = Array.Empty<float>();
+        public IReadOnlyList<float> HostCpuSeries { get => _hostCpuSeries; private set => SetProperty(ref _hostCpuSeries, value); }
+        private IReadOnlyList<float> _hostNetSeries = Array.Empty<float>();
+        public IReadOnlyList<float> HostNetSeries { get => _hostNetSeries; private set => SetProperty(ref _hostNetSeries, value); }
+
+        // Last session card
+        private string _lastSessionId = string.Empty;
+        public string LastSessionId { get => _lastSessionId; private set => SetProperty(ref _lastSessionId, value); }
+
+        private string _lastSessionWhen = string.Empty;
+        public string LastSessionWhen { get => _lastSessionWhen; private set => SetProperty(ref _lastSessionWhen, value); }
+
+        private string _lastSessionGamesText = string.Empty;
+        public string LastSessionGamesText { get => _lastSessionGamesText; private set => SetProperty(ref _lastSessionGamesText, value); }
+
+        private string _lastSessionStreamsText = string.Empty;
+        public string LastSessionStreamsText { get => _lastSessionStreamsText; private set => SetProperty(ref _lastSessionStreamsText, value); }
+
+        // Performance: grade split for the bar.
+        private int _gradeExcellentCount, _gradeGoodCount, _gradePoorCount;
+        public int GradeExcellentCount { get => _gradeExcellentCount; private set => SetProperty(ref _gradeExcellentCount, value); }
+        public int GradeGoodCount      { get => _gradeGoodCount;      private set => SetProperty(ref _gradeGoodCount, value); }
+        public int GradePoorCount      { get => _gradePoorCount;      private set => SetProperty(ref _gradePoorCount, value); }
+
+        // Recent sessions (wide windows) and the recently-streamed shelf.
+        public ObservableCollection<HomeSessionRow> RecentSessions { get; } = new();
+        private bool _hasRecentSessions;
+        public bool HasRecentSessions { get => _hasRecentSessions; private set => SetProperty(ref _hasRecentSessions, value); }
+
+        public ObservableCollection<HomeShelfItem> RecentGames { get; } = new();
+        private bool _hasRecentGames;
+        public bool HasRecentGames { get => _hasRecentGames; private set => SetProperty(ref _hasRecentGames, value); }
+
+        // Host-setup tile captions
+        private string _managedAppsSubText = "None set";
+        public string ManagedAppsSubText { get => _managedAppsSubText; private set => SetProperty(ref _managedAppsSubText, value); }
+
+        private string _libraryTileSub = "Never synced";
+        public string LibraryTileSub { get => _libraryTileSub; private set => SetProperty(ref _libraryTileSub, value); }
+
+        private string _serverStatusText = "No streaming server detected";
+        public string ServerStatusText { get => _serverStatusText; private set => SetProperty(ref _serverStatusText, value); }
+
         // ── Constructor ───────────────────────────────────────────────────────
 
         public HomeViewModel()
@@ -999,6 +1106,7 @@ namespace StreamTweak.ViewModels
                     StopLiveSession();
                     _ = LoadStatusAsync();
                 }
+                RefreshHeroText();
             });
         }
 
@@ -1061,6 +1169,7 @@ namespace StreamTweak.ViewModels
 
                     // Performance aggregate over the user-selected window (7 or 30 days).
                     ComputePerformance(completed, _perfPeriodDays);
+                    BuildRecents(completed);
                     // Sessions are stored newest-first (Insert(0) in StartSession).
                     var last = sessions.FirstOrDefault(s => s.EndTime != null);
                     if (last != null)
@@ -1077,8 +1186,21 @@ namespace StreamTweak.ViewModels
                         string lsRttSub = qs != null ? $"{(int)qs.RttMaxMs} peak" : "";
                         string lsHost = qs != null && qs.HostLatencyAvgMs >= 0 ? $"{qs.HostLatencyAvgMs:0.#}" : "—";
                         string lsDrops = qs != null ? $"{qs.DropRatePct:0.#}" : "—";
+                        string lsId    = last.Id;
+                        string lsWhen  = $"{GameStatsService.RelativeDay(last.StartTime)} · {last.StartTime:HH:mm} → {last.EndTime:HH:mm}";
+                        string lsGames = last.GamesDetected is { Count: > 0 } g
+                            ? string.Join(", ", g)
+                            : last.GamesDetected != null ? "No game detected" : string.Empty;
+                        int lsStreams  = last.StreamSpans?.Count ?? 1;
+                        string lsStreamsText = lsStreams > 1
+                            ? $"{lsStreams} streams · the client reconnected"
+                            : "One stream";
                         _dispatcher.TryEnqueue(() =>
                         {
+                            LastSessionId          = lsId;
+                            LastSessionWhen        = lsWhen;
+                            LastSessionGamesText   = lsGames;
+                            LastSessionStreamsText = lsStreamsText;
                             LastSessionAgo          = lsAgo;
                             LastSessionRttValue     = lsRtt;
                             LastSessionRttSub       = lsRttSub;
@@ -1157,7 +1279,15 @@ namespace StreamTweak.ViewModels
                         count = apps?.Count ?? 0;
                     }
                     _dispatcher.TryEnqueue(() =>
-                        ManagedAppsText = count > 0 ? count.ToString() : "—");
+                    {
+                        ManagedAppsText    = count > 0 ? count.ToString() : "—";
+                        ManagedAppsSubText = count switch
+                        {
+                            0 => "None set",
+                            1 => "1 app closes when a stream starts",
+                            _ => $"{count} apps close when a stream starts",
+                        };
+                    });
                 }
                 catch { _dispatcher.TryEnqueue(() => ManagedAppsText = "—"); }
 
@@ -1168,7 +1298,12 @@ namespace StreamTweak.ViewModels
                     if (info != null)
                     {
                         streamHostExePath = info.ExePath;
-                        _dispatcher.TryEnqueue(() => { StreamHostName = info.AppName; HasStreamHost = true; });
+                        _dispatcher.TryEnqueue(() =>
+                        {
+                            StreamHostName   = info.AppName;
+                            HasStreamHost    = true;
+                            ServerStatusText = $"{info.AppName} detected · bridge listening on port 47998";
+                        });
                     }
                 }
                 catch { }
@@ -1266,7 +1401,9 @@ namespace StreamTweak.ViewModels
                     var local = state.LastSyncUtc.Value.ToLocalTime();
                     GameLibrarySyncText  = "Synced";
                     GameLibrarySyncValue = local.ToString("dd/MM/yyyy  HH:mm");
+                    LibraryTileSub = $"Synced {GameStatsService.RelativeDay(local).ToLowerInvariant()} at {local:HH:mm}";
                 }
+                else LibraryTileSub = state.SyncEnabled ? "Not synced yet" : "Sync is off";
             }
             catch { GameLibraryText = "—"; }
 
@@ -1306,6 +1443,124 @@ namespace StreamTweak.ViewModels
 
             RefreshNvSentinelTile();
             RefreshPairedClients();
+            RefreshHeroText();
+        }
+
+        /// <summary>
+        /// "Recent sessions" rows and the "Recently streamed" shelf. Runs on the background
+        /// thread of <see cref="LoadStatusAsync"/>; only the collections are touched on the UI thread.
+        /// </summary>
+        private void BuildRecents(List<SessionEntry> completed)
+        {
+            var rows = completed.Take(6).Select(s =>
+            {
+                var (label, fg, bg, bd) = GameStatsService.GradeColors(s.Grade);
+                var q = s.QualityStats;
+                return new HomeSessionRow
+                {
+                    Id          = s.Id,
+                    WhenText    = $"{GameStatsService.RelativeDay(s.StartTime)} {s.StartTime:HH:mm}",
+                    SubText     = s.EndTime is { } e ? GameStatsService.FormatMinutes((e - s.StartTime).TotalMinutes) : "",
+                    GamesText   = s.GamesDetected is { Count: > 0 } g ? string.Join(", ", g) : "No game detected",
+                    Covers      = s.GameCoversForDisplay.Take(3).ToList(),
+                    RttText     = q != null && q.RttAvgMs > 0 ? $"{q.RttAvgMs:0.0}" : "—",
+                    HostLatText = q != null && q.HostLatencyAvgMs >= 0 ? $"{q.HostLatencyAvgMs:0.0}" : "—",
+                    GradeLabel  = s.IsDebugSession ? "Debug" : label,
+                    GradeFgHex  = fg, GradeBgHex = bg, GradeBorderHex = bd,
+                    StripeHex   = GameStatsService.GradeStripe(s.Grade),
+                };
+            }).ToList();
+
+            var stats = GameStatsService.Compute(completed);
+            var library = GameLibraryState.Current.Games
+                .GroupBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+            var shelf = stats.Values
+                .Where(g => g.LastPlayed != null)
+                .OrderByDescending(g => g.LastPlayed)
+                .Take(16)
+                .Select(g =>
+                {
+                    string? cover = null;
+                    if (library.TryGetValue(g.Name, out var entry) && File.Exists(entry.CoverImagePath)) cover = entry.CoverImagePath;
+                    else
+                    {
+                        // A game no longer in the library still has the cover snapshotted with its session.
+                        var snap = g.RecentSessions.Select(s => s.GamesDetectedCoverPaths)
+                            .FirstOrDefault(m => m != null && m.ContainsKey(g.Name));
+                        if (snap != null && File.Exists(snap[g.Name])) cover = snap[g.Name];
+                    }
+                    return new HomeShelfItem
+                    {
+                        Name      = g.Name,
+                        CoverPath = cover,
+                        MetaText  = $"{GameStatsService.RelativeDay(g.LastPlayed!.Value)} · {GameStatsService.FormatMinutes(g.Minutes)}",
+                    };
+                }).ToList();
+
+            _dispatcher.TryEnqueue(() =>
+            {
+                RecentSessions.Clear();
+                foreach (var r in rows) RecentSessions.Add(r);
+                HasRecentSessions = RecentSessions.Count > 0;
+
+                RecentGames.Clear();
+                foreach (var g in shelf) RecentGames.Add(g);
+                HasRecentGames = RecentGames.Count > 0;
+            });
+        }
+
+        /// <summary>The hero's title and caption and the page subtitle, for the current state.</summary>
+        private void RefreshHeroText()
+        {
+            if (_isSessionActive)
+            {
+                HeroTitle = HasLiveGame ? LiveGameName : "Streaming";
+                string server = HasStreamHost ? $" · {StreamHostName}" : string.Empty;
+                HeroMeta  = $"{LiveDuration}{server}";
+                HomeSubtitle = HasLiveGame
+                    ? $"Streaming {LiveGameName} for {LiveDuration}"
+                    : $"A stream has been running for {LiveDuration}";
+            }
+            else
+            {
+                HeroTitle = "Ready to stream";
+                HeroMeta  = HasStreamHost ? $"{StreamHostName} is running · waiting for a client" : "Waiting for a client";
+                int n = PairedClients.Count(c => c.StatusText != "Waiting");
+                HomeSubtitle = n switch
+                {
+                    0 => "Nothing is streaming · no StreamLight device is approved yet",
+                    1 => "Nothing is streaming · 1 approved StreamLight device can wake this host",
+                    _ => $"Nothing is streaming · {n} approved StreamLight devices can wake this host",
+                };
+            }
+        }
+
+        /// <summary>
+        /// Which game is on screen now, from the session's process monitor. Checked every
+        /// second while streaming; the cover path is looked up only when the game changes.
+        /// </summary>
+        private void RefreshLiveGame()
+        {
+            string? name = SessionLogger.CurrentGameName(TimeSpan.FromSeconds(20));
+            if (string.Equals(name ?? string.Empty, _liveGameName, StringComparison.Ordinal)) return;
+
+            LiveGameName = name ?? string.Empty;
+            HasLiveGame  = !string.IsNullOrEmpty(name);
+            string? cover = null;
+            if (HasLiveGame)
+            {
+                try
+                {
+                    var entry = GameLibraryState.Current.Games.FirstOrDefault(g =>
+                        string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase));
+                    if (entry?.CoverImagePath != null && File.Exists(entry.CoverImagePath))
+                        cover = entry.CoverImagePath;
+                }
+                catch { }
+            }
+            LiveGameCoverPath = cover;
+            RefreshHeroText();
         }
 
         /// <summary>
@@ -1363,7 +1618,7 @@ namespace StreamTweak.ViewModels
 
             var perfLines = new List<SparklineSeries>
             {
-                new() { Label = "RTT", Color = ComputeGpu, Data = rttData },
+                new() { Label = "RTT", Color = PerfRtt, Data = rttData },
             };
             if (hostData.Any(v => v > 0f))
                 perfLines.Add(new SparklineSeries { Label = "Host lat.", Color = PerfHostLat, Data = hostData });
@@ -1403,6 +1658,9 @@ namespace StreamTweak.ViewModels
                 // one can land last and repaint the card with the previous period's data.
                 if (days != _perfPeriodDays) return;
 
+                GradeExcellentCount = hi;
+                GradeGoodCount      = md;
+                GradePoorCount      = lo;
                 WeekPerfLines      = perfLines;
                 HasWeekPerf        = hasPerf;
                 WeekPerfDrops      = perfDrops;
@@ -1457,6 +1715,19 @@ namespace StreamTweak.ViewModels
                 var clients = AppStateService.Instance.BridgeAuth?.GetClients();
                 if (clients != null)
                 {
+                    // Devices waiting for approval first: they are the ones that need a click.
+                    foreach (var c in clients.Where(c => c.Status == "pending"))
+                    {
+                        PairedClients.Add(new HomeClientRow
+                        {
+                            Name            = string.IsNullOrWhiteSpace(c.Name) ? "StreamLight client" : c.Name,
+                            LastSeenText    = string.IsNullOrEmpty(c.Pin) ? "Asks for access" : $"Asks for access · PIN {c.Pin}",
+                            StatusText      = "Waiting",
+                            StatusColorHex  = "#fbbf24",
+                            StatusBgHex     = "#21fbbf24",
+                            StatusBorderHex = "#59fbbf24",
+                        });
+                    }
                     foreach (var c in clients.Where(c => c.Status == "approved"))
                     {
                         string seen = "never connected";
@@ -1478,12 +1749,15 @@ namespace StreamTweak.ViewModels
             catch { /* non-fatal — the card simply shows the empty state */ }
 
             HasPairedClients     = PairedClients.Count > 0;
-            PairedClientsSummary = PairedClients.Count switch
+            int approved = PairedClients.Count(c => c.StatusText != "Waiting");
+            int waiting  = PairedClients.Count - approved;
+            PairedClientsSummary = (approved switch
             {
-                0 => "none yet",
+                0 => "none approved yet",
                 1 => "1 approved",
-                _ => $"{PairedClients.Count} approved",
-            };
+                _ => $"{approved} approved",
+            }) + (waiting > 0 ? $" · {waiting} waiting" : string.Empty);
+            RefreshHeroText();
         }
 
         private void RefreshNvSentinelTile()
@@ -1622,6 +1896,18 @@ namespace StreamTweak.ViewModels
             }
             else { HostNetText = "—"; HostNetBar = 0; }
 
+            // One-minute trends for the tiles' sparklines.
+            if (s.GpuTemp >= 0) Push(_vGpuTemp, (float)s.GpuTemp, VitalsWindow);
+            if (s.Gpu >= 0)     Push(_vGpuLoad, (float)s.Gpu, VitalsWindow);
+            if (s.VramUsedMb >= 0) Push(_vVram, (float)(s.VramUsedMb / 1024.0), VitalsWindow);
+            if (s.Cpu >= 0)     Push(_vCpu, (float)s.Cpu, VitalsWindow);
+            if (s.NetTxMbps >= 0) Push(_vNet, (float)s.NetTxMbps, VitalsWindow);
+            HostGpuTempSeries = _vGpuTemp.ToList();
+            HostGpuLoadSeries = _vGpuLoad.ToList();
+            HostVramSeries    = _vVram.ToList();
+            HostCpuSeries     = _vCpu.ToList();
+            HostNetSeries     = _vNet.ToList();
+
             // Health headline — derived from measured facts only, never from
             // which optional automations the user chose to leave off.
             bool anyMetric = s.GpuTemp >= 0 || s.Gpu >= 0 || s.Cpu >= 0;
@@ -1669,6 +1955,8 @@ namespace StreamTweak.ViewModels
             LiveRttSeries      = Array.Empty<float>();
             LiveBitrateSeries  = Array.Empty<float>();
             LiveHostLatSeries  = Array.Empty<float>();
+            LiveDropsSeries    = Array.Empty<float>();
+            LiveFpsSeries      = Array.Empty<float>();
             LiveComputeLines   = Array.Empty<SparklineSeries>();
             LiveDropPct        = "0.00%";
             LiveRttValue       = "—";
@@ -1699,14 +1987,21 @@ namespace StreamTweak.ViewModels
                 {
                     var t = SessionLogger.ActiveSessionStartTime;
                     if (t != default) LiveDuration = FormatDuration(t);
+                    RefreshLiveGame();
+                    RefreshHeroText();
                 };
             }
             _durationTimer.Start();
+            RefreshLiveGame();
+            RefreshHeroText();
         }
 
         private void StopLiveSession()
         {
             _durationTimer?.Stop();
+            LiveGameName = string.Empty;
+            HasLiveGame = false;
+            LiveGameCoverPath = null;
             _rttBuffer.Clear();
             _bitrateBuffer.Clear();
             _dropsBuffer.Clear();
@@ -1722,8 +2017,10 @@ namespace StreamTweak.ViewModels
         private static readonly Color ComputeEnc = Color.FromArgb(0xFF, 0xA7, 0x8B, 0xFA); // purple
         private static readonly Color ComputeCpu = Color.FromArgb(0xFF, 0xF5, 0x9E, 0x0B); // amber
 
-        // Weekly performance chart — host frame latency line (cyan, distinct from RTT green).
-        private static readonly Color PerfHostLat = Color.FromArgb(0xFF, 0x38, 0xBD, 0xF8);
+        // Performance trend lines (9.0): the chart palette validated for colour-blind separation
+        // on the dark surface — blue for RTT, orange for host frame latency.
+        private static readonly Color PerfRtt     = Color.FromArgb(0xFF, 0x39, 0x87, 0xE5);
+        private static readonly Color PerfHostLat = Color.FromArgb(0xFF, 0xD9, 0x59, 0x26);
 
         private void OnLiveSample(AppStateService.LiveSample s)
         {
@@ -1743,6 +2040,8 @@ namespace StreamTweak.ViewModels
                 LiveRttSeries     = _rttBuffer.ToList();
                 LiveBitrateSeries = _bitrateBuffer.ToList();
                 LiveHostLatSeries = _hostLatBuffer.ToList();
+                LiveDropsSeries   = _dropsBuffer.Select(d => (float)d).ToList();
+                LiveFpsSeries     = _fpsBuffer.ToList();
                 LiveComputeLines  = new List<SparklineSeries>
                 {
                     new() { Label = $"GPU {(int)LastOr(_gpuBuffer)}", Color = ComputeGpu, Data = _gpuBuffer.ToList() },
@@ -1803,10 +2102,12 @@ namespace StreamTweak.ViewModels
         private static string FormatFrameCount(double frames)
             => frames >= 1000 ? $"{frames / 1000.0:0.#}k" : $"{(int)frames}";
 
-        private static void Push<T>(List<T> buffer, T value)
+        private static void Push<T>(List<T> buffer, T value) => Push(buffer, value, LiveWindowSize);
+
+        private static void Push<T>(List<T> buffer, T value, int window)
         {
             buffer.Add(value);
-            if (buffer.Count > LiveWindowSize)
+            if (buffer.Count > window)
                 buffer.RemoveAt(0);
         }
 

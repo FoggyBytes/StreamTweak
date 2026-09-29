@@ -164,6 +164,16 @@ namespace StreamTweak.Services
         // property (read once at navigation time) — no event needed.
         public string? PendingGlossaryTerm { get; set; }
 
+        // ── 9.0 deep links ────────────────────────────────────────────────────
+        // Same one-shot pattern as the glossary: the Dashboard sets one of these and
+        // navigates; the target page reads + clears it in OnNavigatedTo.
+
+        /// <summary>Session to open in the Sessions detail (SessionEntry.Id).</summary>
+        public string? PendingSessionId { get; set; }
+
+        /// <summary>Game to open in the Library sheet (ObservableGameEntry.Name).</summary>
+        public string? PendingGameName { get; set; }
+
         // ── Settings changed notification ─────────────────────────────────────
 
         /// <summary>
