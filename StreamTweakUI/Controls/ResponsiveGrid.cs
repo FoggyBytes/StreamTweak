@@ -125,6 +125,15 @@ namespace StreamTweak.Controls
         private readonly HashSet<UIElement> _hidden = new();
         private double _layoutWidth = -1;
 
+        // The width the parent last arranged us at, and the measure constraint it had given us
+        // for that pass. A ScrollViewer measures its content a little narrower than it arranges
+        // it (782.4 vs 784 DIP at 125% scale); re-measuring the children inside ArrangeOverride
+        // to follow that difference invalidated our own measure every pass — a layout cycle
+        // that killed the app on start. Measure now adopts the arranged width instead.
+        private double _arrangedWidth = -1;
+        private double _arrangedForAvailable = double.NaN;
+        private double _measuredAvailable = double.NaN;
+
         private static int[] ParseInts(string? s, int fallback)
         {
             if (string.IsNullOrWhiteSpace(s)) return new[] { fallback };
@@ -230,8 +239,13 @@ namespace StreamTweak.Controls
 
         protected override Size MeasureOverride(Size availableSize)
         {
-            double width = double.IsInfinity(availableSize.Width) || double.IsNaN(availableSize.Width)
-                ? 1200 : availableSize.Width;
+            bool unbounded = double.IsInfinity(availableSize.Width) || double.IsNaN(availableSize.Width);
+            double width = unbounded ? 1200 : availableSize.Width;
+            // Same constraint as the pass we were last arranged in: the parent will arrange us
+            // at that width again, so lay out for it rather than for the constraint.
+            if (_arrangedWidth >= 0 && availableSize.Width.Equals(_arrangedForAvailable))
+                width = _arrangedWidth;
+            _measuredAvailable = availableSize.Width;
             BuildLayout(width);
 
             double colW = ColumnWidth(width);
@@ -245,25 +259,20 @@ namespace StreamTweak.Controls
             foreach (var h in _hidden) h.Measure(new Size(0, 0));
 
             double height = _rowHeights.Sum() + Math.Max(0, _rowHeights.Count - 1) * RowSpacing;
-            return new Size(width, height);
+            return new Size(unbounded ? width : availableSize.Width, height);
         }
 
         protected override Size ArrangeOverride(Size finalSize)
         {
             double width = finalSize.Width;
+            _arrangedWidth = width;
+            _arrangedForAvailable = _measuredAvailable;
             if (Math.Abs(width - _layoutWidth) > 0.5)
             {
-                // The final width differs from the measured one: re-flow and re-measure so the
-                // row heights belong to the widths we are about to arrange at.
-                BuildLayout(width);
-                double cw = ColumnWidth(width);
-                _rowHeights.Clear();
-                foreach (var p in _placements)
-                {
-                    p.Child.Measure(new Size(SlotWidth(cw, p.Span), double.PositiveInfinity));
-                    while (_rowHeights.Count <= p.Row) _rowHeights.Add(0);
-                    _rowHeights[p.Row] = Math.Max(_rowHeights[p.Row], p.Child.DesiredSize.Height);
-                }
+                // The final width differs from the measured one. Arrange with what was measured
+                // now, and measure again: that pass lays out for this width (see MeasureOverride),
+                // so the row heights catch up in one step instead of chasing it here.
+                InvalidateMeasure();
             }
 
             double colW = ColumnWidth(width);
