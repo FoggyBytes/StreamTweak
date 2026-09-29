@@ -174,7 +174,19 @@ namespace StreamTweak
                         // history row, game capture, the tray. The 60 s minimum length (§35)
                         // would not cover this: a mistyped PIN makes the session longer than
                         // that, and the side effects fire the moment it starts either way.
-                        if (ConsumeUnlockSessionMark())
+                        //
+                        // ⚠️ Not only the first start line. Vibeshine and Vibepollo write two per
+                        // stream (begin_session, then CLIENT CONNECTED ~0.5 s later) and each one
+                        // raises StreamStarted. The mark used to be spent on the first, so the
+                        // second opened a real session — history row, spatial audio and all — for
+                        // every PIN unlock, and its stop was never suppressed either (28/09/2026).
+                        if (IsSecondStartOfUnlockSession(e.SessionUuid))
+                        {
+                            DebugLogger.Log("[Unlock] second start line of the unlock session suppressed");
+                            return;
+                        }
+
+                        if (ConsumeUnlockSessionMark(e.SessionUuid))
                         {
                             DebugLogger.Log("[Unlock] session start suppressed (client declared an unlock session)");
                             return;
@@ -216,6 +228,7 @@ namespace StreamTweak
                         if (_unlockSessionActive)
                         {
                             _unlockSessionActive = false;
+                            _unlockSessionUuid   = null;
                             DebugLogger.Log("[Unlock] session end suppressed");
                             return;
                         }
@@ -278,6 +291,20 @@ namespace StreamTweak
         // Set once a start has actually been suppressed, so the matching stop is too.
         private bool _unlockSessionActive;
 
+        // Which server session the suppressed start belonged to (null on Sunshine and Apollo,
+        // which declare no uuid), and when it was seen: together they recognise the further
+        // start lines of that same stream.
+        private string?  _unlockSessionUuid;
+        private DateTime _unlockSessionStartUtc = DateTime.MinValue;
+
+        /// <summary>
+        /// For a start line without a uuid, how close to the suppressed one it must be to count as
+        /// a second line of the same stream. Those are written within a second of each other; the
+        /// real session after an unlock cannot start this soon, because the unlock session itself
+        /// lasts several seconds (PIN, logon, teardown) before the client launches anything.
+        /// </summary>
+        private const double UNLOCK_DUPLICATE_START_SEC = 5;
+
         /// <summary>
         /// How long a declared unlock stays eligible. Generous next to the few seconds a PIN
         /// takes, because the client may still be waiting for the host to finish booting — and
@@ -309,14 +336,31 @@ namespace StreamTweak
         /// <summary>
         /// True once, for the first session start after a declaration. One-shot on purpose:
         /// an unlock is followed almost immediately by the real session the user wanted, and
-        /// that one must be recorded normally.
+        /// that one must be recorded normally. The further start lines of the unlock stream
+        /// itself are caught by <see cref="IsSecondStartOfUnlockSession"/>.
         /// </summary>
-        private bool ConsumeUnlockSessionMark()
+        private bool ConsumeUnlockSessionMark(string? sessionUuid)
         {
             if (DateTime.UtcNow >= _unlockMarkUntilUtc) return false;
-            _unlockMarkUntilUtc  = DateTime.MinValue;
-            _unlockSessionActive = true;
+            _unlockMarkUntilUtc    = DateTime.MinValue;
+            _unlockSessionActive   = true;
+            _unlockSessionUuid     = sessionUuid;
+            _unlockSessionStartUtc = DateTime.UtcNow;
             return true;
+        }
+
+        /// <summary>
+        /// True for another start line of the stream an unlock was already suppressed for. With a
+        /// uuid on both sides the server says so itself: a different uuid is the next session, never
+        /// a duplicate, however soon it comes. Without one, only a line within
+        /// <see cref="UNLOCK_DUPLICATE_START_SEC"/> of the suppressed start counts.
+        /// </summary>
+        private bool IsSecondStartOfUnlockSession(string? sessionUuid)
+        {
+            if (!_unlockSessionActive) return false;
+            if (sessionUuid != null && _unlockSessionUuid != null)
+                return string.Equals(sessionUuid, _unlockSessionUuid, StringComparison.OrdinalIgnoreCase);
+            return (DateTime.UtcNow - _unlockSessionStartUtc).TotalSeconds < UNLOCK_DUPLICATE_START_SEC;
         }
 
         private void OnGameLaunchDetected(string exePath)

@@ -151,6 +151,11 @@ namespace StreamTweak
             // Consumers can use this to skip actions that would disrupt an in-progress stream
             // (e.g. NIC renegotiation).
             public bool IsRetrospective { get; set; }
+            // The uuid of the server session the event belongs to, on the forks that declare one
+            // (Vibeshine, Vibepollo). Null elsewhere. They write TWO start lines per stream —
+            // begin_session, then CLIENT CONNECTED — and both raise StreamStarted; this is what
+            // lets a consumer tell the second line of one stream from the start of the next.
+            public string? SessionUuid { get; set; }
         }
 
         public void StartMonitoring()
@@ -284,7 +289,11 @@ namespace StreamTweak
 
                                 seenStreamStarted = true;
                                 DebugLog($"Event raised: {streamingEvent}");
-                                StreamingEventDetected?.Invoke(this, new StreamingEventArgs { Event = streamingEvent });
+                                StreamingEventDetected?.Invoke(this, new StreamingEventArgs
+                                {
+                                    Event       = streamingEvent,
+                                    SessionUuid = openHistoryUuid
+                                });
                             }
                             else if (streamingEvent == LogParser.StreamingEvent.StreamStopped)
                             {
