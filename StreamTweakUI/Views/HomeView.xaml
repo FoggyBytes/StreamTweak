@@ -50,10 +50,16 @@
                 <Border x:Name="HeroCard" Style="{StaticResource ST9_Hero}" MinHeight="300"
                         ctrl:ResponsiveGrid.Span="1,2,2,2,3" ctrl:ResponsiveGrid.Order="0">
                     <Grid>
-                        <!-- Live: the game's cover, decoded tiny and stretched = a soft blur -->
-                        <Image Source="{x:Bind ViewModel.LiveGameCoverPath, Mode=OneWay, Converter={StaticResource CoverPathToBackdropConverter}}"
-                               Stretch="UniformToFill" Opacity="0.6"
-                               Visibility="{x:Bind ViewModel.HasLiveGame, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        <!-- Live: the game's cover, decoded tiny and stretched = a soft blur.
+                             A brush, not an Image: measured at infinite height (ResponsiveGrid), an
+                             Image takes its own 2:3 height and makes the card as tall as it is wide. -->
+                        <Rectangle Opacity="0.6"
+                                   Visibility="{x:Bind ViewModel.HasLiveGame, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                            <Rectangle.Fill>
+                                <ImageBrush ImageSource="{x:Bind ViewModel.LiveGameCoverPath, Mode=OneWay, Converter={StaticResource CoverPathToBackdropConverter}}"
+                                            Stretch="UniformToFill"/>
+                            </Rectangle.Fill>
+                        </Rectangle>
                         <!-- Idle: a faint mint glow in the corner -->
                         <Rectangle Visibility="{x:Bind ViewModel.IsSessionActive, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                             <Rectangle.Fill>

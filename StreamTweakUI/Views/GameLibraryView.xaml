@@ -123,8 +123,13 @@
                 </Grid.RowDefinitions>
 
                 <Grid>
-                    <Image Source="{x:Bind ViewModel.SelectedCoverPath, Mode=OneWay, Converter={StaticResource CoverPathToBackdropConverter}}"
-                           Stretch="UniformToFill" Opacity="0.55"/>
+                    <!-- A brush, not an Image: in this Auto row an Image would set the header's height itself. -->
+                    <Rectangle Opacity="0.55">
+                        <Rectangle.Fill>
+                            <ImageBrush ImageSource="{x:Bind ViewModel.SelectedCoverPath, Mode=OneWay, Converter={StaticResource CoverPathToBackdropConverter}}"
+                                        Stretch="UniformToFill"/>
+                        </Rectangle.Fill>
+                    </Rectangle>
                     <Rectangle>
                         <Rectangle.Fill>
                             <LinearGradientBrush StartPoint="0.5,1" EndPoint="0.5,0">
@@ -349,8 +354,14 @@
                         <Border x:Name="HeroCard" Style="{StaticResource ST9_Hero}" MinHeight="250" ctrl:ResponsiveGrid.Span="1,2"
                                 SizeChanged="HeroCard_SizeChanged">
                             <Grid>
-                                <Image Source="{x:Bind ViewModel.HeroCoverPath, Mode=OneWay, Converter={StaticResource CoverPathToBackdropConverter}}"
-                                       Stretch="UniformToFill" Opacity="0.6"/>
+                                <!-- A brush, not an Image: measured at infinite height (ResponsiveGrid), an
+                                     Image takes its own 2:3 height and makes the hero as tall as it is wide. -->
+                                <Rectangle Opacity="0.6">
+                                    <Rectangle.Fill>
+                                        <ImageBrush ImageSource="{x:Bind ViewModel.HeroCoverPath, Mode=OneWay, Converter={StaticResource CoverPathToBackdropConverter}}"
+                                                    Stretch="UniformToFill"/>
+                                    </Rectangle.Fill>
+                                </Rectangle>
                                 <Rectangle>
                                     <Rectangle.Fill>
                                         <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
@@ -530,7 +541,7 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
-                            <TextBox Style="{StaticResource ST9_SearchBox}" MaxWidth="320" HorizontalAlignment="Left"
+                            <TextBox Style="{StaticResource ST9_SearchBox}" MinWidth="240" MaxWidth="320" HorizontalAlignment="Left"
                                      PlaceholderText="{x:Bind ViewModel.SearchPlaceholder, Mode=OneWay}"
                                      Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             <ComboBox Grid.Column="1" MinWidth="170" ItemsSource="{x:Bind ViewModel.SortOptions}"

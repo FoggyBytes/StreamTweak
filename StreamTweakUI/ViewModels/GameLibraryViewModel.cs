@@ -783,11 +783,19 @@ namespace StreamTweak.ViewModels
                 _ => list.OrderByDescending(g => g.LastPlayed ?? DateTime.MinValue).ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
             };
 
-            // Minimal diff would be nicer for animations; a rebuild keeps it simple and the
-            // GridView only realises what is on screen anyway.
+            // Edited in place, never cleared: a Clear() is a Reset, and a Reset sends the
+            // GridView back to the top — the store chips live in its header, so every click on
+            // one used to scroll them out of sight.
             var result = list.ToList();
-            FilteredGames.Clear();
-            foreach (var g in result) FilteredGames.Add(g);
+            var keep = new HashSet<ObservableGameEntry>(result);
+            for (int i = FilteredGames.Count - 1; i >= 0; i--)
+                if (!keep.Contains(FilteredGames[i])) FilteredGames.RemoveAt(i);
+            for (int i = 0; i < result.Count; i++)
+            {
+                int at = FilteredGames.IndexOf(result[i]);
+                if (at < 0) FilteredGames.Insert(i, result[i]);
+                else if (at != i) FilteredGames.Move(at, i);
+            }
             HasFiltered = FilteredGames.Count > 0;
         }
 
