@@ -33,7 +33,7 @@ Everything below is in the current release, whichever version first introduced i
 - **You stay in control of your hardware** — one permission switch decides whether clients may touch the adapter at all, the link is never changed while a session is running, and a manual restore is one click away. The host holds the speed until it is asked to put it back, so the gap between two games costs nothing
 - **Wired only** — Ethernet adapters that expose a speed setting, nothing else. Wi-Fi has no fixed link speed to match, and a request arriving over Wi-Fi or Tailscale is refused
 - **No UAC, ever** — a LocalSystem service performs the adapter changes over a named pipe
-- **[Tailscale](https://tailscale.com) detection** — the host's Tailscale IP is shown with a copy button, and the client tracks it on the host's tile for streaming from outside the LAN with no port forwarding
+- **[Tailscale](https://tailscale.com) detection** — the host's Tailscale IP is shown with a copy button on the Network page and in the title bar, beside this PC's LAN address, and the client tracks it on the host's tile for streaming from outside the LAN with no port forwarding
 
 **🎬 Launch and lock state**
 - **The host reports the launch** — StreamTweak follows the game the streaming server was asked to open and reports whether it is still starting, has a window, is on screen, or is waiting for a click, so the client can cover the wait with its own screen instead of showing a desktop mid-reconfiguration
@@ -63,9 +63,9 @@ Everything below is in the current release, whichever version first introduced i
 
 **📋 Sessions and telemetry**
 - **Full session log** — every session with duration, RTT, drop rate, and the games it played with their covers. Optionally, sessions that never launched a game are discarded rather than recorded
-- **Quality report** — open any session for CLIENT and HOST stats, charts for RTT, host frame latency, drops, bitrate, decode latency and host compute, and a grade of Excellent / Good / Poor
-- **Compare two sessions** side by side, with per-metric deltas and both runs overlaid on every chart
-- **Dashboard** — one layout in both states, where only the top-left box changes: at rest a live host monitor (GPU temperature and load, VRAM, CPU, network, once a second), while streaming the live session. Around it, the last session with its games, a performance trend over the period you choose, and the host setup alongside your paired clients
+- **Quality report** — open any session for its client and host stats, a grade of Excellent / Good / Poor with the four checks behind it, and one timeline of RTT, host frame latency, drops, bitrate, decode latency and host compute, with zoom, a Focus view and full screen
+- **Compare two sessions** side by side, with per-metric deltas
+- **Dashboard** — at the top, a live host monitor at rest (GPU temperature and load, VRAM, CPU, network, once a second) or the live session while streaming; below, the last session above your recently streamed games, the host setup, a performance trend over the period you choose, and your paired clients
 
 ## 🔗 Paired Features (with StreamLight)
 
@@ -79,7 +79,7 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Store badges on covers** *(2.0.0+)* — the per-game store map, over `APPSTORES`
 - **Session quality reports and live charts** *(2.1.0+)* — client telemetry every second; StreamTweak computes the grade and draws the charts
 - **Delivered vs target bitrate** *(4.5.0+)* — the client reports the rate it was told to aim for, so the Dashboard can show what was actually delivered against it
-- **Remote session pause** *(2.3.0+)* — the Pause button on the Dashboard ends the stream client-side
+- **Remote session pause** *(2.3.0+)* — "Return to client" on the Dashboard ends the stream client-side
 - **Remote host power-off** *(3.2.0+)* — an approved client can shut down the host, itself, or both. Destructive, so it only ever fires on a verified signature
 - **Remote sleep and restart** *(6.2.0+)* — the host reports the power options it really has, and the client offers only those
 - **Remote Windows Update** *(3.3.0+)* — scan, classify and install updates on the host and reboot it, or install them as part of a shutdown, all from the client with no keyboard on the host. The privileged work runs in the LocalSystem service
@@ -88,11 +88,12 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 
 ## ✨ What's New in 9.0.0 — "The New Look Update"
 
-- **A new look, built to scale** — every page redrawn, from a 7" handheld at 1080p to 4K, with cards side by side where there is room
-- **Grouped menu and a live title bar** — Streaming and Host sections; stream state, game, link speed and Tailscale address always in view; the glossary opens as a side panel (F1)
-- **Dashboard** — the game being streamed with its cover and live figures, the last session and its grade, and a shelf of recently played games
-- **Sessions** — grouped by day with filters and a period summary, list and session side by side on wide screens, a Verdict card that explains the grade, and one timeline for every chart with zoom and a Focus view
+- **A new look, built to scale** — every page redrawn, in one centred column that grows with the window up to a set width, from a 7" handheld to 4K
+- **Grouped menu and a live title bar** — Streaming and Host sections; stream state, game, link speed, LAN and Tailscale addresses (click to copy, or hide them in Settings); the glossary opens as a side panel (F1)
+- **Dashboard** — a compact band with the host's vitals or the live stream, the last session above your recently streamed games, host setup, performance and paired clients
+- **Sessions** — grouped by day with filters and a period summary, a Verdict card that explains the grade, and one timeline for every chart with zoom, a Focus view and full screen
 - **Library** — a wall of covers with time played, sessions and typical grade per game, search, store filters, sorting and a side sheet for each game
+- **Clients and Network** — one card per device with an icon you pick for what it is, and this PC's LAN address on the Network page
 
 *Older releases are in [changelog.txt](changelog.txt).*
 

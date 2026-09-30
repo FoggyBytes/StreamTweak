@@ -6,7 +6,7 @@
     xmlns:ctrl="using:StreamTweak.Controls"
     Background="{StaticResource STBackground}">
 
-    <!-- 9.0: page header, then the cards in two columns once the page is wide enough. -->
+    <!-- 9.0: page header, then the cards stacked in the shared content column (Controls/PageLayout). -->
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled">
             <StackPanel x:Name="PageRoot" Padding="32,24,32,40" Spacing="16">
 
@@ -50,7 +50,7 @@
                     </InfoBar.ActionButton>
                 </InfoBar>
 
-                <ctrl:ResponsiveGrid MinColumnWidth="520" MaxColumns="2" ColumnSpacing="16" RowSpacing="16">
+                <ctrl:ResponsiveGrid MinColumnWidth="520" MaxColumns="1" ColumnSpacing="16" RowSpacing="16">
                 <!-- ── About ─────────────────────────────────────────────── -->
                 <Border Style="{StaticResource ST9_Card}">
                     <Grid>
@@ -123,7 +123,7 @@
 
                 </ctrl:ResponsiveGrid>
 
-                <ctrl:ResponsiveGrid MinColumnWidth="560" MaxColumns="2" ColumnSpacing="16" RowSpacing="16">
+                <ctrl:ResponsiveGrid MinColumnWidth="560" MaxColumns="1" ColumnSpacing="16" RowSpacing="16">
                 <!-- ── Data ──────────────────────────────────────────────── -->
                 <Border Style="{StaticResource ST9_Card}">
                     <StackPanel Spacing="14">
@@ -256,6 +256,28 @@
                                           AutomationProperties.AutomationId="RecordOnlyGameSessionsToggle"
                                           AutomationProperties.Name="Only record sessions with a game"
                                           IsOn="{x:Bind ViewModel.RecordOnlyGameSessions, Mode=TwoWay}"
+                                          VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <Border Style="{StaticResource ST_Separator}"/>
+
+                        <!-- IP addresses in the title bar -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="3" Margin="0,0,16,0">
+                                <TextBlock Text="Show IP addresses in the title bar"
+                                           Style="{StaticResource ST_RowLabel}"/>
+                                <TextBlock Text="This PC's LAN and Tailscale addresses. Off keeps only the link speed."
+                                           Style="{StaticResource ST_RowDescription}"/>
+                            </StackPanel>
+                            <ToggleSwitch Grid.Column="1"
+                                          Style="{StaticResource ST_Toggle}"
+                                          AutomationProperties.AutomationId="ShowTitleBarAddressesToggle"
+                                          AutomationProperties.Name="Show IP addresses in the title bar"
+                                          IsOn="{x:Bind ViewModel.ShowTitleBarAddresses, Mode=TwoWay}"
                                           VerticalAlignment="Center"/>
                         </Grid>
                     </StackPanel>

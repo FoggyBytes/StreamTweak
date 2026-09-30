@@ -9,8 +9,8 @@
     <!-- ═══════════════════════════════════════════════════════════════════════
          9.0 Library. The page is one GridView (virtualised: only the covers on screen
          are decoded), with everything above the covers in its Header so it all scrolls
-         as one. The cover size is worked out from the width in code-behind: two columns
-         on a 7" handheld, a wall of covers at 4K. A game opens in a sheet on the right.
+         as one. The cover size is worked out from the width in code-behind, in the shared content
+         column (Controls/PageLayout). A game opens in a sheet on the right.
     ════════════════════════════════════════════════════════════════════════ -->
 
     <Page.Resources>
@@ -30,8 +30,8 @@
                         <Image Source="{x:Bind CoverPath, Converter={StaticResource CoverPathToBitmapTileConverter}}"
                                Stretch="UniformToFill" Opacity="{x:Bind CoverOpacity, Mode=OneWay}"/>
 
-                        <!-- Store badge / manual tag -->
-                        <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="7" Width="24" Height="24" CornerRadius="7"
+                        <!-- Store badge (bottom-right; hidden under the hover actions) / manual tag -->
+                        <Border x:Name="StoreBadge" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="7" Width="24" Height="24" CornerRadius="7"
                                 Background="#B3141616" Visibility="{x:Bind ShowBadge, Converter={StaticResource BoolToVisibilityConverter}}"
                                 ToolTipService.ToolTip="{x:Bind BadgeLabel}">
                             <Image Width="14" Height="14">
@@ -76,39 +76,6 @@
                 <TextBlock Grid.Row="2" Text="{x:Bind MetaText, Mode=OneWay}" Style="{StaticResource ST9_Hint}" FontSize="12" Margin="2,0,2,0"/>
             </Grid>
         </DataTemplate>
-
-        <!-- List row -->
-        <DataTemplate x:Key="GameRowTemplate" x:DataType="vm:ObservableGameEntry">
-            <Grid Padding="10,6,6,6" ColumnSpacing="14" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="0,0,0,1">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="34"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="110"/>
-                    <ColumnDefinition Width="80"/>
-                    <ColumnDefinition Width="64"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Border Width="32" Height="48" CornerRadius="4" Background="{StaticResource ST9Inset}">
-                    <Image Source="{x:Bind CoverPath, Converter={StaticResource CoverPathToBitmapConverter}}" Stretch="UniformToFill"
-                           Opacity="{x:Bind CoverOpacity, Mode=OneWay}"/>
-                </Border>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST9_RowTitle}"/>
-                    <TextBlock Text="{x:Bind DevLine, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
-                </StackPanel>
-                <TextBlock Grid.Column="2" Text="{x:Bind Store}" Style="{StaticResource ST9_Hint}" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="3" Text="{x:Bind StreamedText, Mode=OneWay}" Style="{StaticResource ST9_Body}" TextAlignment="Right" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="4" Text="{x:Bind SessionsText, Mode=OneWay}" Style="{StaticResource ST9_Body}" TextAlignment="Right" VerticalAlignment="Center"/>
-                <ToggleSwitch Grid.Column="5" Style="{StaticResource ST_Toggle}" MinWidth="0" OnContent="" OffContent="" VerticalAlignment="Center"
-                              IsOn="{x:Bind Enabled, Mode=TwoWay}" AutomationProperties.Name="{x:Bind SyncTooltip}"
-                              ToolTipService.ToolTip="{x:Bind SyncTooltip}"/>
-                <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
-                    <Button Style="{StaticResource ST9_IconButton}" Content="&#xE768;" Click="TilePlay_Click" ToolTipService.ToolTip="Play on this PC"/>
-                    <Button Style="{StaticResource ST9_IconButton}" Content="&#xE712;" Click="TileDetails_Click" ToolTipService.ToolTip="Details"/>
-                </StackPanel>
-            </Grid>
-        </DataTemplate>
     </Page.Resources>
 
     <SplitView x:Name="Sheet" PanePlacement="Right" DisplayMode="Overlay" IsPaneOpen="False" OpenPaneLength="440"
@@ -116,26 +83,21 @@
 
         <!-- ═════════════════════════════ GAME SHEET ═════════════════════════════ -->
         <SplitView.Pane>
-            <Grid BorderBrush="{StaticResource ST9Stroke2}" BorderThickness="1,0,0,0">
+            <Grid BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1,0,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
                 <Grid>
-                    <!-- A brush, not an Image: in this Auto row an Image would set the header's height itself. -->
-                    <Rectangle Opacity="0.55">
-                        <Rectangle.Fill>
-                            <ImageBrush ImageSource="{x:Bind ViewModel.SelectedCoverPath, Mode=OneWay, Converter={StaticResource CoverPathToBackdropConverter}}"
-                                        Stretch="UniformToFill"/>
-                        </Rectangle.Fill>
-                    </Rectangle>
+                    <!-- The cover's colours, as behind the Library hero; fades into the pane below. -->
+                    <ctrl:CoverGradient CoverPath="{x:Bind ViewModel.SelectedCoverPath, Mode=OneWay}" Opacity="0.8"/>
                     <Rectangle>
                         <Rectangle.Fill>
                             <LinearGradientBrush StartPoint="0.5,1" EndPoint="0.5,0">
-                                <GradientStop Color="#FF1B1D1D" Offset="0"/>
-                                <GradientStop Color="#8C1B1D1D" Offset="0.6"/>
-                                <GradientStop Color="#4D1B1D1D" Offset="1"/>
+                                <GradientStop Color="#FF0C0C0E" Offset="0"/>
+                                <GradientStop Color="#8C0C0C0E" Offset="0.6"/>
+                                <GradientStop Color="#4D0C0C0E" Offset="1"/>
                             </LinearGradientBrush>
                         </Rectangle.Fill>
                     </Rectangle>
@@ -153,7 +115,6 @@
                             <TextBlock Text="{x:Bind ViewModel.SheetStore, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
                             <TextBlock Text="{x:Bind ViewModel.SheetTitle, Mode=OneWay}" FontSize="22" FontFamily="{StaticResource DMSansSemiBold}"
                                        Foreground="{StaticResource ST9Text}" TextWrapping="Wrap" MaxLines="3"/>
-                            <TextBlock Text="{x:Bind ViewModel.SheetDev, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
                             <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,10,0,0">
                                 <Button Style="{StaticResource ST9_ButtonPrimary}" Click="SheetPlay_Click">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -186,7 +147,7 @@
                                 </StackPanel>
                                 <StackPanel Spacing="4">
                                     <TextBlock Text="Typical grade" Style="{StaticResource ST9_Label}"/>
-                                    <Border HorizontalAlignment="Left" CornerRadius="11" Padding="8,2,8,3" BorderThickness="1"
+                                    <Border HorizontalAlignment="Left" CornerRadius="4" Padding="7,2,7,3" BorderThickness="1"
                                             Background="{x:Bind ViewModel.SheetGradeBg, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
                                             BorderBrush="{x:Bind ViewModel.SheetGradeBorder, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
                                         <TextBlock Text="{x:Bind ViewModel.SheetGrade, Mode=OneWay}" Style="{StaticResource ST9_TagText}"
@@ -246,7 +207,7 @@
                                                         <TextBlock Text="{x:Bind Title}" Style="{StaticResource ST9_RowTitle}"/>
                                                         <TextBlock Text="{x:Bind Sub}" Style="{StaticResource ST9_Hint}"/>
                                                     </StackPanel>
-                                                    <Border Grid.Column="2" VerticalAlignment="Center" CornerRadius="11" Padding="8,2,8,3" BorderThickness="1"
+                                                    <Border Grid.Column="2" VerticalAlignment="Center" CornerRadius="4" Padding="7,2,7,3" BorderThickness="1"
                                                             Background="{x:Bind GradeBgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
                                                             BorderBrush="{x:Bind GradeBorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
                                                         <TextBlock Text="{x:Bind GradeLabel}" Style="{StaticResource ST9_TagText}"
@@ -288,7 +249,7 @@
                   ItemTemplate="{StaticResource GameTileTemplate}"
                   ItemContainerStyle="{StaticResource ST9_CoverItem}"
                   SelectionMode="None" IsItemClickEnabled="True" ItemClick="Game_ItemClick"
-                  SizeChanged="LibraryGrid_SizeChanged"
+                  SizeChanged="LibraryGrid_SizeChanged" GotFocus="LibraryGrid_GotFocus"
                   Padding="26,24,26,40">
             <GridView.ItemsPanel>
                 <ItemsPanelTemplate>
@@ -347,27 +308,23 @@
                         </InfoBar.Resources>
                     </InfoBar>
 
-                    <!-- Hero + side cards -->
-                    <ctrl:ResponsiveGrid Breakpoints="0,1200" Columns="1,3" ColumnSpacing="16" RowSpacing="16"
+                    <!-- Hero + side cards, half the width each; the row takes the taller of the two,
+                         so the hero is always as tall as the two cards beside it -->
+                    <ctrl:ResponsiveGrid Breakpoints="0,900" Columns="1,2" ColumnSpacing="16" RowSpacing="16"
                                          Visibility="{x:Bind ViewModel.HasGames, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <!-- Hero -->
-                        <Border x:Name="HeroCard" Style="{StaticResource ST9_Hero}" MinHeight="250" ctrl:ResponsiveGrid.Span="1,2"
+                        <!-- Hero: the cover the pointer or the focus is on, else the default game -->
+                        <Border x:Name="HeroCard" Style="{StaticResource ST9_Hero}"
                                 SizeChanged="HeroCard_SizeChanged">
                             <Grid>
-                                <!-- A brush, not an Image: measured at infinite height (ResponsiveGrid), an
-                                     Image takes its own 2:3 height and makes the hero as tall as it is wide. -->
-                                <Rectangle Opacity="0.6">
-                                    <Rectangle.Fill>
-                                        <ImageBrush ImageSource="{x:Bind ViewModel.HeroCoverPath, Mode=OneWay, Converter={StaticResource CoverPathToBackdropConverter}}"
-                                                    Stretch="UniformToFill"/>
-                                    </Rectangle.Fill>
-                                </Rectangle>
+                                <!-- The cover's colours in a gradient (CoverGradient), under a veil that
+                                     keeps the text side dark: a stretched 24 px cover showed its pixels. -->
+                                <ctrl:CoverGradient CoverPath="{x:Bind ViewModel.HeroCoverPath, Mode=OneWay}" Opacity="0.8"/>
                                 <Rectangle>
                                     <Rectangle.Fill>
                                         <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                            <GradientStop Color="#EB0C0D0D" Offset="0"/>
-                                            <GradientStop Color="#990C0D0D" Offset="0.55"/>
-                                            <GradientStop Color="#400C0D0D" Offset="1"/>
+                                            <GradientStop Color="#CC0C0D0D" Offset="0"/>
+                                            <GradientStop Color="#660C0D0D" Offset="0.6"/>
+                                            <GradientStop Color="#100C0D0D" Offset="1"/>
                                         </LinearGradientBrush>
                                     </Rectangle.Fill>
                                 </Rectangle>
@@ -427,8 +384,12 @@
                             </Grid>
                         </Border>
 
-                        <!-- Sync + host tiles -->
-                        <StackPanel Spacing="16">
+                        <!-- Sync + host tiles, filling the hero's height: the sync card takes what the tiles card leaves -->
+                        <Grid RowSpacing="16">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
                             <Border Style="{StaticResource ST9_Card}">
                                 <StackPanel Spacing="10">
                                     <Grid ColumnSpacing="12">
@@ -452,28 +413,10 @@
                                                       IsEnabled="{x:Bind ViewModel.IsNotBusy, Mode=OneWay}"/>
                                     </Grid>
                                     <TextBlock Text="{x:Bind ViewModel.CountsText, Mode=OneWay}" Style="{StaticResource ST9_Small}"/>
-                                    <ItemsControl ItemsSource="{x:Bind ViewModel.StoreBars}">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate x:DataType="vm:StoreBar">
-                                                <Grid ColumnSpacing="8" Margin="0,3">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="110"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="30"/>
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST9_Hint}" Foreground="{StaticResource ST9Text2}"/>
-                                                    <ProgressBar Grid.Column="1" Minimum="0" Maximum="{x:Bind Max}" Value="{x:Bind Count}"
-                                                                 MinHeight="6" Height="6" CornerRadius="3" VerticalAlignment="Center"
-                                                                 Foreground="{StaticResource ST9Mint}" Background="#0FFFFFFF"/>
-                                                    <TextBlock Grid.Column="2" Text="{x:Bind Count}" Style="{StaticResource ST9_Hint}" TextAlignment="Right"/>
-                                                </Grid>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
                                 </StackPanel>
                             </Border>
 
-                            <Border Style="{StaticResource ST9_Card}"
+                            <Border Grid.Row="1" Style="{StaticResource ST9_Card}"
                                     Visibility="{x:Bind ViewModel.HostAssetsAvailable, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                                 <StackPanel Spacing="12">
                                     <Grid ColumnSpacing="12">
@@ -501,26 +444,6 @@
                                     <Grid ColumnSpacing="10">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <Border Height="140" CornerRadius="8" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="1" Background="{StaticResource ST9Inset}">
-                                            <Grid>
-                                                <Image Source="ms-appx:///Resources/desktop.png" Stretch="UniformToFill"/>
-                                                <TextBlock Text="Desktop" Style="{StaticResource ST9_Label}" Foreground="{StaticResource ST9Text}"
-                                                           VerticalAlignment="Bottom" Margin="10,0,10,8"/>
-                                            </Grid>
-                                        </Border>
-                                        <Border Grid.Column="1" Height="140" CornerRadius="8" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="1" Background="{StaticResource ST9Inset}">
-                                            <Grid>
-                                                <Image Source="ms-appx:///Resources/steam.png" Stretch="UniformToFill"/>
-                                                <TextBlock Text="Steam Big Picture" Style="{StaticResource ST9_Label}" Foreground="{StaticResource ST9Text}"
-                                                           VerticalAlignment="Bottom" Margin="10,0,10,8"/>
-                                            </Grid>
-                                        </Border>
-                                    </Grid>
-                                    <Grid ColumnSpacing="10">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{x:Bind ViewModel.HostAssetsHelpText, Mode=OneWay}" Style="{StaticResource ST9_Small}" VerticalAlignment="Center"/>
@@ -529,7 +452,7 @@
                                     </Grid>
                                 </StackPanel>
                             </Border>
-                        </StackPanel>
+                        </Grid>
                     </ctrl:ResponsiveGrid>
 
                     <!-- Toolbar -->
@@ -539,23 +462,12 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBox Style="{StaticResource ST9_SearchBox}" MinWidth="240" MaxWidth="320" HorizontalAlignment="Left"
                                      PlaceholderText="{x:Bind ViewModel.SearchPlaceholder, Mode=OneWay}"
                                      Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             <ComboBox Grid.Column="1" MinWidth="170" ItemsSource="{x:Bind ViewModel.SortOptions}"
                                       SelectedIndex="{x:Bind ViewModel.SortIndex, Mode=TwoWay}" ToolTipService.ToolTip="Sort"/>
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
-                                <ToggleButton x:Name="ViewGridChip" Style="{StaticResource ST9_Chip}" IsChecked="True" Click="ViewMode_Click"
-                                              ToolTipService.ToolTip="Covers" AutomationProperties.Name="Covers">
-                                    <FontIcon Glyph="&#xE8A9;" FontSize="14"/>
-                                </ToggleButton>
-                                <ToggleButton x:Name="ViewListChip" Style="{StaticResource ST9_Chip}" Click="ViewMode_Click"
-                                              ToolTipService.ToolTip="List" AutomationProperties.Name="List">
-                                    <FontIcon Glyph="&#xE8FD;" FontSize="14"/>
-                                </ToggleButton>
-                            </StackPanel>
                         </Grid>
                         <ScrollViewer HorizontalScrollMode="Auto" HorizontalScrollBarVisibility="Hidden" VerticalScrollMode="Disabled">
                             <StackPanel x:Name="StoreChipsPanel" Orientation="Horizontal" Spacing="6"/>

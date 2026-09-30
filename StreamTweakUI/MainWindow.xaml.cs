@@ -22,10 +22,9 @@ namespace StreamTweak
             AppWindow.SetIcon(System.IO.Path.Combine(
                 System.AppContext.BaseDirectory, "Resources", "streamtweak.ico"));
 
+            // The version lives in the title bar only (it was also at the bottom of the sidebar);
+            // a newer release shows up next to it as the update pill.
             var v = Assembly.GetExecutingAssembly().GetName().Version;
-            SidebarVersionText.Text = v != null
-                ? $"v{v.Major}.{v.Minor}.{v.Build}"
-                : "v9.0.0";
             TitleVersionText.Text = v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "9.0.0";
 
             // Set NavigationView pane background via resource dictionary override.
@@ -108,7 +107,7 @@ namespace StreamTweak
             // Persist window size on every resize.
             AppWindow.Changed += (_, args) =>
             {
-                if (args.DidSizeChange) SaveWindowSize();
+                if (args.DidSizeChange && !_immersive) SaveWindowSize();
             };
 
             // Minimize button → hide window so it disappears from the taskbar.
@@ -192,16 +191,16 @@ namespace StreamTweak
             var state = AppStateService.Instance;
             if (state.UpdateAvailable && !string.IsNullOrEmpty(state.LatestVersion))
             {
-                SidebarUpdateLink.Content    = $"↑ Update to v{state.LatestVersion}";
-                SidebarUpdateLink.Visibility = Visibility.Visible;
+                UpdatePillText.Text   = $"Update to {state.LatestVersion.TrimStart('v', 'V')}";
+                UpdatePill.Visibility = Visibility.Visible;
             }
             else
             {
-                SidebarUpdateLink.Visibility = Visibility.Collapsed;
+                UpdatePill.Visibility = Visibility.Collapsed;
             }
         }
 
-        private void SidebarUpdateLink_Click(object sender, RoutedEventArgs e)
+        private void UpdatePill_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
         {
             _ = Windows.System.Launcher.LaunchUriAsync(
                 new Uri("https://github.com/FoggyBytes/StreamTweak/releases/latest"));
@@ -393,11 +392,11 @@ namespace StreamTweak
             this.SetTitleBar(AppTitleBar);
         }
 
-        // 9.0: the layout now adapts down to small windows (the sidebar collapses to icons
-        // below 1100 DIP), so the floor dropped from 1280×720. The first-run size stays the
-        // old minimum, which is also what a 7–8" handheld at 150–200 % gives.
-        private const int MinLogicalWidth      = 800;
-        private const int MinLogicalHeight     = 560;
+        // The floor of 8.x, 1280×720: the 9.0 pages are laid out for it (three Dashboard
+        // columns at most, content capped by Controls/PageLayout), and the first 9.0 cut's
+        // 800×560 squeezed them for no gain.
+        private const int MinLogicalWidth      = 1280;
+        private const int MinLogicalHeight     = 720;
         private const int DefaultLogicalWidth  = 1280;
         private const int DefaultLogicalHeight = 800;
 
@@ -587,23 +586,34 @@ namespace StreamTweak
                 StatePillText.Foreground = new SolidColorBrush(Color.FromArgb(0xFF, 0xC8, 0xCF, 0xCB));
             }
 
-            // Link speed every 3 s, Tailscale every 30 s — both read network interfaces, so
-            // they run on the thread pool and only the text is set back here.
+            // Link every 3 s, Tailscale every 30 s — both read network interfaces, so they run
+            // on the thread pool and only the text is set back here.
             if (_titleTick % 3 == 0)
             {
                 bool checkTailscale = _titleTick % 30 == 0;
                 _ = Task.Run(() =>
                 {
-                    string? link = ReadLinkSpeed();
+                    (string? speed, string? lanIp) = ReadWiredLink();
                     (bool ts, string ip) = checkTailscale ? SafeTailscale() : (false, string.Empty);
                     DispatcherQueue.TryEnqueue(() =>
                     {
-                        LinkPill.Visibility = link != null ? Visibility.Visible : Visibility.Collapsed;
-                        if (link != null) LinkPillText.Text = link;
+                        LinkPill.Visibility = speed != null ? Visibility.Visible : Visibility.Collapsed;
+                        if (speed != null)
+                        {
+                            LinkPillText.Text = speed;
+                            _lanIp = lanIp;
+                            if (!_linkCopiedShowing) ShowLanIp();
+                        }
                         if (checkTailscale)
                         {
-                            TailscalePill.Visibility = ts ? Visibility.Visible : Visibility.Collapsed;
-                            TailscalePillText.Text   = ip;
+                            _tailscaleUp = ts;
+                            TailscalePill.Visibility = ts && _showAddresses ? Visibility.Visible : Visibility.Collapsed;
+                            // "IP unknown" is the detector's placeholder, not an address to copy.
+                            _tailscaleIp = ts && System.Net.IPAddress.TryParse(ip, out _) ? ip : null;
+                            if (!_tailscaleCopiedShowing) TailscalePillText.Text = ip;
+                            ToolTipService.SetToolTip(TailscalePill, _tailscaleIp != null
+                                ? $"Tailscale address · click to copy" : "Tailscale is connected");
+                            if (ts && !_tailscaleIconRequested) _ = LoadTailscaleIconAsync();
                         }
                     });
                 });
@@ -611,7 +621,34 @@ namespace StreamTweak
             _titleTick++;
         }
 
-        private static string? ReadLinkSpeed()
+        // ── Title bar: addresses, copy, clickable regions ─────────────────────────
+
+        private string? _lanIp, _tailscaleIp;
+        private bool _linkCopiedShowing, _tailscaleCopiedShowing, _tailscaleIconRequested;
+        private bool _tailscaleUp;
+        private bool _showAddresses = Services.ConfigService.GetBool("ShowTitleBarAddresses", true);
+
+        /// <summary>Settings → "Show IP addresses in the title bar": off hides the LAN address in the
+        /// link pill and the whole Tailscale pill; the link speed stays.</summary>
+        public void ApplyTitleBarAddresses(bool show)
+        {
+            _showAddresses = show;
+            if (!_linkCopiedShowing) ShowLanIp();
+            TailscalePill.Visibility = _tailscaleUp && show ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void ShowLanIp()
+        {
+            bool shown = _lanIp != null && _showAddresses;
+            LanIpText.Text = shown ? $"· {_lanIp}" : string.Empty;
+            LanIpText.Visibility = shown ? Visibility.Visible : Visibility.Collapsed;
+            ToolTipService.SetToolTip(LinkPill, shown
+                ? "Wired link speed and this PC's LAN address · click to copy the address"
+                : "Wired link speed");
+        }
+
+        /// <summary>Speed and IPv4 address of the adapter StreamTweak manages; nulls when it is down.</summary>
+        private static (string? Speed, string? Ip) ReadWiredLink()
         {
             try
             {
@@ -619,12 +656,97 @@ namespace StreamTweak
                 var ni = System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
                     .FirstOrDefault(n => n.Name.Equals(adapterName, StringComparison.OrdinalIgnoreCase));
                 if (ni == null || ni.OperationalStatus != System.Net.NetworkInformation.OperationalStatus.Up)
-                    return null;
+                    return (null, null);
                 long mbps = ni.Speed / 1_000_000;
-                if (mbps <= 0) return null;
-                return mbps >= 1000 ? $"{mbps / 1000.0:0.#} Gbps" : $"{mbps} Mbps";
+                if (mbps <= 0) return (null, null);
+                string speed = mbps >= 1000
+                    ? string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{mbps / 1000.0:0.#} Gbps")
+                    : string.Create(System.Globalization.CultureInfo.InvariantCulture, $"{mbps} Mbps");
+                // The first IPv4 that is not link-local (169.254.x.x means no DHCP answer).
+                string? ip = ni.GetIPProperties().UnicastAddresses
+                    .Select(a => a.Address)
+                    .Where(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                    .Select(a => a.ToString())
+                    .FirstOrDefault(a => !a.StartsWith("169.254.", StringComparison.Ordinal));
+                return (speed, ip);
             }
-            catch { return null; }
+            catch { return (null, null); }
+        }
+
+        private async Task LoadTailscaleIconAsync()
+        {
+            _tailscaleIconRequested = true;
+            var icon = await ViewModels.NetworkViewModel.LoadTailscaleIconImageAsync();
+            if (icon == null) return;   // not installed where we look: the globe glyph stays
+            TailscaleIcon.Source = icon;
+            TailscaleIcon.Visibility = Visibility.Visible;
+            TailscaleGlyph.Visibility = Visibility.Collapsed;
+        }
+
+        private async void LinkPill_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            if (_lanIp == null || !_showAddresses) return;
+            CopyText(_lanIp);
+            _linkCopiedShowing = true;
+            LanIpText.MinWidth = LanIpText.ActualWidth;   // the pills beside it must not shift
+            LanIpText.Text = "· copied";
+            await Task.Delay(1500);
+            _linkCopiedShowing = false;
+            LanIpText.MinWidth = 0;
+            ShowLanIp();
+        }
+
+        private async void TailscalePill_Tapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            if (_tailscaleIp == null) return;
+            CopyText(_tailscaleIp);
+            _tailscaleCopiedShowing = true;
+            TailscalePillText.MinWidth = TailscalePillText.ActualWidth;
+            TailscalePillText.Text = "copied";
+            await Task.Delay(1500);
+            _tailscaleCopiedShowing = false;
+            TailscalePillText.MinWidth = 0;
+            TailscalePillText.Text = _tailscaleIp;
+        }
+
+        private static void CopyText(string text)
+        {
+            var pkg = new Windows.ApplicationModel.DataTransfer.DataPackage();
+            pkg.SetText(text);
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(pkg);
+        }
+
+        private void Pill_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            if (sender is Border b) b.Opacity = 0.8;
+        }
+
+        private void Pill_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            if (sender is Border b) b.Opacity = 1;
+        }
+
+        private void TitlePills_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateTitleBarPassthrough();
+
+        /// <summary>
+        /// The whole title bar is the drag region (SetTitleBar), which swallows clicks: the
+        /// clickable pills are cut out of it as passthrough rectangles, in physical pixels.
+        /// Recomputed whenever the pills change size or show up / go away.
+        /// </summary>
+        private void UpdateTitleBarPassthrough()
+        {
+            if (AppTitleBar.XamlRoot == null) return;
+            double scale = AppTitleBar.XamlRoot.RasterizationScale;
+            var rects = new List<RectInt32>();
+            foreach (var pill in new FrameworkElement[] { LinkPill, TailscalePill, UpdatePill })
+            {
+                if (pill.Visibility != Visibility.Visible || pill.ActualWidth <= 0) continue;
+                var r = pill.TransformToVisual(null).TransformBounds(new Windows.Foundation.Rect(0, 0, pill.ActualWidth, pill.ActualHeight));
+                rects.Add(new RectInt32((int)Math.Round(r.X * scale), (int)Math.Round(r.Y * scale),
+                                        (int)Math.Round(r.Width * scale), (int)Math.Round(r.Height * scale)));
+            }
+            Microsoft.UI.Input.InputNonClientPointerSource.GetForWindowId(AppWindow.Id)
+                .SetRegionRects(Microsoft.UI.Input.NonClientRegionKind.Passthrough, rects.ToArray());
         }
 
         private static (bool, string) SafeTailscale()
@@ -656,6 +778,42 @@ namespace StreamTweak
             var item = allItems.FirstOrDefault(i => i.Tag as string == tag);
             if (item != null)
                 NavView.SelectedItem = item;
+        }
+
+        private bool _immersive;
+        private AppWindowPresenter? _presenterBeforeImmersive;
+
+        /// <summary>True while a page holds the window full screen (Sessions' Timeline).</summary>
+        public bool IsImmersive => _immersive;
+
+        /// <summary>
+        /// Full screen for one page's content: the window takes the whole display and the title
+        /// bar and sidebar step aside. Used by the Timeline of Sessions; the page undoes it when
+        /// it leaves. The window's own presenter is kept and put back, so a maximized or sized
+        /// window returns exactly as it was, and its size is not saved meanwhile.
+        /// </summary>
+        public void SetImmersive(bool on)
+        {
+            if (on == _immersive) return;
+            if (on)
+            {
+                _immersive = true;
+                _presenterBeforeImmersive = AppWindow.Presenter;
+                AppTitleBar.Visibility = Visibility.Collapsed;
+                RootGrid.RowDefinitions[0].Height = new GridLength(0);
+                NavView.IsPaneVisible = false;
+                AppWindow.SetPresenter(AppWindowPresenterKind.FullScreen);
+            }
+            else
+            {
+                if (_presenterBeforeImmersive != null) AppWindow.SetPresenter(_presenterBeforeImmersive);
+                else AppWindow.SetPresenter(AppWindowPresenterKind.Overlapped);
+                _presenterBeforeImmersive = null;
+                AppTitleBar.Visibility = Visibility.Visible;
+                RootGrid.RowDefinitions[0].Height = new GridLength(44);
+                NavView.IsPaneVisible = true;
+                _immersive = false;
+            }
         }
 
         public void BringToFront()

@@ -101,25 +101,11 @@ namespace StreamTweak.ViewModels
 
         // ── Capability status strings ─────────────────────────────────────────
 
-        private string _dolbyStatusText = "—";
-        public string DolbyStatusText
-        {
-            get => _dolbyStatusText;
-            private set => SetProperty(ref _dolbyStatusText, value);
-        }
-
         private string _dolbyStatusColorHex = "#99FFFFFF";
         public string DolbyStatusColorHex
         {
             get => _dolbyStatusColorHex;
             private set => SetProperty(ref _dolbyStatusColorHex, value);
-        }
-
-        private string _sonicStatusText = "—";
-        public string SonicStatusText
-        {
-            get => _sonicStatusText;
-            private set => SetProperty(ref _sonicStatusText, value);
         }
 
         private string _sonicStatusColorHex = "#99FFFFFF";
@@ -159,21 +145,6 @@ namespace StreamTweak.ViewModels
             get => _liveStatusColorHex;
             private set => SetProperty(ref _liveStatusColorHex, value);
         }
-
-        // ── Currently active format (real-time, from polling) ─────────────────
-
-        private string _activeFormatName = string.Empty;
-        public string ActiveFormatName
-        {
-            get => _activeFormatName;
-            private set
-            {
-                if (SetProperty(ref _activeFormatName, value))
-                    OnPropertyChanged(nameof(HasActiveFormat));
-            }
-        }
-
-        public bool HasActiveFormat => !string.IsNullOrEmpty(_activeFormatName);
 
         // ── Constructor / cleanup ─────────────────────────────────────────────
 
@@ -358,29 +329,22 @@ namespace StreamTweak.ViewModels
                 OnPropertyChanged(nameof(IsDolbyActive));
                 OnPropertyChanged(nameof(IsSonicActive));
 
-                ActiveFormatName = activeName != null ? $"Active: {activeName}" : string.Empty;
             }
             finally { _checkInProgress = false; }
         }
 
         private async Task RefreshCapabilitiesAsync(string deviceName)
         {
-            DolbyStatusText     = "Checking Dolby Atmos for Headphones…";
             DolbyStatusColorHex = "#99FFFFFF";
-            SonicStatusText     = "Checking Windows Sonic for Headphones…";
             SonicStatusColorHex = "#99FFFFFF";
             IsDolbyAvailable    = false;
             IsSonicAvailable    = false;
 
             var (dolby, sonic) = await DolbyAudioMonitor.GetSpatialAudioCapabilitiesAsync(deviceName);
 
-            DolbyStatusText     = dolby ? "Dolby Atmos for Headphones: available"
-                                        : "Dolby Atmos for Headphones: unavailable";
             DolbyStatusColorHex = dolby ? "#FF4ade80" : "#FFDC4632";
             IsDolbyAvailable    = dolby;
 
-            SonicStatusText     = sonic ? "Windows Sonic for Headphones: available"
-                                        : "Windows Sonic for Headphones: not available";
             SonicStatusColorHex = sonic ? "#FF4ade80" : "#FFDC4632";
             IsSonicAvailable    = sonic;
         }

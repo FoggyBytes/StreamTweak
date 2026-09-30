@@ -23,11 +23,13 @@
                        Foreground="#4ade80"
                        TextWrapping="Wrap"/>
 
+            <!-- The term stays in the monospaced face; the definition is prose, in the app's
+                 own face — monospaced paragraphs read slowly in the narrow side panel. -->
             <TextBlock Grid.Column="1"
                        x:Name="DefinitionText"
-                       FontSize="13"
-                       FontFamily="Cascadia Code, Cascadia Mono, Consolas, Courier New"
-                       Foreground="#c0bcb8"
+                       FontSize="13.5" LineHeight="20"
+                       FontFamily="{StaticResource DMSans}"
+                       Foreground="{StaticResource ST9Text2}"
                        TextWrapping="Wrap"
                        Margin="12,0,0,0"/>
         </Grid>

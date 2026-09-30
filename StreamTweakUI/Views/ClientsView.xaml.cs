@@ -23,8 +23,8 @@ namespace StreamTweak.Views
             this.InitializeComponent();
             SizeChanged += (_, e) =>
             {
-                double side = Math.Clamp(Math.Round(e.NewSize.Width * 0.032), 16, 48);
-                PageRoot.Padding = new Thickness(side, 24, side, 40);
+                // The same content column as every other page (Controls/PageLayout).
+                PageRoot.Padding = StreamTweak.Controls.PageLayout.Padding(e.NewSize.Width);
             };
         }
 
@@ -54,6 +54,28 @@ namespace StreamTweak.Views
         {
             if (sender is FrameworkElement fe && fe.Tag is string uid)
                 ViewModel.ApproveBridgeClient(uid);
+        }
+
+        /// <summary>The device icon opens a menu of the five kinds; the current one is checked.</summary>
+        private void DeviceKind_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { Tag: string uid } anchor) return;
+            string? current = ViewModel.BridgeClients.FirstOrDefault(c => c.UniqueId == uid)?.DeviceKind;
+
+            var menu = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedLeft };
+            foreach (var (key, label, glyph) in DeviceKinds.All)
+            {
+                var item = new RadioMenuFlyoutItem
+                {
+                    Text = label,
+                    GroupName = "DeviceKind",
+                    IsChecked = key == current,
+                    Icon = new FontIcon { Glyph = glyph },
+                };
+                item.Click += (_, _) => ViewModel.SetDeviceKind(uid, key);
+                menu.Items.Add(item);
+            }
+            menu.ShowAt(anchor);
         }
 
         private void RevokeClient_Click(object sender, RoutedEventArgs e)

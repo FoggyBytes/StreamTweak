@@ -17,8 +17,8 @@ namespace StreamTweak.Views
             this.InitializeComponent();
             SizeChanged += (_, e) =>
             {
-                double side = Math.Clamp(Math.Round(e.NewSize.Width * 0.032), 16, 48);
-                PageRoot.Padding = new Thickness(side, 24, side, 40);
+                // The same content column as every other page (Controls/PageLayout).
+                PageRoot.Padding = StreamTweak.Controls.PageLayout.Padding(e.NewSize.Width);
             };
         }
 

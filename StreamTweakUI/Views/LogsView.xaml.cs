@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
@@ -16,10 +17,14 @@ namespace StreamTweak.Views
     {
         public LogsViewModel ViewModel { get; } = new LogsViewModel();
 
-        /// <summary>Page width from which the list and the detail sit side by side.</summary>
-        private const double MasterDetailWidth = 1400;
+        /// <summary>The page's side padding (Controls/PageLayout) and its content width.</summary>
+        private double _side, _contentWidth;
 
-        private bool _wide;
+        /// <summary>Lane height in the page (follows the window height); full screen sets its own.</summary>
+        private double _pageLaneHeight = 78;
+
+        private bool _timelineFull;
+        private int _fitPasses;
 
         public LogsView()
         {
@@ -33,6 +38,7 @@ namespace StreamTweak.Views
                 switch (e.PropertyName)
                 {
                     case nameof(LogsViewModel.IsDetailVisible):
+                    case nameof(LogsViewModel.IsCompareVisible):
                         ApplyLayout();
                         break;
                     case nameof(LogsViewModel.SelectedSession):
@@ -63,64 +69,151 @@ namespace StreamTweak.Views
             ApplyLayout();
         }
 
+        protected override void OnNavigatedFrom(NavigationEventArgs e)
+        {
+            base.OnNavigatedFrom(e);
+            SetTimelineFull(false);   // never leave the window full screen behind another page
+        }
+
         // ── Layout ────────────────────────────────────────────────────────────
 
         private void Root_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             double w = e.NewSize.Width, h = e.NewSize.Height;
-            _wide = w >= MasterDetailWidth;
 
-            // Gutters grow with the window, capped so 4K gives the room to content, not margins.
-            double side = Math.Clamp(Math.Round(w * 0.026), 16, 40);
-            double listSide = _wide ? Math.Min(side, 28) : side;
-            SessionList.Padding = new Thickness(listSide, 24, listSide, 96);
-            CompareBar.Margin = new Thickness(listSide, 0, listSide, 16);
-            DetailRoot.Padding = new Thickness(side, 24, side, 40);
-            CompareRoot.Padding = new Thickness(side, 24, side, 40);
+            // The same content column as every other page (Controls/PageLayout). Padding and not
+            // MaxWidth: the list and the detail are the page's scrollers, and the wheel must work
+            // over the side margins too.
+            _side = PageLayout.Side(w);
+            _contentWidth = w - 2 * _side;
+
+            SessionList.Padding = new Thickness(_side, 24, _side, 96);
+            CompareBar.Margin = new Thickness(_side, 0, _side, 16);
+            DetailRoot.Padding = new Thickness(_side, 24, _side, 40);
+            CompareRoot.Padding = new Thickness(_side, 24, _side, 40);
 
             // Lanes get taller with the window: readable on a 7" handheld, not sparse at 4K.
-            Timeline.LaneHeight = h < 900 ? 64 : h < 1300 ? 78 : 94;
+            _pageLaneHeight = h < 900 ? 64 : h < 1300 ? 78 : 94;
+            if (!_timelineFull) Timeline.LaneHeight = _pageLaneHeight;
 
             ApplyLayout();
         }
 
+        /// <summary>
+        /// The list alone, or the chosen session over it — never both side by side: the detail's
+        /// charts need the whole content column. Compare and the full-screen Timeline cover both.
+        /// </summary>
         private void ApplyLayout()
         {
-            double w = Root.ActualWidth;
-            if (w <= 0) return;
+            if (Root.ActualWidth <= 0) return;
+            double cw = _contentWidth;
 
-            if (_wide)
+            bool open = ViewModel.IsDetailVisible && ViewModel.HasSelection;
+            DetailLayer.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+            // Hidden rather than covered, so keyboard focus and Narrator stay in the detail.
+            ListLayer.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
+            if (!open && _timelineFull) SetTimelineFull(false);
+
+            ViewModel.RowLayout.MetricsVisibility = cw >= 760 ? Visibility.Visible : Visibility.Collapsed;
+            ViewModel.RowLayout.GamesVisibility = Visibility.Visible;
+
+            // Search box (240) and the four grade chips need ~650 side by side.
+            bool stackChips = cw < 660;
+            Grid.SetRow(GradeChips, stackChips ? 1 : 0);
+            Grid.SetColumn(GradeChips, stackChips ? 0 : 1);
+            Grid.SetColumnSpan(GradeChips, stackChips ? 2 : 1);
+
+            // Compare takes the whole page. Its layer is transparent (Mica shows through), so
+            // the list and the detail must be hidden, not just covered: they drew through it.
+            if (ViewModel.IsCompareVisible)
             {
-                // Master–detail: the list keeps ~40 % and never less than 560 px.
-                ListCol.Width = new GridLength(Math.Max(560, w * 0.4));
-                DetailCol.Width = new GridLength(1, GridUnitType.Star);
-                Grid.SetColumn(DetailLayer, 1);
-                Grid.SetColumnSpan(DetailLayer, 1);
-                DetailLayer.BorderThickness = new Thickness(1, 0, 0, 0);
-                BackButton.Visibility = Visibility.Collapsed;
-                ViewModel.EnsureSelection();
-                DetailLayer.Visibility = ViewModel.HasSessions ? Visibility.Visible : Visibility.Collapsed;
-                ListLayer.Visibility = Visibility.Visible;
+                if (_timelineFull) SetTimelineFull(false);
+                ListLayer.Visibility = Visibility.Collapsed;
+                DetailLayer.Visibility = Visibility.Collapsed;
+            }
+            // The full-screen Timeline covers both for the same reason. Going full screen resizes
+            // the page, which lands here: without this the detail came back behind the chart.
+            else if (_timelineFull)
+            {
+                ListLayer.Visibility = Visibility.Collapsed;
+                DetailLayer.Visibility = Visibility.Collapsed;
+            }
+        }
 
-                double listW = Math.Max(560, w * 0.4);
-                ViewModel.RowLayout.MetricsVisibility = listW >= 760 ? Visibility.Visible : Visibility.Collapsed;
+        // ── Timeline, full screen ─────────────────────────────────────────────
+
+        private void TimelineFullScreen_Click(object sender, RoutedEventArgs e) => SetTimelineFull(!_timelineFull);
+
+        /// <summary>
+        /// Moves the Timeline card out of the detail into a layer over the whole page, and puts
+        /// the window in full screen (MainWindow.SetImmersive); the lanes then grow to fill
+        /// the height. Undone by the same button, Esc, the back button or leaving the page.
+        /// </summary>
+        private void SetTimelineFull(bool on)
+        {
+            if (on == _timelineFull) return;
+            _timelineFull = on;
+            if (on)
+            {
+                DetailBody.Children.Remove(TimelineCard);
+                TimelineFullHost.Child = TimelineCard;
+                TimelineFullLayer.Visibility = Visibility.Visible;
+                DetailLayer.Visibility = Visibility.Collapsed;
+                FullScreenButton.Content = "";
+                ToolTipService.SetToolTip(FullScreenButton, "Leave full screen (Esc)");
+                AutomationProperties.SetName(FullScreenButton, "Leave full screen");
+                App.MainWindow?.SetImmersive(true);
+                _fitPasses = 0;
+                FitTimelineToScreen();
             }
             else
             {
-                ListCol.Width = new GridLength(1, GridUnitType.Star);
-                DetailCol.Width = new GridLength(0);
-                Grid.SetColumn(DetailLayer, 0);
-                Grid.SetColumnSpan(DetailLayer, 2);
-                DetailLayer.BorderThickness = new Thickness(0);
-                BackButton.Visibility = Visibility.Visible;
-                bool open = ViewModel.IsDetailVisible && ViewModel.HasSelection;
-                DetailLayer.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
-                // Hidden rather than covered, so keyboard focus and Narrator stay in the detail.
-                ListLayer.Visibility = open ? Visibility.Collapsed : Visibility.Visible;
-
-                ViewModel.RowLayout.MetricsVisibility = w >= 760 ? Visibility.Visible : Visibility.Collapsed;
+                TimelineFullHost.Child = null;
+                DetailBody.Children.Add(TimelineCard);
+                TimelineFullLayer.Visibility = Visibility.Collapsed;
+                FullScreenButton.Content = "";
+                ToolTipService.SetToolTip(FullScreenButton, "Full screen (Esc to leave)");
+                AutomationProperties.SetName(FullScreenButton, "Full screen");
+                App.MainWindow?.SetImmersive(false);
+                Timeline.LaneHeight = _pageLaneHeight;
+                ApplyLayout();
             }
-            ViewModel.RowLayout.GamesVisibility = Visibility.Visible;
+            FullScreenButton.Focus(FocusState.Programmatic);
+        }
+
+        private void TimelineFullLayer_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            _fitPasses = 0;
+            FitTimelineToScreen();
+        }
+
+        /// <summary>
+        /// Grows or shrinks the lanes so the card fills the layer's height: measure what the card
+        /// takes now, share the difference among the lane units. A couple of passes settle it
+        /// (lanes with two series have a floor of their own).
+        /// </summary>
+        private void FitTimelineToScreen()
+        {
+            if (!_timelineFull) return;
+            DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
+                if (!_timelineFull || _fitPasses++ >= 8) return;
+                // A new lane height rebuilds the chart; its size is only known after a layout
+                // pass, which a queued callback can run ahead of. Settle it first.
+                TimelineFullLayer.UpdateLayout();
+                double avail = TimelineFullLayer.ActualHeight - TimelineFullHost.Padding.Top - TimelineFullHost.Padding.Bottom;
+                // What the card needs, not what it was given: in the layer it is stretched to
+                // the viewport, so its ActualHeight always equals what is available.
+                double used = TimelineCard.DesiredSize.Height;
+                // Not laid out in its new place yet: look again after the next pass.
+                if (avail <= 0 || used <= 0) { FitTimelineToScreen(); return; }
+                double lane = Math.Clamp(Timeline.LaneHeight + Math.Floor((avail - used) / Timeline.LaneHeightUnits), 56, 600);
+                if (Math.Abs(lane - Timeline.LaneHeight) >= 1)
+                {
+                    Timeline.LaneHeight = lane;
+                    FitTimelineToScreen();
+                }
+            });
         }
 
         private void VerdictGrid_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -135,12 +228,17 @@ namespace StreamTweak.Views
         private void OnPageKeyDown(object sender, KeyRoutedEventArgs e)
         {
             if (e.Key != VirtualKey.Escape) return;
-            if (ViewModel.IsCompareVisible)
+            if (_timelineFull)
+            {
+                SetTimelineFull(false);
+                e.Handled = true;
+            }
+            else if (ViewModel.IsCompareVisible)
             {
                 ViewModel.CloseCompare();
                 e.Handled = true;
             }
-            else if (!_wide && ViewModel.IsDetailVisible)
+            else if (ViewModel.IsDetailVisible)
             {
                 ViewModel.CloseDetail();
                 e.Handled = true;
@@ -159,6 +257,16 @@ namespace StreamTweak.Views
                 return;
             }
             ViewModel.OpenDetail(row.Entry);
+        }
+
+        private void Row_PointerEntered(object sender, PointerRoutedEventArgs e) => SetRowHover(sender, true);
+
+        private void Row_PointerExited(object sender, PointerRoutedEventArgs e) => SetRowHover(sender, false);
+
+        private static void SetRowHover(object sender, bool on)
+        {
+            if (sender is FrameworkElement fe && fe.FindName("RowHover") is UIElement hover)
+                hover.Opacity = on ? 1 : 0;
         }
 
         private void GradeChip_Click(object sender, RoutedEventArgs e)
@@ -222,8 +330,7 @@ namespace StreamTweak.Views
             if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
 
             ViewModel.DeleteSession(entry);
-            if (_wide) ViewModel.EnsureSelection();
-            else ViewModel.CloseDetail();
+            ViewModel.CloseDetail();
             ApplyLayout();
         }
 
@@ -233,6 +340,8 @@ namespace StreamTweak.Views
             TracksChip.IsChecked = !focus;
             FocusChip.IsChecked = focus;
             Timeline.Mode = focus ? TimelineMode.Focus : TimelineMode.Tracks;
+            _fitPasses = 0;
+            FitTimelineToScreen();
         }
 
         private void ResetZoom_Click(object sender, RoutedEventArgs e) => Timeline.ResetZoom();
@@ -303,7 +412,7 @@ namespace StreamTweak.Views
                 _ => null,                              // All time
             };
             ViewModel.ClearHistory(window);
-            if (_wide) ViewModel.EnsureSelection();
+            ViewModel.CloseDetail();
             ApplyLayout();
         }
 

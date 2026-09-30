@@ -254,7 +254,7 @@ namespace StreamTweak
         public string GradeBgHex => IsDebugSession ? "#1A9E9E9E"
             : Grade switch
             {
-                QualityGrade.High   => "#1F4ade80",
+                QualityGrade.High   => "#214ade80",
                 QualityGrade.Medium => "#1Af59e0b",
                 QualityGrade.Low    => "#1Aef4444",
                 _                   => "#1A808080"
@@ -264,7 +264,7 @@ namespace StreamTweak
         public string GradeBorderHex => IsDebugSession ? "#409E9E9E"
             : Grade switch
             {
-                QualityGrade.High   => "#4D4ade80",
+                QualityGrade.High   => "#594ade80",
                 QualityGrade.Medium => "#40f59e0b",
                 QualityGrade.Low    => "#40ef4444",
                 _                   => "#40808080"

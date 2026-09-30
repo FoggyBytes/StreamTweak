@@ -22,7 +22,7 @@ namespace StreamTweak
     /// No API keys required — all sources are public or local.
     ///
     /// Resolution order for non-Steam games:
-    ///   1. Steam CDN (via AppId already resolved by GameMetadataService — no search needed)
+    ///   1. Steam CDN (via the AppId the scanner recorded for Steam games — no search needed)
     ///   2. Store-native source:
     ///        Epic Games  → catcache.bin (local CDN URL cache, no API call needed)
     ///        GOG         → local GOG Galaxy SQLite DB + webcache
@@ -91,7 +91,7 @@ namespace StreamTweak
             {
                 string cachePath = CoverArtFetcher.GetCacheFilePath(game, cacheDir)!;
 
-                // ── Tier 1: Steam CDN (AppId already resolved by GameMetadataService) ──
+                // ── Tier 1: Steam CDN (AppId recorded by the scanner) ──
                 string? resolvedSteamAppId = TryGetResolvedSteamAppId(game);
                 if (!string.IsNullOrEmpty(resolvedSteamAppId))
                 {
@@ -111,7 +111,7 @@ namespace StreamTweak
         }
 
         /// <summary>
-        /// Looks up the Steam AppId that GameMetadataService already resolved for this game.
+        /// The Steam AppId the library scanner recorded for this game.
         /// Returns null if no AppId was resolved.
         /// </summary>
         private static string? TryGetResolvedSteamAppId(DiscoveredGame game)

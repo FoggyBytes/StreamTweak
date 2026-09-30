@@ -69,8 +69,8 @@
     <SolidColorBrush x:Key="AccentTextFillColorDisabledBrush"     Color="#514ade80"/>
 
     <!-- Badge backgrounds (a bassa opacità) -->
-    <SolidColorBrush x:Key="STBadgeGreenBg"   Color="#264ade80"/>
-    <SolidColorBrush x:Key="STBadgeGreenBdr"  Color="#4D4ade80"/>
+    <SolidColorBrush x:Key="STBadgeGreenBg"   Color="#214ade80"/>
+    <SolidColorBrush x:Key="STBadgeGreenBdr"  Color="#594ade80"/>
     <SolidColorBrush x:Key="STBadgeGrayBg"    Color="#0FFFFFFF"/>
     <SolidColorBrush x:Key="STBadgeGrayBdr"   Color="#1AFFFFFF"/>
     <SolidColorBrush x:Key="STBadgeRedBg"     Color="#26ef4444"/>
@@ -178,13 +178,6 @@
     <Style x:Key="ST_BadgeText" TargetType="TextBlock">
         <Setter Property="FontFamily"  Value="{StaticResource DMSansMedium}"/>
         <Setter Property="FontSize"    Value="12"/>
-    </Style>
-
-    <!-- Footer ghost text: DM Sans 12px ghost -->
-    <Style x:Key="ST_FooterText" TargetType="TextBlock">
-        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
-        <Setter Property="FontSize"    Value="12"/>
-        <Setter Property="Foreground"  Value="{StaticResource STTextDim}"/>
     </Style>
 
     <!-- ── CARD CONTAINERS ──────────────────────────────────────────────────── -->

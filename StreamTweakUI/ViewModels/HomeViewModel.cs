@@ -1,7 +1,7 @@
 ﻿using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO;
 using System.Net.NetworkInformation;
-using System.Reflection;
 using System.Text.Json;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -12,57 +12,18 @@ using Windows.Storage;
 using Windows.Storage.FileProperties;
 using Windows.UI;
 
-
 namespace StreamTweak.ViewModels
 {
-    // ── Per-game cover shown in the Last Session strip ────────────────────────
-
-    public sealed class SessionGameCover : ViewModelBase
-    {
-        public string GameName { get; }
-
-        private BitmapImage? _coverImage;
-        public BitmapImage? CoverImage
-        {
-            get => _coverImage;
-            set
-            {
-                SetProperty(ref _coverImage, value);
-                OnPropertyChanged(nameof(HasNoCover));
-            }
-        }
-
-        public bool HasNoCover => _coverImage == null;
-
-        public SessionGameCover(string gameName) => GameName = gameName;
-    }
-
     // ── One approved StreamLight client (Dashboard "Paired clients" list) ─────
     public sealed class HomeClientRow
     {
         public string Name         { get; init; } = "";
+        public string Glyph        { get; init; } = DeviceKinds.UnsetGlyph;
         public string LastSeenText { get; init; } = "";
         public string StatusText   { get; init; } = "Approved";
         public string StatusColorHex { get; init; } = "#4ade80";
-        public string StatusBgHex     { get; init; } = "#1A4ade80";
-        public string StatusBorderHex { get; init; } = "#404ade80";
-    }
-
-    // ── One row of the Dashboard "Recent sessions" card (9.0) ────────────────
-    public sealed class HomeSessionRow
-    {
-        public string Id          { get; init; } = "";
-        public string WhenText    { get; init; } = "";
-        public string SubText     { get; init; } = "";
-        public string GamesText   { get; init; } = "";
-        public IReadOnlyList<GameCoverItem> Covers { get; init; } = Array.Empty<GameCoverItem>();
-        public string RttText     { get; init; } = "—";
-        public string HostLatText { get; init; } = "—";
-        public string GradeLabel  { get; init; } = "—";
-        public string GradeFgHex  { get; init; } = "#C8CFCB";
-        public string GradeBgHex  { get; init; } = "#0FFFFFFF";
-        public string GradeBorderHex { get; init; } = "#24FFFFFF";
-        public string StripeHex   { get; init; } = "#646B67";
+        public string StatusBgHex     { get; init; } = "#214ade80";
+        public string StatusBorderHex { get; init; } = "#594ade80";
     }
 
     // ── One cover of the Dashboard "Recently streamed" shelf (9.0) ───────────
@@ -80,27 +41,6 @@ namespace StreamTweak.ViewModels
     {
         private readonly DispatcherQueue _dispatcher;
         private System.Threading.Timer?  _nicSpeedTimer;
-
-        // ── Version info ──────────────────────────────────────────────────────
-
-        private string _versionText = string.Empty;
-        public string VersionText
-        {
-            get => _versionText;
-            private set => SetProperty(ref _versionText, value);
-        }
-
-        private string _buildDateText = string.Empty;
-        public string BuildDateText
-        {
-            get => _buildDateText;
-            private set => SetProperty(ref _buildDateText, value);
-        }
-
-        // Update-check infrastructure has moved to AppStateService (centralized,
-        // fired once at app startup) and is surfaced by the sidebar and Settings.
-        // The Home panel intentionally shows nothing about updates — this was
-        // removed in 6.1.0 and the centralization in 6.2.0 keeps Home clean.
 
         // ── Session state ─────────────────────────────────────────────────────
 
@@ -121,10 +61,10 @@ namespace StreamTweak.ViewModels
         // ── Last session ──────────────────────────────────────────────────────
 
         private bool _hasLastSession;
-        public bool HasLastSession
+        private bool HasLastSession
         {
             get => _hasLastSession;
-            private set
+            set
             {
                 if (SetProperty(ref _hasLastSession, value))
                 {
@@ -142,32 +82,12 @@ namespace StreamTweak.ViewModels
         /// <summary>True when no session has ever been recorded.</summary>
         public bool ShowEmptyState   => !_hasLastSession;
 
-        private string _lastSessionDate = string.Empty;
-        public string LastSessionDate
-        {
-            get => _lastSessionDate;
-            private set => SetProperty(ref _lastSessionDate, value);
-        }
-
         private string _lastSessionDuration = string.Empty;
         public string LastSessionDuration
         {
             get => _lastSessionDuration;
             private set => SetProperty(ref _lastSessionDuration, value);
         }
-
-        private string _lastSessionStats = string.Empty;
-        public string LastSessionStats
-        {
-            get => _lastSessionStats;
-            private set
-            {
-                if (SetProperty(ref _lastSessionStats, value))
-                    OnPropertyChanged(nameof(HasLastSessionStats));
-            }
-        }
-
-        public bool HasLastSessionStats => !string.IsNullOrEmpty(_lastSessionStats);
 
         private bool _lastSessionHasGrade;
         public bool LastSessionHasGrade
@@ -204,43 +124,6 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _lastSessionGradeBorderHex, value);
         }
 
-        // ── Last session game covers ──────────────────────────────────────────
-
-        public ObservableCollection<SessionGameCover> LastSessionCovers { get; } = new();
-
-        /// <summary>"+2" when the session detected more games than the strip shows, else empty.</summary>
-        private string _lastSessionCoversOverflow = string.Empty;
-        public string LastSessionCoversOverflow
-        {
-            get => _lastSessionCoversOverflow;
-            private set => SetProperty(ref _lastSessionCoversOverflow, value);
-        }
-
-        private bool _hasLastSessionCoversOverflow;
-        public bool HasLastSessionCoversOverflow
-        {
-            get => _hasLastSessionCoversOverflow;
-            private set => SetProperty(ref _hasLastSessionCoversOverflow, value);
-        }
-
-        private bool _hasLastSessionCovers;
-        public bool HasLastSessionCovers
-        {
-            get => _hasLastSessionCovers;
-            private set => SetProperty(ref _hasLastSessionCovers, value);
-        }
-
-        /// <summary>
-        /// True when the process monitor ran but found no games (empty list, not null).
-        /// Drives the "No games detected" fallback label.
-        /// </summary>
-        private bool _hasNoGamesDetected;
-        public bool HasNoGamesDetected
-        {
-            get => _hasNoGamesDetected;
-            private set => SetProperty(ref _hasNoGamesDetected, value);
-        }
-
         // ── Live session ──────────────────────────────────────────────────────
 
         private const int LiveWindowSize = 30;
@@ -251,9 +134,6 @@ namespace StreamTweak.ViewModels
         private readonly List<int>   _dropsBuffer    = new();
         private readonly List<float> _fpsBuffer      = new();
         private readonly List<float> _hostLatBuffer  = new();
-        private readonly List<float> _gpuBuffer      = new();
-        private readonly List<float> _encBuffer      = new();
-        private readonly List<float> _cpuBuffer      = new();
 
         // Session-cumulative frame counters (for the drop-rate stat card).
         private long   _sessDrops;
@@ -266,20 +146,6 @@ namespace StreamTweak.ViewModels
         {
             get => _liveDuration;
             private set => SetProperty(ref _liveDuration, value);
-        }
-
-        private string _liveStartedAt = string.Empty;
-        public string LiveStartedAt
-        {
-            get => _liveStartedAt;
-            private set => SetProperty(ref _liveStartedAt, value);
-        }
-
-        private string _liveDropPct = "0.00%";
-        public string LiveDropPct
-        {
-            get => _liveDropPct;
-            private set => SetProperty(ref _liveDropPct, value);
         }
 
         private IReadOnlyList<float> _liveRttSeries = Array.Empty<float>();
@@ -297,12 +163,6 @@ namespace StreamTweak.ViewModels
         }
 
         // RTT current value + adaptive color (thresholds: ≤30ms green / ≤80ms amber / >80ms red)
-        private string _liveRttValue = "—";
-        public string LiveRttValue
-        {
-            get => _liveRttValue;
-            private set => SetProperty(ref _liveRttValue, value);
-        }
 
         private string _liveRttColorHex = "#808080";
         public string LiveRttColorHex
@@ -311,20 +171,7 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _liveRttColorHex, value);
         }
 
-        private Color _liveRttLineColor = Color.FromArgb(0xFF, 0x80, 0x80, 0x80);
-        public Color LiveRttLineColor
-        {
-            get => _liveRttLineColor;
-            private set => SetProperty(ref _liveRttLineColor, value);
-        }
-
         // Bitrate current value (always cyan — color is fixed in XAML)
-        private string _liveBitrateValue = "—";
-        public string LiveBitrateValue
-        {
-            get => _liveBitrateValue;
-            private set => SetProperty(ref _liveBitrateValue, value);
-        }
 
         // ── Live cockpit (8.0 mockup): stat-card numbers/subs + extra series ─────
 
@@ -361,14 +208,6 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _liveHostLatSeries, value);
         }
 
-        // GPU / Encoder / CPU overlaid (multi-line SparklineControl with legend).
-        private IReadOnlyList<SparklineSeries> _liveComputeLines = Array.Empty<SparklineSeries>();
-        public IReadOnlyList<SparklineSeries> LiveComputeLines
-        {
-            get => _liveComputeLines;
-            private set => SetProperty(ref _liveComputeLines, value);
-        }
-
         // ── Status tiles ──────────────────────────────────────────────────────
 
         private string _nicSpeedText = "—";
@@ -397,8 +236,8 @@ namespace StreamTweak.ViewModels
         }
 
         public string ClientControlColorHex  => _clientControlText == "On" ? "#4ade80"   : "#f87171";
-        public string ClientControlBgHex     => _clientControlText == "On" ? "#1F4ade80" : "#1Aef4444";
-        public string ClientControlBorderHex => _clientControlText == "On" ? "#4D4ade80" : "#40ef4444";
+        public string ClientControlBgHex     => _clientControlText == "On" ? "#214ade80" : "#1Aef4444";
+        public string ClientControlBorderHex => _clientControlText == "On" ? "#594ade80" : "#40ef4444";
 
         private string _hdrText = "—";
         public string HdrText
@@ -418,8 +257,8 @@ namespace StreamTweak.ViewModels
         // "—" means the state couldn't be read, not that it is off — so it must not borrow the
         // red of a disabled feature. Grey is the only honest colour for "don't know".
         public string HdrColorHex  => _hdrText == "—" ? "#A8A49F"   : _hdrText == "On" ? "#4ade80"   : "#f87171";
-        public string HdrBgHex     => _hdrText == "—" ? "#1A808080" : _hdrText == "On" ? "#1F4ade80" : "#1Aef4444";
-        public string HdrBorderHex => _hdrText == "—" ? "#40808080" : _hdrText == "On" ? "#4D4ade80" : "#40ef4444";
+        public string HdrBgHex     => _hdrText == "—" ? "#1A808080" : _hdrText == "On" ? "#214ade80" : "#1Aef4444";
+        public string HdrBorderHex => _hdrText == "—" ? "#40808080" : _hdrText == "On" ? "#594ade80" : "#40ef4444";
 
         private bool _isSpatialAudioActivated;
         private string _spatialAudioText = "Off";
@@ -441,35 +280,15 @@ namespace StreamTweak.ViewModels
         public string SpatialAudioColorHex  => _spatialAudioText == "Off" ? "#f87171"
                                                : _isSpatialAudioActivated ? "#4ade80" : "#fbbf24";
         public string SpatialAudioBgHex     => _spatialAudioText == "Off" ? "#1Aef4444"
-                                               : _isSpatialAudioActivated ? "#1F4ade80" : "#1Af59e0b";
+                                               : _isSpatialAudioActivated ? "#214ade80" : "#1Af59e0b";
         public string SpatialAudioBorderHex => _spatialAudioText == "Off" ? "#40ef4444"
-                                               : _isSpatialAudioActivated ? "#4D4ade80" : "#40f59e0b";
+                                               : _isSpatialAudioActivated ? "#594ade80" : "#40f59e0b";
 
         private string _gameLibraryText = "—";
         public string GameLibraryText
         {
             get => _gameLibraryText;
             private set => SetProperty(ref _gameLibraryText, value);
-        }
-
-        private string _gameLibrarySyncText = string.Empty;
-        public string GameLibrarySyncText
-        {
-            get => _gameLibrarySyncText;
-            private set
-            {
-                if (SetProperty(ref _gameLibrarySyncText, value))
-                    OnPropertyChanged(nameof(HasGameLibrarySyncText));
-            }
-        }
-
-        public bool HasGameLibrarySyncText => !string.IsNullOrEmpty(_gameLibrarySyncText);
-
-        private string _gameLibrarySyncValue = string.Empty;
-        public string GameLibrarySyncValue
-        {
-            get => _gameLibrarySyncValue;
-            private set => SetProperty(ref _gameLibrarySyncValue, value);
         }
 
         private string _autoHdrText = "—";
@@ -480,16 +299,9 @@ namespace StreamTweak.ViewModels
             {
                 if (SetProperty(ref _autoHdrText, value))
                 {
-                    OnPropertyChanged(nameof(AutoHdrColorHex));
-                    OnPropertyChanged(nameof(AutoHdrBgHex));
-                    OnPropertyChanged(nameof(AutoHdrBorderHex));
                 }
             }
         }
-
-        public string AutoHdrColorHex  => _autoHdrText == "—" ? "#A8A49F"   : _autoHdrText == "On" ? "#4ade80"   : "#f87171";
-        public string AutoHdrBgHex     => _autoHdrText == "—" ? "#1A808080" : _autoHdrText == "On" ? "#1F4ade80" : "#1Aef4444";
-        public string AutoHdrBorderHex => _autoHdrText == "—" ? "#40808080" : _autoHdrText == "On" ? "#4D4ade80" : "#40ef4444";
 
         // ── Tile subtitle text ────────────────────────────────────────────────
 
@@ -557,13 +369,13 @@ namespace StreamTweak.ViewModels
         };
         public string NvSentinelAutoRestoreBgHex     => _nvSentinelAutoRestoreText switch
         {
-            "On"    => "#1F4ade80",
+            "On"    => "#214ade80",
             "Stuck" => "#1Ffbbf24",
             _       => "#1Aef4444",
         };
         public string NvSentinelAutoRestoreBorderHex => _nvSentinelAutoRestoreText switch
         {
-            "On"    => "#4D4ade80",
+            "On"    => "#594ade80",
             "Stuck" => "#4Dfbbf24",
             _       => "#40ef4444",
         };
@@ -575,98 +387,13 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _nvSentinelBadgeText, value);
         }
 
-        private string _nvSentinelLastRestoreValue = "never";
-        public string NvSentinelLastRestoreValue
-        {
-            get => _nvSentinelLastRestoreValue;
-            private set => SetProperty(ref _nvSentinelLastRestoreValue, value);
-        }
-
-        // ── LOGS tile ─────────────────────────────────────────────────────────
-
-        private string _logsSessionCount = "0";
-        public string LogsSessionCount
-        {
-            get => _logsSessionCount;
-            private set => SetProperty(ref _logsSessionCount, value);
-        }
-
-        private string _logsSessionCountColorHex = "#808080";
-        public string LogsSessionCountColorHex
-        {
-            get => _logsSessionCountColorHex;
-            private set => SetProperty(ref _logsSessionCountColorHex, value);
-        }
-
-        private string _logsTotalDuration = "—";
-        public string LogsTotalDuration
-        {
-            get => _logsTotalDuration;
-            private set => SetProperty(ref _logsTotalDuration, value);
-        }
-
         // ── "This week" aggregate insight (last 7 days) ───────────────────────
-        private bool _hasThisWeek;
-        public bool HasThisWeek
-        {
-            get => _hasThisWeek;
-            private set => SetProperty(ref _hasThisWeek, value);
-        }
 
         private string _thisWeekSummary = "—";
         public string ThisWeekSummary
         {
             get => _thisWeekSummary;
             private set => SetProperty(ref _thisWeekSummary, value);
-        }
-
-        private string _thisWeekGradeLabel = "—";
-        public string ThisWeekGradeLabel
-        {
-            get => _thisWeekGradeLabel;
-            private set => SetProperty(ref _thisWeekGradeLabel, value);
-        }
-
-        private string _thisWeekGradeColorHex = "#808080";
-        public string ThisWeekGradeColorHex
-        {
-            get => _thisWeekGradeColorHex;
-            private set => SetProperty(ref _thisWeekGradeColorHex, value);
-        }
-
-        private string _thisWeekGradeBgHex = "#1A808080";
-        public string ThisWeekGradeBgHex
-        {
-            get => _thisWeekGradeBgHex;
-            private set => SetProperty(ref _thisWeekGradeBgHex, value);
-        }
-
-        private string _thisWeekGradeBorderHex = "#40808080";
-        public string ThisWeekGradeBorderHex
-        {
-            get => _thisWeekGradeBorderHex;
-            private set => SetProperty(ref _thisWeekGradeBorderHex, value);
-        }
-
-        private string _thisWeekRtt = "—";
-        public string ThisWeekRtt
-        {
-            get => _thisWeekRtt;
-            private set => SetProperty(ref _thisWeekRtt, value);
-        }
-
-        private string _thisWeekAvgLetter = "—";
-        public string ThisWeekAvgLetter
-        {
-            get => _thisWeekAvgLetter;
-            private set => SetProperty(ref _thisWeekAvgLetter, value);
-        }
-
-        private string _thisWeekBreakdown = "";
-        public string ThisWeekBreakdown
-        {
-            get => _thisWeekBreakdown;
-            private set => SetProperty(ref _thisWeekBreakdown, value);
         }
 
         // ── Host vitals (idle "HOST · LIVE" box) ──────────────────────────────
@@ -682,42 +409,25 @@ namespace StreamTweak.ViewModels
         private string _hostHealthLabel = "Checking…";
         public string HostHealthLabel { get => _hostHealthLabel; private set => SetProperty(ref _hostHealthLabel, value); }
 
-        private string _hostHealthSub = "Armed — waiting for a client";
-        public string HostHealthSub { get => _hostHealthSub; private set => SetProperty(ref _hostHealthSub, value); }
-
         private string _hostHealthColorHex = "#4ade80";
         public string HostHealthColorHex { get => _hostHealthColorHex; private set => SetProperty(ref _hostHealthColorHex, value); }
 
         private string _hostGpuTempText = "—";
         public string HostGpuTempText { get => _hostGpuTempText; private set => SetProperty(ref _hostGpuTempText, value); }
-        private double _hostGpuTempBar;
-        public double HostGpuTempBar { get => _hostGpuTempBar; private set => SetProperty(ref _hostGpuTempBar, value); }
         private string _hostGpuTempColorHex = "#4ade80";
         public string HostGpuTempColorHex { get => _hostGpuTempColorHex; private set => SetProperty(ref _hostGpuTempColorHex, value); }
 
         private string _hostGpuLoadText = "—";
         public string HostGpuLoadText { get => _hostGpuLoadText; private set => SetProperty(ref _hostGpuLoadText, value); }
-        private double _hostGpuLoadBar;
-        public double HostGpuLoadBar { get => _hostGpuLoadBar; private set => SetProperty(ref _hostGpuLoadBar, value); }
-        private string _hostGpuLoadColorHex = "#4ade80";
-        public string HostGpuLoadColorHex { get => _hostGpuLoadColorHex; private set => SetProperty(ref _hostGpuLoadColorHex, value); }
 
         private string _hostVramText = "—";
         public string HostVramText { get => _hostVramText; private set => SetProperty(ref _hostVramText, value); }
-        private double _hostVramBar;
-        public double HostVramBar { get => _hostVramBar; private set => SetProperty(ref _hostVramBar, value); }
 
         private string _hostCpuText = "—";
         public string HostCpuText { get => _hostCpuText; private set => SetProperty(ref _hostCpuText, value); }
-        private double _hostCpuBar;
-        public double HostCpuBar { get => _hostCpuBar; private set => SetProperty(ref _hostCpuBar, value); }
-        private string _hostCpuColorHex = "#4ade80";
-        public string HostCpuColorHex { get => _hostCpuColorHex; private set => SetProperty(ref _hostCpuColorHex, value); }
 
         private string _hostNetText = "—";
         public string HostNetText { get => _hostNetText; private set => SetProperty(ref _hostNetText, value); }
-        private double _hostNetBar;
-        public double HostNetBar { get => _hostNetBar; private set => SetProperty(ref _hostNetBar, value); }
 
         // ── Performance period (7 or 30 days), persisted ──────────────────────
         //
@@ -747,36 +457,17 @@ namespace StreamTweak.ViewModels
                 _perfPeriodDays = days;
                 ConfigService.Set("DashboardPerfPeriodDays", days);
                 OnPropertyChanged();
-                OnPropertyChanged(nameof(PerfPeriodLabel));
-                // PerfPeriodAxisLabel is set by ComputePerformance — for "all time" it
-                // depends on the data, so it can only be resolved once the sessions are read.
                 _ = ReloadPerformanceAsync();
             }
         }
 
-        /// <summary>Header caption for the Performance card ("last 90 days" / "all time").</summary>
-        public string PerfPeriodLabel => _perfPeriodDays <= 0 ? "all time" : $"last {_perfPeriodDays} days";
-
-        /// <summary>
-        /// Compact span label drawn at the right edge of the trend chart's X axis ("90 days").
-        /// Separate from PerfPeriodLabel so the chart corner stays short — the header already
-        /// carries the "last …" wording. Filled by ComputePerformance rather than computed
-        /// here, because for "all time" the span comes from the data (how far back the oldest
-        /// recorded session actually goes), not from the selected period.
-        /// </summary>
-        private string _perfPeriodAxisLabel = "7 days";
-        public string PerfPeriodAxisLabel
-        {
-            get => _perfPeriodAxisLabel;
-            private set => SetProperty(ref _perfPeriodAxisLabel, value);
-        }
-
         // ── Performance trend (Dashboard bottom-left chart) ───────────────────
-        private IReadOnlyList<SparklineSeries> _weekPerfLines = Array.Empty<SparklineSeries>();
-        public IReadOnlyList<SparklineSeries> WeekPerfLines
+        private IReadOnlyList<TrendPoint> _perfPoints = Array.Empty<TrendPoint>();
+        /// <summary>One point per session with telemetry in the period, oldest first (Controls/TrendChart).</summary>
+        public IReadOnlyList<TrendPoint> PerfPoints
         {
-            get => _weekPerfLines;
-            private set => SetProperty(ref _weekPerfLines, value);
+            get => _perfPoints;
+            private set => SetProperty(ref _perfPoints, value);
         }
 
         private bool _hasWeekPerf;
@@ -798,12 +489,6 @@ namespace StreamTweak.ViewModels
         public string PairedClientsSummary { get => _pairedClientsSummary; private set => SetProperty(ref _pairedClientsSummary, value); }
 
         // ── Last-session headline metrics (mockup card) ───────────────────────
-        private string _lastSessionAgo = "";
-        public string LastSessionAgo
-        {
-            get => _lastSessionAgo;
-            private set => SetProperty(ref _lastSessionAgo, value);
-        }
 
         private string _lastSessionRttValue = "—";
         public string LastSessionRttValue
@@ -812,45 +497,12 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _lastSessionRttValue, value);
         }
 
-        private string _lastSessionRttSub = "";
-        public string LastSessionRttSub
-        {
-            get => _lastSessionRttSub;
-            private set => SetProperty(ref _lastSessionRttSub, value);
-        }
-
         private string _lastSessionHostLatency = "—";
         public string LastSessionHostLatency
         {
             get => _lastSessionHostLatency;
             private set => SetProperty(ref _lastSessionHostLatency, value);
         }
-
-        private string _lastSessionDropsValue = "—";
-        public string LastSessionDropsValue
-        {
-            get => _lastSessionDropsValue;
-            private set => SetProperty(ref _lastSessionDropsValue, value);
-        }
-
-        // ── Spatial audio live activation status ──────────────────────────────
-
-        private string _spatialAudioActivationText = string.Empty;
-        /// <summary>
-        /// Non-empty while Dolby/Sonic is activating or has just activated.
-        /// Shown as a subtext in the Spatial Audio home tile.
-        /// </summary>
-        public string SpatialAudioActivationText
-        {
-            get => _spatialAudioActivationText;
-            private set
-            {
-                if (SetProperty(ref _spatialAudioActivationText, value))
-                    OnPropertyChanged(nameof(HasSpatialAudioActivationText));
-            }
-        }
-
-        public bool HasSpatialAudioActivationText => !string.IsNullOrEmpty(_spatialAudioActivationText);
 
         // ── Stream host ───────────────────────────────────────────────────────
 
@@ -934,19 +586,13 @@ namespace StreamTweak.ViewModels
         private string _lastSessionGamesText = string.Empty;
         public string LastSessionGamesText { get => _lastSessionGamesText; private set => SetProperty(ref _lastSessionGamesText, value); }
 
-        private string _lastSessionStreamsText = string.Empty;
-        public string LastSessionStreamsText { get => _lastSessionStreamsText; private set => SetProperty(ref _lastSessionStreamsText, value); }
-
         // Performance: grade split for the bar.
         private int _gradeExcellentCount, _gradeGoodCount, _gradePoorCount;
         public int GradeExcellentCount { get => _gradeExcellentCount; private set => SetProperty(ref _gradeExcellentCount, value); }
         public int GradeGoodCount      { get => _gradeGoodCount;      private set => SetProperty(ref _gradeGoodCount, value); }
         public int GradePoorCount      { get => _gradePoorCount;      private set => SetProperty(ref _gradePoorCount, value); }
 
-        // Recent sessions (wide windows) and the recently-streamed shelf.
-        public ObservableCollection<HomeSessionRow> RecentSessions { get; } = new();
-        private bool _hasRecentSessions;
-        public bool HasRecentSessions { get => _hasRecentSessions; private set => SetProperty(ref _hasRecentSessions, value); }
+        // The recently-streamed shelf.
 
         public ObservableCollection<HomeShelfItem> RecentGames { get; } = new();
         private bool _hasRecentGames;
@@ -959,25 +605,17 @@ namespace StreamTweak.ViewModels
         private string _libraryTileSub = "Never synced";
         public string LibraryTileSub { get => _libraryTileSub; private set => SetProperty(ref _libraryTileSub, value); }
 
-        private string _serverStatusText = "No streaming server detected";
-        public string ServerStatusText { get => _serverStatusText; private set => SetProperty(ref _serverStatusText, value); }
-
         // ── Constructor ───────────────────────────────────────────────────────
 
         public HomeViewModel()
         {
             _dispatcher = DispatcherQueue.GetForCurrentThread();
-            LoadVersionInfo();
 
             // Restore the Performance period before the view binds, so the ComboBox's
             // first write-back matches and doesn't trigger a redundant recompute.
             // An unrecognised stored value (e.g. from an older build) falls back to 7 days.
             int savedPeriod = ConfigService.GetInt("DashboardPerfPeriodDays", 7);
             _perfPeriodDays = Array.IndexOf(PerfPeriods, savedPeriod) >= 0 ? savedPeriod : 7;
-            // Seed the chart's axis label from the restored period. It is normally filled by
-            // ComputePerformance (for "all time" the span comes from the data), but without
-            // this the card briefly claims "7 days" under any other saved period.
-            _perfPeriodAxisLabel = _perfPeriodDays <= 0 ? "all time" : $"{_perfPeriodDays} days";
 
             IsSessionActive = AppStateService.Instance.IsSessionActive;
             AppStateService.Instance.SessionStateChanged       += OnSessionStateChanged;
@@ -1086,7 +724,7 @@ namespace StreamTweak.ViewModels
                     .FirstOrDefault(n => n.Name.Equals(adapterName, StringComparison.OrdinalIgnoreCase));
                 string text = ni?.OperationalStatus == OperationalStatus.Up
                     ? (ni.Speed / 1_000_000) is long mbps && mbps > 0
-                        ? mbps >= 1000 ? $"{mbps / 1000.0:0.#} Gbps" : $"{mbps} Mbps"
+                        ? mbps >= 1000 ? string.Create(CultureInfo.InvariantCulture, $"{mbps / 1000.0:0.#} Gbps") : string.Create(CultureInfo.InvariantCulture, $"{mbps} Mbps")
                         : "Negotiating…"
                     : "—";
                 _dispatcher.TryEnqueue(() => NicSpeedText = text);
@@ -1135,8 +773,6 @@ namespace StreamTweak.ViewModels
         public async Task LoadStatusAsync()
         {
             string? streamHostExePath = null;
-            // (gameName, coverImagePath?) pairs gathered from the last session's detected games
-            List<(string Name, string? CoverPath)>? detectedGameCovers = null;
 
             // I/O-bound reads run off the UI thread; results marshalled back via dispatcher
             await Task.Run(() =>
@@ -1146,26 +782,8 @@ namespace StreamTweak.ViewModels
                 {
                     var sessions = SessionLogger.Load();
 
-                    // LOGS tile aggregates
+                    // Completed sessions feed the performance card and the recents
                     var completed = sessions.Where(s => s.EndTime != null).ToList();
-                    int logsTotal = completed.Count;
-                    var totalDur  = TimeSpan.FromSeconds(
-                        completed.Sum(s => (s.EndTime!.Value - s.StartTime).TotalSeconds));
-                    var graded = completed
-                        .Where(s => s.Grade is QualityGrade.High or QualityGrade.Medium or QualityGrade.Low)
-                        .ToList();
-                    string logsColor = "#808080";
-                    if (graded.Count > 0)
-                    {
-                        double avg = graded.Average(s => (int)s.Grade!.Value); // High=1, Med=2, Low=3
-                        logsColor = avg < 1.5 ? "#4ade80" : avg < 2.5 ? "#fbbf24" : "#f87171";
-                    }
-                    _dispatcher.TryEnqueue(() =>
-                    {
-                        LogsSessionCount         = logsTotal.ToString();
-                        LogsSessionCountColorHex = logsColor;
-                        LogsTotalDuration        = FormatTotalDuration(totalDur);
-                    });
 
                     // Performance aggregate over the user-selected window (7 or 30 days).
                     ComputePerformance(completed, _perfPeriodDays);
@@ -1174,87 +792,28 @@ namespace StreamTweak.ViewModels
                     var last = sessions.FirstOrDefault(s => s.EndTime != null);
                     if (last != null)
                     {
-                        string stats = last.QualityStats != null
-                            ? $"RTT avg  {(int)last.QualityStats.RttAvgMs} ms   " +
-                              $"Frame drops  {last.QualityStats.DropRatePct:0.#}%"
-                            : string.Empty;
-
                         // Headline metric values for the mockup Last-Session card
                         var qs = last.QualityStats;
-                        string lsAgo = last.EndTime is { } end ? FormatAgo(DateTime.Now - end) : "";
                         string lsRtt = qs != null ? $"{(int)qs.RttAvgMs}" : "—";
-                        string lsRttSub = qs != null ? $"{(int)qs.RttMaxMs} peak" : "";
-                        string lsHost = qs != null && qs.HostLatencyAvgMs >= 0 ? $"{qs.HostLatencyAvgMs:0.#}" : "—";
-                        string lsDrops = qs != null ? $"{qs.DropRatePct:0.#}" : "—";
+                        string lsHost = qs != null && qs.HostLatencyAvgMs >= 0 ? string.Create(CultureInfo.InvariantCulture, $"{qs.HostLatencyAvgMs:0.#}") : "—";
                         string lsId    = last.Id;
                         string lsWhen  = $"{GameStatsService.RelativeDay(last.StartTime)} · {last.StartTime:HH:mm} → {last.EndTime:HH:mm}";
                         string lsGames = last.GamesDetected is { Count: > 0 } g
                             ? string.Join(", ", g)
                             : last.GamesDetected != null ? "No game detected" : string.Empty;
-                        int lsStreams  = last.StreamSpans?.Count ?? 1;
-                        string lsStreamsText = lsStreams > 1
-                            ? $"{lsStreams} streams · the client reconnected"
-                            : "One stream";
                         _dispatcher.TryEnqueue(() =>
                         {
                             LastSessionId          = lsId;
                             LastSessionWhen        = lsWhen;
                             LastSessionGamesText   = lsGames;
-                            LastSessionStreamsText = lsStreamsText;
-                            LastSessionAgo          = lsAgo;
                             LastSessionRttValue     = lsRtt;
-                            LastSessionRttSub       = lsRttSub;
                             LastSessionHostLatency  = lsHost;
-                            LastSessionDropsValue   = lsDrops;
                         });
-
-                        // Resolve cover paths for detected games (File.Exists — cheap, off UI thread).
-                        // GamesDetected != null means monitor ran; [] means it ran but found nothing.
-                        if (last.GamesDetected != null)
-                        {
-                            if (last.GamesDetected.Count > 0)
-                            {
-                                // Fallback map from live GameLibraryState (for old sessions
-                                // that pre-date the GamesDetectedCoverPaths snapshot field).
-                                var gameMap = GameLibraryState.Current.Games
-                                    .ToDictionary(g => g.Name, g => g, StringComparer.OrdinalIgnoreCase);
-
-                                detectedGameCovers = last.GamesDetected
-                                    .Select(name =>
-                                    {
-                                        string? path = null;
-
-                                        // 1) Prefer the path snapshotted at session-end time —
-                                        //    works even if the game was later removed from the library.
-                                        if (last.GamesDetectedCoverPaths != null &&
-                                            last.GamesDetectedCoverPaths.TryGetValue(name, out string? snap) &&
-                                            File.Exists(snap))
-                                        {
-                                            path = snap;
-                                        }
-                                        // 2) Fall back to live GameLibraryState (old sessions).
-                                        else if (gameMap.TryGetValue(name, out var gEntry))
-                                        {
-                                            path = gEntry.CoverImagePath;
-                                        }
-
-                                        return (name, path);
-                                    })
-                                    .ToList();
-                            }
-                            else
-                            {
-                                // Monitor ran but found no games (e.g. desktop session)
-                                detectedGameCovers = new List<(string, string?)>(); // empty sentinel
-                            }
-                        }
 
                         _dispatcher.TryEnqueue(() =>
                         {
                             HasLastSession        = true;
-                            LastSessionDate       = last.StartTimeDisplay;   // "dd/MM/yyyy  HH:mm"
                             LastSessionDuration   = last.DurationDisplay;
-                            LastSessionStats      = stats;
                             LastSessionHasGrade   = last.HasGrade;
                             LastSessionGrade      = last.GradeShortLabel;
                             LastSessionGradeColorHex  = last.GradeColorHex;
@@ -1302,70 +861,11 @@ namespace StreamTweak.ViewModels
                         {
                             StreamHostName   = info.AppName;
                             HasStreamHost    = true;
-                            ServerStatusText = $"{info.AppName} detected · bridge listening on port 47998";
                         });
                     }
                 }
                 catch { }
             });
-
-            // Populate the Last Session game cover strip
-            LastSessionCovers.Clear();
-            HasLastSessionCovers  = false;
-            HasNoGamesDetected    = false;
-            LastSessionCoversOverflow    = string.Empty;
-            HasLastSessionCoversOverflow = false;
-
-            if (detectedGameCovers != null)
-            {
-                // Three covers, and a "+N" for the rest.
-                //
-                // There was no limit here at all: a session accumulates every game it
-                // recognises and survives one game closing and the next starting, so an
-                // afternoon with four titles produced four covers. The strip is a plain
-                // horizontal StackPanel with no scrolling and no wrapping, sharing the row
-                // with a star-sized column, so each extra cover came straight out of the
-                // width the figures had to draw in. Capping keeps the card the same shape
-                // whatever the session did; nothing is lost, because Sessions still lists
-                // every game the session detected.
-                const int MaxCovers = 3;
-                int overflow = Math.Max(0, detectedGameCovers.Count - MaxCovers);
-                LastSessionCoversOverflow = overflow > 0 ? $"+{overflow}" : string.Empty;
-                HasLastSessionCoversOverflow = overflow > 0;
-
-                if (detectedGameCovers.Count > 0)
-                {
-                    int shown = Math.Min(MaxCovers, detectedGameCovers.Count);
-
-                    for (int i = 0; i < shown; i++)
-                        LastSessionCovers.Add(new SessionGameCover(detectedGameCovers[i].Name));
-                    HasLastSessionCovers = true;
-
-                    // Load cover bitmaps via StorageFile (same pattern as GameLibraryViewModel)
-                    for (int i = 0; i < shown; i++)
-                    {
-                        string? path = detectedGameCovers[i].CoverPath;
-                        if (path == null) continue;
-                        try
-                        {
-                            var file = await StorageFile.GetFileFromPathAsync(path);
-                            var bmp = new BitmapImage();
-                            // 2× display width (67 px) → WIC Fant resampler, GPU renders 1:1
-                            bmp.DecodePixelWidth = 134;
-                            using var stream = await file.OpenReadAsync();
-                            await bmp.SetSourceAsync(stream);
-                            LastSessionCovers[i].CoverImage = bmp;
-                        }
-                        catch { /* non-fatal — fallback text already shown */ }
-                    }
-                }
-                else
-                {
-                    // Monitor ran but found no games (desktop session, etc.)
-                    HasNoGamesDetected = true;
-                }
-            }
-            // else: detectedGameCovers == null → pre-feature session, show nothing
 
             // Load streaming server EXE icon (WinRT async, must run after Task.Run)
             if (streamHostExePath != null)
@@ -1399,8 +899,6 @@ namespace StreamTweak.ViewModels
                 if (state.LastSyncUtc != null)
                 {
                     var local = state.LastSyncUtc.Value.ToLocalTime();
-                    GameLibrarySyncText  = "Synced";
-                    GameLibrarySyncValue = local.ToString("dd/MM/yyyy  HH:mm");
                     LibraryTileSub = $"Synced {GameStatsService.RelativeDay(local).ToLowerInvariant()} at {local:HH:mm}";
                 }
                 else LibraryTileSub = state.SyncEnabled ? "Not synced yet" : "Sync is off";
@@ -1447,30 +945,11 @@ namespace StreamTweak.ViewModels
         }
 
         /// <summary>
-        /// "Recent sessions" rows and the "Recently streamed" shelf. Runs on the background
+        /// The "Recently streamed" shelf. Runs on the background
         /// thread of <see cref="LoadStatusAsync"/>; only the collections are touched on the UI thread.
         /// </summary>
         private void BuildRecents(List<SessionEntry> completed)
         {
-            var rows = completed.Take(6).Select(s =>
-            {
-                var (label, fg, bg, bd) = GameStatsService.GradeColors(s.Grade);
-                var q = s.QualityStats;
-                return new HomeSessionRow
-                {
-                    Id          = s.Id,
-                    WhenText    = $"{GameStatsService.RelativeDay(s.StartTime)} {s.StartTime:HH:mm}",
-                    SubText     = s.EndTime is { } e ? GameStatsService.FormatMinutes((e - s.StartTime).TotalMinutes) : "",
-                    GamesText   = s.GamesDetected is { Count: > 0 } g ? string.Join(", ", g) : "No game detected",
-                    Covers      = s.GameCoversForDisplay.Take(3).ToList(),
-                    RttText     = q != null && q.RttAvgMs > 0 ? $"{q.RttAvgMs:0.0}" : "—",
-                    HostLatText = q != null && q.HostLatencyAvgMs >= 0 ? $"{q.HostLatencyAvgMs:0.0}" : "—",
-                    GradeLabel  = s.IsDebugSession ? "Debug" : label,
-                    GradeFgHex  = fg, GradeBgHex = bg, GradeBorderHex = bd,
-                    StripeHex   = GameStatsService.GradeStripe(s.Grade),
-                };
-            }).ToList();
-
             var stats = GameStatsService.Compute(completed);
             var library = GameLibraryState.Current.Games
                 .GroupBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
@@ -1500,10 +979,6 @@ namespace StreamTweak.ViewModels
 
             _dispatcher.TryEnqueue(() =>
             {
-                RecentSessions.Clear();
-                foreach (var r in rows) RecentSessions.Add(r);
-                HasRecentSessions = RecentSessions.Count > 0;
-
                 RecentGames.Clear();
                 foreach (var g in shelf) RecentGames.Add(g);
                 HasRecentGames = RecentGames.Count > 0;
@@ -1580,76 +1055,31 @@ namespace StreamTweak.ViewModels
             var wkGraded = inPeriod
                 .Where(s => s.Grade is QualityGrade.High or QualityGrade.Medium or QualityGrade.Low)
                 .ToList();
-            string wkLabel = "No grades yet", wkColor = "#808080", wkBg = "#1A808080", wkBdr = "#40808080";
-            if (wkGraded.Count > 0)
-            {
-                double avg = wkGraded.Average(s => (int)s.Grade!.Value); // High=1, Med=2, Low=3
-                if (avg < 1.5)      { wkLabel = "Excellent avg"; wkColor = "#4ade80"; wkBg = "#1A4ade80"; wkBdr = "#404ade80"; }
-                else if (avg < 2.5) { wkLabel = "Good avg";      wkColor = "#fbbf24"; wkBg = "#1Af59e0b"; wkBdr = "#40f59e0b"; }
-                else                { wkLabel = "Poor avg";      wkColor = "#f87171"; wkBg = "#1Aef4444"; wkBdr = "#40ef4444"; }
-            }
-
             var wkStats = inPeriod.Where(s => s.QualityStats != null).ToList();
-            string wkRtt = wkStats.Count > 0
-                ? $"{(int)wkStats.Average(s => s.QualityStats!.RttAvgMs)} ms"
-                : "—";
             string wkSummary = wkCount == 1 ? "1 session" : $"{wkCount} sessions";
 
-            // Average-grade letter + breakdown counts
-            string wkLetter = "—";
-            if (wkGraded.Count > 0)
-            {
-                double avg = wkGraded.Average(s => (int)s.Grade!.Value);
-                wkLetter = avg < 1.5 ? "A" : avg < 2.5 ? "B" : "C";
-            }
+            // Grade breakdown counts
             int hi = wkGraded.Count(s => s.Grade == QualityGrade.High);
             int md = wkGraded.Count(s => s.Grade == QualityGrade.Medium);
             int lo = wkGraded.Count(s => s.Grade == QualityGrade.Low);
-            string wkBreak = wkGraded.Count > 0 ? $"{hi} excellent · {md} good · {lo} poor" : "";
 
             // Performance trend — one point per graded session (oldest → newest).
             // RTT is always present; host frame latency only for sessions recorded with
             // StreamLight ≥ 4.0.1, so that line is added only when there is real data.
             var ordered  = wkStats.OrderBy(s => s.StartTime).ToList();
-            var rttData  = ordered.Select(s => (float)s.QualityStats!.RttAvgMs).ToList();
-            var hostData = ordered
-                .Select(s => s.QualityStats!.HostLatencyAvgMs >= 0 ? (float)s.QualityStats.HostLatencyAvgMs : 0f)
-                .ToList();
-
-            var perfLines = new List<SparklineSeries>
-            {
-                new() { Label = "RTT", Color = PerfRtt, Data = rttData },
-            };
-            if (hostData.Any(v => v > 0f))
-                perfLines.Add(new SparklineSeries { Label = "Host lat.", Color = PerfHostLat, Data = hostData });
-
+            var perfPoints = ordered.Select(s => new TrendPoint(
+                s.StartTime, s.Id,
+                s.GamesDetected is { Count: > 0 } g ? string.Join(", ", g) : string.Empty,
+                s.QualityStats!.RttAvgMs,
+                s.QualityStats.HostLatencyAvgMs >= 0 ? s.QualityStats.HostLatencyAvgMs : -1)).ToList();
             bool   hasPerf   = ordered.Count >= 2;
             string perfDrops = wkStats.Count > 0
-                ? $"{wkStats.Average(s => s.QualityStats!.DropRatePct):0.#}%"
+                ? string.Create(CultureInfo.InvariantCulture, $"{wkStats.Average(s => s.QualityStats!.DropRatePct):0.#}%")
                 : "—";
             var    wkDur     = TimeSpan.FromSeconds(
                 inPeriod.Where(s => s.EndTime != null)
                         .Sum(s => (s.EndTime!.Value - s.StartTime).TotalSeconds));
             string perfStreamed = wkCount > 0 ? FormatTotalDuration(wkDur) : "—";
-
-            // X-axis span label. For a fixed period it's the period itself; for "all time"
-            // report how far back the recorded sessions actually reach, which is far more
-            // informative than a generic "all time" — the chart then states its own scale.
-            string axisLabel;
-            if (days > 0)
-            {
-                axisLabel = $"{days} days";
-            }
-            else if (inPeriod.Count > 0)
-            {
-                var oldest  = inPeriod.Min(s => s.StartTime);
-                int spanDay = Math.Max(1, (int)Math.Ceiling((DateTime.Now - oldest).TotalDays));
-                axisLabel   = spanDay == 1 ? "1 day" : $"{spanDay} days";
-            }
-            else
-            {
-                axisLabel = "all time";   // nothing recorded yet — no span to report
-            }
 
             _dispatcher.TryEnqueue(() =>
             {
@@ -1661,26 +1091,16 @@ namespace StreamTweak.ViewModels
                 GradeExcellentCount = hi;
                 GradeGoodCount      = md;
                 GradePoorCount      = lo;
-                WeekPerfLines      = perfLines;
+                PerfPoints         = perfPoints;
                 HasWeekPerf        = hasPerf;
                 WeekPerfDrops      = perfDrops;
                 WeekPerfStreamed   = perfStreamed;
-                PerfPeriodAxisLabel = axisLabel;
             });
 
             _dispatcher.TryEnqueue(() =>
             {
                 if (days != _perfPeriodDays) return;   // superseded — see above
-
-                HasThisWeek            = wkCount > 0;
-                ThisWeekSummary        = wkSummary;
-                ThisWeekGradeLabel     = wkLabel;
-                ThisWeekGradeColorHex  = wkColor;
-                ThisWeekGradeBgHex     = wkBg;
-                ThisWeekGradeBorderHex = wkBdr;
-                ThisWeekRtt            = wkRtt;
-                ThisWeekAvgLetter      = wkLetter;
-                ThisWeekBreakdown      = wkBreak;
+                ThisWeekSummary = wkSummary;
             });
         }
 
@@ -1721,6 +1141,7 @@ namespace StreamTweak.ViewModels
                         PairedClients.Add(new HomeClientRow
                         {
                             Name            = string.IsNullOrWhiteSpace(c.Name) ? "StreamLight client" : c.Name,
+                            Glyph           = DeviceKinds.Glyph(c.DeviceKind),
                             LastSeenText    = string.IsNullOrEmpty(c.Pin) ? "Asks for access" : $"Asks for access · PIN {c.Pin}",
                             StatusText      = "Waiting",
                             StatusColorHex  = "#fbbf24",
@@ -1741,6 +1162,7 @@ namespace StreamTweak.ViewModels
                         PairedClients.Add(new HomeClientRow
                         {
                             Name         = string.IsNullOrWhiteSpace(c.Name) ? "StreamLight client" : c.Name,
+                            Glyph        = DeviceKinds.Glyph(c.DeviceKind),
                             LastSeenText = seen,
                         });
                     }
@@ -1769,7 +1191,6 @@ namespace StreamTweak.ViewModels
             {
                 NvSentinelAutoRestoreText  = "Off";
                 NvSentinelBadgeText        = "Off";
-                NvSentinelLastRestoreValue = "never";
                 return;
             }
 
@@ -1790,31 +1211,16 @@ namespace StreamTweak.ViewModels
             catch { n = 0; }
             NvSentinelBadgeText = n == 1 ? "1 saved" : $"{n} saved";
 
-            NvSentinelLastRestoreValue = svc.LastRestoreAt is { } at
-                ? at.ToLocalTime().ToString("dd/MM/yyyy  HH:mm")
-                : "never";
         }
 
         public void RequestStopStream()
             => AppStateService.Instance.RequestStopStreamAction?.Invoke();
 
-        public void OpenGitHub()
-            => _ = Windows.System.Launcher.LaunchUriAsync(
-                new Uri("https://github.com/FoggyBytes/StreamTweak"));
-
-        public void OpenPayPal()
-            => _ = Windows.System.Launcher.LaunchUriAsync(
-                new Uri("https://paypal.me/foggybytes"));
-
-        public void OpenLicense()
-            => _ = Windows.System.Launcher.LaunchUriAsync(
-                new Uri("https://github.com/FoggyBytes/StreamTweak/blob/main/LICENSE"));
-
         private static string FormatTotalDuration(TimeSpan t)
         {
             if (t.TotalSeconds < 60)  return $"{(int)t.TotalSeconds}s";
-            if (t.TotalHours   < 1)   return $"{(int)t.TotalMinutes}m {t.Seconds:00}s";
-            return $"{(int)t.TotalHours}h {t.Minutes:00}m";
+            if (t.TotalHours   < 1)   return string.Create(CultureInfo.InvariantCulture, $"{(int)t.TotalMinutes}m {t.Seconds:00}s");
+            return string.Create(CultureInfo.InvariantCulture, $"{(int)t.TotalHours}h {t.Minutes:00}m");
         }
 
         private static string FormatAgo(TimeSpan t)
@@ -1824,7 +1230,6 @@ namespace StreamTweak.ViewModels
             if (t.TotalHours   < 24) return $"{(int)t.TotalHours}h ago";
             return $"{(int)t.TotalDays}d ago";
         }
-
 
         /// <summary>
         /// Refreshes the idle "HOST · LIVE" vitals from the metrics collector snapshot.
@@ -1848,19 +1253,16 @@ namespace StreamTweak.ViewModels
             if (s.GpuTemp >= 0)
             {
                 HostGpuTempText     = s.GpuTemp.ToString();
-                HostGpuTempBar      = Math.Clamp(s.GpuTemp, 0, 100);
                 HostGpuTempColorHex = s.GpuTemp >= 85 ? "#f87171" : s.GpuTemp >= 75 ? "#fbbf24" : "#4ade80";
             }
-            else { HostGpuTempText = "—"; HostGpuTempBar = 0; HostGpuTempColorHex = "#4ade80"; }
+            else { HostGpuTempText = "—"; HostGpuTempColorHex = "#4ade80"; }
 
             // GPU 3D load
             if (s.Gpu >= 0)
             {
                 HostGpuLoadText     = s.Gpu.ToString();
-                HostGpuLoadBar      = Math.Clamp(s.Gpu, 0, 100);
-                HostGpuLoadColorHex = s.Gpu >= 90 ? "#fbbf24" : "#4ade80";
             }
-            else { HostGpuLoadText = "—"; HostGpuLoadBar = 0; HostGpuLoadColorHex = "#4ade80"; }
+            else { HostGpuLoadText = "—"; }
 
             // VRAM — "used / total GB" when the total is known, else just used.
             // Unit is rendered separately in the tile (like every other vital), so it
@@ -1868,33 +1270,28 @@ namespace StreamTweak.ViewModels
             // widest tile and it overflowed into the CPU column at small window sizes.
             if (s.VramUsedMb >= 0 && s.VramTotalMb > 0)
             {
-                HostVramText = $"{s.VramUsedMb / 1024.0:0.0}/{s.VramTotalMb / 1024.0:0}";
-                HostVramBar  = Math.Clamp(s.VramUsedMb * 100.0 / s.VramTotalMb, 0, 100);
+                HostVramText = string.Create(CultureInfo.InvariantCulture, $"{s.VramUsedMb / 1024.0:0.0}/{s.VramTotalMb / 1024.0:0}");
             }
             else if (s.VramUsedMb >= 0)
             {
-                HostVramText = $"{s.VramUsedMb / 1024.0:0.0}";
-                HostVramBar  = 0;
+                HostVramText = string.Create(CultureInfo.InvariantCulture, $"{s.VramUsedMb / 1024.0:0.0}");
             }
-            else { HostVramText = "—"; HostVramBar = 0; }
+            else { HostVramText = "—"; }
 
             // CPU
             if (s.Cpu >= 0)
             {
                 HostCpuText     = s.Cpu.ToString();
-                HostCpuBar      = Math.Clamp(s.Cpu, 0, 100);
-                HostCpuColorHex = s.Cpu >= 90 ? "#fbbf24" : "#4ade80";
             }
-            else { HostCpuText = "—"; HostCpuBar = 0; HostCpuColorHex = "#4ade80"; }
+            else { HostCpuText = "—"; }
 
             // Network TX on the default-route interface. Bar is scaled against
             // 100 Mbps — enough headroom to read an idle host at a glance.
             if (s.NetTxMbps >= 0)
             {
                 HostNetText = s.NetTxMbps.ToString();
-                HostNetBar  = Math.Clamp(s.NetTxMbps, 0, 100);
             }
-            else { HostNetText = "—"; HostNetBar = 0; }
+            else { HostNetText = "—"; }
 
             // One-minute trends for the tiles' sparklines.
             if (s.GpuTemp >= 0) Push(_vGpuTemp, (float)s.GpuTemp, VitalsWindow);
@@ -1932,9 +1329,6 @@ namespace StreamTweak.ViewModels
                 HostHealthColorHex = "#4ade80";
             }
 
-            HostHealthSub = ClientControlText == "On"
-                ? "Ready — clients may match the link"
-                : "Waiting for a client";
         }
 
         // ── Live session helpers ──────────────────────────────────────────────
@@ -1947,9 +1341,6 @@ namespace StreamTweak.ViewModels
             _dropsBuffer.Clear();
             _fpsBuffer.Clear();
             _hostLatBuffer.Clear();
-            _gpuBuffer.Clear();
-            _encBuffer.Clear();
-            _cpuBuffer.Clear();
             _sessDrops    = 0;
             _sessRendered = 0;
             LiveRttSeries      = Array.Empty<float>();
@@ -1957,10 +1348,6 @@ namespace StreamTweak.ViewModels
             LiveHostLatSeries  = Array.Empty<float>();
             LiveDropsSeries    = Array.Empty<float>();
             LiveFpsSeries      = Array.Empty<float>();
-            LiveComputeLines   = Array.Empty<SparklineSeries>();
-            LiveDropPct        = "0.00%";
-            LiveRttValue       = "—";
-            LiveBitrateValue   = "—";
             LiveRttNumber      = "—";
             LiveRttSub         = "peak — · jit —";
             LiveHostLatNumber  = "—";
@@ -1972,10 +1359,8 @@ namespace StreamTweak.ViewModels
             LiveFpsNumber      = "—";
             LiveBitrateSub     = "live outbound";
             LiveRttColorHex    = "#808080";
-            LiveRttLineColor   = Color.FromArgb(0xFF, 0x80, 0x80, 0x80);
 
             var startTime     = SessionLogger.ActiveSessionStartTime;
-            LiveStartedAt     = $"Started {startTime:dd/MM/yyyy  HH:mm}";
             LiveDuration      = FormatDuration(startTime);
 
             if (_durationTimer == null)
@@ -2007,20 +1392,9 @@ namespace StreamTweak.ViewModels
             _dropsBuffer.Clear();
             _fpsBuffer.Clear();
             _hostLatBuffer.Clear();
-            _gpuBuffer.Clear();
-            _encBuffer.Clear();
-            _cpuBuffer.Clear();
         }
 
         // GPU / Encoder / CPU line colours (match the compute-chart legend).
-        private static readonly Color ComputeGpu = Color.FromArgb(0xFF, 0x4a, 0xde, 0x80); // green
-        private static readonly Color ComputeEnc = Color.FromArgb(0xFF, 0xA7, 0x8B, 0xFA); // purple
-        private static readonly Color ComputeCpu = Color.FromArgb(0xFF, 0xF5, 0x9E, 0x0B); // amber
-
-        // Performance trend lines (9.0): the chart palette validated for colour-blind separation
-        // on the dark surface — blue for RTT, orange for host frame latency.
-        private static readonly Color PerfRtt     = Color.FromArgb(0xFF, 0x39, 0x87, 0xE5);
-        private static readonly Color PerfHostLat = Color.FromArgb(0xFF, 0xD9, 0x59, 0x26);
 
         private void OnLiveSample(AppStateService.LiveSample s)
         {
@@ -2032,75 +1406,58 @@ namespace StreamTweak.ViewModels
                 Push(_dropsBuffer,   s.Drops);
                 Push(_fpsBuffer,     s.FpsAvg);
                 if (s.HostLatencyMs > 0f) Push(_hostLatBuffer, s.HostLatencyMs);
-                Push(_gpuBuffer, (float)Math.Max(0, s.Gpu));
-                Push(_encBuffer, (float)Math.Max(0, s.Enc));
-                Push(_cpuBuffer, (float)Math.Max(0, s.Cpu));
 
-                // Replace list references so x:Bind on SparklineControl.Data fires Redraw.
+                // Replace list references so x:Bind on MiniSparkline.Data fires Redraw.
                 LiveRttSeries     = _rttBuffer.ToList();
                 LiveBitrateSeries = _bitrateBuffer.ToList();
                 LiveHostLatSeries = _hostLatBuffer.ToList();
                 LiveDropsSeries   = _dropsBuffer.Select(d => (float)d).ToList();
                 LiveFpsSeries     = _fpsBuffer.ToList();
-                LiveComputeLines  = new List<SparklineSeries>
-                {
-                    new() { Label = $"GPU {(int)LastOr(_gpuBuffer)}", Color = ComputeGpu, Data = _gpuBuffer.ToList() },
-                    new() { Label = $"ENC {(int)LastOr(_encBuffer)}", Color = ComputeEnc, Data = _encBuffer.ToList() },
-                    new() { Label = $"CPU {(int)LastOr(_cpuBuffer)}", Color = ComputeCpu, Data = _cpuBuffer.ToList() },
-                };
 
                 // Session-cumulative drop rate + frame count (stat card).
                 _sessDrops    += Math.Max(0, s.Drops);
                 _sessRendered += Math.Max(0f, s.FpsAvg);
                 double totalFrames = _sessDrops + _sessRendered;
                 float dropPct = totalFrames > 0 ? (float)(_sessDrops / totalFrames * 100.0) : 0f;
-                LiveDropPct     = $"{dropPct:0.00}%";
-                LiveDropsNumber = $"{dropPct:0.0}";
+                LiveDropsNumber = string.Create(CultureInfo.InvariantCulture, $"{dropPct:0.0}");
                 LiveDropsSub    = $"{_sessDrops} of {FormatFrameCount(totalFrames)} frames";
 
                 // RTT value + adaptive color (≤30 ms green, ≤80 ms amber, >80 ms red)
-                LiveRttValue  = s.RttMs < 10f ? $"{s.RttMs:0.0} ms" : $"{(int)s.RttMs} ms";
-                LiveRttNumber = s.RttMs < 10f ? $"{s.RttMs:0.0}" : $"{(int)s.RttMs}";
+                LiveRttNumber = s.RttMs < 10f ? string.Create(CultureInfo.InvariantCulture, $"{s.RttMs:0.0}") : string.Create(CultureInfo.InvariantCulture, $"{(int)s.RttMs}");
                 float rttPeak = _rttBuffer.Count > 0 ? _rttBuffer.Max() : s.RttMs;
-                LiveRttSub    = $"peak {(int)rttPeak} · jit {s.JitterMs:0.0}";
+                LiveRttSub    = string.Create(CultureInfo.InvariantCulture, $"peak {(int)rttPeak} · jit {s.JitterMs:0.0}");
                 if (s.RttMs <= 30f)
                 {
                     LiveRttColorHex  = "#4ade80";
-                    LiveRttLineColor = Color.FromArgb(0xFF, 0x4a, 0xde, 0x80);
                 }
                 else if (s.RttMs <= 80f)
                 {
                     LiveRttColorHex  = "#fbbf24";
-                    LiveRttLineColor = Color.FromArgb(0xFF, 0xF5, 0x9E, 0x0B);
                 }
                 else
                 {
                     LiveRttColorHex  = "#f87171";
-                    LiveRttLineColor = Color.FromArgb(0xFF, 0xEF, 0x44, 0x44);
                 }
 
                 // Bitrate value
-                LiveBitrateValue  = s.BitrateMbps >= 100f ? $"{s.BitrateMbps:0} Mbps" : $"{s.BitrateMbps:0.0} Mbps";
-                LiveBitrateNumber = s.BitrateMbps >= 100f ? $"{s.BitrateMbps:0}"      : $"{s.BitrateMbps:0.0}";
+                LiveBitrateNumber = s.BitrateMbps >= 100f ? string.Create(CultureInfo.InvariantCulture, $"{s.BitrateMbps:0}")      : string.Create(CultureInfo.InvariantCulture, $"{s.BitrateMbps:0.0}");
 
                 // Host frame latency (capture + encode); "—" until StreamLight reports it.
-                LiveHostLatNumber = _hostLatBuffer.Count > 0 ? $"{_hostLatBuffer[^1]:0.0}" : "—";
+                LiveHostLatNumber = _hostLatBuffer.Count > 0 ? string.Create(CultureInfo.InvariantCulture, $"{_hostLatBuffer[^1]:0.0}") : "—";
 
                 // Frame rate (live state box).
-                LiveFpsNumber = s.FpsAvg > 0f ? $"{s.FpsAvg:0}" : "—";
+                LiveFpsNumber = s.FpsAvg > 0f ? string.Create(CultureInfo.InvariantCulture, $"{s.FpsAvg:0}") : "—";
 
                 // Delivered vs configured ceiling — the comparison is the whole point,
                 // and only the host can make it (the client sets the target, the host
                 // sees what actually goes out).
                 float target = AppStateService.Instance.CurrentTargetBitrateMbps;
-                LiveBitrateSub = target > 0f ? $"of {target:0.#} Mbps target" : "live outbound";
+                LiveBitrateSub = target > 0f ? string.Create(CultureInfo.InvariantCulture, $"of {target:0.#} Mbps target") : "live outbound";
             });
         }
 
-        private static float LastOr(List<float> b) => b.Count > 0 ? b[^1] : 0f;
-
         private static string FormatFrameCount(double frames)
-            => frames >= 1000 ? $"{frames / 1000.0:0.#}k" : $"{(int)frames}";
+            => frames >= 1000 ? string.Create(CultureInfo.InvariantCulture, $"{frames / 1000.0:0.#}k") : string.Create(CultureInfo.InvariantCulture, $"{(int)frames}");
 
         private static void Push<T>(List<T> buffer, T value) => Push(buffer, value, LiveWindowSize);
 
@@ -2134,19 +1491,6 @@ namespace StreamTweak.ViewModels
                 return bmp;
             }
             catch { return null; }
-        }
-
-        private void LoadVersionInfo()
-        {
-            var version = Assembly.GetExecutingAssembly().GetName().Version;
-            VersionText = version != null
-                ? $"Version {version.Major}.{version.Minor}.{version.Build}"
-                : "Version 6.2.2";
-
-            string location = Assembly.GetExecutingAssembly().Location;
-            BuildDateText = File.Exists(location)
-                ? $"Build: {File.GetLastWriteTime(location):dd MMM yyyy}"
-                : string.Empty;
         }
     }
 }

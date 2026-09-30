@@ -116,10 +116,10 @@ namespace StreamTweak.ViewModels
         }
 
         private int _capturedCount;
-        public int CapturedCount
+        private int CapturedCount
         {
             get => _capturedCount;
-            private set
+            set
             {
                 if (SetProperty(ref _capturedCount, value))
                     OnPropertyChanged(nameof(CapturedCountText));
@@ -132,10 +132,10 @@ namespace StreamTweak.ViewModels
 
         private int _readableCount;
         /// <summary>How many captured settings have a human-readable value (shown in the panel).</summary>
-        public int ReadableCount
+        private int ReadableCount
         {
             get => _readableCount;
-            private set
+            set
             {
                 if (SetProperty(ref _readableCount, value))
                 {

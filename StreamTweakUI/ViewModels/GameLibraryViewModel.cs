@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Text.RegularExpressions;
 using Microsoft.UI.Xaml;
 using StreamTweak.Services;
 using Microsoft.UI.Dispatching;
@@ -40,28 +39,6 @@ namespace StreamTweak.ViewModels
         }
 
         public bool ShowFolderButton => InstallFolder != null;
-
-        // ── Sync tooltip (reads static server name set by GameLibraryViewModel.Load) ───
-        public string SyncTooltip
-            => $"Include in {GameLibraryViewModel.DetectedServerName} sync";
-
-        // ── Game metadata ─────────────────────────────────────────────────────
-
-        private GameMetadataService.GameMetadata? GetMeta()
-            => GameMetadataService.GetCached(Entry);
-
-        public string? MetaDeveloper   => GetMeta()?.Developer;
-        public string? MetaReleaseDate => GetMeta()?.ReleaseDate;
-        public bool    HasMeta         => GetMeta() is { } d && (d.Developer != null || d.ReleaseDate != null);
-
-        public void RefreshMetadata()
-        {
-            OnPropertyChanged(nameof(MetaDeveloper));
-            OnPropertyChanged(nameof(MetaReleaseDate));
-            OnPropertyChanged(nameof(HasMeta));
-            OnPropertyChanged(nameof(DevLine));
-            OnPropertyChanged(nameof(MetaText));
-        }
 
         private bool _enabled;
         public bool Enabled
@@ -113,36 +90,13 @@ namespace StreamTweak.ViewModels
         public double   StreamedMinutes => _stats?.Minutes ?? 0;
         public DateTime? LastPlayed     => _stats?.LastPlayed;
 
-        /// <summary>Line under the tile: when it was last streamed and for how long in total.</summary>
+        /// <summary>Line under the tile: when it was last streamed and for how long in total; "N/A" for a game never streamed.</summary>
         public string MetaText => _stats?.LastPlayed is { } last
             ? $"{GameStatsService.RelativeDay(last)} · {GameStatsService.FormatMinutes(_stats.Minutes)}"
-            : DevLine;
+            : "N/A";
 
         public string StreamedText => _stats is { Minutes: > 0 } st ? GameStatsService.FormatMinutes(st.Minutes) : "—";
         public string SessionsText => _stats is { Sessions: > 0 } st ? st.Sessions.ToString(CultureInfo.InvariantCulture) : "—";
-
-        /// <summary>"Remedy Entertainment · 2023", or the store when nothing else is known.</summary>
-        public string DevLine
-        {
-            get
-            {
-                var parts = new List<string>();
-                if (!string.IsNullOrEmpty(MetaDeveloper)) parts.Add(MetaDeveloper!);
-                if (ReleaseYear > 0) parts.Add(ReleaseYear.ToString(CultureInfo.InvariantCulture));
-                if (parts.Count == 0) parts.Add(IsManual ? "Added by you" : Store);
-                return string.Join(" · ", parts);
-            }
-        }
-
-        /// <summary>Year out of the free-form release date the metadata service returns.</summary>
-        public int ReleaseYear
-        {
-            get
-            {
-                var m = MetaReleaseDate is { } d ? Regex.Match(d, @"(19|20)\d{2}") : null;
-                return m is { Success: true } ? int.Parse(m.Value, CultureInfo.InvariantCulture) : 0;
-            }
-        }
 
         // Badge URI for SvgImageSource (e.g. "ms-appx:///Resources/Badges/store_steam.svg")
         public Uri? BadgeUri { get; }
@@ -157,7 +111,7 @@ namespace StreamTweak.ViewModels
             BadgeLabel = entry.Store;
         }
 
-        private static Uri? ResolveBadgeUri(string store) => store switch
+        internal static Uri? ResolveBadgeUri(string store) => store switch
         {
             "Steam"           => new Uri("ms-appx:///Resources/Badges/store_steam.svg"),
             "Epic Games"      => new Uri("ms-appx:///Resources/Badges/store_epic.svg"),
@@ -170,19 +124,13 @@ namespace StreamTweak.ViewModels
         };
     }
 
-    /// <summary>A store filter chip: "Steam 18".</summary>
+    /// <summary>A store filter chip: the store's badge, then "Steam 18".</summary>
     public sealed class StoreChip
     {
-        public string Key   { get; init; } = "";
-        public string Label { get; init; } = "";
-    }
-
-    /// <summary>One line of the per-store breakdown in the sync card.</summary>
-    public sealed class StoreBar
-    {
-        public string Name  { get; init; } = "";
-        public int    Count { get; init; }
-        public int    Max   { get; init; }
+        public string Key     { get; init; } = "";
+        public string Label   { get; init; } = "";
+        /// <summary>The same badge the covers carry; null for "All" and "Hidden".</summary>
+        public Uri?   IconUri { get; init; }
     }
 
     /// <summary>A session in the game sheet's "Recent sessions".</summary>
@@ -207,21 +155,6 @@ namespace StreamTweak.ViewModels
         public GameLibraryViewModel()
         {
             _dispatcher = DispatcherQueue.GetForCurrentThread();
-            GameMetadataService.CacheRefreshed += OnMetaCacheRefreshed;
-        }
-
-        public void Unsubscribe()
-        {
-            GameMetadataService.CacheRefreshed -= OnMetaCacheRefreshed;
-        }
-
-        private void OnMetaCacheRefreshed()
-        {
-            _dispatcher.TryEnqueue(() =>
-            {
-                foreach (var g in Games)
-                    g.RefreshMetadata();
-            });
         }
 
         // ── Game collection ───────────────────────────────────────────────────
@@ -232,9 +165,8 @@ namespace StreamTweak.ViewModels
 
         public ObservableCollection<ObservableGameEntry> FilteredGames { get; } = new();
         public ObservableCollection<StoreChip> StoreChips { get; } = new();
-        public ObservableCollection<StoreBar> StoreBars { get; } = new();
 
-        public string[] SortOptions { get; } = { "Recently streamed", "Most streamed", "Name", "Release year" };
+        public string[] SortOptions { get; } = { "Recently streamed", "Most streamed", "Name" };
 
         private int _sortIndex;
         public int SortIndex
@@ -272,11 +204,6 @@ namespace StreamTweak.ViewModels
         }
 
         private bool _hasFiltered = true;
-        public bool HasFiltered
-        {
-            get => _hasFiltered;
-            private set { SetProperty(ref _hasFiltered, value); OnPropertyChanged(nameof(HasNoMatch)); }
-        }
         public bool HasNoMatch => _hasGames && !_hasFiltered;
 
         public string ShowInText => $"Show in {DetectedServerName}";
@@ -290,15 +217,26 @@ namespace StreamTweak.ViewModels
         private string _hostTilesHint = "";
         public string HostTilesHint { get => _hostTilesHint; private set => SetProperty(ref _hostTilesHint, value); }
 
-        // ── 9.0: hero (the game being streamed, else the last one streamed) ────
+        // ── 9.0: hero (the cover the user is on, else the game being streamed, else the last
+        //    one streamed) ────
+
+        // The cover under the pointer or the keyboard focus; the hero follows it.
+        private ObservableGameEntry? _spotlight;
+
+        /// <summary>Shows <paramref name="g"/> in the hero; null goes back to the default game.</summary>
+        public void Spotlight(ObservableGameEntry? g)
+        {
+            if (ReferenceEquals(g, _spotlight)) return;
+            _spotlight = g;
+            RefreshHero();
+        }
 
         private ObservableGameEntry? _heroGame;
         public ObservableGameEntry? HeroGame
         {
             get => _heroGame;
-            private set { SetProperty(ref _heroGame, value); OnPropertyChanged(nameof(HasHero)); OnPropertyChanged(nameof(HeroCoverPath)); }
+            private set { SetProperty(ref _heroGame, value); OnPropertyChanged(nameof(HeroCoverPath)); }
         }
-        public bool HasHero => _heroGame != null;
         public string? HeroCoverPath => _heroGame?.CoverPath;
 
         private string _heroEyebrow = "", _heroTitle = "", _heroMeta = "", _heroStreamed = "—", _heroSessions = "—", _heroGrade = "—", _heroGradeFg = "#C8CFCB";
@@ -329,12 +267,11 @@ namespace StreamTweak.ViewModels
         }
         public string? SelectedCoverPath => _selectedGame?.CoverPath;
 
-        private string _sheetTitle = "", _sheetStore = "", _sheetDev = "", _sheetStreamed = "", _sheetSessions = "", _sheetLast = "",
+        private string _sheetTitle = "", _sheetStore = "", _sheetStreamed = "", _sheetSessions = "", _sheetLast = "",
                        _sheetGrade = "—", _sheetGradeFg = "#C8CFCB", _sheetGradeBg = "#0FFFFFFF", _sheetGradeBorder = "#24FFFFFF",
                        _sheetLaunch = "", _sheetOrigin = "", _sheetSyncHint = "";
         public string SheetTitle     { get => _sheetTitle;    private set => SetProperty(ref _sheetTitle, value); }
         public string SheetStore     { get => _sheetStore;    private set => SetProperty(ref _sheetStore, value); }
-        public string SheetDev       { get => _sheetDev;      private set => SetProperty(ref _sheetDev, value); }
         public string SheetStreamed  { get => _sheetStreamed; private set => SetProperty(ref _sheetStreamed, value); }
         public string SheetSessions  { get => _sheetSessions; private set => SetProperty(ref _sheetSessions, value); }
         public string SheetLast      { get => _sheetLast;     private set => SetProperty(ref _sheetLast, value); }
@@ -462,6 +399,8 @@ namespace StreamTweak.ViewModels
 
         public void Load()
         {
+            _spotlight = null;   // a new visit opens on the default hero
+
             // Detect the installed streaming server and set the sync toggle label accordingly.
             var hostInfo = LogParser.FindStreamingAppInfo();
             DetectedServerName = hostInfo?.AppName ?? "Sunshine";
@@ -565,9 +504,6 @@ namespace StreamTweak.ViewModels
                 RefreshLastSyncText(state);
                 RefreshGameList(state);
 
-                // Refresh metadata (developer / release date) for the updated game list.
-                // Runs on a background thread; OnMetaCacheRefreshed updates the UI when done.
-                _ = Task.Run(() => GameMetadataService.RefreshAsync(GameLibraryState.Current.Games));
             }
             catch (Exception ex)
             {
@@ -772,14 +708,12 @@ namespace StreamTweak.ViewModels
             string q = _searchText.Trim();
             IEnumerable<ObservableGameEntry> list = Games.Where(g =>
                 (_storeFilter == "all" || (_storeFilter == "hidden" ? !g.Enabled : g.Store == _storeFilter)) &&
-                (q.Length == 0 || g.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
-                               || (g.MetaDeveloper?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false)));
+                (q.Length == 0 || g.Name.Contains(q, StringComparison.OrdinalIgnoreCase)));
 
             list = _sortIndex switch
             {
                 1 => list.OrderByDescending(g => g.StreamedMinutes).ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
                 2 => list.OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
-                3 => list.OrderByDescending(g => g.ReleaseYear).ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
                 _ => list.OrderByDescending(g => g.LastPlayed ?? DateTime.MinValue).ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
             };
 
@@ -796,7 +730,9 @@ namespace StreamTweak.ViewModels
                 if (at < 0) FilteredGames.Insert(i, result[i]);
                 else if (at != i) FilteredGames.Move(at, i);
             }
-            HasFiltered = FilteredGames.Count > 0;
+            // Only HasNoMatch reads this: "no game matches" is shown when the library has games but none pass.
+            _hasFiltered = FilteredGames.Count > 0;
+            OnPropertyChanged(nameof(HasNoMatch));
         }
 
         private void RefreshSummary()
@@ -809,17 +745,15 @@ namespace StreamTweak.ViewModels
             if (manual > 0) bits.Add(manual == 1 ? "1 manual entry you added" : $"{manual} manual entries you added");
             CountsText = string.Join(" · ", bits);
 
+            // Most games first; stores with the same count in alphabetical order.
             var byStore = Games.GroupBy(g => g.Store).Select(grp => (Store: grp.Key, Count: grp.Count()))
-                               .OrderByDescending(x => x.Count).ToList();
-            int max = byStore.Count > 0 ? byStore.Max(x => x.Count) : 1;
-            StoreBars.Clear();
-            foreach (var (store, count) in byStore)
-                StoreBars.Add(new StoreBar { Name = store, Count = count, Max = max });
+                               .OrderByDescending(x => x.Count)
+                               .ThenBy(x => x.Store, StringComparer.CurrentCultureIgnoreCase).ToList();
 
             StoreChips.Clear();
             StoreChips.Add(new StoreChip { Key = "all", Label = $"All  {Games.Count}" });
             foreach (var (store, count) in byStore)
-                StoreChips.Add(new StoreChip { Key = store, Label = $"{store}  {count}" });
+                StoreChips.Add(new StoreChip { Key = store, Label = $"{store}  {count}", IconUri = ObservableGameEntry.ResolveBadgeUri(store) });
             int hidden = Games.Count - shown;
             if (hidden > 0)
                 StoreChips.Add(new StoreChip { Key = "hidden", Label = $"Hidden from {DetectedServerName}  {hidden}" });
@@ -833,21 +767,23 @@ namespace StreamTweak.ViewModels
         {
             string? live = AppStateService.Instance.IsSessionActive
                 ? SessionLogger.CurrentGameName(TimeSpan.FromMinutes(2)) : null;
-            ObservableGameEntry? g = live != null
+            ObservableGameEntry? liveGame = live != null
                 ? Games.FirstOrDefault(x => string.Equals(x.Name, live, StringComparison.OrdinalIgnoreCase))
                 : null;
-            HeroIsLive = g != null;
+            ObservableGameEntry? g = _spotlight != null && Games.Contains(_spotlight) ? _spotlight : null;
+            g ??= liveGame;
             g ??= Games.Where(x => x.LastPlayed != null).OrderByDescending(x => x.LastPlayed).FirstOrDefault();
-            bool played = g?.LastPlayed != null;
             g ??= Games.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase).FirstOrDefault();
+            HeroIsLive = g != null && ReferenceEquals(g, liveGame);
             HeroGame = g;
             if (g == null) return;
+            bool played = g.LastPlayed != null;
 
             HeroEyebrow = HeroIsLive ? "STREAMING NOW"
                         : played ? $"LAST STREAMED · {GameStatsService.RelativeDay(g.LastPlayed!.Value).ToUpperInvariant()}"
                         : "IN YOUR LIBRARY";
             HeroTitle = g.Name;
-            HeroMeta = g.IsManual ? "Added by you" : string.Join(" · ", new[] { g.MetaDeveloper, g.ReleaseYear > 0 ? g.ReleaseYear.ToString(CultureInfo.InvariantCulture) : null, g.Store }.Where(x => !string.IsNullOrEmpty(x)));
+            HeroMeta = g.IsManual ? "Added by you" : g.Store;
             HeroStreamed = g.StreamedText;
             HeroSessions = g.SessionsText;
             var gc = GameStatsService.GradeColors(g.Stats?.TypicalGrade);
@@ -872,8 +808,7 @@ namespace StreamTweak.ViewModels
             var e = g.Entry;
 
             SheetTitle = g.Name;
-            SheetStore = g.IsManual ? "Manual entry" : g.Store + (g.ReleaseYear > 0 ? $" · {g.ReleaseYear}" : "");
-            SheetDev = g.MetaDeveloper ?? (g.IsManual ? "Added by you" : "");
+            SheetStore = g.IsManual ? "Manual entry" : g.Store;
             var st = g.Stats;
             SheetStreamed = st is { Minutes: > 0 } ? GameStatsService.FormatMinutes(st.Minutes) : "Never";
             SheetSessions = (st?.Sessions ?? 0).ToString(CultureInfo.InvariantCulture);

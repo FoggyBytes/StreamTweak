@@ -40,6 +40,49 @@ namespace StreamTweak.ViewModels
             private set => SetProperty(ref _currentSpeedText, value);
         }
 
+        private string _lanIp = string.Empty;
+        /// <summary>The adapter's IPv4 address on the LAN (not link-local); empty when it has none.</summary>
+        public string LanIp
+        {
+            get => _lanIp;
+            private set
+            {
+                if (!SetProperty(ref _lanIp, value)) return;
+                OnPropertyChanged(nameof(HasLanIp));
+            }
+        }
+
+        public bool HasLanIp => !string.IsNullOrEmpty(_lanIp);
+
+        private bool _lanIpCopiedVisible;
+        public bool LanIpCopiedVisible
+        {
+            get => _lanIpCopiedVisible;
+            private set => SetProperty(ref _lanIpCopiedVisible, value);
+        }
+
+        private CancellationTokenSource? _lanCopiedCts;
+
+        /// <summary>Copies the LAN address and shows "Copied!" for 3 s, as the Tailscale row does.</summary>
+        public async Task CopyLanIpAsync()
+        {
+            if (!HasLanIp) return;
+
+            var pkg = new Windows.ApplicationModel.DataTransfer.DataPackage();
+            pkg.SetText(LanIp);
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(pkg);
+
+            _lanCopiedCts?.Cancel();
+            _lanCopiedCts?.Dispose();
+            _lanCopiedCts = new CancellationTokenSource();
+            var token = _lanCopiedCts.Token;
+
+            LanIpCopiedVisible = true;
+            try   { await Task.Delay(3000, token); }
+            catch (OperationCanceledException) { return; }
+            LanIpCopiedVisible = false;
+        }
+
         private string _supportedSpeedsText = "—";
         /// <summary>What the adapter can do, e.g. "2.5 Gbps · 1 Gbps · 100 Mbps".
         /// This is the list clients read to pick a speed that matches their own link.</summary>
@@ -379,7 +422,21 @@ namespace StreamTweak.ViewModels
             var ni = NetworkInterface.GetAllNetworkInterfaces()
                 .FirstOrDefault(n => n.Name.Equals(adapterName, StringComparison.OrdinalIgnoreCase));
 
-            if (ni == null) { CurrentSpeedText = "Unknown"; return; }
+            if (ni == null) { CurrentSpeedText = "Unknown"; LanIp = string.Empty; return; }
+
+            // The first IPv4 that is not link-local (169.254.x.x means no DHCP answer) — the
+            // same rule as the title bar's link pill.
+            try
+            {
+                LanIp = ni.OperationalStatus == OperationalStatus.Up
+                    ? ni.GetIPProperties().UnicastAddresses
+                        .Select(a => a.Address)
+                        .Where(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                        .Select(a => a.ToString())
+                        .FirstOrDefault(a => !a.StartsWith("169.254.", StringComparison.Ordinal)) ?? string.Empty
+                    : string.Empty;
+            }
+            catch { LanIp = string.Empty; }
 
             long mbps = ni.Speed / 1_000_000;
             // Invariant so the badge reads "2.5 Gbps" (dot), matching the driver speed
@@ -401,18 +458,28 @@ namespace StreamTweak.ViewModels
 
         private async Task LoadTailscaleIconAsync()
         {
+            var bmp = await LoadTailscaleIconImageAsync();
+            if (bmp != null) _dispatcher.TryEnqueue(() => TailscaleIcon = bmp);
+        }
+
+        /// <summary>
+        /// Tailscale's own icon, read from its installed executable — also used by the title
+        /// bar's Tailscale pill. Null when Tailscale is not installed. Call on the UI thread.
+        /// </summary>
+        internal static async Task<BitmapImage?> LoadTailscaleIconImageAsync()
+        {
             string? exePath = FindTailscaleExePath();
-            if (exePath == null) return;
+            if (exePath == null) return null;
             try
             {
                 var file = await StorageFile.GetFileFromPathAsync(exePath);
                 using var thumbnail = await file.GetThumbnailAsync(ThumbnailMode.SingleItem, 32);
-                if (thumbnail == null) return;
+                if (thumbnail == null) return null;
                 var bmp = new BitmapImage();
                 await bmp.SetSourceAsync(thumbnail);
-                _dispatcher.TryEnqueue(() => TailscaleIcon = bmp);
+                return bmp;
             }
-            catch { }
+            catch { return null; }
         }
 
         private static (bool detected, string ip) GetTailscaleInfo() => TailscaleDetector.Detect();

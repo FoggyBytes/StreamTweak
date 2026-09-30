@@ -263,7 +263,7 @@ namespace StreamTweak.ViewModels
 
             (string label, string fg, string bg, string border) = s.IsDebugSession
                 ? ("Debug", "#C8CFCB", "#0FFFFFFF", "#24FFFFFF")
-                : live ? ("Live", "#86efac", "#214ade80", "#594ade80")
+                : live ? ("Live", "#4ade80", "#214ade80", "#594ade80")
                 : GameStatsService.GradeColors(s.Grade);
             if (!live && !s.IsDebugSession && s.Grade is null or QualityGrade.NoData)
                 label = q == null ? "No data" : "—";
@@ -426,15 +426,6 @@ namespace StreamTweak.ViewModels
 
         public void CloseDetail() => IsDetailVisible = false;
 
-        /// <summary>Wide windows always show a session: the newest ended one when none is chosen.</summary>
-        public void EnsureSelection()
-        {
-            if (_selectedSession != null && _all.Any(s => s.Id == _selectedSession.Id)) return;
-            var first = Rows.Select(r => r.Entry).FirstOrDefault(s => s.EndTime != null)
-                     ?? _all.FirstOrDefault(s => s.EndTime != null);
-            if (first != null) SelectedSession = first;
-        }
-
         // ── Detail: header ────────────────────────────────────────────────────
 
         private string _detailTitle = "", _detailSubtitle = "";
@@ -494,8 +485,6 @@ namespace StreamTweak.ViewModels
         public string DetailCpuSub      { get => _cpuSub;  private set => SetProperty(ref _cpuSub, value); }
         public string DetailNetTx       { get => _net;     private set => SetProperty(ref _net, value); }
 
-        private bool _hasHostStats;
-        public bool HasHostStats { get => _hasHostStats; private set => SetProperty(ref _hasHostStats, value); }
 
         private void RefreshDetail()
         {
@@ -507,7 +496,7 @@ namespace StreamTweak.ViewModels
                 VerdictNote = "";
                 DetailCovers = Array.Empty<GameCoverItem>();
                 HasDetailCovers = false;
-                HasStats = HasHostStats = false;
+                HasStats = false;
                 return;
             }
 
@@ -601,7 +590,6 @@ namespace StreamTweak.ViewModels
             DetailDecodeSub = "average";
 
             // ── Host
-            HasHostStats = q.HostGpuAvg >= 0 || q.HostCpuAvg >= 0 || hlReported;
             DetailHostLat    = hlReported ? Fmt(q.HostLatencyAvgMs, 1) : "—";
             DetailHostLatSub = hlReported ? $"max {Fmt(q.HostLatencyMaxMs, 1)} ms" : "not reported";
             DetailLate       = lateReported ? Fmt(q.HostLatencyOverBudgetPct, 2) : "—";
@@ -640,14 +628,13 @@ namespace StreamTweak.ViewModels
             DetailRttSub = DetailJitterSub = DetailDropsSub = DetailBitrateSub = DetailDecodeSub = "";
             DetailHostLat = DetailLate = DetailGpu = DetailEncoder = DetailTemp = DetailCpu = DetailNetTx = "—";
             DetailHostLatSub = DetailLateSub = DetailGpuSub = DetailEncoderSub = DetailTempSub = DetailCpuSub = "";
-            HasHostStats = false;
         }
 
         private static string Fmt(float v, int dec) => v.ToString("F" + dec, Inv);
 
         // ═════════════════════════════ COMPARE ══════════════════════════════
 
-        private const string GoodFg = "#86efac", GoodBg = "#214ade80";
+        private const string GoodFg = "#4ade80", GoodBg = "#214ade80";
         private const string BadFg  = "#fca5a5", BadBg  = "#21f87171";
         private const string NeuFg  = "#C8CFCB", NeuBg  = "#0FFFFFFF";
 
@@ -678,9 +665,7 @@ namespace StreamTweak.ViewModels
         public IReadOnlyList<GameCoverItem> CompareCoversA { get => _coversA; private set => SetProperty(ref _coversA, value); }
         public IReadOnlyList<GameCoverItem> CompareCoversB { get => _coversB; private set => SetProperty(ref _coversB, value); }
 
-        private string _cmpTitleA = "", _cmpTitleB = "", _cmpSubA = "", _cmpSubB = "";
-        public string CompareTitleA { get => _cmpTitleA; private set => SetProperty(ref _cmpTitleA, value); }
-        public string CompareTitleB { get => _cmpTitleB; private set => SetProperty(ref _cmpTitleB, value); }
+        private string _cmpSubA = "", _cmpSubB = "";
         public string CompareSubA   { get => _cmpSubA;   private set => SetProperty(ref _cmpSubA, value); }
         public string CompareSubB   { get => _cmpSubB;   private set => SetProperty(ref _cmpSubB, value); }
 
@@ -779,10 +764,10 @@ namespace StreamTweak.ViewModels
         {
             CompareClientMetrics.Clear();
             CompareHostMetrics.Clear();
-            DescribePick(_compareA, out var tA, out var sA, out var cA, out var g1);
-            DescribePick(_compareB, out var tB, out var sB, out var cB, out var g2);
-            CompareTitleA = tA; CompareSubA = sA; CompareCoversA = cA;
-            CompareTitleB = tB; CompareSubB = sB; CompareCoversB = cB;
+            DescribePick(_compareA, out var sA, out var cA, out var g1);
+            DescribePick(_compareB, out var sB, out var cB, out var g2);
+            CompareSubA = sA; CompareCoversA = cA;
+            CompareSubB = sB; CompareCoversB = cB;
             (CompareGradeA, CompareGradeAFg, CompareGradeABg) = g1;
             (CompareGradeB, CompareGradeBFg, CompareGradeBBg) = g2;
 
@@ -813,15 +798,14 @@ namespace StreamTweak.ViewModels
             CompareHostMetrics.Add(M("Net TX avg",   a.HostNetTxAvg,   b.HostNetTxAvg,   0, " Mbps",Dir.Neutral, a.HostNetTxAvg  >= 0, b.HostNetTxAvg  >= 0));
         }
 
-        private static void DescribePick(SessionEntry? s, out string title, out string sub,
+        private static void DescribePick(SessionEntry? s, out string sub,
                                          out IReadOnlyList<GameCoverItem> covers, out (string, string, string) grade)
         {
             if (s == null)
             {
-                title = "—"; sub = ""; covers = Array.Empty<GameCoverItem>(); grade = ("", NeuFg, NeuBg);
+                sub = ""; covers = Array.Empty<GameCoverItem>(); grade = ("", NeuFg, NeuBg);
                 return;
             }
-            title = s.StartTime.ToString("ddd d MMM, HH:mm", Inv);
             var bits = new List<string>();
             if (s.EndTime != null) bits.Add(FormatDuration(s.EndTime.Value - s.StartTime));
             if (s.GamesDetected is { Count: > 0 } g) bits.Add(string.Join(", ", g));

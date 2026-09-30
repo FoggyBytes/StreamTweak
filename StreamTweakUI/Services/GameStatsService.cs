@@ -87,7 +87,7 @@ namespace StreamTweak.Services
 
         public static (string Label, string Fg, string Bg, string Border) GradeColors(QualityGrade? g) => g switch
         {
-            QualityGrade.High   => ("Excellent", "#86efac", "#214ade80", "#594ade80"),
+            QualityGrade.High   => ("Excellent", "#4ade80", "#214ade80", "#594ade80"),
             QualityGrade.Medium => ("Good",      "#fbbf24", "#21fbbf24", "#59fbbf24"),
             QualityGrade.Low    => ("Poor",      "#fca5a5", "#21f87171", "#59f87171"),
             _                   => ("—",         "#C8CFCB", "#0FFFFFFF", "#24FFFFFF"),

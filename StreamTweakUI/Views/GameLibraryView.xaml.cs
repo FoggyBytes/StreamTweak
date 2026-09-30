@@ -1,10 +1,13 @@
 using System.Collections.Specialized;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
+using StreamTweak.Controls;
 using StreamTweak.Services;
 using StreamTweak.ViewModels;
 using Windows.UI;
@@ -15,8 +18,12 @@ namespace StreamTweak.Views
     {
         public GameLibraryViewModel ViewModel { get; } = new GameLibraryViewModel();
 
-        private bool _listMode;
         private bool _syncingSheetToggle;
+
+        // The hero follows the cover under the pointer or the focus, after a short pause so
+        // it does not flicker through every cover the pointer crosses on its way.
+        private DispatcherQueueTimer? _spotlightTimer;
+        private ObservableGameEntry? _spotlightPending;
 
         public GameLibraryView()
         {
@@ -61,7 +68,6 @@ namespace StreamTweak.Views
         {
             base.OnNavigatedFrom(e);
             AppStateService.Instance.SessionStateChanged -= OnSessionStateChanged;
-            ViewModel.Unsubscribe();
         }
 
         private void OnSessionStateChanged(object? sender, bool active)
@@ -73,25 +79,22 @@ namespace StreamTweak.Views
 
         /// <summary>
         /// Cover size from the width: the tiles fill the row exactly (no ragged right edge),
-        /// never narrower than a readable cover and a little larger on 4K.
+        /// never narrower than a readable cover, in the shared content column (Controls/PageLayout).
         /// </summary>
         private void ApplyTileSize()
         {
             double w = LibraryGrid.ActualWidth;
             if (w <= 0) return;
 
-            double side = Math.Clamp(Math.Round(w * 0.026), 10, 34);
+            // The same content column as every other page (Controls/PageLayout). The header and
+            // every tile sit 6 px inside the GridView's padding, so the padding is 6 less and the
+            // visible edges line up with the other pages.
+            double side = PageLayout.Side(w) - 6;
             LibraryGrid.Padding = new Thickness(side, 24, side, 40);
             double inner = w - side * 2 - 2;
 
             if (LibraryGrid.ItemsPanelRoot is not ItemsWrapGrid panel) return;
-            if (_listMode)
-            {
-                panel.ItemWidth = Math.Max(200, inner);
-                panel.ItemHeight = 62;
-                return;
-            }
-            double min = inner < 520 ? 118 : inner >= 2400 ? 196 : 158;
+            double min = inner < 520 ? 118 : 158;
             int cols = Math.Max(2, (int)(inner / min));
             double itemW = Math.Floor(inner / cols);
             panel.ItemWidth = itemW;
@@ -111,15 +114,6 @@ namespace StreamTweak.Views
             HeroTitleText.LineHeight = HeroTitleText.FontSize + 4;
         }
 
-        private void ViewMode_Click(object sender, RoutedEventArgs e)
-        {
-            _listMode = ReferenceEquals(sender, ViewListChip);
-            ViewListChip.IsChecked = _listMode;
-            ViewGridChip.IsChecked = !_listMode;
-            LibraryGrid.ItemTemplate = (DataTemplate)Resources[_listMode ? "GameRowTemplate" : "GameTileTemplate"];
-            ApplyTileSize();
-        }
-
         // ── Store chips (built here: their count and names depend on the library) ──
 
         private void StoreChips_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -127,9 +121,22 @@ namespace StreamTweak.Views
             StoreChipsPanel.Children.Clear();
             foreach (var chip in ViewModel.StoreChips)
             {
+                // The store's badge in front of its name, as on the covers.
+                object content = chip.Label;
+                if (chip.IconUri != null)
+                {
+                    var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7 };
+                    row.Children.Add(new Image
+                    {
+                        Width = 14, Height = 14, VerticalAlignment = VerticalAlignment.Center,
+                        Source = new SvgImageSource(chip.IconUri),
+                    });
+                    row.Children.Add(new TextBlock { Text = chip.Label, VerticalAlignment = VerticalAlignment.Center });
+                    content = row;
+                }
                 var b = new ToggleButton
                 {
-                    Content = chip.Label,
+                    Content = content,
                     Tag = chip.Key,
                     IsChecked = chip.Key == ViewModel.StoreFilter,
                     Style = (Style)Application.Current.Resources["ST9_Chip"],
@@ -151,8 +158,29 @@ namespace StreamTweak.Views
 
         private void Tile_PointerEntered(object sender, PointerRoutedEventArgs e)
         {
+            if (sender is FrameworkElement { DataContext: ObservableGameEntry g }) QueueSpotlight(g);
             if (e.Pointer.PointerDeviceType == Microsoft.UI.Input.PointerDeviceType.Touch) return;
             SetOverlay(sender, true);
+        }
+
+        /// <summary>Keyboard and controller: the hero follows the focused cover too.</summary>
+        private void LibraryGrid_GotFocus(object sender, RoutedEventArgs e)
+        {
+            if (e.OriginalSource is GridViewItem { Content: ObservableGameEntry g }) QueueSpotlight(g);
+        }
+
+        private void QueueSpotlight(ObservableGameEntry g)
+        {
+            _spotlightPending = g;
+            if (_spotlightTimer == null)
+            {
+                _spotlightTimer = DispatcherQueue.CreateTimer();
+                _spotlightTimer.Interval = TimeSpan.FromMilliseconds(140);
+                _spotlightTimer.IsRepeating = false;
+                _spotlightTimer.Tick += (_, _) => ViewModel.Spotlight(_spotlightPending);
+            }
+            _spotlightTimer.Stop();
+            _spotlightTimer.Start();
         }
 
         private void Tile_PointerExited(object sender, PointerRoutedEventArgs e) => SetOverlay(sender, false);
@@ -163,6 +191,8 @@ namespace StreamTweak.Views
             {
                 overlay.Opacity = on ? 1 : 0;
                 overlay.IsHitTestVisible = on;
+                // The badge sits where the action buttons appear.
+                if (fe.FindName("StoreBadge") is UIElement badge) badge.Opacity = on ? 0 : 1;
             }
         }
 

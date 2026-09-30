@@ -30,6 +30,10 @@ namespace StreamTweak
         public string? ApprovedUtc { get; set; }
         public string? LastSeenUtc { get; set; }
         public string? Pin         { get; set; }   // 4-digit confirmation PIN shown while pending
+        /// <summary>What the device is, picked by the user on the Clients page (9.0):
+        /// desktop | handheld | phone | minipc | tablet. Null until picked. Host-side only —
+        /// StreamLight neither sends nor reads it.</summary>
+        public string? DeviceKind  { get; set; }
     }
 
     /// <summary>
@@ -281,6 +285,20 @@ namespace StreamTweak
             lock (_lock) return _clients.Select(Clone).ToList();
         }
 
+        /// <summary>Sets what kind of device a client is (its icon); null clears it.</summary>
+        public void SetDeviceKind(string uniqueId, string? kind)
+        {
+            lock (_lock)
+            {
+                var c = _clients.FirstOrDefault(x =>
+                    string.Equals(x.UniqueId, uniqueId, StringComparison.OrdinalIgnoreCase));
+                if (c == null || c.DeviceKind == kind) return;
+                c.DeviceKind = kind;
+                Save();
+            }
+            ClientsChanged?.Invoke();
+        }
+
         public void Approve(string uniqueId) => SetStatus(uniqueId, "approved");
         public void Deny(string uniqueId)    => SetStatus(uniqueId, "denied");
 
@@ -345,6 +363,7 @@ namespace StreamTweak
             ApprovedUtc = c.ApprovedUtc,
             LastSeenUtc = c.LastSeenUtc,
             Pin         = c.Pin,
+            DeviceKind  = c.DeviceKind,
         };
     }
 }

@@ -148,6 +148,22 @@ namespace StreamTweak.ViewModels
             }
         }
 
+        // ── Title bar ─────────────────────────────────────────────────────────
+
+        /// <summary>LAN and Tailscale addresses in the title bar (on by default). Off keeps the link
+        /// speed and hides both addresses — for screenshots and streams of the desktop.</summary>
+        public bool ShowTitleBarAddresses
+        {
+            get => ConfigService.GetBool("ShowTitleBarAddresses", true);
+            set
+            {
+                if (ShowTitleBarAddresses == value) return;
+                ConfigService.Set("ShowTitleBarAddresses", value);
+                OnPropertyChanged();
+                App.MainWindow?.ApplyTitleBarAddresses(value);   // at once, not on the next tick
+            }
+        }
+
         // ── Clipboard shared with StreamLight (Clients page) ──────────────────
 
         // Same shape as RecordOnlyGameSessions: the static on ClipboardShare is what the bridge
@@ -222,7 +238,7 @@ namespace StreamTweak.ViewModels
                 {
                     (string status, string color, string bg, string border) = c.Status switch
                     {
-                        "approved" => ("Approved",         "#4ade80", "#1F4ade80", "#4D4ade80"),
+                        "approved" => ("Approved",         "#4ade80", "#214ade80", "#594ade80"),
                         "denied"   => ("Denied",           "#ef4444", "#1Aef4444", "#40ef4444"),
                         _          => ("Pending approval", "#f59e0b", "#1Af59e0b", "#40f59e0b"),
                     };
@@ -238,6 +254,7 @@ namespace StreamTweak.ViewModels
                         SubText          = DeviceSubText(c),
                         PinText          = c.Status == "pending" ? c.Pin ?? "" : "",
                         IsApproved       = c.Status == "approved",
+                        DeviceKind       = c.DeviceKind,
                     });
                 }
             }
@@ -271,6 +288,12 @@ namespace StreamTweak.ViewModels
         public void ApproveBridgeClient(string uniqueId)
         {
             AppStateService.Instance.BridgeAuth?.Approve(uniqueId);
+            RefreshBridgeClients();
+        }
+
+        public void SetDeviceKind(string uniqueId, string? kind)
+        {
+            AppStateService.Instance.BridgeAuth?.SetDeviceKind(uniqueId, kind);
             RefreshBridgeClients();
         }
 
@@ -348,8 +371,9 @@ namespace StreamTweak.ViewModels
                 var json = await _httpClient.GetStringAsync(
                     "https://api.github.com/repos/FoggyBytes/StreamLight/releases/latest");
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
+                // The tag is "v6.3.0"; shown as "6.3.0", like StreamTweak's own version above it.
                 StreamLightVersion = doc.RootElement.TryGetProperty("tag_name", out var tag)
-                    ? tag.GetString() ?? "N/A"
+                    ? tag.GetString()?.TrimStart('v', 'V') ?? "N/A"
                     : "N/A";
             }
             catch
@@ -467,5 +491,35 @@ namespace StreamTweak.ViewModels
         public bool   IsApproved { get; init; }
         public string IconBgHex  => IsApproved ? "#214ade80" : "#14FFFFFF";
         public string IconFgHex  => IsApproved ? "#86efac" : "#C8CFCB";
+
+        /// <summary>The kind the user picked for this device (<see cref="DeviceKinds"/>), or null.</summary>
+        public string? DeviceKind { get; init; }
+        public string  Glyph      => DeviceKinds.Glyph(DeviceKind);
+        public string  KindTip    => DeviceKind == null ? "Choose what this device is" : $"{DeviceKinds.Label(DeviceKind)} · click to change";
+    }
+
+    /// <summary>
+    /// The five kinds of device a StreamLight client can be marked as, with their icons
+    /// (Segoe Fluent Icons). Picked on the Clients page, stored in bridgeclients.json.
+    /// </summary>
+    public static class DeviceKinds
+    {
+        public static readonly IReadOnlyList<(string Key, string Label, string Glyph)> All = new[]
+        {
+            ("desktop",  "Desktop PC",  ""),
+            ("handheld", "Handheld PC", ""),
+            ("phone",    "Smartphone",  ""),
+            ("minipc",   "Mini PC",     ""),
+            ("tablet",   "Tablet",      ""),
+        };
+
+        /// <summary>Not picked yet: a generic pair of devices.</summary>
+        public const string UnsetGlyph = "";
+
+        public static string Glyph(string? key) =>
+            All.FirstOrDefault(k => k.Key == key).Glyph ?? UnsetGlyph;
+
+        public static string Label(string? key) =>
+            All.FirstOrDefault(k => k.Key == key).Label ?? "Device";
     }
 }

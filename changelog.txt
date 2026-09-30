@@ -5,42 +5,45 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 --------------------------------------------------
-Version 9.0.0 - "The New Look Update" (29/09/2026)
+Version 9.0.0 - "The New Look Update" (30/09/2026)
 --------------------------------------------------
 
 🎨 A NEW LOOK:
-• The whole app is redrawn: new cards, type and colours, one set of grade colours everywhere, and pages that use the room they are given — from a 7" handheld at 1080p to a 4K monitor, where cards sit side by side instead of leaving the screen empty
-• The menu is grouped into Streaming (Library, Sessions, Clients) and Host (Network, Display & audio, NVIDIA Sentinel, Managed apps); it folds to icons on a narrow window and into a button on a very narrow one
-• The title bar tells you at a glance whether a stream is on, which game, for how long, the link speed and the Tailscale address
-• The glossary opens as a side panel over the page you are on (F1, or any ⓘ), with a search box, instead of taking you away from it
+• The whole app is redrawn: new cards, type and colours, one set of grade colours everywhere, and every page in one centred column that grows with the window up to a set width — from a 7" handheld to a 4K monitor, where rows no longer stretch edge to edge
+• The menu is grouped into Streaming (Library, Sessions, Clients) and Host (Network, Display & audio, NVIDIA Sentinel, Managed apps)
+• The title bar shows whether a stream is on, which game and for how long, the link speed, this PC's LAN and Tailscale addresses — click one to copy it — and a new version when there is one
+• "Show IP addresses in the title bar" in Settings hides both addresses, for screenshots and desktop streams
+• The glossary opens as a side panel over the page you are on (F1, or any ⓘ), with a search box
 • A badge on Clients counts the devices waiting for approval
 
 🏠 DASHBOARD:
-• While you stream, the top card shows the game being played, with its cover, how long it has been running and the live figures; at rest it shows the host's vitals with small live charts
-• New: the last session with its grade, the latest sessions at a glance, and a shelf of the games you streamed most recently — each opens straight where it belongs
-• The performance card now shows the share of Excellent, Good and Poor sessions in the period you choose
+• One compact band at the top: the host's live vitals at rest, and while a stream runs the game with its cover, how long it has been running and the live figures
+• "Recently streamed" puts the last session and its grade above the covers of your latest games; each opens straight where it belongs
+• Host setup, your paired clients and the performance trend over the period you choose — one point per session, read like the Sessions timeline, with a click opening that session — above the share of Excellent, Good and Poor sessions
 
 📈 SESSIONS:
-• A new list: sessions grouped by day, a summary of the period (sessions, hours streamed, average RTT and host latency, grades), and filters by game and by grade
-• On a wide screen the list and the chosen session sit side by side; on a small one the session opens over the list
-• A "Verdict" card explains the grade: the four checks it is made of, each with its own result and the limit it was measured against, and which one held the session back
-• A new timeline replaces the six separate charts: every series on the same clock, one lane each, and moving the pointer reads every value at that moment at once
-• Zoom by dragging across the charts or along the strip below them; click a game in the top lane to zoom to the time it was played; reconnects are marked on every lane
-• "Focus" shows one series large, with the grade limits as dashed lines and the median, 95th and 99th percentile of what is in view
+• A new list: sessions grouped by day, a summary of the period, and filters by game and by grade; a session opens over the list, so its charts get the whole width
+• A "Verdict" card explains the grade: the four checks behind it, each with its result and the limit it was measured against
+• One timeline replaces the six separate charts: every series on the same clock, every value read at once under the pointer, zoom by dragging or by clicking a game, and reconnects marked on every lane
+• "Focus" shows one series large with the grade limits and its percentiles, and the timeline can go full screen
 • Tick two sessions to compare them, or use "Compare with…" from a session; deleting a session now asks first
 
 🎮 LIBRARY:
-• The library is now a wall of covers that fills the window, with a list view for the ones who prefer it
-• Each game shows how long and how often you streamed it and the grade its sessions usually get, taken from the session history — nothing new is stored
-• Search, filters by store and for the games left out of the sync, and four ways to sort
-• A game opens in a side sheet: play it, open its folder, see its recent sessions, choose whether it goes to the streaming server, remove it
-• The sync card breaks the library down by store, and the host tiles card shows the tiles it puts in place
-• Covers are loaded only when they come into view, so large libraries open faster and use less memory
-• "Clear sync" and "Remove" now ask before acting
+• A wall of covers that fills the window; the game at the top follows the one you select, over a backdrop taken from its cover's colours
+• Each game shows how long and how often you streamed it and the grade its sessions usually get, from the session history — nothing new is stored
+• Search, store filters with each store's icon, and three ways to sort; a game opens in a side sheet to play it, open its folder, see its sessions, keep it out of the sync or remove it
+• Covers load only when they come into view, so large libraries open faster; "Clear sync" and "Remove" now ask first
 
 🖥️ HOST PAGES, CLIENTS, SETTINGS:
-• Network, Display & audio, NVIDIA Sentinel and Managed apps keep their settings and put their cards in two columns on a wide screen
-• Clients shows one card per device: when it was last seen, when it was approved, and — for a device waiting — the PIN to check against the one on its screen
+• Network, Display & audio, NVIDIA Sentinel, Managed apps, Clients and Settings stack their cards in the same centred column
+• Network now shows this PC's LAN address, with a copy button like the Tailscale one
+• Clients shows one card per device — last seen, approved, or the PIN to check for a device waiting — and its icon can be set to desktop PC, handheld PC, smartphone, mini PC or tablet
+
+🗑️ REMOVED:
+• Developer and release year are gone from the library, along with sorting by year: they were often missing or wrong for games that are not on Steam, and StreamTweak no longer looks them up on Steam and Wikidata
+
+🐛 BUG FIXES:
+• With Vibeshine and Vibepollo, unlocking the host with the PIN could still open a real session — recorded in the history, with spatial audio switched on — because those servers announce each stream twice
 
 📊 UNDER THE HOOD:
 • A session now records when each game was running, the frame rate it streamed at and the bitrate the client asked for, which the timeline and the verdict use; older sessions show what they have and say what is missing

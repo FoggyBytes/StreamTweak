@@ -7,8 +7,7 @@ namespace StreamTweak.Converters
     /// Converts an absolute cover file path (string?) to a BitmapImage.
     /// Returns null for null/empty input or on any I/O error.
     /// DecodePixelWidth defaults to 66 (2× the 33 px list thumbnail) so WIC uses its Fant
-    /// resampler; 9.0 adds <see cref="DecodeWidth"/> for the larger Library tiles and a tiny
-    /// decode that, stretched, doubles as the blurred backdrop behind a hero cover.
+    /// resampler; 9.0 adds <see cref="DecodeWidth"/> for the larger Library tiles and hero covers.
     /// </summary>
     public sealed class CoverPathToBitmapConverter : IValueConverter
     {

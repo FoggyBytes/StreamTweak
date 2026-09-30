@@ -6,8 +6,8 @@
     xmlns:ctrl="using:StreamTweak.Controls"
     Background="{StaticResource STBackground}">
 
-    <!-- 9.0: the section cards flow into two columns once the page is wide enough
-         (ResponsiveGrid, MinColumnWidth 560) and the gutters follow the window width.
+    <!-- 9.0: the section cards are stacked in one column that grows with the window up to
+         the shared content width (Controls/PageLayout) and then stays centred.
          8.0: each Host-setup subsection is its own sidebar item; this page is a
          parametric single-panel host. The nav parameter (TuneNet / TuneAV /
          TuneNv / TuneApps) picks the visible panel (see ShowSection). The page
@@ -23,7 +23,7 @@
                     <TextBlock Text="The wired link this host streams on, and who may change it." Style="{StaticResource ST9_PageSubtitle}" TextWrapping="Wrap"/>
                 </StackPanel>
 
-                <ctrl:ResponsiveGrid MinColumnWidth="560" MaxColumns="2" ColumnSpacing="20" RowSpacing="22">
+                <ctrl:ResponsiveGrid MinColumnWidth="560" MaxColumns="1" ColumnSpacing="20" RowSpacing="22">
                 <!-- ADAPTER -->
                 <StackPanel Spacing="8">
                     <TextBlock Text="ADAPTER" Style="{StaticResource ST_SectionLabel}"/>
@@ -50,11 +50,35 @@
                                         <TextBlock Text="Current link speed" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center"/>
                                         <ctrl:InfoHint Term="Link Speed" Tip="The adapter's current negotiated link speed, updated live."/>
                                     </StackPanel>
-                                    <Border Grid.Column="1" CornerRadius="6" Padding="10,3" VerticalAlignment="Center"
-                                            Background="#294ade80" BorderBrush="#4D4ade80" BorderThickness="1">
+                                    <Border Grid.Column="1" CornerRadius="4" Padding="8,3" VerticalAlignment="Center"
+                                            Background="#214ade80" BorderBrush="#594ade80" BorderThickness="1">
                                         <TextBlock Text="{x:Bind Net.CurrentSpeedText, Mode=OneWay}" FontFamily="{StaticResource DMSansSemiBold}"
                                                    FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource STSuccess}"/>
                                     </Border>
+                                </Grid>
+                            </Border>
+                            <!-- The adapter's LAN address, the one clients reach this PC on -->
+                            <Border Style="{StaticResource ST8_Row}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="IP address" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                                    <TextBlock Grid.Column="1" Text="Copied!" Style="{StaticResource ST_RowDescription}" Foreground="{StaticResource STSuccess}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0"
+                                               Visibility="{x:Bind Net.LanIpCopiedVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    <TextBlock Grid.Column="2" Text="{x:Bind Net.LanIp, Mode=OneWay}" Style="{StaticResource ST_MonoValueSmall}" VerticalAlignment="Center"
+                                               IsTextSelectionEnabled="True"
+                                               Visibility="{x:Bind Net.HasLanIp, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    <TextBlock Grid.Column="2" Text="No address" Style="{StaticResource ST_RowDescription}" VerticalAlignment="Center"
+                                               Visibility="{x:Bind Net.HasLanIp, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                    <Button Grid.Column="3" Style="{StaticResource ST_ButtonGhost}" Width="28" Height="28" Padding="0" Margin="8,0,0,0"
+                                            VerticalAlignment="Center" Click="CopyLanIp_Click"
+                                            Visibility="{x:Bind Net.HasLanIp, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                                            ToolTipService.ToolTip="Copy to clipboard" AutomationProperties.Name="Copy IP address">
+                                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" FontSize="13" Glyph="&#xE8C8;"/>
+                                    </Button>
                                 </Grid>
                             </Border>
                             <Border Style="{StaticResource ST8_Row}" BorderThickness="0">
@@ -105,7 +129,7 @@
                                             <TextBlock Text="client asks" Style="{StaticResource ST8_FlowChipText}"/>
                                         </Border>
                                         <FontIcon Glyph="&#xE72A;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource STTextDim}" VerticalAlignment="Center"/>
-                                        <Border Style="{StaticResource ST8_FlowChip}" Background="#1A4ade80" BorderBrush="#4D4ade80">
+                                        <Border Style="{StaticResource ST8_FlowChip}" Background="#214ade80" BorderBrush="#594ade80">
                                             <TextBlock Text="switch" Style="{StaticResource ST8_FlowChipText}" Foreground="{StaticResource STSuccess}"/>
                                         </Border>
                                         <FontIcon Glyph="&#xE72A;" FontFamily="Segoe MDL2 Assets" FontSize="10" Foreground="{StaticResource STTextDim}" VerticalAlignment="Center"/>
@@ -146,7 +170,7 @@
                                         </StackPanel>
                                         <TextBlock Text="{x:Bind Net.StatusDetailText, Mode=OneWay}" Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"/>
                                     </StackPanel>
-                                    <Border Grid.Column="1" CornerRadius="6" Padding="10,3" VerticalAlignment="Center" BorderThickness="1"
+                                    <Border Grid.Column="1" CornerRadius="4" Padding="8,3" VerticalAlignment="Center" BorderThickness="1"
                                             Background="{x:Bind Net.StatusPillBgHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
                                             BorderBrush="{x:Bind Net.StatusPillBorderHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
                                         <TextBlock Text="{x:Bind Net.StatusPillText, Mode=OneWay}" FontFamily="{StaticResource DMSansSemiBold}"
@@ -220,7 +244,7 @@
                          IsOpen="{x:Bind Disp.HasError, Mode=OneWay}" Severity="Error"
                          Message="{x:Bind Disp.ErrorText, Mode=OneWay}" IsClosable="False"/>
 
-                <ctrl:ResponsiveGrid MinColumnWidth="560" MaxColumns="2" ColumnSpacing="20" RowSpacing="22">
+                <ctrl:ResponsiveGrid MinColumnWidth="560" MaxColumns="1" ColumnSpacing="20" RowSpacing="22">
                 <!-- HDR OUTPUT (per-display cards) -->
                 <StackPanel Spacing="8">
                     <Grid>
@@ -388,7 +412,7 @@
                     <TextBlock Text="{x:Bind Nv.GpuHeader, Mode=OneWay}" Style="{StaticResource ST9_PageSubtitle}" TextWrapping="Wrap"/>
                 </StackPanel>
 
-                <ctrl:ResponsiveGrid MinColumnWidth="560" MaxColumns="2" ColumnSpacing="20" RowSpacing="22">
+                <ctrl:ResponsiveGrid MinColumnWidth="560" MaxColumns="1" ColumnSpacing="20" RowSpacing="22">
                 <!-- USER PROFILE -->
                 <StackPanel Spacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="7">
@@ -463,6 +487,14 @@
 
                 <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                           IsExpanded="{x:Bind Nv.CapturedExpanded, Mode=TwoWay}">
+                    <!-- The header in the card black and border (WinUI's default is a lighter
+                         grey card); the content already draws its own panel below. -->
+                    <Expander.Resources>
+                        <StaticResource x:Key="ExpanderHeaderBackground" ResourceKey="STCard"/>
+                        <StaticResource x:Key="ExpanderHeaderBorderBrush" ResourceKey="STBorder"/>
+                        <SolidColorBrush x:Key="ExpanderContentBackground" Color="Transparent"/>
+                        <SolidColorBrush x:Key="ExpanderContentBorderBrush" Color="Transparent"/>
+                    </Expander.Resources>
                     <Expander.Header>
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>

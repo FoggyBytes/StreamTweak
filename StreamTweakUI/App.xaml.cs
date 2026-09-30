@@ -362,15 +362,9 @@ namespace StreamTweak
                 return result;
             };
 
-            // Load previous run's metadata cache immediately so the
-            // Game Library page shows data before the background refresh completes.
-            GameMetadataService.LoadFromDisk();
-
             // Auto-sync game library if enabled.
             // After completion, raise SettingsChanged so HomeViewModel refreshes
             // the "last sync" tile with the timestamp just written by the sync.
-            // Auto-sync then refresh metadata sequentially so RefreshAsync always
-            // receives a fully-populated game list, never an empty one from a race.
             _ = Task.Run(async () =>
             {
                 if (GameLibraryState.Current.SyncEnabled)
@@ -378,7 +372,6 @@ namespace StreamTweak
                     await GameLibraryService.PerformSyncAsync();
                     _dispatcher.TryEnqueue(AppStateService.Instance.RaiseSettingsChanged);
                 }
-                await GameMetadataService.RefreshAsync(GameLibraryState.Current.Games);
             });
 
             // Windows session-end cleanup

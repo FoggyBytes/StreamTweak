@@ -78,6 +78,10 @@ namespace StreamTweak.Controls
         /// <summary>True when the session has at least one series to draw.</summary>
         public bool HasData => _lanes.Count > 0;
 
+        /// <summary>How many lane heights the chart stacks in the current mode (Focus: one lane
+        /// four times as tall). Lets a host that wants the chart to fill a height size the lanes.</summary>
+        public int LaneHeightUnits => Mode == TimelineMode.Focus ? 4 : Math.Max(1, _lanes.Count);
+
         public void ResetZoom() => SetZoom(0, 1);
 
         // ── Palette (validated for the dark surface, see the 9.0 mockup) ──────
@@ -146,7 +150,7 @@ namespace StreamTweak.Controls
         private readonly Border _timeTip = new()
         {
             Background = B(C(0xFF, 0x2a, 0x2e, 0x2e)), BorderBrush = B(C(0x24, 0xFF, 0xFF, 0xFF)),
-            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(5), Padding = new Thickness(6, 1, 6, 2),
+            BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4), Padding = new Thickness(6, 1, 6, 2),
             Visibility = Visibility.Collapsed,
         };
         private readonly TextBlock _timeTipText = new() { FontSize = 11.5 };
@@ -228,7 +232,9 @@ namespace StreamTweak.Controls
 
             SizeChanged += (_, e) =>
             {
-                double lw = Math.Clamp(Math.Round(e.NewSize.Width * 0.15), 112, 190);
+                // 150 at least: "Host frame latency" and "Games & streams" with their ⓘ were cut
+                // off in the detail beside the list.
+                double lw = Math.Clamp(Math.Round(e.NewSize.Width * 0.15), 150, 190);
                 if (Math.Abs(lw - _labelW) > 0.5)
                 {
                     _labelW = lw;
@@ -272,7 +278,7 @@ namespace StreamTweak.Controls
                 l.Series.Add(new Series { Label = "RTT", Color = S1, Data = s.RttTimeSeries });
                 l.Thresholds.Add((25, "Excellent below 25 ms", MintTh));
                 l.Thresholds.Add((60, "Good up to 60 ms", AmberTh));
-                l.Note = "Dashed lines: 25 ms (Excellent below) and 60 ms (Good up to), on the average RTT. A single spike over 200 ms costs one grade level.";
+                l.Note = "Dashed lines, drawn when the data comes near them: 25 ms (Excellent below) and 60 ms (Good up to), on the average RTT. A single spike over 200 ms costs one grade level.";
                 _lanes.Add(l);
             }
             if (s.HostLatencyTimeSeries is { Count: >= 2 })
@@ -284,7 +290,7 @@ namespace StreamTweak.Controls
                 l.Thresholds.Add((frame, "1 frame", AmberTh));
                 l.Thresholds.Add((frame * QualityGradeCalculator.LateFrameMultiplier, "late", RedTh));
                 l.Note = $"Frame budget at {fpsText}: {frame.ToString("0.0", CultureInfo.InvariantCulture)} ms. " +
-                         "Dashed lines: 0.6 frame (Excellent below), 1 frame (Good up to) and 2 frames, where a frame counts as late.";
+                         "Dashed lines, drawn when the data comes near them: 0.6 frame (Excellent below), 1 frame (Good up to) and 2 frames, where a frame counts as late.";
                 _lanes.Add(l);
             }
             if (s.DropsTimeSeries is { Count: >= 2 })
@@ -760,8 +766,6 @@ namespace StreamTweak.Controls
                     }
                 }
             }
-            // Where the first label ends, so the pre-9.0 list of games can start after it.
-            double listLeft = streamLabels.Count > 0 && _z0 <= 1e-9 ? 30 : 6;
 
             if (s.GameSpans is { Count: > 0 } spans)
             {
@@ -805,7 +809,9 @@ namespace StreamTweak.Controls
                     sp.Children.Add(item);
                 }
                 sp.Children.Add(Label("· times not recorded for this session", 11.5, Text4));
-                Canvas.SetLeft(sp, listLeft); Canvas.SetTop(sp, 9);
+                // Under the S1, S2… tags when there are any (they sit at the top of the lane),
+                // so a tag cannot land on a game's name or on this note.
+                Canvas.SetLeft(sp, 6); Canvas.SetTop(sp, streamLabels.Count > 0 ? 16 : 9);
                 cv.Children.Add(sp);
             }
 

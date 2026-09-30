@@ -7,7 +7,8 @@
          STREAMTWEAK 9.0 — design system layer
          Merged after StreamTweakStyles.xaml and StreamTweak8.xaml: every older key
          keeps working, the 9.0 pages use the ST9 keys below.
-         Surfaces are translucent over Mica (cards 4–5 % white), labels are sentence
+         Cards are the near-black of 8.x (STCard / STBorder) straight over Mica, with no
+         lighter sheet between the sidebar and the page; labels are sentence
          case, numbers are DM Sans SemiBold with a smaller unit next to them, and the
          mint accent is the only colour that is not a state. Green / amber / red mean
          Excellent / Good / Poor (or on / attention / off) and are always paired with
@@ -15,11 +16,13 @@
     ════════════════════════════════════════════════════════════════════════ -->
 
     <!-- ── COLOUR TOKENS ─────────────────────────────────────────────────── -->
-    <SolidColorBrush x:Key="ST9Card"        Color="#0BFFFFFF"/>
-    <SolidColorBrush x:Key="ST9CardHover"   Color="#14FFFFFF"/>
+    <!-- Cards as in 8.7 (STCard, STBorder): the translucent white of the first 9.0 cut read
+         light grey next to the host pages and the sidebar. -->
+    <SolidColorBrush x:Key="ST9Card"        Color="#E60C0C0E"/>
+    <SolidColorBrush x:Key="ST9CardHover"   Color="#E6141416"/>
+    <SolidColorBrush x:Key="ST9CardStroke"  Color="#2a2724"/>
     <SolidColorBrush x:Key="ST9Inset"       Color="#08FFFFFF"/>
-    <SolidColorBrush x:Key="ST9Frame"       Color="#07FFFFFF"/>
-    <SolidColorBrush x:Key="ST9Pane"        Color="#FF1B1D1D"/>
+    <SolidColorBrush x:Key="ST9Pane"        Color="#FF0C0C0E"/>  <!-- the card black, opaque: side panels over a page -->
     <SolidColorBrush x:Key="ST9Stroke"      Color="#14FFFFFF"/>
     <SolidColorBrush x:Key="ST9Stroke2"     Color="#24FFFFFF"/>
     <SolidColorBrush x:Key="ST9Text"        Color="#F2F5F3"/>
@@ -138,20 +141,20 @@
     <!-- ── SURFACES ──────────────────────────────────────────────────────── -->
     <Style x:Key="ST9_Card" TargetType="Border">
         <Setter Property="Background"      Value="{StaticResource ST9Card}"/>
-        <Setter Property="BorderBrush"     Value="{StaticResource ST9Stroke}"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource ST9CardStroke}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius"    Value="10"/>
         <Setter Property="Padding"         Value="20,18"/>
     </Style>
     <Style x:Key="ST9_CardFlat" TargetType="Border">
         <Setter Property="Background"      Value="{StaticResource ST9Card}"/>
-        <Setter Property="BorderBrush"     Value="{StaticResource ST9Stroke}"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource ST9CardStroke}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius"    Value="10"/>
     </Style>
     <Style x:Key="ST9_Hero" TargetType="Border">
         <Setter Property="Background"      Value="#FF0E0F0F"/>
-        <Setter Property="BorderBrush"     Value="{StaticResource ST9Stroke}"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource ST9CardStroke}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="CornerRadius"    Value="14"/>
     </Style>
@@ -187,8 +190,8 @@
 
     <!-- ── TAGS (state pills: always a word, never colour alone) ─────────── -->
     <Style x:Key="ST9_TagGreen" TargetType="Border">
-        <Setter Property="CornerRadius"    Value="11"/>
-        <Setter Property="Padding"         Value="8,2,8,3"/>
+        <Setter Property="CornerRadius"    Value="4"/>
+        <Setter Property="Padding"         Value="7,2,7,3"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Background"      Value="{StaticResource ST9MintSoft}"/>
         <Setter Property="BorderBrush"     Value="{StaticResource ST9MintStroke}"/>
@@ -217,7 +220,7 @@
         <Setter Property="Foreground" Value="{StaticResource ST9Text2}"/>
     </Style>
     <Style x:Key="ST9_TagTextGreen" TargetType="TextBlock" BasedOn="{StaticResource ST9_TagText}">
-        <Setter Property="Foreground" Value="{StaticResource ST9Mint2}"/>
+        <Setter Property="Foreground" Value="{StaticResource ST9Mint}"/>
     </Style>
     <Style x:Key="ST9_TagTextAmber" TargetType="TextBlock" BasedOn="{StaticResource ST9_TagText}">
         <Setter Property="Foreground" Value="{StaticResource ST9Amber}"/>
@@ -247,8 +250,12 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
+                    <!-- OuterBorderEdge: the fill runs under the border. Inset inside it (the
+                         default), the anti-aliased seam between the two showed as a grey ring of
+                         pixels on the rounded corners of the solid green. -->
                     <ContentPresenter x:Name="ContentPresenter"
                                       Background="{TemplateBinding Background}"
+                                      BackgroundSizing="OuterBorderEdge"
                                       BorderBrush="{TemplateBinding BorderBrush}"
                                       BorderThickness="{TemplateBinding BorderThickness}"
                                       Content="{TemplateBinding Content}"
@@ -441,7 +448,7 @@
         <Setter Property="FontSize"        Value="13"/>
         <Setter Property="Padding"         Value="12,4,12,5"/>
         <Setter Property="MinHeight"       Value="30"/>
-        <Setter Property="CornerRadius"    Value="15"/>
+        <Setter Property="CornerRadius"    Value="6"/>
         <Setter Property="Background"      Value="#08FFFFFF"/>
         <Setter Property="Foreground"      Value="{StaticResource ST9Text2}"/>
         <Setter Property="BorderBrush"     Value="#24FFFFFF"/>
@@ -537,10 +544,9 @@
         <Setter Property="CornerRadius" Value="6"/>
     </Style>
 
-    <!-- Cover loaders: the big one for tiles, the tiny one is stretched on purpose — a
-         24 px decode scaled up is a soft blur for the backdrop behind the hero. -->
+    <!-- Cover loaders: the hero / sheet cover and the Library tiles. The backdrop behind a
+         hero is Controls/CoverGradient, not a cover. -->
     <converters:CoverPathToBitmapConverter x:Key="CoverPathToBitmapLargeConverter" DecodeWidth="360"/>
     <converters:CoverPathToBitmapConverter x:Key="CoverPathToBitmapTileConverter" DecodeWidth="320"/>
-    <converters:CoverPathToBitmapConverter x:Key="CoverPathToBackdropConverter" DecodeWidth="24"/>
 
 </ResourceDictionary>

@@ -8,11 +8,11 @@
     Background="{StaticResource STBackground}">
 
     <!-- ═══════════════════════════════════════════════════════════════════════
-         9.0 Sessions. One page, three arrangements picked by width in code-behind:
-           ≥ 1400   master–detail: the list on the left, the chosen session on the right
-           < 1400   the list alone; a session opens over it, with a back button
-           Compare  covers both, from two ticked rows or "Compare with…" in the detail
-         The detail's charts are one TimelineChart: every series on the same clock.
+         9.0 Sessions. The list alone, at every width; a session opens over it with a back
+         button, so its charts have the whole content column (the master–detail split of the
+         first 9.0 cut squeezed them). Compare covers both, from two ticked rows or
+         "Compare with…" in the detail. The detail's charts are one TimelineChart, every
+         series on the same clock; it can go full screen on its own.
     ════════════════════════════════════════════════════════════════════════ -->
 
     <Page.Resources>
@@ -48,7 +48,7 @@
                 <TextBlock Text="{x:Bind Label}" Style="{StaticResource ST9_Body}" Foreground="{StaticResource ST9Text}" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="1" Text="{x:Bind ValueA}" Style="{StaticResource ST9_Body}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                 <TextBlock Grid.Column="2" Text="{x:Bind ValueB}" Style="{StaticResource ST9_Body}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
-                <Border Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center" CornerRadius="10" Padding="8,2,8,3"
+                <Border Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center" CornerRadius="4" Padding="7,2,7,3"
                         Background="{x:Bind DeltaBgHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
                     <TextBlock Text="{x:Bind Delta}" Style="{StaticResource ST9_TagText}"
                                Foreground="{x:Bind DeltaFgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
@@ -58,10 +58,6 @@
     </Page.Resources>
 
     <Grid x:Name="Root" SizeChanged="Root_SizeChanged">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition x:Name="ListCol" Width="*"/>
-            <ColumnDefinition x:Name="DetailCol" Width="0"/>
-        </Grid.ColumnDefinitions>
 
         <!-- ═════════════════════════════ LIST ═════════════════════════════ -->
         <Grid x:Name="ListLayer">
@@ -70,6 +66,12 @@
                       ItemContainerStyle="{StaticResource ST9_PlainListItem}"
                       SelectionMode="None" IsItemClickEnabled="True" ItemClick="SessionList_ItemClick"
                       Padding="32,24,32,96">
+                <!-- An item is the day heading plus the row: the container's own hover would light
+                     up both. It is switched off here and the row draws its own (RowHover). -->
+                <ListView.Resources>
+                    <SolidColorBrush x:Key="ListViewItemBackgroundPointerOver" Color="Transparent"/>
+                    <SolidColorBrush x:Key="ListViewItemBackgroundPressed" Color="Transparent"/>
+                </ListView.Resources>
                 <ListView.Header>
                     <StackPanel Spacing="16" Margin="0,0,0,8">
                         <!-- Header -->
@@ -141,13 +143,18 @@
                             </ctrl:ResponsiveGrid>
                         </Border>
 
-                        <!-- Toolbar: search, grade chips -->
+                        <!-- Toolbar: search, grade chips (under the search box when the list is
+                             narrow, e.g. beside the detail — see ApplyLayout) -->
                         <Grid ColumnSpacing="12" RowSpacing="10"
                               Visibility="{x:Bind ViewModel.HasSessions, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
                             </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
                             <TextBox x:Name="SearchBox" Style="{StaticResource ST9_SearchBox}" Width="240" PlaceholderText="Filter by game"
                                      Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             <StackPanel x:Name="GradeChips" Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
@@ -199,69 +206,76 @@
                                 <TextBlock Text="{x:Bind DaySubText}" Style="{StaticResource ST9_Hint}" VerticalAlignment="Bottom"/>
                             </StackPanel>
 
-                            <Grid Padding="6,8,10,8" CornerRadius="8" MinHeight="54"
-                                  Background="{x:Bind RowBackgroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="34"/>
-                                    <ColumnDefinition Width="16"/>
-                                    <ColumnDefinition Width="128"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="22"/>
-                                </Grid.ColumnDefinitions>
-                                <Grid.ContextFlyout>
-                                    <MenuFlyout>
-                                        <MenuFlyoutItem Text="Compare with…" Tag="{x:Bind Id}" Click="RowCompare_Click">
-                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8AB;"/></MenuFlyoutItem.Icon>
-                                        </MenuFlyoutItem>
-                                        <MenuFlyoutItem Text="Delete session" Tag="{x:Bind Id}" Click="RowDelete_Click">
-                                            <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;"/></MenuFlyoutItem.Icon>
-                                        </MenuFlyoutItem>
-                                    </MenuFlyout>
-                                </Grid.ContextFlyout>
-
-                                <CheckBox MinWidth="0" Padding="0" VerticalAlignment="Center"
-                                          IsChecked="{x:Bind IsChecked, Mode=TwoWay}" Visibility="{x:Bind PickVisibility}"
-                                          ToolTipService.ToolTip="Select to compare"/>
-                                <Rectangle Grid.Column="1" Width="4" Height="34" RadiusX="2" RadiusY="2" HorizontalAlignment="Left"
-                                           Fill="{x:Bind StripeHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                                <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                    <TextBlock Text="{x:Bind WhenText}" Style="{StaticResource ST9_RowTitle}"/>
-                                    <TextBlock Text="{x:Bind SubText}" Style="{StaticResource ST9_Hint}"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="0,0,12,0"
-                                            Visibility="{x:Bind Layout.GamesVisibility, Mode=OneWay}">
-                                    <ItemsControl ItemsSource="{x:Bind Covers}" ItemTemplate="{StaticResource CoverSmallTemplate}">
-                                        <ItemsControl.ItemsPanel>
-                                            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="3"/></ItemsPanelTemplate>
-                                        </ItemsControl.ItemsPanel>
-                                    </ItemsControl>
-                                    <TextBlock Text="{x:Bind GamesText}" Style="{StaticResource ST9_Hint}" Foreground="{StaticResource ST9Text2}" VerticalAlignment="Center"/>
-                                </StackPanel>
-                                <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"
-                                            Visibility="{x:Bind Layout.MetricsVisibility, Mode=OneWay}">
-                                    <TextBlock Width="72" TextAlignment="Right" Style="{StaticResource ST9_Body}" Foreground="{StaticResource ST9Text}">
-                                        <Run Text="{x:Bind RttText}"/><Run Text=" ms" Foreground="{StaticResource ST9Text3}" FontSize="11.5"/>
-                                    </TextBlock>
-                                    <TextBlock Width="92" TextAlignment="Right" Style="{StaticResource ST9_Body}" Foreground="{StaticResource ST9Text}">
-                                        <Run Text="{x:Bind HostLatText}"/><Run Text=" ms" Foreground="{StaticResource ST9Text3}" FontSize="11.5"/>
-                                    </TextBlock>
-                                    <TextBlock Width="72" TextAlignment="Right" Style="{StaticResource ST9_Body}" Foreground="{StaticResource ST9Text}">
-                                        <Run Text="{x:Bind DropsText}"/><Run Text=" %" Foreground="{StaticResource ST9Text3}" FontSize="11.5"/>
-                                    </TextBlock>
-                                </StackPanel>
-                                <Border Grid.Column="5" Width="92" VerticalAlignment="Center">
-                                    <Border HorizontalAlignment="Right" CornerRadius="11" Padding="8,2,8,3" BorderThickness="1"
-                                            Background="{x:Bind GradeBgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                            BorderBrush="{x:Bind GradeBorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
-                                        <TextBlock Text="{x:Bind GradeLabel}" Style="{StaticResource ST9_TagText}"
-                                                   Foreground="{x:Bind GradeFgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                            <!-- The row on the card black: on the bare Mica background the list read poorly. -->
+                            <Border Background="{StaticResource ST9Card}" CornerRadius="8" Margin="0,0,0,4">
+                                <Grid Padding="6,8,10,8" CornerRadius="8" MinHeight="54"
+                                      Background="{x:Bind RowBackgroundHex, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                      PointerEntered="Row_PointerEntered" PointerExited="Row_PointerExited" PointerCanceled="Row_PointerExited">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="34"/>
+                                        <ColumnDefinition Width="16"/>
+                                        <ColumnDefinition Width="128"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="22"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.ContextFlyout>
+                                        <MenuFlyout>
+                                            <MenuFlyoutItem Text="Compare with…" Tag="{x:Bind Id}" Click="RowCompare_Click">
+                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE8AB;"/></MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutItem Text="Delete session" Tag="{x:Bind Id}" Click="RowDelete_Click">
+                                                <MenuFlyoutItem.Icon><FontIcon Glyph="&#xE74D;"/></MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                        </MenuFlyout>
+                                    </Grid.ContextFlyout>
+    
+                                    <!-- Hover of this row only (the item container's is off, see ListView.Resources) -->
+                                    <Border x:Name="RowHover" Grid.ColumnSpan="7" Margin="-6,-8,-10,-8" CornerRadius="8"
+                                            Background="{StaticResource ST9GreySoft}" Opacity="0" IsHitTestVisible="False"/>
+                                    <CheckBox MinWidth="0" Padding="0" VerticalAlignment="Center"
+                                              IsChecked="{x:Bind IsChecked, Mode=TwoWay}" Visibility="{x:Bind PickVisibility}"
+                                              ToolTipService.ToolTip="Select to compare"/>
+                                    <Rectangle Grid.Column="1" Width="4" Height="34" RadiusX="2" RadiusY="2" HorizontalAlignment="Left"
+                                               Fill="{x:Bind StripeHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                        <TextBlock Text="{x:Bind WhenText}" Style="{StaticResource ST9_RowTitle}"/>
+                                        <TextBlock Text="{x:Bind SubText}" Style="{StaticResource ST9_Hint}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="0,0,12,0"
+                                                Visibility="{x:Bind Layout.GamesVisibility, Mode=OneWay}">
+                                        <ItemsControl ItemsSource="{x:Bind Covers}" ItemTemplate="{StaticResource CoverSmallTemplate}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="3"/></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                        </ItemsControl>
+                                        <TextBlock Text="{x:Bind GamesText}" Style="{StaticResource ST9_Hint}" Foreground="{StaticResource ST9Text2}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center"
+                                                Visibility="{x:Bind Layout.MetricsVisibility, Mode=OneWay}">
+                                        <TextBlock Width="72" TextAlignment="Right" Style="{StaticResource ST9_Body}" Foreground="{StaticResource ST9Text}">
+                                            <Run Text="{x:Bind RttText}"/><Run Text=" ms" Foreground="{StaticResource ST9Text3}" FontSize="11.5"/>
+                                        </TextBlock>
+                                        <TextBlock Width="92" TextAlignment="Right" Style="{StaticResource ST9_Body}" Foreground="{StaticResource ST9Text}">
+                                            <Run Text="{x:Bind HostLatText}"/><Run Text=" ms" Foreground="{StaticResource ST9Text3}" FontSize="11.5"/>
+                                        </TextBlock>
+                                        <TextBlock Width="72" TextAlignment="Right" Style="{StaticResource ST9_Body}" Foreground="{StaticResource ST9Text}">
+                                            <Run Text="{x:Bind DropsText}"/><Run Text=" %" Foreground="{StaticResource ST9Text3}" FontSize="11.5"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                    <Border Grid.Column="5" Width="92" VerticalAlignment="Center">
+                                        <Border HorizontalAlignment="Right" CornerRadius="4" Padding="7,2,7,3" BorderThickness="1"
+                                                Background="{x:Bind GradeBgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                                BorderBrush="{x:Bind GradeBorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                                            <TextBlock Text="{x:Bind GradeLabel}" Style="{StaticResource ST9_TagText}"
+                                                       Foreground="{x:Bind GradeFgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                                        </Border>
                                     </Border>
-                                </Border>
-                                <FontIcon Grid.Column="6" Glyph="&#xE76C;" FontSize="11" HorizontalAlignment="Right"
-                                          Foreground="{StaticResource ST9Text4}"/>
-                            </Grid>
+                                    <FontIcon Grid.Column="6" Glyph="&#xE76C;" FontSize="11" HorizontalAlignment="Right"
+                                              Foreground="{StaticResource ST9Text4}"/>
+                                </Grid>
+                            </Border>
                         </StackPanel>
                     </DataTemplate>
                 </ListView.ItemTemplate>
@@ -269,7 +283,7 @@
 
             <!-- Compare bar: appears once a row is ticked -->
             <Border x:Name="CompareBar" VerticalAlignment="Bottom" Margin="32,0,32,16" Padding="16,10" CornerRadius="10"
-                    Background="#FF202323" BorderBrush="{StaticResource ST9Stroke2}" BorderThickness="1"
+                    Background="{StaticResource ST9Pane}" BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1"
                     Visibility="{x:Bind ViewModel.IsCompareBarVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                 <Grid ColumnSpacing="10">
                     <Grid.ColumnDefinitions>
@@ -291,8 +305,8 @@
         </Grid>
 
         <!-- ═════════════════════════════ DETAIL ═════════════════════════════ -->
-        <Border x:Name="DetailLayer" Grid.Column="1" Visibility="Collapsed"
-                Background="{StaticResource STBackground}" BorderBrush="{StaticResource ST9Stroke}" BorderThickness="1,0,0,0">
+        <Border x:Name="DetailLayer" Grid.ColumnSpan="2" Visibility="Collapsed"
+                Background="{StaticResource STBackground}">
             <ScrollViewer x:Name="DetailScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled">
                 <StackPanel x:Name="DetailRoot" Padding="28,24,28,40" Spacing="16">
 
@@ -323,10 +337,10 @@
                         </StackPanel>
                     </Grid>
 
-                    <TextBlock Text="Choose a session on the left to see how it went." Style="{StaticResource ST9_Body}"
+                    <TextBlock Text="Choose a session to see how it went." Style="{StaticResource ST9_Body}"
                                Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
 
-                    <StackPanel Spacing="16" Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <StackPanel x:Name="DetailBody" Spacing="16" Visibility="{x:Bind ViewModel.HasSelection, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                         <ctrl:ResponsiveGrid x:Name="DetailGrid" Breakpoints="0,980,1600" Columns="1,2,3" ColumnSpacing="16" RowSpacing="16">
 
                             <!-- Verdict -->
@@ -379,7 +393,7 @@
                                                             </TextBlock>
                                                             <TextBlock Text="{x:Bind ThresholdText}" Style="{StaticResource ST9_Hint}"/>
                                                         </StackPanel>
-                                                        <Border Grid.Column="1" VerticalAlignment="Center" CornerRadius="11" Padding="8,2,8,3" BorderThickness="1"
+                                                        <Border Grid.Column="1" VerticalAlignment="Center" CornerRadius="4" Padding="7,2,7,3" BorderThickness="1"
                                                                 Background="{x:Bind GradeBgHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
                                                                 BorderBrush="{x:Bind GradeBorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
                                                             <TextBlock Text="{x:Bind GradeLabel}" Style="{StaticResource ST9_TagText}"
@@ -481,7 +495,7 @@
                         </ctrl:ResponsiveGrid>
 
                         <!-- Timeline -->
-                        <Border Style="{StaticResource ST9_Card}">
+                        <Border x:Name="TimelineCard" Style="{StaticResource ST9_Card}">
                             <StackPanel Spacing="14">
                                 <Grid ColumnSpacing="10" RowSpacing="10">
                                     <Grid.ColumnDefinitions>
@@ -507,6 +521,9 @@
                                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
                                         <ToggleButton x:Name="TracksChip" Style="{StaticResource ST9_Chip}" Content="All tracks" IsChecked="True" Click="TimelineMode_Click"/>
                                         <ToggleButton x:Name="FocusChip" Style="{StaticResource ST9_Chip}" Content="Focus" Click="TimelineMode_Click"/>
+                                        <Button x:Name="FullScreenButton" Style="{StaticResource ST9_IconButton}" Content="&#xE740;" Margin="4,0,0,0"
+                                                AutomationProperties.Name="Full screen" ToolTipService.ToolTip="Full screen (Esc to leave)"
+                                                Click="TimelineFullScreen_Click"/>
                                     </StackPanel>
                                 </Grid>
                                 <ctrl:TimelineChart x:Name="Timeline" Session="{x:Bind ViewModel.SelectedSession, Mode=OneWay}"/>
@@ -516,6 +533,16 @@
                 </StackPanel>
             </ScrollViewer>
         </Border>
+
+        <!-- ══════════════════════ TIMELINE, FULL SCREEN ══════════════════════
+             The Timeline card is moved in here (LogsView.SetTimelineFull) and the window goes
+             full screen; its lanes grow to fill the height. -->
+        <ScrollViewer x:Name="TimelineFullLayer" Grid.ColumnSpan="2" Visibility="Collapsed"
+                      Background="{StaticResource STBackground}"
+                      VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled"
+                      SizeChanged="TimelineFullLayer_SizeChanged">
+            <Border x:Name="TimelineFullHost" Padding="24"/>
+        </ScrollViewer>
 
         <!-- ═════════════════════════════ COMPARE ═════════════════════════════ -->
         <Grid x:Name="CompareLayer" Grid.ColumnSpan="2" Background="{StaticResource STBackground}"
@@ -562,7 +589,7 @@
                                               SelectionChanged="CompareSelection_Changed"/>
                                     <TextBlock Text="{x:Bind ViewModel.CompareSubA, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
                                 </StackPanel>
-                                <Border Grid.Column="2" VerticalAlignment="Top" CornerRadius="11" Padding="8,2,8,3"
+                                <Border Grid.Column="2" VerticalAlignment="Top" CornerRadius="4" Padding="7,2,7,3"
                                         Background="{x:Bind ViewModel.CompareGradeABg, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
                                     <TextBlock Text="{x:Bind ViewModel.CompareGradeA, Mode=OneWay}" Style="{StaticResource ST9_TagText}"
                                                Foreground="{x:Bind ViewModel.CompareGradeAFg, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
@@ -588,7 +615,7 @@
                                               SelectionChanged="CompareSelection_Changed"/>
                                     <TextBlock Text="{x:Bind ViewModel.CompareSubB, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
                                 </StackPanel>
-                                <Border Grid.Column="2" VerticalAlignment="Top" CornerRadius="11" Padding="8,2,8,3"
+                                <Border Grid.Column="2" VerticalAlignment="Top" CornerRadius="4" Padding="7,2,7,3"
                                         Background="{x:Bind ViewModel.CompareGradeBBg, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}">
                                     <TextBlock Text="{x:Bind ViewModel.CompareGradeB, Mode=OneWay}" Style="{StaticResource ST9_TagText}"
                                                Foreground="{x:Bind ViewModel.CompareGradeBFg, Mode=OneWay, Converter={StaticResource HexToSolidColorBrushConverter}}"/>

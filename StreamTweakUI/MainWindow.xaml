@@ -23,6 +23,18 @@
             <RowDefinition Height="*"/>   <!-- sidebar + content -->
         </Grid.RowDefinitions>
 
+        <!-- A soft glow of the accent green from the top-left corner, over the Mica veil and
+             under everything else (title bar, sidebar, page): the same green as the controls. -->
+        <Rectangle Grid.RowSpan="2" IsHitTestVisible="False">
+            <Rectangle.Fill>
+                <RadialGradientBrush Center="0,0" GradientOrigin="0,0" RadiusX="0.55" RadiusY="0.75">
+                    <GradientStop Color="#334ade80" Offset="0"/>
+                    <GradientStop Color="#124ade80" Offset="0.5"/>
+                    <GradientStop Color="#004ade80" Offset="1"/>
+                </RadialGradientBrush>
+            </Rectangle.Fill>
+        </Rectangle>
+
         <!-- ── ROW 1: Glossary panel (right, overlay) around the NavigationView ── -->
         <SplitView x:Name="GlossarySplit"
                    Grid.Row="1"
@@ -33,7 +45,7 @@
                    PaneBackground="{StaticResource ST9Pane}"
                    IsPaneOpen="False">
             <SplitView.Pane>
-                <Grid BorderBrush="{StaticResource ST9Stroke2}" BorderThickness="1,0,0,0">
+                <Grid BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1,0,0,0">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
@@ -155,62 +167,45 @@
                     </NavigationViewItem>
                 </NavigationView.FooterMenuItems>
 
-                <!-- Version + update link at the very bottom of the pane (bottom-left) -->
-                <NavigationView.PaneFooter>
-                    <StackPanel Margin="16,6,12,12" Spacing="2">
-                        <TextBlock x:Name="SidebarVersionText"
-                                   Style="{StaticResource ST_FooterText}"/>
-                        <HyperlinkButton x:Name="SidebarUpdateLink"
-                                         Visibility="Collapsed"
-                                         Padding="0"
-                                         FontFamily="{StaticResource DMSans}"
-                                         FontSize="11"
-                                         Foreground="{StaticResource STWarning}"
-                                         Click="SidebarUpdateLink_Click"
-                                         ToolTipService.ToolTip="Open the GitHub releases page"/>
-                    </StackPanel>
-                </NavigationView.PaneFooter>
-
-                <!-- Content layer: a faint lighter sheet with a rounded top-left corner, so the
-                     page reads as one surface next to the sidebar. Transparent enough for Mica. -->
-                <Border Background="{StaticResource ST9Frame}"
-                        BorderBrush="{StaticResource ST9Stroke}"
-                        BorderThickness="1,1,0,0"
-                        CornerRadius="10,0,0,0">
-                    <Frame x:Name="ContentFrame" Background="Transparent"/>
-                </Border>
+                <!-- Content frame — Transparent so Mica bleeds through the page bg, as in 8.x:
+                     sidebar and page are one surface (a lighter sheet here split them). -->
+                <Frame x:Name="ContentFrame" Background="Transparent"/>
 
             </NavigationView>
         </SplitView>
 
         <!-- ── ROW 0: custom title bar ───────────────────────────────────────
-             The whole strip is the window's drag region, so everything in it is
-             informational (IsHitTestVisible=False): identity on the left, then the
-             host's live state — what it is doing, its link speed, its Tailscale IP. -->
+             The strip is the window's drag region: identity (name + version) on the left,
+             then the host's live state — what it is doing, its wired link and address, its
+             Tailscale address — and, when there is one, the update. The address pills and
+             the update pill are clickable: MainWindow cuts them out of the drag region
+             (UpdateTitleBarPassthrough), everything else stays draggable. -->
         <Grid x:Name="AppTitleBar"
               Grid.Row="0"
               Background="{StaticResource STTitlebar}">
             <StackPanel Orientation="Horizontal"
                         VerticalAlignment="Center"
-                        Spacing="10" Margin="16,0,0,0"
-                        IsHitTestVisible="False">
-                <Image Source="ms-appx:///Resources/streamtweak.ico"
-                       Width="16" Height="16"
-                       VerticalAlignment="Center"/>
-                <TextBlock Text="StreamTweak"
-                           FontFamily="{StaticResource DMSansSemiBold}"
-                           FontSize="13"
-                           Foreground="{StaticResource ST9Text}"
+                        Spacing="10" Margin="16,0,0,0">
+                <StackPanel Orientation="Horizontal" Spacing="10" IsHitTestVisible="False">
+                    <Image Source="ms-appx:///Resources/streamtweak.ico"
+                           Width="16" Height="16"
                            VerticalAlignment="Center"/>
-                <TextBlock x:Name="TitleVersionText"
-                           FontFamily="{StaticResource JetBrainsMono}"
-                           FontSize="11"
-                           Foreground="{StaticResource ST9Text4}"
-                           VerticalAlignment="Center"/>
+                    <TextBlock Text="StreamTweak"
+                               FontFamily="{StaticResource DMSansSemiBold}"
+                               FontSize="13"
+                               Foreground="{StaticResource ST9Text}"
+                               VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TitleVersionText"
+                               FontFamily="{StaticResource JetBrainsMono}"
+                               FontSize="11"
+                               Foreground="{StaticResource ST9Text4}"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
 
-                <StackPanel x:Name="TitlePills" Orientation="Horizontal" Spacing="6" Margin="10,0,0,0" VerticalAlignment="Center">
+                <StackPanel x:Name="TitlePills" Orientation="Horizontal" Spacing="6" Margin="10,0,0,0" VerticalAlignment="Center"
+                            SizeChanged="TitlePills_SizeChanged">
                     <!-- Host state: "Host ready" or the game being streamed + duration -->
-                    <Border x:Name="StatePill" CornerRadius="12" Padding="10,3,11,4" BorderThickness="1"
+                    <Border x:Name="StatePill" CornerRadius="4" Padding="10,3,11,4" BorderThickness="1" IsHitTestVisible="False"
                             Background="#0DFFFFFF" BorderBrush="{StaticResource ST9Stroke}">
                         <StackPanel Orientation="Horizontal" Spacing="7">
                             <Ellipse x:Name="StateDot" Width="7" Height="7" Fill="{StaticResource ST9Mint}" VerticalAlignment="Center"/>
@@ -219,26 +214,45 @@
                                        Foreground="{StaticResource ST9Text2}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
-                    <!-- Link speed of the configured adapter -->
-                    <Border x:Name="LinkPill" CornerRadius="12" Padding="10,3,11,4" BorderThickness="1"
-                            Background="#0DFFFFFF" BorderBrush="{StaticResource ST9Stroke}" Visibility="Collapsed">
+                    <!-- Wired link: speed and LAN address of the managed adapter. Click copies the address. -->
+                    <Border x:Name="LinkPill" CornerRadius="4" Padding="10,3,11,4" BorderThickness="1"
+                            Background="#0DFFFFFF" BorderBrush="{StaticResource ST9Stroke}" Visibility="Collapsed"
+                            Tapped="LinkPill_Tapped" PointerEntered="Pill_PointerEntered" PointerExited="Pill_PointerExited">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon Glyph="&#xE839;" FontFamily="Segoe MDL2 Assets" FontSize="11"
                                       Foreground="{StaticResource ST9Text3}" VerticalAlignment="Center"/>
                             <TextBlock x:Name="LinkPillText"
                                        FontFamily="{StaticResource DMSans}" FontSize="12"
                                        Foreground="{StaticResource ST9Text2}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="LanIpText" Visibility="Collapsed"
+                                       FontFamily="{StaticResource JetBrainsMono}" FontSize="11.5"
+                                       Foreground="{StaticResource ST9Text2}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
-                    <!-- Tailscale address, when Tailscale is up -->
-                    <Border x:Name="TailscalePill" CornerRadius="12" Padding="10,3,11,4" BorderThickness="1"
-                            Background="#0DFFFFFF" BorderBrush="{StaticResource ST9Stroke}" Visibility="Collapsed">
+                    <!-- Tailscale address, with Tailscale's own icon. Click copies it. -->
+                    <Border x:Name="TailscalePill" CornerRadius="4" Padding="9,3,11,4" BorderThickness="1"
+                            Background="#0DFFFFFF" BorderBrush="{StaticResource ST9Stroke}" Visibility="Collapsed"
+                            Tapped="TailscalePill_Tapped" PointerEntered="Pill_PointerEntered" PointerExited="Pill_PointerExited">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <FontIcon Glyph="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                            <Image x:Name="TailscaleIcon" Width="13" Height="13" VerticalAlignment="Center" Visibility="Collapsed"/>
+                            <FontIcon x:Name="TailscaleGlyph" Glyph="&#xE774;" FontFamily="Segoe MDL2 Assets" FontSize="11"
                                       Foreground="{StaticResource ST9Text3}" VerticalAlignment="Center"/>
                             <TextBlock x:Name="TailscalePillText"
                                        FontFamily="{StaticResource JetBrainsMono}" FontSize="11.5"
                                        Foreground="{StaticResource ST9Text2}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- A newer StreamTweak is out: opens the releases page. -->
+                    <Border x:Name="UpdatePill" CornerRadius="4" Padding="10,3,11,4" BorderThickness="1"
+                            Background="{StaticResource ST9MintSoft}" BorderBrush="{StaticResource ST9MintStroke}" Visibility="Collapsed"
+                            Tapped="UpdatePill_Tapped" PointerEntered="Pill_PointerEntered" PointerExited="Pill_PointerExited"
+                            ToolTipService.ToolTip="Open the GitHub releases page">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon Glyph="&#xE896;" FontFamily="Segoe MDL2 Assets" FontSize="11"
+                                      Foreground="{StaticResource ST9Mint2}" VerticalAlignment="Center"/>
+                            <TextBlock x:Name="UpdatePillText"
+                                       FontFamily="{StaticResource DMSans}" FontSize="12"
+                                       Foreground="{StaticResource ST9Mint2}" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
