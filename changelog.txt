@@ -4,6 +4,22 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-----------------------------------------------
+Version 9.1.0 - "The Codec Update" (01/10/2026)
+-----------------------------------------------
+
+📈 SESSIONS:
+• Every stream records the codec the server compressed it with — AV1 · NVENC, HEVC · AMF, PyroWave… — shown in the session's Host card and next to S1, S2 on the timeline
+• PyroWave encodes on the GPU's shaders, not its video encoder: on those streams the encoder reads n/a, its line on the timeline turns grey and dashed, and Compare no longer sets it against an NVENC session as the same figure
+• A short first stream, like the one StreamLight opens to unlock the host with the PIN after waking it, no longer starts the session: it begins with the stream that follows
+
+🐛 BUG FIXES:
+• A window that was maximized comes back maximized when you reopen it from the tray, instead of as a smaller window
+• A device asking for approval no longer shrinks a maximized window when it brings it to the front
+
+⚠️ COMPATIBILITY:
+• PyroWave needs StreamLight 6.4.0 and Vibeshine or Vibepollo 2.0; sessions recorded before 9.1.0 show the codec as not recorded
+
 --------------------------------------------------
 Version 9.0.0 - "The New Look Update" (30/09/2026)
 --------------------------------------------------

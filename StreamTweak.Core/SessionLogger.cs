@@ -28,6 +28,20 @@ namespace StreamTweak
 
         /// <summary>Null when the stream was still live (session ended abruptly).</summary>
         public DateTime? End { get; set; }
+
+        /// <summary>
+        /// The server's encoder for this stream, as its log names it (<c>av1_nvenc</c>,
+        /// <c>pyrowave</c>, …) — 9.1.0, §82. Null in records written before 9.1.0 and for a stream
+        /// that never created one (a stream a few seconds long can end first); shown as unknown,
+        /// never guessed. <see cref="EncoderNames"/> turns it into a label.
+        /// <para>One name, the last one seen: the codec is negotiated once, when the client opens
+        /// the stream, and every re-creation inside the stream (a resolution or display change)
+        /// is made from that same configuration — the log of 30/09/2026 re-creates the encoder
+        /// twice in one stream, with the same name both times. A different codec needs a new
+        /// stream, which gets its own span.</para>
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Encoder { get; set; }
     }
 
     /// <summary>
@@ -352,7 +366,43 @@ namespace StreamTweak
             lock (_spanLock)
             {
                 if (_activeStreamSpans.Count > 0 && _activeStreamSpans[^1].End == null) return;
-                _activeStreamSpans.Add(new StreamSpan { Start = when });
+                _activeStreamSpans.Add(new StreamSpan { Start = when, Encoder = TakePendingEncoder(when) });
+            }
+        }
+
+        // An encoder line that arrived with no stream open to take it. The log writes it about
+        // 0.3 s after CLIENT CONNECTED, and the app opens the stream on the start line before it,
+        // on the same dispatcher, so this should never be needed — it is the net for the order
+        // being reversed some day, kept for a few seconds only so it cannot land on a later stream.
+        private static string?  _pendingEncoder;
+        private static DateTime _pendingEncoderAt;
+        private const double PENDING_ENCODER_MAX_AGE_SEC = 10;
+
+        private static string? TakePendingEncoder(DateTime streamStart)
+        {
+            string? e = _pendingEncoder;
+            _pendingEncoder = null;
+            return e != null && Math.Abs((streamStart - _pendingEncoderAt).TotalSeconds) <= PENDING_ENCODER_MAX_AGE_SEC ? e : null;
+        }
+
+        /// <summary>
+        /// Attaches the encoder the server just created to the stream in progress (9.1.0, §82).
+        /// Called for every <c>Creating encoder</c> line, re-creations included: the last one wins.
+        /// </summary>
+        public static void RecordStreamEncoder(string encoder)
+        {
+            lock (_spanLock)
+            {
+                if (_activeSessionId != null && _activeStreamSpans.Count > 0 && _activeStreamSpans[^1].End == null)
+                {
+                    var open = _activeStreamSpans[^1];
+                    if (open.Encoder != null && !open.Encoder.Equals(encoder, StringComparison.OrdinalIgnoreCase))
+                        DebugLogger.Log($"[Session] encoder changed inside one stream: {open.Encoder} → {encoder}");
+                    open.Encoder = encoder;
+                    return;
+                }
+                _pendingEncoder   = encoder;
+                _pendingEncoderAt = DateTime.Now;
             }
         }
 
@@ -366,6 +416,54 @@ namespace StreamTweak
             }
         }
 
+        /// <summary>
+        /// A first stream shorter than this, followed by another inside the grace period, is not
+        /// part of the session (9.1.0, §82): the session restarts with the stream that follows.
+        /// The case is the PIN pad after a Wake-on-LAN, or any brief Desktop session opened just
+        /// to reach the host, when the client did not declare it with UNLOCKBEGIN — it opened the
+        /// record and the real session, starting seconds later, was merged into it (30/09/2026:
+        /// a 10 s Desktop stream at 19:18:42 in front of the real one at 19:19:01).
+        /// </summary>
+        public const double ShortFirstStreamSeconds = 20;
+
+        /// <summary>
+        /// Called when a stream starts inside the grace period. If the session's only stream so
+        /// far was shorter than <see cref="ShortFirstStreamSeconds"/>, forgets it and restarts the
+        /// session's record at <paramref name="now"/>, with this stream as its first; returns true
+        /// and the caller resets whatever it accumulated. Otherwise changes nothing and returns
+        /// false — the caller records a reconnect as usual.
+        /// </summary>
+        public static bool RestartIfOnlyShortStream(DateTime now)
+        {
+            string? sid = _activeSessionId;
+            if (sid == null) return false;
+            lock (_spanLock)
+            {
+                if (_activeStreamSpans.Count != 1 || _activeStreamSpans[0].End is not { } end ||
+                    (end - _activeStreamSpans[0].Start).TotalSeconds >= ShortFirstStreamSeconds)
+                    return false;
+            }
+            try
+            {
+                lock (_fileLock)
+                {
+                    var sessions = Load();
+                    var entry = sessions.FirstOrDefault(s => s.Id == sid);
+                    if (entry == null || entry.EndTime != null) return false;
+                    entry.StartTime         = now;
+                    _activeSessionStartTime = now;
+                    lock (_spanLock)
+                    {
+                        _activeStreamSpans.Clear();
+                        _activeStreamSpans.Add(new StreamSpan { Start = now, Encoder = TakePendingEncoder(now) });
+                    }
+                    Save(sessions);
+                }
+                return true;
+            }
+            catch { return false; }
+        }
+
         /// <summary>Copy of the intervals so far, for persisting. Null when there are none.</summary>
         public static List<StreamSpan>? SnapshotStreamSpans()
         {
@@ -373,7 +471,7 @@ namespace StreamTweak
             {
                 if (_activeStreamSpans.Count == 0) return null;
                 return _activeStreamSpans
-                    .Select(s => new StreamSpan { Start = s.Start, End = s.End })
+                    .Select(s => new StreamSpan { Start = s.Start, End = s.End, Encoder = s.Encoder })
                     .ToList();
             }
         }
@@ -401,7 +499,7 @@ namespace StreamTweak
                     lock (_spanLock)
                     {
                         _activeStreamSpans.Clear();
-                        _activeStreamSpans.Add(new StreamSpan { Start = entry.StartTime });
+                        _activeStreamSpans.Add(new StreamSpan { Start = entry.StartTime, Encoder = TakePendingEncoder(entry.StartTime) });
                     }
                     sessions.Insert(0, entry);
 

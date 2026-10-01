@@ -25,7 +25,7 @@ namespace StreamTweak
             // The version lives in the title bar only (it was also at the bottom of the sidebar);
             // a newer release shows up next to it as the update pill.
             var v = Assembly.GetExecutingAssembly().GetName().Version;
-            TitleVersionText.Text = v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "9.0.0";
+            TitleVersionText.Text = v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "9.1.0";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -117,7 +117,12 @@ namespace StreamTweak
                 if (AppWindow.Presenter is OverlappedPresenter op &&
                     op.State == OverlappedPresenterState.Minimized)
                 {
-                    ShowWindow(WindowNative.GetWindowHandle(this), SW_HIDE);
+                    var hwnd = WindowNative.GetWindowHandle(this);
+                    // Windows remembers whether a minimized window goes back maximized; read it
+                    // now, while it is still minimized — BringToFront needs it after the hide.
+                    var wp = new WINDOWPLACEMENT { length = Marshal.SizeOf<WINDOWPLACEMENT>() };
+                    _restoreMaximized = GetWindowPlacement(hwnd, ref wp) && (wp.flags & WPF_RESTORETOMAXIMIZED) != 0;
+                    ShowWindow(hwnd, SW_HIDE);
                     // Pages keep their timers running unless they are told the window is
                     // gone — navigation events never fire for a hide. See issue #7.
                     AppStateService.Instance.SetMainWindowVisible(false);
@@ -816,16 +821,44 @@ namespace StreamTweak
             }
         }
 
+        /// <summary>True when the window was maximized before it was minimized (and hidden).</summary>
+        private bool _restoreMaximized;
+
+        /// <summary>
+        /// Brings the window back from the tray the way it was: maximized if it was maximized.
+        /// A window that is already on screen keeps its state — SW_RESTORE on a maximized window
+        /// shrinks it, which a bridge approval prompt used to do.
+        /// </summary>
         public void BringToFront()
         {
             var hwnd = WindowNative.GetWindowHandle(this);
-            ShowWindow(hwnd, SW_RESTORE);   // un-hide if window was hidden via minimize
+            if (!IsWindowVisible(hwnd) || IsIconic(hwnd))
+                ShowWindow(hwnd, _restoreMaximized ? SW_SHOWMAXIMIZED : SW_RESTORE);
             SetForegroundWindow(hwnd);
             AppStateService.Instance.SetMainWindowVisible(true);
         }
 
-        private const int SW_HIDE    = 0;
-        private const int SW_RESTORE = 9;
+        private const int SW_HIDE          = 0;
+        private const int SW_SHOWMAXIMIZED = 3;
+        private const int SW_RESTORE       = 9;
+        private const int WPF_RESTORETOMAXIMIZED = 0x0002;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct WINDOWPLACEMENT
+        {
+            public int length, flags, showCmd;
+            public int minX, minY, maxX, maxY;                  // POINT ptMinPosition, ptMaxPosition
+            public int normalLeft, normalTop, normalRight, normalBottom;   // RECT rcNormalPosition
+        }
+
+        [DllImport("user32.dll")]
+        private static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT lpwndpl);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsWindowVisible(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        private static extern bool IsIconic(IntPtr hWnd);
 
         [DllImport("user32.dll")]
         private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);

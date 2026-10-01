@@ -62,7 +62,7 @@ Everything below is in the current release, whichever version first introduced i
 - Apps to close when a session starts and reopen when it ends — Hue Sync, RGB suites, anything that fights with the client — with a per-app switch to exclude one without removing it
 
 **📋 Sessions and telemetry**
-- **Full session log** — every session with duration, RTT, drop rate, and the games it played with their covers. Optionally, sessions that never launched a game are discarded rather than recorded
+- **Full session log** — every session with duration, RTT, drop rate, and the games it played with their covers, and the codec of each stream. Optionally, sessions that never launched a game are discarded rather than recorded
 - **Quality report** — open any session for its client and host stats, a grade of Excellent / Good / Poor with the four checks behind it, and one timeline of RTT, host frame latency, drops, bitrate, decode latency and host compute, with zoom, a Focus view and full screen
 - **Compare two sessions** side by side, with per-metric deltas
 - **Dashboard** — at the top, a live host monitor at rest (GPU temperature and load, VRAM, CPU, network, once a second) or the live session while streaming; below, the last session above your recently streamed games, the host setup, a performance trend over the period you choose, and your paired clients
@@ -86,14 +86,12 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched on the Clients page here, and on the device too
 
-## ✨ What's New in 9.0.0 — "The New Look Update"
+## ✨ What's New in 9.1.0 — "The Codec Update"
 
-- **A new look, built to scale** — every page redrawn, in one centred column that grows with the window up to a set width, from a 7" handheld to 4K
-- **Grouped menu and a live title bar** — Streaming and Host sections; stream state, game, link speed, LAN and Tailscale addresses (click to copy, or hide them in Settings); the glossary opens as a side panel (F1)
-- **Dashboard** — a compact band with the host's vitals or the live stream, the last session above your recently streamed games, host setup, performance and paired clients
-- **Sessions** — grouped by day with filters and a period summary, a Verdict card that explains the grade, and one timeline for every chart with zoom, a Focus view and full screen
-- **Library** — a wall of covers with time played, sessions and typical grade per game, search, store filters, sorting and a side sheet for each game
-- **Clients and Network** — one card per device with an icon you pick for what it is, and this PC's LAN address on the Network page
+- **The codec of every stream** — each stream records what the server compressed it with (AV1 · NVENC, PyroWave…), shown in the session's Host card and on the timeline
+- **PyroWave shown for what it is** — it encodes on the GPU's shaders, so the encoder figure reads n/a on those streams and Compare no longer sets it against an NVENC session
+- **No more false starts** — a short first stream, like the PIN unlock after a wake, no longer starts the session
+- **Back the way you left it** — a maximized window comes back maximized from the tray, and a device asking for approval no longer shrinks it
 
 *Older releases are in [changelog.txt](changelog.txt).*
 

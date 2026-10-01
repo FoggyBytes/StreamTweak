@@ -114,6 +114,12 @@ namespace StreamTweak.Controls
             public string Label = "";
             public Color Color;
             public IReadOnlyList<float> Data = Array.Empty<float>();
+
+            // Stretches (0..1) where the figure does not measure this series' subject — the Enc
+            // line on a PyroWave or software stream, where the encoder bypasses the video-encode
+            // engine and the line reads 0 (9.1.0, §82). Drawn grey and dashed, read as n/a.
+            public List<(double F0, double F1)>? Muted;
+            public string? MutedLabel, MutedLoadIn;                   // "PyroWave", "GPU"
         }
 
         private sealed class Lane
@@ -334,11 +340,27 @@ namespace StreamTweak.Controls
             var compute = new Lane { Key = "compute", Name = "Host compute", Unit = "%", Term = "GPU", FixedMax = 100, Decimals = 0,
                                      Tip = "GPU, encoder and CPU load on this PC." };
             if (s.HostGpuTimeSeries is { Count: >= 2 }) compute.Series.Add(new Series { Label = "GPU", Color = S1, Data = s.HostGpuTimeSeries });
-            if (s.HostEncTimeSeries is { Count: >= 2 }) compute.Series.Add(new Series { Label = "Enc", Color = S2, Data = s.HostEncTimeSeries });
+            if (s.HostEncTimeSeries is { Count: >= 2 })
+            {
+                var enc = new Series { Label = "Enc", Color = S2, Data = s.HostEncTimeSeries };
+                // The streams whose encoder the Enc figure cannot see (§82). Its load is in the GPU
+                // line (PyroWave, on the shaders) or in the CPU one (software).
+                var bypass = (_axis?.Streams() ?? Enumerable.Empty<(double F0, double F1, string? Encoder)>())
+                    .Where(st => st.Encoder != null && !EncoderNames.UsesVideoEncodeEngine(st.Encoder)).ToList();
+                if (bypass.Count > 0)
+                {
+                    enc.Muted    = bypass.Select(st => (st.F0, st.F1)).ToList();
+                    enc.MutedLabel  = EncoderNames.Label(bypass[0].Encoder);
+                    enc.MutedLoadIn = EncoderNames.LoadShownIn(bypass[0].Encoder);
+                }
+                compute.Series.Add(enc);
+            }
             if (s.HostCpuTimeSeries is { Count: >= 2 }) compute.Series.Add(new Series { Label = "CPU", Color = S3, Data = s.HostCpuTimeSeries });
             if (compute.Series.Count > 0)
             {
                 compute.Note = "Load on this PC. The encoder normally runs near its limit on demanding streams, so it is shown as context and not graded.";
+                if (compute.Series.FirstOrDefault(x => x.Muted != null) is { } muted)
+                    compute.Note += $" Enc is n/a on the dashed stretches: those streams used {muted.MutedLabel}, which does not use the video-encode engine — its load is in the {muted.MutedLoadIn} line.";
                 _lanes.Add(compute);
             }
         }
@@ -405,10 +427,15 @@ namespace StreamTweak.Controls
             IEnumerable<Lane> shown = focus ? _lanes.Where(l => l.Key == _focusKey) : _lanes;
             foreach (var l in shown)
             {
-                l.Height = focus ? Math.Max(260, LaneHeight * 4) : (l.Series.Count > 1 ? Math.Max(LaneHeight, 78) : LaneHeight);
+                var header = BuildHeader(l, focus);
+                // A legend lane is as tall as its legend: 78 held the name and three series, and
+                // the "Enc n/a on PyroWave" line (9.1.0) pushed it past that, so the centred block
+                // spilled over both edges. Measured, so another line can never clip it again.
+                double minH = l.Series.Count > 1 ? Math.Max(78, HeaderHeight(header)) : 0;
+                l.Height = focus ? Math.Max(260, LaneHeight * 4) : Math.Max(LaneHeight, minH);
                 AddRow(l.Height);
                 var head = LaneHeaderShell(row);
-                head.Child = BuildHeader(l, focus);
+                head.Child = header;
                 l.Plot = new Canvas();
                 _lanesGrid.Children.Add(head);
                 _lanesGrid.Children.Add(PlotShell(row, l.Plot));
@@ -455,6 +482,14 @@ namespace StreamTweak.Controls
             return b;
         }
 
+        /// <summary>Height a lane needs for this header: its content plus the shell's padding
+        /// (6 + 6) and top border (1), as <see cref="LaneHeaderShell"/> draws them.</summary>
+        private static double HeaderHeight(UIElement header)
+        {
+            header.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            return Math.Ceiling(header.DesiredSize.Height) + 13;
+        }
+
         private static Border PlotShell(int row, Canvas canvas)
         {
             canvas.Children.Clear();
@@ -482,6 +517,12 @@ namespace StreamTweak.Controls
                     row.Children.Add(v);
                     l.LegendValues.Add(v);
                     sp.Children.Add(row);
+                    if (se.Muted != null)
+                    {
+                        var why = Label($"{se.Label} n/a on {se.MutedLabel}", 11, Text4);
+                        ToolTipService.SetToolTip(why, $"{se.MutedLabel} does not use the video-encode engine: its load is in the {se.MutedLoadIn} line");
+                        sp.Children.Add(why);
+                    }
                 }
             }
             else
@@ -685,11 +726,23 @@ namespace StreamTweak.Controls
                     cv.Children.Add(area);
                 }
 
-                var line = new Polyline { Stroke = B(col), StrokeThickness = big ? 2 : 1.5, StrokeLineJoin = PenLineJoin.Round };
-                var lp = new PointCollection();
-                foreach (var b in bs) lp.Add(new Point(X(b.F), Y(b.Avg)));
-                line.Points = lp;
-                cv.Children.Add(line);
+                // One polyline per run of buckets on the same side of a muted stretch; a muted run is
+                // grey and dashed (the Enc line on a PyroWave stream, §82). No muted stretch = one run.
+                var muted = l.Series[si].Muted;
+                int r0 = 0;
+                while (r0 < bs.Count)
+                {
+                    bool off = InMuted(muted, bs[r0].F);
+                    int r1 = r0;
+                    while (r1 + 1 < bs.Count && InMuted(muted, bs[r1 + 1].F) == off) r1++;
+                    var line = new Polyline { Stroke = B(off ? Text4 : col), StrokeThickness = big ? 2 : 1.5, StrokeLineJoin = PenLineJoin.Round };
+                    if (off) line.StrokeDashArray = new DoubleCollection { 4, 3 };
+                    var lp = new PointCollection();
+                    for (int k = r0 > 0 ? r0 - 1 : r0; k <= r1; k++) lp.Add(new Point(X(bs[k].F), Y(bs[k].Avg)));   // joined to the run before
+                    line.Points = lp;
+                    cv.Children.Add(line);
+                    r0 = r1 + 1;
+                }
             }
         }
 
@@ -744,6 +797,7 @@ namespace StreamTweak.Controls
             {
                 var starts = new List<double> { 0 };
                 starts.AddRange(_axis.GapFractions());
+                var encoders = _axis.Streams().Select(st => st.Encoder).ToList();   // §82: "S1 · PyroWave"
                 double lastRight = double.NegativeInfinity;
                 for (int i = 0; i < starts.Count; i++)
                 {
@@ -757,7 +811,7 @@ namespace StreamTweak.Controls
                         {
                             Background = B(C(0xCC, 0x14, 0x16, 0x16)), CornerRadius = new CornerRadius(3),
                             Padding = new Thickness(3, 0, 3, 1),
-                            Child = Label($"S{i + 1}", 10.5, Text4, medium: true),
+                            Child = Label(i < encoders.Count && encoders[i] != null ? $"S{i + 1} · {EncoderNames.Label(encoders[i])}" : $"S{i + 1}", 10.5, Text4, medium: true),
                         };
                         tag.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                         lastRight = left + tag.DesiredSize.Width;
@@ -1084,7 +1138,7 @@ namespace StreamTweak.Controls
                 for (int i = 0; i < l.LegendValues.Count && i < l.Series.Count; i++)
                 {
                     var d = l.Series[i].Data;
-                    l.LegendValues[i].Text = FormatValue(d[IndexAt(d.Count, f)], l.Decimals) + l.Unit;
+                    l.LegendValues[i].Text = InMuted(l.Series[i].Muted, f) ? "n/a" : FormatValue(d[IndexAt(d.Count, f)], l.Decimals) + l.Unit;
                 }
             }
         }
@@ -1123,10 +1177,26 @@ namespace StreamTweak.Controls
                 }
                 for (int i = 0; i < l.LegendValues.Count && i < l.Series.Count; i++)
                 {
-                    var v = VisibleValues(l.Series[i].Data);
-                    l.LegendValues[i].Text = v.Count > 0 ? FormatValue(v.Average(), 0) + l.Unit : "—";
+                    var v = VisibleValues(l.Series[i].Data, l.Series[i].Muted);
+                    l.LegendValues[i].Text = v.Count > 0 ? FormatValue(v.Average(), 0) + l.Unit : l.Series[i].Muted != null ? "n/a" : "—";
                 }
             }
+        }
+
+        private static bool InMuted(List<(double F0, double F1)>? muted, double f)
+            => muted != null && muted.Any(r => f >= r.F0 - 1e-9 && f <= r.F1 + 1e-9);
+
+        /// <summary>The visible points of a series, leaving out its muted stretches (§82).</summary>
+        private List<double> VisibleValues(IReadOnlyList<float> d, List<(double F0, double F1)>? muted)
+        {
+            if (muted == null) return VisibleValues(d);
+            int n = d.Count;
+            var all = VisibleValues(d);
+            int i0 = Math.Clamp((int)Math.Ceiling(_z0 * (n - 1) - 1e-9), 0, n - 1);
+            var kept = new List<double>(all.Count);
+            for (int k = 0; k < all.Count; k++)
+                if (!InMuted(muted, n > 1 ? (double)(i0 + k) / (n - 1) : 0)) kept.Add(all[k]);
+            return kept;
         }
 
         private List<double> VisibleValues(IReadOnlyList<float> d)
@@ -1151,7 +1221,7 @@ namespace StreamTweak.Controls
             {
                 foreach (var se in l.Series)
                 {
-                    var v = VisibleValues(se.Data);
+                    var v = VisibleValues(se.Data, se.Muted);
                     if (v.Count == 0) continue;
                     _focusStats.Children.Add(Stat($"{se.Label} average", FormatValue(v.Average(), 0), l.Unit));
                     _focusStats.Children.Add(Stat($"{se.Label} peak", FormatValue(v.Max(), 0), l.Unit));

@@ -47,6 +47,14 @@ namespace StreamTweak
         public event Action<AppLaunchInfo>? AppLaunchDetected;
 
         /// <summary>
+        /// Raised with the encoder name of each <c>Creating encoder [name]</c> line (9.1.0, §82):
+        /// <c>av1_nvenc</c>, <c>pyrowave</c>, … The server writes it about 0.3 s after CLIENT CONNECTED
+        /// and again at every re-creation inside the same stream, so it is a fact about the stream in
+        /// progress, never a session event — the consumer attaches it to the open stream.
+        /// </summary>
+        public event Action<string>? EncoderDetected;
+
+        /// <summary>
         /// Extracts the launched exe path from a Sunshine/Apollo `Info: Executing: ["path"] in […]`
         /// line. Returns null for prep commands (`Executing Do Cmd: [...]`) and non-exe cmds
         /// (e.g. `steam://…`). Matches on the `Executing: ["` prefix so `Do Cmd:` is excluded.
@@ -187,6 +195,8 @@ namespace StreamTweak
             {
                 DebugLog("A session is already running at startup (stream sockets are open)");
                 FireRetrospectiveStarted();
+                if (!string.IsNullOrEmpty(currentLogFilePath))
+                    FireRetrospectiveEncoder(ReadTailLines(currentLogFilePath, 300));
             }
             else if (!string.IsNullOrEmpty(currentLogFilePath))
             {
@@ -270,6 +280,13 @@ namespace StreamTweak
                                 DebugLog("Desktop session detected in log (no command to run)");
                                 AppLaunchDetected?.Invoke(new AppLaunchInfo { IsDesktop = true });
                             }
+                        }
+
+                        string? encoder = LogParser.ParseEncoderName(line);
+                        if (encoder != null)
+                        {
+                            DebugLog($"Encoder created: {encoder}");
+                            EncoderDetected?.Invoke(encoder);
                         }
 
                         LogParser.StreamingEvent streamingEvent = LogParser.ParseLogLine(line);
@@ -521,6 +538,7 @@ namespace StreamTweak
 
                         DebugLog("Active session detected in tail at startup — raising StreamStarted retroactively");
                         FireRetrospectiveStarted();
+                        FireRetrospectiveEncoder(tailLines);
                         return;
                     }
                     if (ev == LogParser.StreamingEvent.StreamStopped)
@@ -546,6 +564,7 @@ namespace StreamTweak
                 {
                     DebugLog("Active session detected in file head at startup (long session, sockets confirm) — raising StreamStarted retroactively");
                     FireRetrospectiveStarted();
+                    FireRetrospectiveEncoder(tailLines);
                     return;
                 }
 
@@ -570,6 +589,27 @@ namespace StreamTweak
             if (LogParser.HasActiveStreamSockets()) return true;
             Thread.Sleep(1000);
             return LogParser.HasActiveStreamSockets();
+        }
+
+        /// <summary>
+        /// The encoder of a session picked up at startup: the last <c>Creating encoder</c> line of
+        /// the stream in progress, read backwards from the end of the log until the stream's own
+        /// start (or an end) is reached — anything before that belongs to an earlier stream. A
+        /// stream too long for its encoder line to be in the tail simply goes without one.
+        /// </summary>
+        private void FireRetrospectiveEncoder(string[] tailLines)
+        {
+            for (int i = tailLines.Length - 1; i >= 0; i--)
+            {
+                string? encoder = LogParser.ParseEncoderName(tailLines[i]);
+                if (encoder != null)
+                {
+                    DebugLog($"Encoder of the session in progress: {encoder}");
+                    EncoderDetected?.Invoke(encoder);
+                    return;
+                }
+                if (LogParser.ParseLogLine(tailLines[i]) != LogParser.StreamingEvent.None) return;
+            }
         }
 
         private void FireRetrospectiveStarted()

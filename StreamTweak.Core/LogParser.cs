@@ -157,6 +157,25 @@ namespace StreamTweak
             return StreamingEvent.None;
         }
 
+        /// <summary>
+        /// The encoder a stream uses, from <c>Creating encoder [name]</c> (9.1.0, §82). Written the
+        /// same way by Sunshine, Apollo, Vibeshine and Vibepollo (<c>src/video.cpp</c>, verified
+        /// 30/09/2026), each time the encoder is created — so also on every re-creation inside one
+        /// stream, which is why this is a separate result and never a session event. Anchored at
+        /// the start of the message like the session markers (issue #9, §65). Null otherwise.
+        /// </summary>
+        public static string? ParseEncoderName(string logLine)
+        {
+            if (string.IsNullOrWhiteSpace(logLine)) return null;
+            const string marker = "Creating encoder [";
+            string message = ExtractMessage(logLine);
+            if (!message.StartsWith(marker, StringComparison.OrdinalIgnoreCase)) return null;
+            int close = message.IndexOf(']', marker.Length);
+            if (close <= marker.Length) return null;
+            string name = message.Substring(marker.Length, close - marker.Length).Trim();
+            return name.Length > 0 ? name : null;
+        }
+
         public static string? FindStreamingServiceLogFile()
         {
             // Step 1: try registry — fast and precise

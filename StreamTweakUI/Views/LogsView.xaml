@@ -455,6 +455,13 @@
                                     </StackPanel>
                                     <ctrl:ResponsiveGrid MinColumnWidth="120" MaxColumns="4" ColumnSpacing="16" RowSpacing="14">
                                         <StackPanel>
+                                            <TextBlock Text="Codec" Style="{StaticResource ST9_Label}"/>
+                                            <TextBlock Text="{x:Bind ViewModel.DetailCodec, Mode=OneWay}" Style="{StaticResource ST9_ValueS}" TextTrimming="CharacterEllipsis"
+                                                       ToolTipService.ToolTip="{x:Bind ViewModel.DetailCodec, Mode=OneWay}"/>
+                                            <TextBlock Text="{x:Bind ViewModel.DetailCodecSub, Mode=OneWay}" Style="{StaticResource ST9_Hint}"
+                                                       ToolTipService.ToolTip="{x:Bind ViewModel.DetailCodecSub, Mode=OneWay}"/>
+                                        </StackPanel>
+                                        <StackPanel>
                                             <TextBlock Text="Frame latency" Style="{StaticResource ST9_Label}"/>
                                             <StackPanel Orientation="Horizontal"><TextBlock Text="{x:Bind ViewModel.DetailHostLat, Mode=OneWay}" Style="{StaticResource ST9_ValueS}"/><TextBlock Text="ms" Style="{StaticResource ST9_Unit}"/></StackPanel>
                                             <TextBlock Text="{x:Bind ViewModel.DetailHostLatSub, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
@@ -471,7 +478,7 @@
                                         </StackPanel>
                                         <StackPanel>
                                             <TextBlock Text="Encoder" Style="{StaticResource ST9_Label}"/>
-                                            <StackPanel Orientation="Horizontal"><TextBlock Text="{x:Bind ViewModel.DetailEncoder, Mode=OneWay}" Style="{StaticResource ST9_ValueS}"/><TextBlock Text="%" Style="{StaticResource ST9_Unit}"/></StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="{x:Bind ViewModel.DetailEncoder, Mode=OneWay}" Style="{StaticResource ST9_ValueS}"/><TextBlock Text="{x:Bind ViewModel.DetailEncoderUnit, Mode=OneWay}" Style="{StaticResource ST9_Unit}"/></StackPanel>
                                             <TextBlock Text="{x:Bind ViewModel.DetailEncoderSub, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
                                         </StackPanel>
                                         <StackPanel>

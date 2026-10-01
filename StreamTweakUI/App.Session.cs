@@ -138,6 +138,7 @@ namespace StreamTweak
                 _logMonitor.StreamingEventDetected += LogMonitor_StreamingEventDetected;
                 _logMonitor.GameLaunchDetected += OnGameLaunchDetected;
                 _logMonitor.AppLaunchDetected += _launchWatcher.OnAppLaunched;
+                _logMonitor.EncoderDetected += OnEncoderDetected;
                 _logMonitor.StartMonitoring();
             }
             catch { }
@@ -154,6 +155,7 @@ namespace StreamTweak
                 _logMonitor.StreamingEventDetected -= LogMonitor_StreamingEventDetected;
                 _logMonitor.GameLaunchDetected -= OnGameLaunchDetected;
                 _logMonitor.AppLaunchDetected -= _launchWatcher.OnAppLaunched;
+                _logMonitor.EncoderDetected -= OnEncoderDetected;
                 _logMonitor.StopMonitoring();
                 _logMonitor.Dispose();
                 _logMonitor = null;
@@ -206,9 +208,24 @@ namespace StreamTweak
                         else
                         {
                             StopInactivityTimer(); // reconnected within grace period
-                            // Reconnect inside the grace period: a new live interval in the
-                            // same session, which is what lets the chart show the idle gap.
-                            SessionLogger.RecordStreamStart(DateTime.Now);
+
+                            // A session whose only stream so far lasted seconds — the PIN pad
+                            // after a Wake-on-LAN, a Desktop session opened just to reach the host —
+                            // is not what the user came for: the session restarts with this stream,
+                            // telemetry included, instead of carrying the short one at its head.
+                            // The side effects (managed apps, spatial audio) stay as they are:
+                            // closing and reopening them seconds apart would help nobody (§82).
+                            if (SessionLogger.RestartIfOnlyShortStream(DateTime.Now))
+                            {
+                                DebugLogger.Log($"[Streaming] the session's only stream lasted under {SessionLogger.ShortFirstStreamSeconds:0} s: the session restarts with this one");
+                                _telemetryAccumulator.Reset();
+                            }
+                            else
+                            {
+                                // Reconnect inside the grace period: a new live interval in the
+                                // same session, which is what lets the chart show the idle gap.
+                                SessionLogger.RecordStreamStart(DateTime.Now);
+                            }
 
                             // ⚠️ Load-bearing since the link flag started clearing on disconnect.
                             // This branch is the resume path, and HandleAutoStreamStart — which is
@@ -255,6 +272,20 @@ namespace StreamTweak
                 });
             }
             catch { }
+        }
+
+        /// <summary>
+        /// The server created an encoder: attach it to the stream in progress (9.1.0, §82). Same
+        /// dispatcher as the start line it follows, so the stream is already open when this runs.
+        /// Nothing for a PIN-unlock session, which is kept out of the history altogether.
+        /// </summary>
+        private void OnEncoderDetected(string encoder)
+        {
+            _dispatcher.TryEnqueue(() =>
+            {
+                if (_unlockSessionActive) return;
+                SessionLogger.RecordStreamEncoder(encoder);
+            });
         }
 
         // The server log names the exact executable it launched (~1 s before CLIENT CONNECTED),

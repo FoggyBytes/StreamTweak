@@ -485,6 +485,13 @@ namespace StreamTweak.ViewModels
         public string DetailCpuSub      { get => _cpuSub;  private set => SetProperty(ref _cpuSub, value); }
         public string DetailNetTx       { get => _net;     private set => SetProperty(ref _net, value); }
 
+        // 9.1.0 (§82): the codec(s) of the session, and the unit of the Encoder figure — empty when
+        // the figure reads n/a because every stream bypassed the video-encode engine.
+        private string _codec = "—", _codecSub = "", _encUnit = "%";
+        public string DetailCodec       { get => _codec;    private set => SetProperty(ref _codec, value); }
+        public string DetailCodecSub    { get => _codecSub; private set => SetProperty(ref _codecSub, value); }
+        public string DetailEncoderUnit { get => _encUnit;  private set => SetProperty(ref _encUnit, value); }
+
 
         private void RefreshDetail()
         {
@@ -517,6 +524,15 @@ namespace StreamTweak.ViewModels
             if (s.EndReason == "Interrupted") sub.Add("interrupted");
             if (s.IsDebugSession) sub.Add("debug session, synthetic data");
             DetailSubtitle = string.Join(" · ", sub);
+
+            // ── Codec: from the streams' own records, so older sessions (no encoder) read unknown
+            var enc = EncoderSummary.Of(s.StreamSpans, s.EndTime);
+            DetailCodec    = enc.Primary ?? "—";
+            DetailCodecSub = !enc.Known ? "not recorded"
+                           : enc.Others.Count > 0 ? $"+ {string.Join(", ", enc.Others)} · {enc.PrimaryStreams} of {enc.TotalStreams} streams"
+                           : enc.TotalStreams == 1 ? "one stream"
+                           : enc.PrimaryStreams == enc.TotalStreams ? $"all {enc.TotalStreams} streams"
+                           : $"{enc.PrimaryStreams} of {enc.TotalStreams} streams";
 
             DetailCovers = s.GameCoversForDisplay;
             HasDetailCovers = DetailCovers.Count > 0;
@@ -596,8 +612,24 @@ namespace StreamTweak.ViewModels
             DetailLateSub    = lateReported ? $"over {Fmt(frame * QualityGradeCalculator.LateFrameMultiplier, 1)} ms (2 frames)" : "not reported";
             DetailGpu        = q.HostGpuAvg >= 0 ? q.HostGpuAvg.ToString(Inv) : "—";
             DetailGpuSub     = q.HostGpuAvg >= 0 ? $"peak {q.HostGpuPeak} %" : "not recorded";
-            DetailEncoder    = q.HostGpuEncAvg >= 0 ? q.HostGpuEncAvg.ToString(Inv) : "—";
-            DetailEncoderSub = q.HostGpuEncAvg >= 0 ? $"peak {q.HostGpuEncPeak} %" : "not recorded";
+            // The saved figure is unchanged — the video-encode engine's average over every sample.
+            // What changes is how it is presented when some streams never used that engine (§82).
+            var encUse = EncoderSummary.Of(s.StreamSpans, s.EndTime);
+            if (q.HostGpuEncAvg < 0)
+            {
+                DetailEncoder = "—"; DetailEncoderUnit = "%"; DetailEncoderSub = "not recorded";
+            }
+            else if (encUse.AllBypass)
+            {
+                DetailEncoder = "n/a"; DetailEncoderUnit = "";
+                DetailEncoderSub = $"{encUse.BypassLabel} · load in {encUse.BypassLoadIn}";
+            }
+            else
+            {
+                DetailEncoder = q.HostGpuEncAvg.ToString(Inv); DetailEncoderUnit = "%";
+                DetailEncoderSub = encUse.Mixed ? $"{encUse.BypassLabel} streams read 0 · peak {q.HostGpuEncPeak} %"
+                                                : $"peak {q.HostGpuEncPeak} %";
+            }
             DetailTemp       = q.HostGpuTempAvg >= 0 ? q.HostGpuTempAvg.ToString(Inv) : "—";
             DetailTempSub    = q.HostGpuTempAvg >= 0 ? $"max {q.HostGpuTempMax} °C" : "not recorded";
             DetailCpu        = q.HostCpuAvg >= 0 ? q.HostCpuAvg.ToString(Inv) : "—";
@@ -627,6 +659,7 @@ namespace StreamTweak.ViewModels
             DetailRtt = DetailJitter = DetailDrops = DetailBitrate = DetailDecode = "—";
             DetailRttSub = DetailJitterSub = DetailDropsSub = DetailBitrateSub = DetailDecodeSub = "";
             DetailHostLat = DetailLate = DetailGpu = DetailEncoder = DetailTemp = DetailCpu = DetailNetTx = "—";
+            DetailEncoderUnit = "%";
             DetailHostLatSub = DetailLateSub = DetailGpuSub = DetailEncoderSub = DetailTempSub = DetailCpuSub = "";
         }
 
@@ -792,7 +825,16 @@ namespace StreamTweak.ViewModels
             CompareHostMetrics.Add(M("Frame latency max", a.HostLatencyMaxMs, b.HostLatencyMaxMs, 1, " ms", Dir.LowerBetter, a.HostLatencyMaxMs >= 0, b.HostLatencyMaxMs >= 0));
             CompareHostMetrics.Add(M("Late frames",  a.HostLatencyOverBudgetPct, b.HostLatencyOverBudgetPct, 2, " %", Dir.LowerBetter, a.HostLatencyOverBudgetPct >= 0, b.HostLatencyOverBudgetPct >= 0));
             CompareHostMetrics.Add(M("GPU avg",      a.HostGpuAvg,     b.HostGpuAvg,     0, " %",   Dir.Neutral, a.HostGpuAvg    >= 0, b.HostGpuAvg    >= 0));
-            CompareHostMetrics.Add(M("Encoder avg",  a.HostGpuEncAvg,  b.HostGpuEncAvg,  0, " %",   Dir.Neutral, a.HostGpuEncAvg >= 0, b.HostGpuEncAvg >= 0));
+            // Encoder avg only compares like with like (§82): a PyroWave or software session's figure is
+            // n/a, and a mixed one counts its PyroWave streams as 0, so neither is set against an NVENC one.
+            var encA = EncoderSummary.Of(_compareA?.StreamSpans, _compareA?.EndTime);
+            var encB = EncoderSummary.Of(_compareB?.StreamSpans, _compareB?.EndTime);
+            var encRow = M("Encoder avg", a.HostGpuEncAvg, b.HostGpuEncAvg, 0, " %", Dir.Neutral,
+                          a.HostGpuEncAvg >= 0 && !encA.AllBypass, b.HostGpuEncAvg >= 0 && !encB.AllBypass);
+            if (encA.AllBypass) encRow.ValueA = $"n/a · {encA.BypassLabel}";
+            if (encB.AllBypass) encRow.ValueB = $"n/a · {encB.BypassLabel}";
+            if (!encA.EncFigureComparable || !encB.EncFigureComparable) encRow.Delta = "—";
+            CompareHostMetrics.Add(encRow);
             CompareHostMetrics.Add(M("GPU temp avg", a.HostGpuTempAvg, b.HostGpuTempAvg, 0, " °C",  Dir.Neutral, a.HostGpuTempAvg>= 0, b.HostGpuTempAvg>= 0));
             CompareHostMetrics.Add(M("CPU avg",      a.HostCpuAvg,     b.HostCpuAvg,     0, " %",   Dir.Neutral, a.HostCpuAvg    >= 0, b.HostCpuAvg    >= 0));
             CompareHostMetrics.Add(M("Net TX avg",   a.HostNetTxAvg,   b.HostNetTxAvg,   0, " Mbps",Dir.Neutral, a.HostNetTxAvg  >= 0, b.HostNetTxAvg  >= 0));

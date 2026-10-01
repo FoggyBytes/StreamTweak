@@ -79,9 +79,11 @@
                     <Rectangle Height="0.5" Fill="{StaticResource STBorderActive}" Margin="0,0,0,10"/>
 
                     <local:GlossaryRow Term="GPU"
-                                       Definition="Graphics Processing Unit — 3D engine utilization of the graphics card (%)."/>
+                                       Definition="Graphics Processing Unit — 3D engine utilization of the graphics card (%). With PyroWave it includes the encoding too: PyroWave compresses the stream with compute shaders, not the video encoder."/>
                     <local:GlossaryRow Term="GPU Encoder"
-                                       Definition="Hardware video encoding engine on the GPU used to compress the stream (NVENC on NVIDIA)."/>
+                                       Definition="Load on the GPU's hardware video encoder (NVENC on NVIDIA, AMF on AMD, Quick Sync on Intel), the one H.264, HEVC and AV1 streams use. Shown as n/a on PyroWave streams, which never touch it — their load is in GPU — and on software encoders, whose load is in CPU."/>
+                    <local:GlossaryRow Term="Codec"
+                                       Definition="What the streaming server compressed each stream with, as it wrote it in its log — for example AV1 · NVENC, or PyroWave on Vibeshine and Vibepollo 2.0. Recorded per stream from StreamTweak 9.1.0; older sessions show not recorded."/>
                     <local:GlossaryRow Term="GPU Temp"
                                        Definition="GPU temperature in degrees Celsius, read cross-vendor (NVIDIA, AMD, Intel) from the same kernel source Windows Task Manager uses."/>
                     <local:GlossaryRow Term="VRAM"
@@ -159,7 +161,7 @@
                     <local:GlossaryRow Term="Late frames"
                                        Definition="Share of the session where the host needed more than two frame periods for a frame (16.7 ms at 120 fps). The one host check that reads as stutter; a few around loading screens are normal."/>
                     <local:GlossaryRow Term="Timeline"
-                                       Definition="The session detail chart: every metric on one clock. Hover to read all values at the same moment, drag on the strip below to zoom, click a game to zoom to the time it ran. Dashed lines mark the grade limits; S1, S2 mark streams split by a reconnect."/>
+                                       Definition="The session detail chart: every metric on one clock. Hover to read all values at the same moment, drag on the strip below to zoom, click a game to zoom to the time it ran. Dashed lines mark the grade limits; S1, S2 mark streams split by a reconnect, each with its codec; the encoder line turns grey and dashed where a stream did not use the video encoder."/>
 
                     <!-- ── APP MANAGEMENT ── -->
                     <TextBlock Text="// APP MANAGEMENT"

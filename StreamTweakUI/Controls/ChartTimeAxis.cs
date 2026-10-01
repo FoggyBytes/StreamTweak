@@ -11,7 +11,7 @@ namespace StreamTweak.Controls
     /// </summary>
     public sealed class ChartTimeAxis
     {
-        private readonly List<(DateTime Start, DateTime End, double Seconds)> _spans = new();
+        private readonly List<(DateTime Start, DateTime End, double Seconds, string? Encoder)> _spans = new();
 
         public ChartTimeAxis(IEnumerable<StreamSpan>? spans, DateTime? fallbackEnd)
         {
@@ -21,7 +21,7 @@ namespace StreamTweak.Controls
                 {
                     DateTime end = s.End ?? fallbackEnd ?? s.Start;
                     double secs = (end - s.Start).TotalSeconds;
-                    if (secs > 0) _spans.Add((s.Start, end, secs));
+                    if (secs > 0) _spans.Add((s.Start, end, secs, s.Encoder));
                 }
             }
 
@@ -73,6 +73,21 @@ namespace StreamTweak.Controls
 
         /// <summary>Number of live streams the session was made of.</summary>
         public int StreamCount => _spans.Count;
+
+        /// <summary>
+        /// Each stream as its 0..1 range on the axis, with the encoder its record names (null when
+        /// unknown) — 9.1.0, §82. Same order and same streams as <see cref="GapFractions"/>.
+        /// </summary>
+        public IEnumerable<(double F0, double F1, string? Encoder)> Streams()
+        {
+            if (!IsUsable) yield break;
+            double acc = 0;
+            foreach (var s in _spans)
+            {
+                yield return (acc / ActiveSeconds, (acc + s.Seconds) / ActiveSeconds, s.Encoder);
+                acc += s.Seconds;
+            }
+        }
 
         /// <summary>Positions in 0..1 where one stream ended and the next began.</summary>
         public IEnumerable<double> GapFractions()

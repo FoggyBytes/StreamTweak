@@ -424,8 +424,10 @@ namespace StreamTweak
         public void ShowMainWindow()
         {
             if (MainWindow == null) return;
-            MainWindow.Activate();
+            // Shown first, in the state it had: Activate() on a hidden window shows it as a
+            // normal window, and a window that was maximized came back un-maximized.
             MainWindow.BringToFront();
+            MainWindow.Activate();
         }
 
         public void ExitApp()
