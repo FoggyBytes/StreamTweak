@@ -4,6 +4,15 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+----------------------------------------------------
+Version 9.1.1 - "The Right Size Update" (03/10/2026)
+----------------------------------------------------
+
+🐛 BUG FIXES:
+• The window keeps the size you gave it — sending it to the tray used to throw that size away, so it opened at the minimum size on the next launch
+• A window you left maximized opens maximized on the next launch
+• A window maximized under an earlier version no longer comes back as a normal window as large as the screen
+
 -----------------------------------------------
 Version 9.1.0 - "The Codec Update" (01/10/2026)
 -----------------------------------------------

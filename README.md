@@ -86,6 +86,10 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched on the Clients page here, and on the device too
 
+## ✨ What's New in 9.1.1 — "The Right Size Update"
+
+- **The window remembers itself** — it keeps the size you gave it across trips to the tray and restarts, and opens maximized if you left it maximized
+
 ## ✨ What's New in 9.1.0 — "The Codec Update"
 
 - **The codec of every stream** — each stream records what the server compressed it with (AV1 · NVENC, PyroWave…), shown in the session's Host card and on the timeline

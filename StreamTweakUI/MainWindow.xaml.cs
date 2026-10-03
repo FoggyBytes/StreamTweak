@@ -25,7 +25,7 @@ namespace StreamTweak
             // The version lives in the title bar only (it was also at the bottom of the sidebar);
             // a newer release shows up next to it as the update pill.
             var v = Assembly.GetExecutingAssembly().GetName().Version;
-            TitleVersionText.Text = v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "9.1.0";
+            TitleVersionText.Text = v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "9.1.1";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -104,7 +104,8 @@ namespace StreamTweak
                 finally { _quitDialogOpen = false; }
             };
 
-            // Persist window size on every resize.
+            // Persist window size on every resize — minimizing and maximizing included, since
+            // SaveWindowSize reads the normal bounds and the maximized flag, not the live size.
             AppWindow.Changed += (_, args) =>
             {
                 if (args.DidSizeChange && !_immersive) SaveWindowSize();
@@ -437,8 +438,8 @@ namespace StreamTweak
             double scale = dpi / 96.0;
 
             // Restore last saved size, or fall back to the minimum.
-            int logicalWidth  = Services.ConfigService.GetInt("WindowWidth",  DefaultLogicalWidth);
-            int logicalHeight = Services.ConfigService.GetInt("WindowHeight", DefaultLogicalHeight);
+            int logicalWidth  = Services.ConfigService.GetInt(KeyWindowWidth,  DefaultLogicalWidth);
+            int logicalHeight = Services.ConfigService.GetInt(KeyWindowHeight, DefaultLogicalHeight);
 
             // Enforce minimum so the UI never becomes unusable.
             logicalWidth  = Math.Max(logicalWidth,  MinLogicalWidth);
@@ -447,14 +448,29 @@ namespace StreamTweak
             int physicalWidth  = (int)(logicalWidth  * scale);
             int physicalHeight = (int)(logicalHeight * scale);
 
+            // Never larger than the screen: up to 9.1.0 a maximized window saved the size of the
+            // whole display as its normal size, and came back as a borderless-looking giant.
+            var display = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
+            physicalWidth  = Math.Min(physicalWidth,  display.WorkArea.Width);
+            physicalHeight = Math.Min(physicalHeight, display.WorkArea.Height);
+
             AppWindow.Resize(new SizeInt32(physicalWidth, physicalHeight));
 
             // Always center on the primary display (WorkArea is in physical pixels).
-            var display = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
             var x = (display.WorkArea.Width  - physicalWidth)  / 2;
             var y = (display.WorkArea.Height - physicalHeight) / 2;
             AppWindow.Move(new PointInt32(x, y));
+
+            // Maximized is not applied here — that would show the window, and under --minimized
+            // it must stay hidden. BringToFront applies it on the first show, from launch or tray.
+            _restoreMaximized = Services.ConfigService.GetBool(KeyWindowMaximized, false);
         }
+
+        private const string KeyWindowWidth     = "WindowWidth";
+        private const string KeyWindowHeight    = "WindowHeight";
+        private const string KeyWindowMaximized = "WindowMaximized";
+        private int  _savedWidth = -1, _savedHeight = -1;
+        private bool? _savedMaximized;
 
         private void SaveWindowSize()
         {
@@ -462,13 +478,29 @@ namespace StreamTweak
             uint dpi = GetDpiForWindow(hwnd);
             double scale = dpi / 96.0;
 
+            // The NORMAL bounds, not AppWindow.Size: that is the live size, so minimizing to the
+            // tray saved the iconic 159×27 and maximizing saved the whole screen — every trip to
+            // the tray threw the user's size away. rcNormalPosition is the size the window goes
+            // back to, whatever state it is in now.
+            var wp = new WINDOWPLACEMENT { length = Marshal.SizeOf<WINDOWPLACEMENT>() };
+            if (!GetWindowPlacement(hwnd, ref wp)) return;
+
             // Persist logical (DIP) dimensions so they can be correctly scaled
             // on any DPI when the process restarts.
-            int logicalWidth  = (int)(AppWindow.Size.Width  / scale);
-            int logicalHeight = (int)(AppWindow.Size.Height / scale);
+            int logicalWidth  = (int)((wp.normalRight  - wp.normalLeft) / scale);
+            int logicalHeight = (int)((wp.normalBottom - wp.normalTop)  / scale);
+            // Minimized: whether it goes back maximized, which is what the next launch should do.
+            bool maximized = wp.showCmd == SW_SHOWMAXIMIZED
+                          || (wp.showCmd == SW_SHOWMINIMIZED && (wp.flags & WPF_RESTORETOMAXIMIZED) != 0);
 
-            Services.ConfigService.Set("WindowWidth",  logicalWidth);
-            Services.ConfigService.Set("WindowHeight", logicalHeight);
+            // Each Set rewrites config.json, and a drag fires this for every step.
+            if (logicalWidth != _savedWidth)   Services.ConfigService.Set(KeyWindowWidth,  _savedWidth  = logicalWidth);
+            if (logicalHeight != _savedHeight) Services.ConfigService.Set(KeyWindowHeight, _savedHeight = logicalHeight);
+            if (maximized != _savedMaximized)
+            {
+                _savedMaximized = maximized;
+                Services.ConfigService.Set(KeyWindowMaximized, maximized);
+            }
         }
 
         // ── Navigation ──────────────────────────────────────────────────────────
@@ -821,7 +853,10 @@ namespace StreamTweak
             }
         }
 
-        /// <summary>True when the window was maximized before it was minimized (and hidden).</summary>
+        /// <summary>
+        /// True when the window was maximized before it was minimized (and hidden) — or, before
+        /// its first show, when it was maximized at the last run (ConfigureWindowSize).
+        /// </summary>
         private bool _restoreMaximized;
 
         /// <summary>
@@ -839,6 +874,7 @@ namespace StreamTweak
         }
 
         private const int SW_HIDE          = 0;
+        private const int SW_SHOWMINIMIZED = 2;
         private const int SW_SHOWMAXIMIZED = 3;
         private const int SW_RESTORE       = 9;
         private const int WPF_RESTORETOMAXIMIZED = 0x0002;

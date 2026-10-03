@@ -273,8 +273,10 @@ namespace StreamTweak
             // own ctor, so their timers consult this on the way up. Under --minimized the
             // window is never shown, and nothing on it should be polling.
             AppStateService.Instance.SetMainWindowVisible(!startMinimized);
+            // ShowMainWindow, not a bare Activate(): it brings the window up maximized when it
+            // was maximized at the last run.
             if (!startMinimized)
-                MainWindow.Activate();
+                ShowMainWindow();
             SetupTrayIcon();
             // Startup marker, kept on purpose. The gap between "StreamTweakBridge listening"
             // and this line is the cost of building the window and the tray — measured 0,58 s
