@@ -5,6 +5,23 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 ----------------------------------------------------
+Version 9.2.0 - "The Host Power Update" (07/10/2026)
+----------------------------------------------------
+
+📈 SESSIONS:
+• A Host power lane on the session timeline — the NVIDIA GPU's board power against the power limit in force, whoever set it (NVIDIA App, MSI Afterburner…), and the GPU temperature, through the whole session
+• Amber bands where the driver held the card at its power limit — read from the driver itself, which holds the card about 10% under the limit — and in Focus the share of time it spent there
+
+🐛 BUG FIXES:
+• StreamTweak's service could turn a request away for a second when two arrived together — the pipe it listens on could not open a second connection while still serving the first
+
+🧹 UNDER THE HOOD:
+• StreamTweak's service restarts by itself if it ever stops unexpectedly — before, it stayed down until the next reboot, and link-speed changes with it
+
+⚠️ COMPATIBILITY:
+• Host power is recorded on NVIDIA GPUs only; sessions recorded before 9.2.0 have no Host power lane
+
+----------------------------------------------------
 Version 9.1.1 - "The Right Size Update" (03/10/2026)
 ----------------------------------------------------
 

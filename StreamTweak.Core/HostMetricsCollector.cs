@@ -23,6 +23,12 @@ namespace StreamTweak
         public int VramTotalMb; // Total dedicated GPU memory, MB (D3DKMT/DXGI cross-vendor)
         public int Cpu;         // CPU utilization %
         public int NetTxMbps;   // Network outbound throughput on the primary interface, Mbps
+        // NVIDIA board power, the power limit in force and "held at the limit" (9.2.0), from
+        // StreamTweakService. -1 elsewhere. For the session timeline only: NOT sent in STATS —
+        // NVIDIA App's overlay already shows them live, on the host's screen and in the stream.
+        public int GpuPowerW;
+        public int GpuPowerLimitW;
+        public int GpuPowerCapped; // 1 = yes, 0 = no, -1 = unknown
 
         /// <summary>Serializes to the wire format expected by StreamLight's STATS command.</summary>
         public string ToJson() =>
@@ -52,7 +58,8 @@ namespace StreamTweak
         private const int IDLE_STOP_MS = 10_000;
 
         private static readonly HostMetricsSample Unavailable = new()
-            { Gpu = -1, GpuEnc = -1, GpuTemp = -1, VramUsedMb = -1, VramTotalMb = -1, Cpu = -1, NetTxMbps = -1 };
+            { Gpu = -1, GpuEnc = -1, GpuTemp = -1, VramUsedMb = -1, VramTotalMb = -1, Cpu = -1, NetTxMbps = -1,
+              GpuPowerW = -1, GpuPowerLimitW = -1, GpuPowerCapped = -1 };
 
         private readonly object _sampleLock = new();
         private HostMetricsSample _latestSample = Unavailable;
@@ -75,6 +82,9 @@ namespace StreamTweak
 
         // Network: primary (default-route) interface sampler
         private readonly PrimaryNetSampler _net = new();
+
+        // NVIDIA board power + enforced limit, asked of StreamTweakService (9.2.0)
+        private readonly GpuPowerReader _power = new();
 
         // NVML (NVIDIA GPU temperature) — fallback only
         private bool   _nvmlInitialized;
@@ -210,6 +220,8 @@ namespace StreamTweak
             {
                 // One read of each PDH category, covering every instance at once.
                 _gpu.Sample();
+                _power.Refresh();
+                var (powerW, limitW, capped) = _power.Latest();
 
                 var sample = new HostMetricsSample
                 {
@@ -220,6 +232,9 @@ namespace StreamTweak
                     VramTotalMb = SampleVramTotalMb(),
                     Cpu         = SampleCpuUsage(),
                     NetTxMbps   = _net.SampleTxMbps(),
+                    GpuPowerW      = powerW,
+                    GpuPowerLimitW = limitW,
+                    GpuPowerCapped = capped,
                 };
 
                 lock (_sampleLock) { _latestSample = sample; }
@@ -459,6 +474,61 @@ namespace StreamTweak
                     _memoryUnavailable = true;
                     VramUsedBytes = -1;
                 }
+            }
+        }
+
+        // ── GPU power (from StreamTweakService) ───────────────────────────────
+
+        /// <summary>
+        /// Board power, limit in force and power-cap flag for the session timeline (9.2.0).
+        /// This process never calls NVML for them — see StreamTweakService/Nvml.cs — so they
+        /// come from the service over its pipe.
+        /// The read is fired from the tick and lands in a cache: a slow or stopped service
+        /// never stretches a tick. One read in flight at a time; values older than 3 s read as
+        /// -1; after an unavailable answer (no NVIDIA GPU, service not running) the next
+        /// attempt waits 30 s.
+        /// </summary>
+        private sealed class GpuPowerReader
+        {
+            private const int StaleMs          = 3_000;
+            private const int RetryUnavailableMs = 30_000;
+
+            private int  _busy;
+            private long _nextTryTicks;
+            private long _stampTicks = long.MinValue / 2;
+            private int  _powerW = -1, _limitW = -1, _capped = -1;
+
+            public (int PowerW, int LimitW, int Capped) Latest()
+            {
+                if (Environment.TickCount64 - Volatile.Read(ref _stampTicks) > StaleMs) return (-1, -1, -1);
+                return (Volatile.Read(ref _powerW), Volatile.Read(ref _limitW), Volatile.Read(ref _capped));
+            }
+
+            public void Refresh()
+            {
+                if (Environment.TickCount64 < Volatile.Read(ref _nextTryTicks)) return;
+                if (Interlocked.Exchange(ref _busy, 1) == 1) return;
+
+                _ = System.Threading.Tasks.Task.Run(async () =>
+                {
+                    try
+                    {
+                        var st = await Nvidia.GpuPowerClient.GetStateAsync().ConfigureAwait(false);
+                        if (st is { Available: true, PowerMw: >= 0 } && st.EnforcedMw > 0)
+                        {
+                            Volatile.Write(ref _powerW, (int)Math.Round(st.PowerMw / 1000.0));
+                            Volatile.Write(ref _limitW, (int)Math.Round(st.EnforcedMw / 1000.0));
+                            Volatile.Write(ref _capped, st.PowerCapped);
+                            Volatile.Write(ref _stampTicks, Environment.TickCount64);
+                        }
+                        else
+                        {
+                            Volatile.Write(ref _nextTryTicks, Environment.TickCount64 + RetryUnavailableMs);
+                        }
+                    }
+                    catch { }
+                    finally { Volatile.Write(ref _busy, 0); }
+                });
             }
         }
 

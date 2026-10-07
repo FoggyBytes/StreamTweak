@@ -137,6 +137,12 @@ namespace StreamTweak
         private readonly List<int>   _gpuTempSamples  = new();
         private readonly List<int>   _cpuSamples      = new();
         private readonly List<int>   _netTxSamples    = new();
+        // NVIDIA board power and its enforced limit, W (9.2.0) — always added as a pair
+        private readonly List<int>   _gpuPowerSamples      = new();
+        private readonly List<int>   _gpuPowerLimitSamples = new();
+        // 1/0 = the driver held the GPU at its power limit at that sample; only when the
+        // service could tell (an older NVML cannot), so it may be shorter than the pair above
+        private readonly List<int>   _gpuPowerCappedSamples = new();
 
         // Time series per le sparkline
         private readonly List<float> _rttTimeSeries     = new();
@@ -215,6 +221,12 @@ namespace StreamTweak
                 if (host.GpuTemp >= 0) _gpuTempSamples.Add(host.GpuTemp);
                 if (host.Cpu     >= 0) _cpuSamples.Add(host.Cpu);
                 if (host.NetTxMbps >= 0) _netTxSamples.Add(host.NetTxMbps);
+                if (host.GpuPowerW >= 0 && host.GpuPowerLimitW > 0)
+                {
+                    _gpuPowerSamples.Add(host.GpuPowerW);
+                    _gpuPowerLimitSamples.Add(host.GpuPowerLimitW);
+                    if (host.GpuPowerCapped >= 0) _gpuPowerCappedSamples.Add(host.GpuPowerCapped);
+                }
             }
         }
 
@@ -286,6 +298,26 @@ namespace StreamTweak
             }
         }
 
+        /// <summary>
+        /// Returns the per-batch GPU power series (board power W, enforced limit W, GPU
+        /// temperature °C) for the Host power lane (9.2.0), same 600-point cap. Power and
+        /// limit are always the same length; each list is empty when never available.
+        /// Call before <see cref="Reset"/>.
+        /// </summary>
+        public (List<float> Power, List<float> Limit, List<float> Temp, List<float> Capped) GetHostPowerSeries()
+        {
+            lock (_lock)
+            {
+                const int MaxSeriesPoints = 600;
+                return (
+                    Downsample(ToFloat(_gpuPowerSamples),       MaxSeriesPoints),
+                    Downsample(ToFloat(_gpuPowerLimitSamples),  MaxSeriesPoints),
+                    Downsample(ToFloat(_gpuTempSamples),        MaxSeriesPoints),
+                    // Averaged when downsampled: each point is the share of its slice spent capped.
+                    Downsample(ToFloat(_gpuPowerCappedSamples), MaxSeriesPoints));
+            }
+        }
+
         private static List<float> ToFloat(List<int> src)
         {
             var r = new List<float>(src.Count);
@@ -315,6 +347,9 @@ namespace StreamTweak
                 _gpuTempSamples.Clear();
                 _cpuSamples.Clear();
                 _netTxSamples.Clear();
+                _gpuPowerSamples.Clear();
+                _gpuPowerLimitSamples.Clear();
+                _gpuPowerCappedSamples.Clear();
                 _rttTimeSeries.Clear();
                 _dropsTimeSeries.Clear();
                 _bitrateTimeSeries.Clear();
@@ -371,6 +406,10 @@ namespace StreamTweak
         public List<float> HostGpuSeries { get; set; } = [];
         public List<float> HostEncSeries { get; set; } = [];
         public List<float> HostCpuSeries { get; set; } = [];
+        public List<float> HostPowerSeries      { get; set; } = [];
+        public List<float> HostPowerLimitSeries { get; set; } = [];
+        public List<float> HostGpuTempSeries    { get; set; } = [];
+        public List<float> HostPowerCappedSeries { get; set; } = [];
 
         /// <summary>
         /// Live-stream intervals so far. Carries the gaps through a crash recovery, without

@@ -26,4 +26,10 @@
     <PackageReference Include="System.Text.Json" Version="8.0.6" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The GPU power state that crosses the pipe (9.2.0). One file for both sides: the
+         service does not reference StreamTweak.Core, so it compiles this one by link. -->
+    <Compile Include="..\StreamTweak.Core\Nvidia\GpuPowerState.cs" Link="Shared\GpuPowerState.cs" />
+  </ItemGroup>
+
 </Project>

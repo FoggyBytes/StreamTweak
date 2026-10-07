@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v9.1.1 - GitHub Release Installer
+; StreamTweak v9.2.0 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 2.4) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "9.1.1"
+#define MyAppVersion "9.2.0"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -328,6 +328,14 @@ begin
     Exec('sc.exe',
       'description ' + '{#ServiceName}' +
       ' "Applies network adapter speed changes for StreamTweak without UAC prompts."',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+    // Restart the service by itself if it ever dies (9.2.0). It reads the GPU power through
+    // NVML, and an NVML call can fault during a driver reset (TDR): without this the service
+    // stayed down until the next reboot, NIC control included. 5 s, every time; the failure
+    // count resets after a day.
+    Exec('sc.exe',
+      'failure ' + '{#ServiceName}' + ' reset= 86400 actions= restart/5000/restart/5000/restart/5000',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
     // Start the service immediately

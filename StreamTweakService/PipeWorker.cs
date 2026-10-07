@@ -11,8 +11,13 @@ public class PipeWorker : BackgroundService
 {
     public const string PipeName = "StreamTweakService";
     private readonly ILogger<PipeWorker> _logger;
+    private readonly GpuPowerMonitor _gpuPower;
 
-    public PipeWorker(ILogger<PipeWorker> logger) => _logger = logger;
+    public PipeWorker(ILogger<PipeWorker> logger, GpuPowerMonitor gpuPower)
+    {
+        _logger   = logger;
+        _gpuPower = gpuPower;
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -28,6 +33,19 @@ public class PipeWorker : BackgroundService
                     new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, null),
                     PipeAccessRights.ReadWrite,
                     AccessControlType.Allow));
+
+                // The service itself must be able to open further instances of its own pipe.
+                // ReadWrite carries no CreateNewInstance, so while one client was still being
+                // served the next Create failed with "access denied" and the pipe stayed shut
+                // for a second. Rare while clients were rare; constant once the host metrics
+                // started asking for the GPU's power every second (9.2.0, §88.7). Other users are
+                // unaffected.
+                using (var self = WindowsIdentity.GetCurrent())
+                {
+                    if (self.User != null)
+                        pipeSecurity.AddAccessRule(new PipeAccessRule(
+                            self.User, PipeAccessRights.FullControl, AccessControlType.Allow));
+                }
 
                 // Create server without using — ownership is transferred to HandleClientAsync
                 var server = NamedPipeServerStreamAcl.Create(
@@ -212,6 +230,11 @@ public class PipeWorker : BackgroundService
 
                     case "UPDATEPROGRESS":
                         await writer.WriteLineAsync(WindowsUpdateManager.Instance.GetStateJson());
+                        break;
+
+                    // GPU power readings for the session timeline (9.2.0). Read-only.
+                    case "GPUPOWERSTATE":
+                        await writer.WriteLineAsync(JsonSerializer.Serialize(_gpuPower.GetState()));
                         break;
 
                     default:
@@ -495,6 +518,7 @@ public class PipeWorker : BackgroundService
     /// Omit Command (or set to "SetSpeed") for NIC speed changes.
     /// Set Command = "WriteFile" to write a file as LocalSystem.
     /// Set Command = "SwapAssets" / "RestoreAssets" for host-tile swap/restore.
+    /// Set Command = "GpuPowerState" for the GPU's power readings.
     /// </summary>
     private record PipeCommand(
         string?  Command,

@@ -20,11 +20,12 @@ namespace StreamTweak
                 if (sid == null) return;
                 var (stats, rtt, drops, bitrate, decode, hostLat) = _telemetryAccumulator.Finalize();
                 var (hostGpu, hostEnc, hostCpu) = _telemetryAccumulator.GetHostSeries();
+                var (hostPower, hostPowerLimit, hostGpuTemp, hostPowerCapped) = _telemetryAccumulator.GetHostPowerSeries();
                 if (stats.SampleCount >= 2)
                 {
                     var grade = QualityGradeCalculator.Evaluate(stats, _telemetryAccumulator.TargetFps);
                     SessionLogger.UpdateSessionTelemetry(sid, stats, grade, rtt, drops, bitrate, decode, hostLat,
-                        hostGpu, hostEnc, hostCpu);
+                        hostGpu, hostEnc, hostCpu, hostPower, hostPowerLimit, hostGpuTemp, hostPowerCapped);
                 }
                 _telemetryAccumulator.Reset();
             }
@@ -59,6 +60,7 @@ namespace StreamTweak
             {
                 var (stats, rtt, drops, bitrate, decode, hostLat) = _telemetryAccumulator.Finalize();
                 var (hostGpu, hostEnc, hostCpu) = _telemetryAccumulator.GetHostSeries();
+                var (hostPower, hostPowerLimit, hostGpuTemp, hostPowerCapped) = _telemetryAccumulator.GetHostPowerSeries();
 
                 // Snapshot detected games BEFORE the SampleCount guard.
                 // A retrospective session (StreamTweak started mid-stream with no prior
@@ -93,6 +95,10 @@ namespace StreamTweak
                     HostGpuSeries = hostGpu,
                     HostEncSeries = hostEnc,
                     HostCpuSeries = hostCpu,
+                    HostPowerSeries      = hostPower,
+                    HostPowerLimitSeries = hostPowerLimit,
+                    HostGpuTempSeries    = hostGpuTemp,
+                    HostPowerCappedSeries = hostPowerCapped,
                     GamesDetected = hasGames ? detectedGames : null,
                     StreamSpans   = SessionLogger.SnapshotStreamSpans() ?? [],
                 };
@@ -586,6 +592,13 @@ namespace StreamTweak
                 var hostGpuSeries = Enumerable.Range(0, n).Select(i => 72f + Wave(i, 80, 8)).ToList();
                 var hostEncSeries = Enumerable.Range(0, n).Select(i => 35f + Wave(i, 50, 6)).ToList();
                 var hostCpuSeries = Enumerable.Range(0, n).Select(i => 18f + Wave(i, 40, 5)).ToList();
+                // GPU power (9.2.0): a 489 W limit that the load presses against now and then,
+                // lowered to 460 W two thirds of the way in, so the limit line shows its step.
+                var hostPowerLimitSeries = Enumerable.Range(0, n).Select(i => i < 160 ? 489f : 460f).ToList();
+                var hostPowerSeries      = Enumerable.Range(0, n)
+                    .Select(i => Math.Min(430f + Wave(i, 70, 70) + Wave(i, 11, 12), hostPowerLimitSeries[i] - (i % 3))).ToList();
+                var hostPowerCappedSeries = Enumerable.Range(0, n).Select(i => hostPowerSeries[i] >= hostPowerLimitSeries[i] * 0.9f ? 1f : 0f).ToList();
+                var hostGpuTempSeries    = Enumerable.Range(0, n).Select(i => 66f + Wave(i, 120, 4) + (i < 20 ? (i - 20) * 0.6f : 0f)).ToList();
 
                 var fakeGames = GameLibraryState.Current.Games
                     .OrderBy(_ => Random.Shared.Next())
@@ -606,7 +619,8 @@ namespace StreamTweak
                 {
                     SessionLogger.UpdateSessionTelemetry(sid, fakeStats, QualityGrade.High,
                         rttSeries, dropsSeries, bitrateSeries, decodeSeries, hostLatSeries,
-                        hostGpuSeries, hostEncSeries, hostCpuSeries);
+                        hostGpuSeries, hostEncSeries, hostCpuSeries,
+                        hostPowerSeries, hostPowerLimitSeries, hostGpuTempSeries, hostPowerCappedSeries);
 
                     var sessions = SessionLogger.Load();
                     var entry    = sessions.FirstOrDefault(s => s.Id == sid);

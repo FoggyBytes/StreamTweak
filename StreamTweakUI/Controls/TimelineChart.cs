@@ -98,6 +98,7 @@ namespace StreamTweak.Controls
         private static readonly Color MintTh   = C(0xA0, 0x4a, 0xde, 0x80);
         private static readonly Color AmberTh  = C(0xB0, 0xfb, 0xbf, 0x24);
         private static readonly Color RedTh    = C(0xB0, 0xf8, 0x71, 0x71);
+        private static readonly Color ShadeFill = C(0x24, 0xfb, 0xbf, 0x24);   // Host power: held at the limit
         private static readonly Color[] GamePalette =
         {
             C(0x66, 0x39, 0x87, 0xe5), C(0x66, 0x19, 0x9e, 0x70), C(0x66, 0xd9, 0x59, 0x26),
@@ -120,6 +121,14 @@ namespace StreamTweak.Controls
             // engine and the line reads 0 (9.1.0, §82). Drawn grey and dashed, read as n/a.
             public List<(double F0, double F1)>? Muted;
             public string? MutedLabel, MutedLoadIn;                   // "PyroWave", "GPU"
+
+            // A series in another unit than its lane's, drawn on its own scale 0..ScaleMax —
+            // the GPU temperature (°C) in the Host power lane (W), 9.2.0. 0 / null = the lane's.
+            public string? Unit;
+            public double ScaleMax;
+
+            // A reference line rather than a measurement (the power limit): dashed, no area.
+            public bool Dashed;
         }
 
         private sealed class Lane
@@ -133,9 +142,15 @@ namespace StreamTweak.Controls
             public readonly List<(double V, string Label, Color Color)> Thresholds = new();
             public string Note = "";
 
+            // Stretches to shade behind the data, 0..1 per point (≥ 0.5 = shaded): the time the
+            // driver held the GPU at its power limit, in Host power (9.2.0).
+            public IReadOnlyList<float>? Shade;
+            public string ShadeLabel = "";
+
             // UI, rebuilt by BuildLayout
             public TextBlock? Value, UnitText, Sub;
             public readonly List<TextBlock> LegendValues = new();
+            public TextBlock? ShadeValue;
             public Canvas? Plot;
             public double Height;
         }
@@ -363,6 +378,29 @@ namespace StreamTweak.Controls
                     compute.Note += $" Enc is n/a on the dashed stretches: those streams used {muted.MutedLabel}, which does not use the video-encode engine — its load is in the {muted.MutedLoadIn} line.";
                 _lanes.Add(compute);
             }
+
+            // Host power (9.2.0): NVIDIA board power against the limit in force, with the GPU
+            // temperature on its own 0–100 °C scale. Power and limit are recorded as a pair, so
+            // they are the same length; the limit is a step where it was changed mid-session.
+            var power = new Lane { Key = "power", Name = "Host power", Unit = " W", Term = "Host Power", Decimals = 0,
+                                   Tip = "NVIDIA board power, the power limit in force, and the GPU temperature." };
+            if (s.HostPowerTimeSeries is { Count: >= 2 } pw && s.HostPowerLimitTimeSeries is { Count: >= 2 } lim)
+            {
+                power.Series.Add(new Series { Label = "Power", Color = S1, Data = pw });
+                power.Series.Add(new Series { Label = "Limit", Color = C(0xFF, 0xfb, 0xbf, 0x24), Data = lim, Dashed = true });
+                power.FixedMax = NiceMax(Math.Max(pw.Max(), lim.Max()) * 1.08);
+                if (s.HostPowerCappedTimeSeries is { Count: >= 2 } capped) { power.Shade = capped; power.ShadeLabel = "At the limit"; }
+            }
+            if (s.HostGpuTempTimeSeries is { Count: >= 2 } temp)
+                power.Series.Add(new Series { Label = "Temp", Color = S3, Data = temp, Unit = " °C", ScaleMax = 100 });
+            if (power.Series.Any(x => x.Unit == null))
+            {
+                power.Note = "Board power is the whole card, PCIe slot included — not the 12V-2x6 connector alone. " +
+                             "Dashed line: the power limit in force, whoever set it — NVIDIA App, Afterburner… (it steps where it was changed). " +
+                             (power.Shade != null ? "Amber bands: the driver was holding the GPU at its power limit. " : "") +
+                             "Temperature is drawn on its own scale, 0–100 °C.";
+                _lanes.Add(power);
+            }
         }
 
         private bool HasGameLane(SessionEntry s)
@@ -375,7 +413,7 @@ namespace StreamTweak.Controls
             _lanesGrid.Children.Clear();
             _lanesGrid.RowDefinitions.Clear();
             _focusBar.Children.Clear();
-            foreach (var l in _lanes) { l.Plot = null; l.Value = l.UnitText = l.Sub = null; l.LegendValues.Clear(); }
+            foreach (var l in _lanes) { l.Plot = null; l.Value = l.UnitText = l.Sub = l.ShadeValue = null; l.LegendValues.Clear(); }
 
             var s = Session;
             bool focus = Mode == TimelineMode.Focus;
@@ -523,6 +561,16 @@ namespace StreamTweak.Controls
                         ToolTipService.SetToolTip(why, $"{se.MutedLabel} does not use the video-encode engine: its load is in the {se.MutedLoadIn} line");
                         sp.Children.Add(why);
                     }
+                }
+                // The shaded stretches get a legend row too, or nothing says what they are.
+                if (l.Shade != null)
+                {
+                    var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 5 };
+                    row.Children.Add(new Rectangle { Width = 10, Height = 8, Fill = B(C(0x66, 0xfb, 0xbf, 0x24)), VerticalAlignment = VerticalAlignment.Center });
+                    row.Children.Add(Label(l.ShadeLabel, 11.5, Text3));
+                    l.ShadeValue = Label("", 11.5, Text2, medium: true);
+                    row.Children.Add(l.ShadeValue);
+                    sp.Children.Add(row);
                 }
             }
             else
@@ -686,12 +734,42 @@ namespace StreamTweak.Controls
                 if (big) AddLineLabel(cv, "target", w - _padR, Y(l.Target), Text2);
             }
 
+            // Shaded stretches (Host power: held at the power limit), behind the data. One
+            // rectangle per run of shaded buckets: one per bucket overlapped its neighbours, and
+            // the overlaps of a translucent fill read as stripes.
+            if (l.Shade is { Count: >= 2 } shade)
+            {
+                var sb = Buckets(shade);
+                double half = Math.Max(0.75, (_plotW - _padL - _padR) / Math.Max(1, sb.Count) / 2);
+                int k = 0;
+                while (k < sb.Count)
+                {
+                    if (sb[k].Avg < 0.5f) { k++; continue; }
+                    int k1 = k;
+                    while (k1 + 1 < sb.Count && sb[k1 + 1].Avg >= 0.5f) k1++;
+                    double x0 = Math.Max(_padL, X(sb[k].F) - half);
+                    double x1 = Math.Min(w - _padR, X(sb[k1].F) + half);
+                    if (x1 > x0)
+                    {
+                        var r = new Rectangle { Width = x1 - x0, Height = h, Fill = B(ShadeFill) };
+                        Canvas.SetLeft(r, x0); Canvas.SetTop(r, 0);
+                        cv.Children.Add(r);
+                    }
+                    k = k1 + 1;
+                }
+            }
+
             // Data
             for (int si = 0; si < l.Series.Count; si++)
             {
                 var bs = buckets[si];
                 if (bs.Count == 0) continue;
                 var col = l.Series[si].Color;
+                // A series in its own unit (the temperature in Host power) has its own scale.
+                double own = l.Series[si].ScaleMax;
+                Func<double, double> Ys = own > 0
+                    ? v => top + (1 - Math.Min(Math.Max(v, 0), own) / own) * (h - top - bottom)
+                    : Y;
 
                 if (l.Bars)
                 {
@@ -736,9 +814,9 @@ namespace StreamTweak.Controls
                     int r1 = r0;
                     while (r1 + 1 < bs.Count && InMuted(muted, bs[r1 + 1].F) == off) r1++;
                     var line = new Polyline { Stroke = B(off ? Text4 : col), StrokeThickness = big ? 2 : 1.5, StrokeLineJoin = PenLineJoin.Round };
-                    if (off) line.StrokeDashArray = new DoubleCollection { 4, 3 };
+                    if (off || l.Series[si].Dashed) line.StrokeDashArray = new DoubleCollection { 4, 3 };
                     var lp = new PointCollection();
-                    for (int k = r0 > 0 ? r0 - 1 : r0; k <= r1; k++) lp.Add(new Point(X(bs[k].F), Y(bs[k].Avg)));   // joined to the run before
+                    for (int k = r0 > 0 ? r0 - 1 : r0; k <= r1; k++) lp.Add(new Point(X(bs[k].F), Ys(bs[k].Avg)));   // joined to the run before
                     line.Points = lp;
                     cv.Children.Add(line);
                     r0 = r1 + 1;
@@ -1138,8 +1216,10 @@ namespace StreamTweak.Controls
                 for (int i = 0; i < l.LegendValues.Count && i < l.Series.Count; i++)
                 {
                     var d = l.Series[i].Data;
-                    l.LegendValues[i].Text = InMuted(l.Series[i].Muted, f) ? "n/a" : FormatValue(d[IndexAt(d.Count, f)], l.Decimals) + l.Unit;
+                    l.LegendValues[i].Text = InMuted(l.Series[i].Muted, f) ? "n/a" : FormatValue(d[IndexAt(d.Count, f)], l.Decimals) + (l.Series[i].Unit ?? l.Unit);
                 }
+                if (l.ShadeValue != null && l.Shade is { Count: > 0 } sh)
+                    l.ShadeValue.Text = sh[IndexAt(sh.Count, f)] >= 0.5f ? "yes" : "no";
             }
         }
 
@@ -1178,7 +1258,16 @@ namespace StreamTweak.Controls
                 for (int i = 0; i < l.LegendValues.Count && i < l.Series.Count; i++)
                 {
                     var v = VisibleValues(l.Series[i].Data, l.Series[i].Muted);
-                    l.LegendValues[i].Text = v.Count > 0 ? FormatValue(v.Average(), 0) + l.Unit : l.Series[i].Muted != null ? "n/a" : "—";
+                    l.LegendValues[i].Text = v.Count == 0 ? (l.Series[i].Muted != null ? "n/a" : "—")
+                        // A reference line reads as the value(s) it held, never an average of them.
+                        : l.Series[i].Dashed ? RangeText(v) + (l.Series[i].Unit ?? l.Unit)
+                        : FormatValue(v.Average(), 0) + (l.Series[i].Unit ?? l.Unit);
+                }
+                // At rest: the share of the stretch in view spent at the limit.
+                if (l.ShadeValue != null && l.Shade is { Count: > 0 } sh)
+                {
+                    var sv = VisibleValues(sh);
+                    l.ShadeValue.Text = sv.Count > 0 ? FormatValue(100.0 * sv.Average(), 0) + "%" : "—";
                 }
             }
         }
@@ -1223,8 +1312,36 @@ namespace StreamTweak.Controls
                 {
                     var v = VisibleValues(se.Data, se.Muted);
                     if (v.Count == 0) continue;
-                    _focusStats.Children.Add(Stat($"{se.Label} average", FormatValue(v.Average(), 0), l.Unit));
-                    _focusStats.Children.Add(Stat($"{se.Label} peak", FormatValue(v.Max(), 0), l.Unit));
+                    string unit = (se.Unit ?? l.Unit).Trim();
+                    if (se.Dashed)
+                    {
+                        _focusStats.Children.Add(Stat(se.Label, RangeText(v), unit));
+                        continue;
+                    }
+                    _focusStats.Children.Add(Stat($"{se.Label} average", FormatValue(v.Average(), 0), unit));
+                    _focusStats.Children.Add(Stat($"{se.Label} peak", FormatValue(v.Max(), 0), unit));
+                }
+
+                // Host power: how much of the time in view the card sat on its limit. From the
+                // driver's own flag when it was recorded; otherwise power ≥ 98 % of the limit,
+                // which misses a driver that holds the card ~10 % under it.
+                if (l.Key == "power" && l.Shade is { Count: >= 2 })
+                {
+                    var sv = VisibleValues(l.Shade);
+                    if (sv.Count > 0)
+                        _focusStats.Children.Add(Stat("At the limit", FormatValue(100.0 * sv.Average(), 0), "% of the time"));
+                }
+                else if (l.Key == "power" && l.Series.Count >= 2 && l.Series[1].Dashed)
+                {
+                    var pv = VisibleValues(l.Series[0].Data);
+                    var lv = VisibleValues(l.Series[1].Data);
+                    int n = Math.Min(pv.Count, lv.Count);
+                    if (n > 0)
+                    {
+                        int at = 0;
+                        for (int i = 0; i < n; i++) if (lv[i] > 0 && pv[i] >= lv[i] * 0.98) at++;
+                        _focusStats.Children.Add(Stat("At the limit", FormatValue(100.0 * at / n, 0), "% of the time"));
+                    }
                 }
                 return;
             }
@@ -1282,6 +1399,15 @@ namespace StreamTweak.Controls
             double idx = p * (v.Count - 1);
             int lo = (int)Math.Floor(idx), hi = (int)Math.Ceiling(idx);
             return v[lo] + (v[hi] - v[lo]) * (idx - lo);
+        }
+
+        /// <summary>"489", or "460–489" when a reference line changed within the values.</summary>
+        private static string RangeText(List<double> v)
+        {
+            double lo = v.Min(), hi = v.Max();
+            return Math.Round(lo) == Math.Round(hi)
+                ? FormatValue(hi, 0)
+                : $"{FormatValue(lo, 0)}–{FormatValue(hi, 0)}";
         }
 
         private static double NiceMax(double v)

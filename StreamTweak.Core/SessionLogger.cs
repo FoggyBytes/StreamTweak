@@ -96,6 +96,26 @@ namespace StreamTweak
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<float>? HostCpuTimeSeries { get; set; }
 
+        /// <summary>NVIDIA board power, W (9.2.0). Null on older records and on hosts without
+        /// an NVIDIA GPU or without StreamTweakService answering.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? HostPowerTimeSeries { get; set; }
+
+        /// <summary>The enforced power limit at each point of <see cref="HostPowerTimeSeries"/>,
+        /// W — same length. A step where the limit was changed during the session.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? HostPowerLimitTimeSeries { get; set; }
+
+        /// <summary>GPU temperature over the session, °C (9.2.0; before it only the average and
+        /// maximum were kept, in QualityStats).</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? HostGpuTempTimeSeries { get; set; }
+
+        /// <summary>The share of each slice the driver held the GPU at its power limit, 0..1
+        /// (NVML "SW Power Cap", 9.2.0). Null when the service could not tell.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<float>? HostPowerCappedTimeSeries { get; set; }
+
         /// <summary>
         /// Live-stream intervals within this session, in order. Null → the session pre-dates
         /// this feature; charts then fall back to "0 → duration" with no clock on the axis.
@@ -600,6 +620,10 @@ namespace StreamTweak
                         s.HostGpuTimeSeries = cp.HostGpuSeries.Count > 0 ? cp.HostGpuSeries : null;
                         s.HostEncTimeSeries = cp.HostEncSeries.Count > 0 ? cp.HostEncSeries : null;
                         s.HostCpuTimeSeries = cp.HostCpuSeries.Count > 0 ? cp.HostCpuSeries : null;
+                        s.HostPowerTimeSeries      = cp.HostPowerSeries is { Count: > 0 }      ? cp.HostPowerSeries      : null;
+                        s.HostPowerLimitTimeSeries = cp.HostPowerLimitSeries is { Count: > 0 } ? cp.HostPowerLimitSeries : null;
+                        s.HostGpuTempTimeSeries    = cp.HostGpuTempSeries is { Count: > 0 }    ? cp.HostGpuTempSeries    : null;
+                        s.HostPowerCappedTimeSeries = cp.HostPowerCappedSeries is { Count: > 0 } ? cp.HostPowerCappedSeries : null;
                         s.StreamSpans       = cp.StreamSpans is { Count: > 0 } ? cp.StreamSpans : null;
                         usedCheckpoint = true;
                     }
@@ -696,7 +720,11 @@ namespace StreamTweak
             List<float> hostLatencySeries,
             List<float> hostGpuSeries,
             List<float> hostEncSeries,
-            List<float> hostCpuSeries)
+            List<float> hostCpuSeries,
+            List<float>? hostPowerSeries      = null,
+            List<float>? hostPowerLimitSeries = null,
+            List<float>? hostGpuTempSeries    = null,
+            List<float>? hostPowerCappedSeries = null)
         {
             try
             {
@@ -716,6 +744,10 @@ namespace StreamTweak
                     entry.HostGpuTimeSeries = hostGpuSeries.Count > 0 ? hostGpuSeries : null;
                     entry.HostEncTimeSeries = hostEncSeries.Count > 0 ? hostEncSeries : null;
                     entry.HostCpuTimeSeries = hostCpuSeries.Count > 0 ? hostCpuSeries : null;
+                    entry.HostPowerTimeSeries      = hostPowerSeries is { Count: > 0 }      ? hostPowerSeries      : null;
+                    entry.HostPowerLimitTimeSeries = hostPowerLimitSeries is { Count: > 0 } ? hostPowerLimitSeries : null;
+                    entry.HostGpuTempTimeSeries    = hostGpuTempSeries is { Count: > 0 }    ? hostGpuTempSeries    : null;
+                    entry.HostPowerCappedTimeSeries = hostPowerCappedSeries is { Count: > 0 } ? hostPowerCappedSeries : null;
                     entry.StreamSpans       = SnapshotStreamSpans();
                     Save(sessions);
                 }

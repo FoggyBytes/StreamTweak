@@ -92,6 +92,8 @@
                                        Definition="Main processor utilization averaged across all cores (%)."/>
                     <local:GlossaryRow Term="Host Frame Latency"
                                        Definition="Time the host takes to capture and encode each frame before sending it (capture + encode), in ms — the most direct measure of whether the host kept up. Reported by the client from the per-frame host timestamp."/>
+                    <local:GlossaryRow Term="Host Power"
+                                       Definition="NVIDIA GPUs only: the card's board power during a stream (the whole card, PCIe slot included — not the 12V-2x6 connector alone), the power limit in force whoever set it (NVIDIA App, MSI Afterburner…), and the GPU temperature. Amber bands mark where the driver held the card at its limit, which it does about 10 % under it. Recorded from StreamTweak 9.2.0."/>
 
                     <!-- ── DISPLAY &amp; AUDIO ── -->
                     <TextBlock Text="// DISPLAY &amp; AUDIO"
