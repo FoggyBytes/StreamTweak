@@ -1,14 +1,17 @@
 ; =====================================================
-; StreamTweak v9.2.0 - GitHub Release Installer
+; StreamTweak v9.2.1 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 2.4) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "9.2.0"
+#define MyAppVersion "9.2.1"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
 #define ServiceName "StreamTweakService"
 #define ServiceExe "StreamTweakService.exe"
+; The TCP bridge StreamLight talks to (StreamTweakBridge.Port). Keep the two in step.
+#define BridgePort "47998"
+#define BridgeRuleName "StreamTweak Bridge"
 
 #include "CodeDependencies.iss"
 
@@ -286,6 +289,67 @@ begin
   StreamLightLinkLabel.AutoSize := True;
 end;
 
+// ── Windows Firewall rule for the bridge (9.2.1) ─────────────────────────────
+// StreamTweakUI.exe listens on TCP {#BridgePort} for StreamLight, and until 9.2.1 nothing
+// opened that port: with the firewall on, the client could not reach the host and showed
+// "Not found on this host" (StreamTweak issue #12). The bridge only ever worked where a
+// rule already existed — on the development host, one made by hand.
+//
+// Rules carrying OUR name are removed first, so an upgrade does not stack duplicates. The
+// name is also the one the issue #12 workaround told users to create by hand, so that
+// port-only rule is replaced by this narrower one. Inbound block rules on our exe go too —
+// see RemoveBridgeBlockRules. Other rules are left alone.
+//
+// Scoped to the exe AND the port, every profile: many home networks end up classified as
+// Public, and a Private-only rule would leave exactly those hosts unreachable. The bridge
+// itself refuses unapproved clients (mandatory auth since 7.2.0). Any address, so a
+// client on Tailscale reaches it as well. netsh failing (firewall service disabled) is
+// ignored: there is nothing to open then.
+procedure RemoveBridgeFirewallRule;
+var
+  ResultCode: Integer;
+begin
+  Exec('netsh.exe', 'advfirewall firewall delete rule name="{#BridgeRuleName}"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+// Inbound BLOCK rules on our exe, and nothing else. Dismissing Windows' "allow access"
+// prompt for StreamTweakUI.exe leaves block rules on it, and in Windows Firewall a block
+// rule wins over an allow rule — so with one of those in place the rule below would open
+// nothing. netsh cannot filter a delete by action, hence PowerShell. The path is compared
+// after expanding environment variables and ignoring case, the way Windows itself may
+// have stored it. Allow rules, outbound rules and every other program's rules are left
+// alone; rules pushed by Group Policy cannot be removed and are skipped silently.
+// Authorised by Marcello on 13/10/2026 (§90.2).
+procedure RemoveBridgeBlockRules(const ExePath: String);
+var
+  ResultCode: Integer;
+  PsPath: String;
+begin
+  PsPath := ExePath;
+  StringChangeEx(PsPath, '''', '''''', True);
+  Exec('powershell.exe',
+    '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' +
+    '$p = ''' + PsPath + '''; ' +
+    'Get-NetFirewallApplicationFilter | ' +
+    'Where-Object { [Environment]::ExpandEnvironmentVariables($_.Program) -ieq $p } | ' +
+    'Get-NetFirewallRule | ' +
+    'Where-Object { $_.Direction -eq ''Inbound'' -and $_.Action -eq ''Block'' } | ' +
+    'Remove-NetFirewallRule -ErrorAction SilentlyContinue"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+procedure AddBridgeFirewallRule(const ExePath: String);
+var
+  ResultCode: Integer;
+begin
+  Exec('netsh.exe',
+    'advfirewall firewall add rule name="{#BridgeRuleName}" dir=in action=allow' +
+    ' program="' + ExePath + '" protocol=TCP localport={#BridgePort} profile=any enable=yes' +
+    ' description="Lets StreamLight reach StreamTweak on this host."',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
@@ -340,6 +404,11 @@ begin
 
     // Start the service immediately
     Exec('sc.exe', 'start ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+    // Open the bridge port to clients (9.2.1) — see AddBridgeFirewallRule.
+    RemoveBridgeFirewallRule;
+    RemoveBridgeBlockRules(AppDir + '\{#MyAppExeName}');
+    AddBridgeFirewallRule(AppDir + '\{#MyAppExeName}');
   end;
 end;
 
@@ -356,6 +425,8 @@ begin
     // ...and the logon task, if the user chose Priority instead. Without this the task
     // survives the uninstall and fails at every logon, forever, launching an exe that is gone.
     Exec('schtasks.exe', '/Delete /TN "StreamTweak Startup" /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    // ...and the bridge's firewall rule (9.2.1), which would otherwise outlive the exe.
+    RemoveBridgeFirewallRule;
   end;
 end;
 

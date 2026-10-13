@@ -4,6 +4,13 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+---------------------------------------------------
+Version 9.2.1 - "The Open Door Update" (13/10/2026)
+---------------------------------------------------
+
+🐛 BUG FIXES:
+• StreamLight can find StreamTweak on a host with Windows Firewall on — the installer never opened the bridge's port, so the client showed "Not found on this host" unless a rule had been added by hand
+
 ----------------------------------------------------
 Version 9.2.0 - "The Host Power Update" (07/10/2026)
 ----------------------------------------------------
