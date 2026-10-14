@@ -11,7 +11,7 @@
 Paired with its companion client [**StreamLight**](https://github.com/FoggyBytes/StreamLight) the two work as one: the client asks for the link speed it needs, the host reports what is happening to a launch, and telemetry, store metadata, Tailscale presence and remote power and update controls travel between them over a local TCP bridge.
 
 <div align="center">
-  <img width="3840" height="2160" alt="Screenshot 2026-10-01 204951" src="https://github.com/user-attachments/assets/befd96bb-71ea-4489-a7f8-0d885f610fe2" />
+  <img width="3840" height="2160" alt="StreamLight in the dark theme" src=".github/images/streamdark.png" />
 </div>
 
 ## ✅ Compatibility
