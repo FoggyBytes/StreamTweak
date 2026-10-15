@@ -144,10 +144,20 @@ namespace StreamTweak
                 _logMonitor.StreamingEventDetected += LogMonitor_StreamingEventDetected;
                 _logMonitor.GameLaunchDetected += OnGameLaunchDetected;
                 _logMonitor.AppLaunchDetected += _launchWatcher.OnAppLaunched;
+                _logMonitor.StreamingEventDetected += LaunchWatcher_StreamingEvent;
                 _logMonitor.EncoderDetected += OnEncoderDetected;
                 _logMonitor.StartMonitoring();
             }
             catch { }
+        }
+
+        // Straight from the log reader's thread, not through the session handler: that one is
+        // gated on debug mode and auto-session state, and LaunchWatcher must see every stream
+        // start, the ones inside a grace period included (LaunchWatcher.OnStreamStarted).
+        private void LaunchWatcher_StreamingEvent(object? sender, StreamingLogMonitor.StreamingEventArgs e)
+        {
+            if (e.Event == LogParser.StreamingEvent.StreamStarted && !e.IsRetrospective)
+                _launchWatcher.OnStreamStarted();
         }
 
         // The monitor is infrastructure now and only stops when the app does —
@@ -161,6 +171,7 @@ namespace StreamTweak
                 _logMonitor.StreamingEventDetected -= LogMonitor_StreamingEventDetected;
                 _logMonitor.GameLaunchDetected -= OnGameLaunchDetected;
                 _logMonitor.AppLaunchDetected -= _launchWatcher.OnAppLaunched;
+                _logMonitor.StreamingEventDetected -= LaunchWatcher_StreamingEvent;
                 _logMonitor.EncoderDetected -= OnEncoderDetected;
                 _logMonitor.StopMonitoring();
                 _logMonitor.Dispose();

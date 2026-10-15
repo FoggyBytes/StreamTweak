@@ -32,7 +32,7 @@ namespace StreamTweak
 
         /// <summary>
         /// Raised with the full path of the executable the streaming server launched, parsed
-        /// from the server log's `Info: Executing: ["…"]` line. This is the authoritative game
+        /// from the server log's `Info: Executing: […]` line. This is the authoritative game
         /// binary — more reliable than process scanning for launcher→game handoffs (Ubisoft/EA/…).
         /// </summary>
         public event Action<string>? GameLaunchDetected;
@@ -55,9 +55,9 @@ namespace StreamTweak
         public event Action<string>? EncoderDetected;
 
         /// <summary>
-        /// Extracts the launched exe path from a Sunshine/Apollo `Info: Executing: ["path"] in […]`
+        /// Extracts the launched exe path from a Sunshine/Apollo `Info: Executing: [cmd] in […]`
         /// line. Returns null for prep commands (`Executing Do Cmd: [...]`) and non-exe cmds
-        /// (e.g. `steam://…`). Matches on the `Executing: ["` prefix so `Do Cmd:` is excluded.
+        /// (e.g. `steam://…`). Matches on the `Executing: [` prefix so `Do Cmd:` is excluded.
         /// </summary>
         private static string? TryParseLaunchedExecutable(string line)
         {
@@ -67,17 +67,34 @@ namespace StreamTweak
 
         /// <summary>
         /// Extracts the raw command from the same line, whatever it is — an executable path or a
-        /// protocol URL. Same `Executing: ["` prefix, so `Executing Do Cmd:` stays excluded.
+        /// protocol URL. The `Executing: [` prefix keeps `Executing Do Cmd:`, `Executing Undo Cmd:`,
+        /// `Executing Resume/Pause Cmd:` and `Executing [Desktop]` out.
+        /// <para>⚠️ All four servers write the command <b>as it is in apps.json</b> —
+        /// <c>"Executing: [" &lt;&lt; _app.cmd &lt;&lt; "] in [" &lt;&lt; working_dir &lt;&lt; ']'</c>
+        /// in each <c>process.cpp</c>, checked 15/10/2026 — so the quotes are there only when the
+        /// command itself has them (an exe path written quoted). Until 15/10/2026 this matched
+        /// only <c>Executing: ["</c>, and every unquoted command was
+        /// invisible: Vibeshine's own Steam Big Picture entry (<c>Executing: [steam://open/bigpicture]
+        /// in [""]</c>) left GAMESTATE describing the launch before it (§91.7).</para>
+        /// The command ends where <c>] in [</c> starts, as in <see cref="TryParseSpawnedCommand"/>.
+        /// A quoted command keeps only what is inside its first pair of quotes — the executable,
+        /// without its arguments — which is what the quoted-only parser returned.
         /// </summary>
         private static string? TryParseLaunchedCommand(string line)
         {
-            const string marker = "Executing: [\"";
+            const string marker = "Executing: [";
             int idx = line.IndexOf(marker, StringComparison.Ordinal);
             if (idx < 0) return null;
             int start = idx + marker.Length;
-            int end = line.IndexOf('"', start);
+            int end = line.IndexOf("] in [", start, StringComparison.Ordinal);
             if (end <= start) return null;
-            return line.Substring(start, end - start);
+            string cmd = line.Substring(start, end - start).Trim();
+            if (cmd.StartsWith('"'))
+            {
+                int close = cmd.IndexOf('"', 1);
+                cmd = close > 1 ? cmd.Substring(1, close - 1) : cmd.Trim('"');
+            }
+            return cmd.Length > 0 ? cmd : null;
         }
 
         /// <summary>

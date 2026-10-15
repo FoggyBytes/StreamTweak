@@ -86,6 +86,11 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched on the Clients page here, and on the device too
 
+## ✨ What's New in 9.2.2 — "The Big Picture Update"
+
+- **Big Picture waits too** — StreamLight's *Wait for the game to appear* now holds its launch screen until Steam Big Picture fills the host's screen
+- **Every launch recognised** — an app whose command has no quotes, like Steam Big Picture's, is seen again; and a stream without a launch of its own is no longer described by the game before it
+
 ## ✨ What's New in 9.2.1 — "The Open Door Update"
 
 - **Found with the firewall on** — the installer now opens the bridge's port in Windows Firewall, so StreamLight no longer reports StreamTweak as not found on a host where nobody added the rule by hand

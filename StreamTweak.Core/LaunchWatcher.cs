@@ -352,6 +352,54 @@ namespace StreamTweak
         }
 
         /// <summary>
+        /// How long before a stream starts its launch line may have been read and still belong to
+        /// it. Every server writes the launch line before it answers the client's /launch, and the
+        /// client opens RTSP right after the answer: on this host the gap was 0.08-0.11 s for a
+        /// Steam game, the Desktop and Big Picture alike (15/10/2026). Fifteen seconds is generous
+        /// for that, and still well short of two separate launches — the case that went wrong had
+        /// the Desktop 46 s before Big Picture.
+        /// </summary>
+        private const double StaleLaunchSeconds = 15;
+
+        /// <summary>
+        /// A stream just started (the server logged it). If the launch we are holding was read
+        /// longer ago than <see cref="StaleLaunchSeconds"/>, it is not this stream's: say
+        /// <c>idle</c> rather than describe it.
+        /// <para>Two streams reach here without a launch of their own. A <b>resume</b>, where a
+        /// stale <c>ready</c> is at best useless (StreamLight 6.3.0+ ignores GAMESTATE on a
+        /// resume, §78) and <c>idle</c> is what an older client should reveal on anyway. And a
+        /// launch whose log line we failed to recognise — the 15/10/2026 Big Picture case, where
+        /// the host kept answering with the Desktop launch before it (§91.7). A stale <c>ready</c>
+        /// there would lift the client's curtain at its first poll, before the new game exists;
+        /// <c>idle</c> lifts it too, but says why in the client's log.</para>
+        /// <para>The stream-start event comes from the same log reader as the launch line, after
+        /// it, so the two read times compare fairly even when the reader is catching up on old
+        /// lines at startup.</para>
+        /// </summary>
+        public void OnStreamStarted()
+        {
+            lock (_lock)
+            {
+                if (_phase == LaunchPhase.Idle || _launchedAtUtc == DateTime.MinValue) return;
+
+                double age = (DateTime.UtcNow - _launchedAtUtc).TotalSeconds;
+                if (age < StaleLaunchSeconds) return;
+
+                DebugLogger.Log($"[Launch] stream started {age:F1}s after the last launch seen " +
+                                $"({PhaseToWire(_phase)}" +
+                                (string.IsNullOrEmpty(_gameName) ? "" : $", {_gameName}") +
+                                ") — not this stream's launch: idle");
+
+                StopTimerLocked();
+                _phase = LaunchPhase.Idle;
+                _gameName = "";
+                _targetExeFile = _targetDirectory = _targetProcessName = null;
+                _targetProcessSeen = false;
+                _launchedAtUtc = DateTime.MinValue;
+            }
+        }
+
+        /// <summary>
         /// The GAMESTATE payload. Reports facts only — phase, game, elapsed, the cap — and leaves
         /// the wording to the client, where it can be translated in context (same split the
         /// link-speed handshake already uses).
@@ -410,6 +458,25 @@ namespace StreamTweak
 
         private void ResolveTargetLocked(AppLaunchInfo info)
         {
+            // Strategy 0 — Steam Big Picture (15/10/2026, §91.7). Its command is a Steam URL that
+            // names no game, so the library lookup below finds nothing and the launch used to be
+            // "nothing to wait for". Big Picture is Steam's own window — steamwebhelper.exe, under
+            // the Steam folder — so the Steam folder is the target, and the usual rules do the
+            // rest: Steam's desktop window, if open, is a GameWindow; Big Picture filling the
+            // screen in the foreground is Ready. A game started from Big Picture also lives under
+            // that folder (steamapps\common), which keeps the same answer.
+            if (IsBigPictureCommand(info.Command))
+            {
+                string? steamDir = SteamInstallDirectory();
+                if (steamDir != null)
+                {
+                    _targetDirectory = steamDir;
+                    _gameName = SunshineSync.ResolveAppNameForCommand(info.Command) ?? "Steam Big Picture";
+                    return;
+                }
+                DebugLogger.Log("[Launch] Big Picture launch, but no Steam folder in the registry");
+            }
+
             // Strategy 1 — the server named a real executable. Follow its folder rather than the
             // binary alone: launchers hand off to a differently-named process inside the same
             // install directory, and the folder survives that.
@@ -463,6 +530,45 @@ namespace StreamTweak
                     catch (Exception ex) { DebugLogger.Log($"[Launch] library lookup failed: {ex.Message}"); }
                 }
             }
+        }
+
+        /// <summary>
+        /// The ways an apps.json entry opens Big Picture: Steam's URLs (Sunshine's own default
+        /// entry and Vibeshine's use <c>steam://open/bigpicture</c>; <c>gamepadui</c> is the newer
+        /// name of the same UI), or steam.exe with one of the switches that start in it. A quoted
+        /// steam.exe with switches arrives without them — the log parser keeps only the
+        /// executable — and is followed by its folder in strategy 1, which is the same folder.
+        /// </summary>
+        private static bool IsBigPictureCommand(string command)
+        {
+            string c = command.Trim();
+            if (c.Equals("steam://open/bigpicture", StringComparison.OrdinalIgnoreCase) ||
+                c.Equals("steam://open/gamepadui", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return c.IndexOf("steam.exe", StringComparison.OrdinalIgnoreCase) >= 0 &&
+                   (c.IndexOf("-gamepadui", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    c.IndexOf("-bigpicture", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    c.IndexOf("-tenfoot", StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+
+        /// <summary>
+        /// Steam's install folder from <c>HKCU\SOFTWARE\Valve\Steam\SteamPath</c>, as
+        /// GameLibraryScanner reads it — canonicalised, because the value uses forward slashes
+        /// (<c>c:/program files (x86)/steam</c>) and <see cref="Matches"/> compares against the
+        /// backslashed path of each window's process.
+        /// </summary>
+        private static string? SteamInstallDirectory()
+        {
+            try
+            {
+                string? raw = Microsoft.Win32.Registry.GetValue(
+                    @"HKEY_CURRENT_USER\SOFTWARE\Valve\Steam", "SteamPath", null) as string;
+                if (string.IsNullOrWhiteSpace(raw)) return null;
+                string full = Path.GetFullPath(raw);
+                return Directory.Exists(full) ? EnsureTrailingSeparator(full) : null;
+            }
+            catch { return null; }
         }
 
         private static string EnsureTrailingSeparator(string dir) =>

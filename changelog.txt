@@ -4,6 +4,20 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-----------------------------------------------------
+Version 9.2.2 - "The Big Picture Update" (16/10/2026)
+-----------------------------------------------------
+
+🔧 IMPROVEMENTS:
+• StreamLight's "Wait for the game to appear" works with Steam Big Picture — its launch screen stays up until Big Picture fills the host's screen, instead of lifting at once
+
+🐛 BUG FIXES:
+• Every app the streaming server starts is recognised — a command written without quotes in the server's app list, such as Steam Big Picture's, went unnoticed, and the client's launch screen was answered with the launch before it
+• A stream that comes without a launch of its own is no longer described by an older one — after a resume, or a launch StreamTweak could not read, the client is told there is nothing to wait for rather than that an earlier game is already on screen
+
+🙏 THANKS:
+• Thanks to @ludipraxa (https://github.com/FoggyBytes/StreamLight/issues/39) for reporting that the wait did not work with Big Picture
+
 ---------------------------------------------------
 Version 9.2.1 - "The Open Door Update" (13/10/2026)
 ---------------------------------------------------
