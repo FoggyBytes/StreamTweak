@@ -1,4 +1,4 @@
-## 🎮 StreamTweak
+## <img src="installer/resources/streamtweak.png" alt="" width="32" height="32" align="absmiddle"> StreamTweak
 
 ![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue.svg) ![Framework](https://img.shields.io/badge/Framework-.NET%208%20%2F%20WinUI%203-purple.svg) ![Downloads](.badges/downloads.svg) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-brightgreen.svg)](https://claude.ai/code)
 
