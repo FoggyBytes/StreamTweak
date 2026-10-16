@@ -2,6 +2,12 @@
 
 ![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue.svg) ![Framework](https://img.shields.io/badge/Framework-.NET%208%20%2F%20WinUI%203-purple.svg) ![Downloads](.badges/downloads.svg) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-brightgreen.svg)](https://claude.ai/code)
 
+> ⚠️ **Windows SmartScreen and Smart App Control.** StreamTweak is not code-signed yet.
+> - **SmartScreen** may warn you when you run the installer: choose *More info → Run anyway*.
+> - **Smart App Control**, on the Windows 11 PCs where it is turned on, may blocks StreamTweak outright and offers no per-app exception. The only way to run it there is to turn Smart App Control off (*Windows Security → App & browser control → Smart App Control settings*).
+>
+> Keeping Smart App Control on is a perfectly reasonable choice. Code signing is being looked into, and this note will be updated if that changes. The full source is in this repository.
+
 <div align="center">
   <img width="2065" height="1352" alt="Immagine 2026-09-30 181311" src="https://github.com/user-attachments/assets/641046d7-ed21-49b3-86d2-d352b5905dff" />
 </div>
