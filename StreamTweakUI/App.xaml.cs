@@ -234,6 +234,7 @@ namespace StreamTweak
                 return json;
             };
             _bridge.GameStateProvider  = () => _launchWatcher.ToJson();
+            _bridge.GameAliveProvider  = () => _launchWatcher.GameAliveJson();
             _bridge.LastSessionProvider = () => LastSessionReport.BuildJson();
             _bridge.AppStoresProvider  = () => GameLibraryState.Current.ToAppStoresJson();
             _bridge.TailscaleProvider  = () =>

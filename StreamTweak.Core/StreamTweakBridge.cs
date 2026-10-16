@@ -113,6 +113,13 @@ namespace StreamTweak
         public Func<string>? GameStateProvider { get; set; }
 
         /// <summary>
+        /// Optional delegate (9.2.3): whether the last game launched still has a process running,
+        /// as JSON — see <see cref="LaunchWatcher.GameAliveJson"/>. Called when a GAMEALIVE
+        /// command arrives.
+        /// </summary>
+        public Func<string>? GameAliveProvider { get; set; }
+
+        /// <summary>
         /// Optional delegate that returns the host's most recent finished session as JSON —
         /// see <see cref="LastSessionReport.BuildJson"/>. Called when a LASTSESSION command
         /// arrives. Set this in App.xaml.cs after creating the bridge.
@@ -606,6 +613,16 @@ namespace StreamTweak
                     string gameState = GameStateProvider?.Invoke()
                                        ?? "{\"v\":1,\"phase\":\"idle\"}";
                     await writer.WriteLineAsync(gameState);
+                    break;
+
+                case "GAMEALIVE":
+                    // 9.2.3. Asked by StreamLight a few seconds after a Quit: is the game it
+                    // launched still running? The streaming server can report the app ended while
+                    // the game lives on (an Xbox app game it could not terminate). Read-only, gated
+                    // like GAMESTATE. "known":false is an answer the client reads as "say nothing".
+                    string gameAlive = GameAliveProvider?.Invoke()
+                                       ?? "{\"v\":1,\"known\":false,\"running\":false}";
+                    await writer.WriteLineAsync(gameAlive);
                     break;
 
                 case "LASTSESSION":

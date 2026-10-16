@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v9.2.2 - GitHub Release Installer
+; StreamTweak v9.2.3 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 2.4) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "9.2.2"
+#define MyAppVersion "9.2.3"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -247,7 +247,7 @@ begin
     // NB: this label has no WordWrap, so every bullet must stay on one line —
     // keep them at or under ~76 characters or they get clipped on the right.
     '•  Link-speed matching — this host follows the client, before connecting' + #13#10 +
-    '•  Seamless launch — the client can wait for your game to appear' + #13#10 +
+    '•  Seamless launch — the client waits for your game, flags it if left open' + #13#10 +
     '•  Wake this host and type its PIN from the client, with the controller' + #13#10 +
     '•  This host''s GPU, encoder, VRAM, temperature and CPU in the game overlay' + #13#10 +
     '•  Store badges on your synced game covers (Steam, Epic, GOG, Xbox, …)' + #13#10 +

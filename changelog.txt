@@ -5,6 +5,13 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 -----------------------------------------------------
+Version 9.2.3 - "The Second Look Update" (16/10/2026)
+-----------------------------------------------------
+
+🔧 IMPROVEMENTS:
+• StreamLight can tell when a Quit left the game open — after a Quit, StreamLight 7.0.2 asks whether the game it launched is still running. Some games are never closed by the streaming server even when it reports them closed, such as Xbox app games, and the client now says so instead of leaving it to be found on the host
+
+-----------------------------------------------------
 Version 9.2.2 - "The Big Picture Update" (16/10/2026)
 -----------------------------------------------------
 

@@ -73,6 +73,7 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 
 - **Client-driven link speed** *(5.0.0+)* — the client reads the adapter over `NETINFO`, asks for a matching speed with `SETSPEED`, and waits for the host to confirm before launching. The host keeps the permission, the safety guards and the restore
 - **Launch state** *(5.0.0+)* — `GAMESTATE` reports what is happening to the game the server was asked to open, so the client can hold its own launch screen up until the game is really there
+- **Game still running after Quit** *(7.0.2+)* — `GAMEALIVE` tells the client whether the last game launched still has a process here, so a Quit the streaming server could not carry out (an Xbox app game) is reported on the client
 - **Remote PIN unlock** *(5.0.0+)* — `LOCKSTATE` tells a client that has just woken the host whether it came up at the lock screen, and the client offers a PIN pad. The session carrying the PIN is declared as such and kept out of the history
 - **Last session on the client's home screen** *(5.0.0 – 5.6.1)* — `LASTSESSION` serves the host's most recent finished session with thumbnail cover art. ⚠️ **StreamLight stopped asking for it in 5.7.0**, where that card became the game *you* last played, kept by the client itself and working against a plain Sunshine host. Nothing was removed from the bridge — the verb is still served, and an older client still gets its answer. The reason it was replaced is the sentence that always followed it here: it is the *host's* last session, and StreamTweak keeps no record of which client a session belonged to
 - **Host metrics in the overlay** *(1.2.0+)* — GPU %, encoder %, GPU temperature, VRAM, CPU and network TX, over `STATS`
@@ -85,6 +86,10 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Remote Windows Update** *(3.3.0+)* — scan, classify and install updates on the host and reboot it, or install them as part of a shutdown, all from the client with no keyboard on the host. The privileged work runs in the LocalSystem service
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched on the Clients page here, and on the device too
+
+## ✨ What's New in 9.2.3 — "The Second Look Update"
+
+- **A game left open after Quit, flagged** — StreamLight 7.0.2 asks after a Quit whether the game is still running here, and says so when the streaming server could not close it (Xbox app games, for one)
 
 ## ✨ What's New in 9.2.2 — "The Big Picture Update"
 

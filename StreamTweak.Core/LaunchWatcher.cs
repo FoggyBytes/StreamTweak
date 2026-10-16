@@ -230,6 +230,28 @@ namespace StreamTweak
         private bool _targetProcessSeen;
         private int  _processScanTick;
 
+        /*
+         * The last game a launch resolved (9.2.3), kept past the end of its session for GAMEALIVE.
+         *
+         * After a Quit, StreamLight asks whether that game is still running: the streaming server
+         * says the app has ended even when it could not close it — Vibeshine cannot terminate an
+         * Xbox app game started through explorer.exe ("TerminateProcess failed", 16/10/2026, Gears
+         * of War: E-Day), and its serverinfo then reports nothing running while the game sits on
+         * the host. The current target cannot answer that: OnSessionEnded and OnStreamStarted wipe
+         * it. These survive both and are replaced only by the next launch — every launch, so a
+         * Desktop session after a game does not go on answering for that game.
+         *
+         * Not kept, so GAMEALIVE answers "not known": the Desktop, Battle.net titles (the target is
+         * the client, which stays open by design), Steam Big Picture (the target is the Steam
+         * folder, and Steam stays running after Big Picture closes) and launches with no target.
+         */
+        private bool    _lastKnown;
+        private string  _lastGameName = "";
+        private string? _lastExeFile;
+        private string? _lastDirectory;
+        private string? _lastProcessName;
+        private string  _lastStore = "";
+
         /// <summary>
         /// Called when the streaming server logged an app launch. Resolves the target and starts
         /// sampling. Safe to call again mid-session: launching a second game restarts the watch.
@@ -260,6 +282,7 @@ namespace StreamTweak
                 _targetProcessName = null;
                 _targetStore = "";
                 _gameName = "";
+                _lastKnown = false;   // every launch replaces the last game, see the note on it
 
                 if (info.IsDesktop)
                 {
@@ -307,6 +330,16 @@ namespace StreamTweak
                     StopTimerLocked();
                     DebugLogger.Log($"[Launch] '{info.Command}' — no target resolved, no curtain");
                     return;
+                }
+
+                if (!IsBigPictureCommand(info.Command))
+                {
+                    _lastKnown = true;
+                    _lastGameName = _gameName;
+                    _lastExeFile = _targetExeFile;
+                    _lastDirectory = _targetDirectory;
+                    _lastProcessName = _targetProcessName;
+                    _lastStore = _targetStore;
                 }
 
                 _phase = LaunchPhase.Launching;
@@ -425,6 +458,39 @@ namespace StreamTweak
                 "\"elapsed_ms\":{3},\"limit_ms\":{4}}}",
                 PhaseToWire(phase), JsonEscape(game), JsonEscape(foreground),
                 elapsedMs, ReadyTimeoutSeconds * 1000);
+        }
+
+        /// <summary>
+        /// The GAMEALIVE payload (9.2.3): whether the last game launched still has a process
+        /// running. <c>known</c> false means there is no such game to ask about (see the note on
+        /// <see cref="_lastKnown"/>), and the client then says nothing. Read-only; the scan is the
+        /// one the launch already uses to tell the game from its launcher, support executables
+        /// excluded.
+        /// </summary>
+        public string GameAliveJson()
+        {
+            bool known;
+            string game, store;
+            string? exeFile, dir, procName;
+
+            lock (_lock)
+            {
+                known = _lastKnown;
+                game = _lastGameName;
+                exeFile = _lastExeFile;
+                dir = _lastDirectory;
+                procName = _lastProcessName;
+                store = _lastStore;
+            }
+
+            bool running = known && TargetProcessRunning(exeFile, dir, procName, store);
+            DebugLogger.Log($"[Launch] GAMEALIVE: " +
+                            (known ? $"'{game}' {(running ? "still running" : "not running")}"
+                                   : "no game to ask about"));
+
+            return string.Format(CultureInfo.InvariantCulture,
+                "{{\"v\":1,\"known\":{0},\"game\":\"{1}\",\"running\":{2}}}",
+                known ? "true" : "false", JsonEscape(game), running ? "true" : "false");
         }
 
         private static string JsonEscape(string s) =>
