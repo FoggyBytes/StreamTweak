@@ -28,8 +28,6 @@ Everything host-side works on its own. The paired features need [**StreamLight**
 
 > 🔐 **The bridge is authenticated.** It accepts commands only from StreamLight devices you have approved: a one-time prompt shows a 4-digit PIN to confirm against the one on the device, and every command afterwards is signed with that client's Moonlight certificate. **Streaming is never gated by it** — approval only unlocks the paired features. Approve clients under **Clients** in the sidebar.
 
-> ⚠️ **Installer warning:** Windows SmartScreen may flag the installer because it lacks a commercial code-signing certificate. Choose **Keep / Keep anyway**. Full source is in this repository.
-
 ## 🔥 Features
 
 Everything below is in the current release, whichever version first introduced it.
