@@ -22,7 +22,11 @@ Everything host-side works on its own. The paired features need [**StreamLight**
 
 > 🔐 **The bridge is authenticated.** It accepts commands only from StreamLight devices you have approved: a one-time prompt shows a 4-digit PIN to confirm against the one on the device, and every command afterwards is signed with that client's Moonlight certificate. **Streaming is never gated by it** — approval only unlocks the paired features. Approve clients under **Clients** in the sidebar.
 
-> ⚠️ **Installer warning:** Windows SmartScreen may flag the installer because it lacks a commercial code-signing certificate. Choose **Keep / Keep anyway**. Full source is in this repository.
+> ⚠️ **Windows SmartScreen and Smart App Control.** StreamTweak is not code-signed yet.
+> - **SmartScreen** may warn you when you run the installer: choose *More info → Run anyway*.
+> - **Smart App Control**, on the Windows 11 PCs where it is turned on, may block StreamTweak outright, and it offers no per-app exception. The only way to run it there is to turn Smart App Control off (*Windows Security → App & browser control → Smart App Control settings*).
+>
+> Keeping Smart App Control on is a perfectly reasonable choice. Code signing is being looked into, and this note will be updated if that changes. The full source is in this repository.
 
 ## 🔥 Features
 
