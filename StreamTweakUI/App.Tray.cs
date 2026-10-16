@@ -1,6 +1,4 @@
-using System.Windows.Input;
-using H.NotifyIcon;
-using Microsoft.UI.Xaml.Controls;
+using StreamTweak.Services;
 
 namespace StreamTweak
 {
@@ -22,49 +20,35 @@ namespace StreamTweak
 
         private void SetupTrayIcon()
         {
-            _trayIcon = new TaskbarIcon
+            // Our own Shell_NotifyIcon wrapper since 9.2.4 (Services/TrayIcon.cs), in place of
+            // H.NotifyIcon. The menu is a native Win32 HMENU, as it already was in H.NotifyIcon's
+            // PopupMenu mode since 8.1.2 — no XAML popup window, so none of the DPI sizing
+            // trouble that once forced SecondWindow mode.
+            try
             {
-                ToolTipText        = "StreamTweak",
-                DoubleClickCommand = new SimpleCommand(ShowMainWindow),
-                // ContextMenuMode is left at its default (PopupMenu), which turns the flyout
-                // into a native Win32 HMENU. That is the point: there is no XAML popup window,
-                // so none of the DPI sizing trouble that forced SecondWindow mode - and with it
-                // two reflections into private H.NotifyIcon members - applies any more.
-                //
-                // ⚠️ PopupMenu mode runs Command and SILENTLY IGNORES Click. Every item below
-                // must therefore use Command. An item that genuinely needs Click would require
-                // SecondWindow mode back, and with it the first-open resize fix (see
-                // ExpandTrayContextMenuWindow in the history before 8.1.2).
-            };
-
-            var flyout = new MenuFlyout();
-
-            var openItem = new MenuFlyoutItem
+                _trayIcon = new TrayIcon(
+                    toolTip: "StreamTweak",
+                    onDoubleClick: ShowMainWindow,
+                    menu:
+                    [
+                        new TrayIcon.MenuItem("Open StreamTweak", () => { ShowMainWindow(); MainWindow?.NavigateTo("Home"); }),
+                        null,
+                        new TrayIcon.MenuItem("Exit", ExitApp),
+                    ]);
+            }
+            catch (Exception ex)
             {
-                Text    = "Open StreamTweak",
-                Command = new SimpleCommand(() => { ShowMainWindow(); MainWindow?.NavigateTo("Home"); }),
-            };
-            flyout.Items.Add(openItem);
-
-            flyout.Items.Add(new MenuFlyoutSeparator());
-
-            var exitItem = new MenuFlyoutItem
-            {
-                Text    = "Exit",
-                Command = new SimpleCommand(ExitApp),
-            };
-            flyout.Items.Add(exitItem);
-
-            _trayIcon.ContextFlyout = flyout;
-            _trayIcon.ForceCreate(false);
+                // No tray is a poorer app, not a broken one: every use of _trayIcon is null-guarded.
+                DebugLogger.Log($"[Tray] not created: {ex.Message}");
+                return;
+            }
 
             // Fill the tooltip immediately so a hover before the first tick is never blank,
             // then keep it fresh on a low-frequency timer.
             RefreshTrayTooltip();
             StartTraySpeedTimer();
 
-            // UpdateIcon bypasses the XAML ImageSource → HICON pipeline and sets
-            // the icon directly via native HICON handle — the only reliable path in
+            // The icon is loaded from its .ico as a native HICON — the only reliable path in
             // WinUI 3 unpackaged (SoftwareBitmapSource / BitmapImage both rendered blank).
             SetTrayIcon(sessionActive: false);
         }
@@ -114,17 +98,6 @@ namespace StreamTweak
                 _dispatcher.TryEnqueue(RefreshTrayTooltip);
                 break;
             }
-        }
-
-        // ── Minimal ICommand for the tray menu and double-click ───────────────
-
-        private sealed class SimpleCommand(Action execute) : ICommand
-        {
-#pragma warning disable CS0067
-            public event EventHandler? CanExecuteChanged;
-#pragma warning restore CS0067
-            public bool CanExecute(object? parameter) => true;
-            public void Execute(object? parameter) => execute();
         }
     }
 }

@@ -1,0 +1,25 @@
+<Project>
+
+  <!-- One product name and one version for every assembly StreamTweak ships: StreamTweakUI,
+       StreamTweak.Core and StreamTweakService. Until 9.2.3 only StreamTweakUI.csproj carried
+       them, so Core and the service said "StreamTweak.Core" / "StreamTweakService" 1.0.0.0 —
+       and the SignPath Foundation signs only files that all say the same product name and
+       version (docs/signpath/README.md).
+
+       Bump: Version below and MyAppVersion in Installer.iss — the GitHub build stops when the
+       two differ. AssemblyVersion is what the app shows in its title bar and Settings.
+
+       InformationalVersion is the PE's ProductVersion. Left alone, the .NET SDK appends the
+       git commit ("9.2.3+cdd2716…"), which is a different string on every build and never
+       equal to the installer's: fixed to the same four parts as FileVersion. -->
+  <PropertyGroup>
+    <Product>StreamTweak</Product>
+    <Company>FoggyBytes</Company>
+    <Version>9.2.4</Version>
+    <AssemblyVersion>$(Version).0</AssemblyVersion>
+    <FileVersion>$(Version).0</FileVersion>
+    <InformationalVersion>$(Version).0</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  REVIEW COPY of the SignPath artifact configuration with slug "binaries".
+  The SignPath portal is the source of truth: editing this file does not change signing.
+
+  Used by: .github/workflows/build-windows.yml, first signing request
+           ("Sign our files and the uninstaller").
+  Input:   a zip (the GitHub Actions artifact StreamTweak-X.Y.Z-binaries-to-sign) holding
+           - StreamTweakUI.exe and StreamTweakService.exe: the .NET app hosts;
+           - StreamTweakUI.dll, StreamTweakService.dll, StreamTweak.Core.dll: our assemblies;
+           all built from this repository;
+           - Uninstaller.exe: Inno Setup's uninst-<inno>-<hash>.e64, renamed for the trip. It is
+             both unins000.exe and the Setup program the installer runs from %TEMP%.
+  Every file must say product name "StreamTweak" and the product version the workflow passes
+  (X.Y.Z.0), as the SignPath Foundation requires for every signed file. Directory.Build.props
+  sets them for the five .NET files, Installer.iss for the uninstaller.
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <parameters>
+    <parameter name="productVersion" required="true" />
+  </parameters>
+  <zip-file>
+    <pe-file path="StreamTweakUI.exe" product-name="StreamTweak" product-version="${productVersion}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="StreamTweakUI.dll" product-name="StreamTweak" product-version="${productVersion}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="StreamTweak.Core.dll" product-name="StreamTweak" product-version="${productVersion}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="StreamTweakService.exe" product-name="StreamTweak" product-version="${productVersion}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="StreamTweakService.dll" product-name="StreamTweak" product-version="${productVersion}">
+      <authenticode-sign />
+    </pe-file>
+    <pe-file path="Uninstaller.exe" product-name="StreamTweak" product-version="${productVersion}">
+      <authenticode-sign />
+    </pe-file>
+  </zip-file>
+</artifact-configuration>

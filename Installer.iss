@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v9.2.3 - GitHub Release Installer
+; StreamTweak v9.2.4 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 2.4) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "9.2.3"
+#define MyAppVersion "9.2.4"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -52,6 +52,27 @@ SetupArchitecture=x64
 ; StreamLight, the client, deliberately uses x64compatible instead.
 ArchitecturesAllowed=x64os
 ArchitecturesInstallIn64BitMode=x64os
+; Product version "X.Y.Z.0", as the three assemblies carry it (Directory.Build.props): SignPath
+; requires the same product name and version on every file it signs, and without these lines
+; Setup and the uninstaller said product version "9.2.3", in three parts, and Setup had no file
+; version. (The uninstaller's FILE version stays Inno's own, 51.x: Inno compares it to decide
+; whether to replace unins000.exe.) Same as StreamLight.iss.
+VersionInfoVersion={#MyAppVersion}.0
+VersionInfoProductTextVersion={#MyAppVersion}.0
+; Signed uninstaller, switched on only by the GitHub Actions build when it signs
+; (/DSignUninstaller). The uninstaller is not only unins000.exe: it is the same binary as the
+; Setup program the loader unpacks to %TEMP% and runs during the install, so an unsigned one
+; leaves Smart App Control something unsigned to stop even with a signed Setup.exe. With no
+; SignTool, Inno works in two passes: the first compile writes uninst-<version>-<hash>.e64 into
+; SignedUninstallerDir and stops; once that file is signed, the second compile copies the
+; signature in. Local builds never define SignUninstaller and compile as before.
+#ifdef SignUninstaller
+  #ifndef SignedUninstallerDir
+    #define SignedUninstallerDir "Output\signing\uninstaller"
+  #endif
+SignedUninstaller=yes
+SignedUninstallerDir={#SignedUninstallerDir}
+#endif
 WizardStyle=modern
 DisableWelcomePage=no
 
@@ -61,6 +82,21 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Messages]
 WelcomeLabel1=Welcome to the StreamTweak Setup Wizard
 WelcomeLabel2=
+
+[InstallDelete]
+; 9.2.4: third-party DLLs no release ships any more. Inno never removes a file a new release
+; leaves out, so on an upgrade these would stay in {app}, unsigned, unused and loaded by
+; nothing: SQLite now comes from Windows (WinSqlite.cs), the tray icon from our own code
+; (Services/TrayIcon.cs), and System.Drawing.Common only ever came with the tray library (§92.16).
+Type: files; Name: "{app}\e_sqlite3.dll"
+Type: files; Name: "{app}\SQLitePCLRaw.batteries_v2.dll"
+Type: files; Name: "{app}\SQLitePCLRaw.core.dll"
+Type: files; Name: "{app}\SQLitePCLRaw.provider.e_sqlite3.dll"
+Type: files; Name: "{app}\Microsoft.Data.Sqlite.dll"
+Type: files; Name: "{app}\H.NotifyIcon.dll"
+Type: files; Name: "{app}\H.NotifyIcon.WinUI.dll"
+Type: files; Name: "{app}\H.GeneratedIcons.System.Drawing.dll"
+Type: files; Name: "{app}\System.Drawing.Common.dll"
 
 [Files]
 ; ── Main WinUI 3 application ─────────────────────────────────────────────────

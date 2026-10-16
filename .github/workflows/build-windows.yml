@@ -1,0 +1,334 @@
+name: Build Windows
+
+# Builds StreamTweak and its installer on GitHub's runner, the way the local release build does:
+# dotnet build of StreamTweak.sln (Release, x64), then ISCC on Installer.iss, which sweeps the
+# two bin folders. Nothing is published - the outputs are workflow artifacts.
+#
+# Code signing through the SignPath Foundation (SignPath signs only files a GitHub Actions run
+# produced). It switches itself on when the repository has the secret SIGNPATH_API_TOKEN, and
+# also needs the variable SIGNPATH_ORGANIZATION_ID (Settings -> Secrets and variables ->
+# Actions). Without the secret the run is an unsigned build. With it, two signing requests,
+# each one approved by hand in the SignPath portal when the policy asks:
+#   1. our five files - StreamTweakUI.exe/.dll, StreamTweak.Core.dll, StreamTweakService.exe/.dll -
+#      and the Inno Setup uninstaller, which is also the Setup program the installer unpacks to
+#      %TEMP% and runs (see Installer.iss, SignedUninstaller);
+#   2. the finished installer, compiled again around the signed files.
+# The artifact configurations they refer to are kept for review in docs/signpath/.
+# Same layout as StreamLight's workflow of the same name.
+#
+# Differences from the local build, on purpose:
+#  - the .NET SDK is the latest 10.0.x (the one that builds here too; it targets net8.0),
+#    logged below;
+#  - the bin folders start empty, so nothing left over from an older build can be swept into
+#    the installer.
+
+on:
+  workflow_dispatch:
+    inputs:
+      signing_policy:
+        description: SignPath signing policy (used only when SIGNPATH_API_TOKEN is set)
+        type: choice
+        options:
+          - test-signing
+          - release-signing
+        default: test-signing
+
+permissions:
+  contents: read
+  # The SignPath action reads this run's job details and artifacts with the GITHUB_TOKEN.
+  actions: read
+
+concurrency:
+  group: build-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: 10.0.x
+  INNO_VERSION: 7.0.2
+  # SHA-256 of innosetup-7.0.2-x64.exe as published on jrsoftware/issrc's GitHub release is-7_0_2
+  INNO_SHA256: 5ad54ca3def786f8f4212552e54cc6d8d61329e2d24a1cfee0571d42c2684ff1
+  DOTNET_NOLOGO: '1'
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  # The folders Installer.iss sweeps into {app}.
+  UI_BIN: StreamTweakUI\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64
+  SERVICE_BIN: StreamTweakService\bin\x64\Release\net8.0-windows\win-x64
+
+jobs:
+  build:
+    runs-on: windows-2025
+    # Room for a release-signing request to wait for its manual approval.
+    timeout-minutes: 240
+    env:
+      SIGNPATH_ENABLED: ${{ secrets.SIGNPATH_API_TOKEN != '' }}
+      SIGNPATH_ORGANIZATION_ID: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+      SIGNPATH_PROJECT_SLUG: ${{ vars.SIGNPATH_PROJECT_SLUG || 'StreamTweak' }}
+      SIGNPATH_POLICY: ${{ inputs.signing_policy || 'test-signing' }}
+      SIGNPATH_WAIT_SECONDS: ${{ inputs.signing_policy == 'release-signing' && '7200' || '900' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $props = ([xml](Get-Content -Raw Directory.Build.props)).Project.PropertyGroup.Version | Select-Object -First 1
+          $iss = (Select-String -Path Installer.iss -Pattern '^#define MyAppVersion "(.+)"').Matches[0].Groups[1].Value
+          if ($props -ne $iss) {
+            throw "Directory.Build.props says $props but Installer.iss says $iss - bump both"
+          }
+          "version=$props" >> $env:GITHUB_OUTPUT
+          $state = if ($env:SIGNPATH_ENABLED -eq 'true') { "signed-$env:SIGNPATH_POLICY" } else { 'unsigned' }
+          "state=$state" >> $env:GITHUB_OUTPUT
+          Write-Host "StreamTweak $props ($state)"
+
+      - name: Install .NET SDK ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install Inno Setup ${{ env.INNO_VERSION }}
+        shell: pwsh
+        run: |
+          $tag = 'is-' + ($env:INNO_VERSION -replace '\.', '_')
+          $exe = "$env:RUNNER_TEMP\innosetup-$env:INNO_VERSION-x64.exe"
+          Invoke-WebRequest "https://github.com/jrsoftware/issrc/releases/download/$tag/innosetup-$env:INNO_VERSION-x64.exe" -OutFile $exe
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($hash -ne $env:INNO_SHA256) { throw "Inno Setup download does not match the pinned SHA-256 ($hash)" }
+          Start-Process $exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/DIR=C:\InnoSetup7' -Wait
+          if (-not (Test-Path 'C:\InnoSetup7\ISCC.exe')) { throw 'ISCC.exe not found after installing Inno Setup' }
+
+      - name: Show toolchain
+        shell: pwsh
+        run: |
+          Write-Host ".NET SDK: $(dotnet --version)"
+          dotnet --list-sdks
+
+      - name: Build (StreamTweak.sln, Release x64)
+        shell: pwsh
+        run: |
+          dotnet build StreamTweak.sln -c Release -p:Platform=x64
+          if ($LASTEXITCODE -ne 0) { throw "dotnet build failed ($LASTEXITCODE)" }
+          foreach ($exe in "$env:UI_BIN\StreamTweakUI.exe", "$env:SERVICE_BIN\StreamTweakService.exe") {
+            if (-not (Test-Path $exe)) { throw "$exe is missing: Installer.iss would ship without it" }
+          }
+
+      - name: Build installer (Installer.iss)
+        if: env.SIGNPATH_ENABLED != 'true'
+        shell: pwsh
+        run: |
+          & C:\InnoSetup7\ISCC.exe Installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed ($LASTEXITCODE)" }
+
+      # ── Code signing (only with SIGNPATH_API_TOKEN) ───────────────────────────────────────────
+
+      - name: Prepare the first signing request
+        id: tosign
+        if: env.SIGNPATH_ENABLED == 'true'
+        shell: pwsh
+        run: |
+          # First ISCC pass: with SignUninstaller defined it writes uninst-<inno>-<hash>.e64 and stops
+          # on purpose, asking for that file to be signed. Its name follows a hash of the binary, so
+          # it changes with every release.
+          $uninstDir = Join-Path $PWD 'Output\signing\uninstaller'
+          New-Item -ItemType Directory -Force $uninstDir | Out-Null
+          & C:\InnoSetup7\ISCC.exe /DSignUninstaller "/DSignedUninstallerDir=$uninstDir" Installer.iss
+          Write-Host "First pass ended with $LASTEXITCODE (expected: non-zero, asking for the signature)"
+          $uninst = @(Get-ChildItem $uninstDir -Filter 'uninst-*.e64')
+          if ($uninst.Count -ne 1) { throw "Expected one uninst-*.e64 in $uninstDir, found $($uninst.Count)" }
+
+          # The six files go to SignPath in one zip. The uninstaller travels as Uninstaller.exe,
+          # the name the artifact configuration names; it goes back under its own name afterwards.
+          $stage = Join-Path $PWD 'Output\signing\to-sign'
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          Copy-Item "$env:UI_BIN\StreamTweakUI.exe", "$env:UI_BIN\StreamTweakUI.dll", "$env:UI_BIN\StreamTweak.Core.dll" $stage
+          Copy-Item "$env:SERVICE_BIN\StreamTweakService.exe", "$env:SERVICE_BIN\StreamTweakService.dll" $stage
+          Copy-Item $uninst[0].FullName (Join-Path $stage 'Uninstaller.exe')
+          "uninstaller=$($uninst[0].Name)" >> $env:GITHUB_OUTPUT
+          "uninstaller_dir=$uninstDir" >> $env:GITHUB_OUTPUT
+          # GitHub's pwsh wrapper ends the step with `exit $LASTEXITCODE`, which would turn the
+          # first pass's deliberate failure into a failed step.
+          $global:LASTEXITCODE = 0
+
+      - name: Upload files for the first signing request
+        id: upload-to-sign
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: StreamTweak-${{ steps.version.outputs.version }}-binaries-to-sign
+          path: Output/signing/to-sign/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Sign our files and the uninstaller (SignPath)
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627  # v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ env.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ env.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
+          artifact-configuration-slug: binaries
+          github-artifact-id: ${{ steps.upload-to-sign.outputs.artifact-id }}
+          parameters: |
+            productVersion: "${{ steps.version.outputs.version }}.0"
+          wait-for-completion-timeout-in-seconds: ${{ env.SIGNPATH_WAIT_SECONDS }}
+          output-artifact-directory: Output/signing/signed
+
+      - name: Put the signed files in place
+        if: env.SIGNPATH_ENABLED == 'true'
+        shell: pwsh
+        env:
+          UNINSTALLER: ${{ steps.tosign.outputs.uninstaller }}
+          UNINSTALLER_DIR: ${{ steps.tosign.outputs.uninstaller_dir }}
+        run: |
+          $signed = 'Output\signing\signed'
+          $backTo = @{
+            'StreamTweakUI.exe'      = $env:UI_BIN
+            'StreamTweakUI.dll'      = $env:UI_BIN
+            'StreamTweak.Core.dll'   = $env:UI_BIN
+            'StreamTweakService.exe' = $env:SERVICE_BIN
+            'StreamTweakService.dll' = $env:SERVICE_BIN
+            'Uninstaller.exe'        = $null
+          }
+          foreach ($name in $backTo.Keys) {
+            $sig = Get-AuthenticodeSignature (Join-Path $signed $name)
+            if ($null -eq $sig.SignerCertificate) { throw "$name came back without a signature" }
+            # A test-signing certificate is not trusted by Windows; only release-signing must be Valid.
+            if ($env:SIGNPATH_POLICY -eq 'release-signing' -and $sig.Status -ne 'Valid') { throw "$name signature is $($sig.Status)" }
+            Write-Host "$name signed by $($sig.SignerCertificate.Subject) ($($sig.Status))"
+            if ($backTo[$name]) { Copy-Item (Join-Path $signed $name) $backTo[$name] -Force }
+          }
+          Copy-Item "$signed\Uninstaller.exe" (Join-Path $env:UNINSTALLER_DIR $env:UNINSTALLER) -Force
+
+      - name: Build installer around the signed files (Installer.iss, second pass)
+        if: env.SIGNPATH_ENABLED == 'true'
+        shell: pwsh
+        env:
+          UNINSTALLER_DIR: ${{ steps.tosign.outputs.uninstaller_dir }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          & C:\InnoSetup7\ISCC.exe /DSignUninstaller "/DSignedUninstallerDir=$env:UNINSTALLER_DIR" Installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC second pass failed ($LASTEXITCODE)" }
+          $stage = 'Output\signing\installer-to-sign'
+          New-Item -ItemType Directory -Force $stage | Out-Null
+          Copy-Item "Output\StreamTweak_${env:VERSION}_Installer.exe" $stage
+
+      - name: Upload the installer for the second signing request
+        id: upload-installer-to-sign
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: StreamTweak-${{ steps.version.outputs.version }}-installer-to-sign
+          path: Output/signing/installer-to-sign/
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Sign the installer (SignPath)
+        if: env.SIGNPATH_ENABLED == 'true'
+        uses: signpath/github-action-submit-signing-request@c92b958760219087e01f8d67a1669ed57afe2627  # v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ env.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ env.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
+          artifact-configuration-slug: installer
+          github-artifact-id: ${{ steps.upload-installer-to-sign.outputs.artifact-id }}
+          parameters: |
+            productVersion: "${{ steps.version.outputs.version }}.0"
+          wait-for-completion-timeout-in-seconds: ${{ env.SIGNPATH_WAIT_SECONDS }}
+          output-artifact-directory: Output/signing/signed-installer
+
+      - name: Put the signed installer in place
+        if: env.SIGNPATH_ENABLED == 'true'
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $name = "StreamTweak_${env:VERSION}_Installer.exe"
+          $sig = Get-AuthenticodeSignature "Output\signing\signed-installer\$name"
+          if ($null -eq $sig.SignerCertificate) { throw "$name came back without a signature" }
+          if ($env:SIGNPATH_POLICY -eq 'release-signing' -and $sig.Status -ne 'Valid') { throw "$name signature is $($sig.Status)" }
+          Write-Host "$name signed by $($sig.SignerCertificate.Subject) ($($sig.Status))"
+          Copy-Item "Output\signing\signed-installer\$name" Output -Force
+
+      # ── Results ───────────────────────────────────────────────────────────────────────────────
+
+      - name: Collect the installed files
+        shell: pwsh
+        run: |
+          # What Installer.iss puts in {app}: both bin folders, the same exclusions as its [Files].
+          $app = 'Output\app'
+          New-Item -ItemType Directory -Force $app | Out-Null
+          foreach ($bin in $env:UI_BIN, $env:SERVICE_BIN) {
+            $root = (Resolve-Path $bin).Path
+            Get-ChildItem $root -Recurse -File |
+              Where-Object {
+                $rel = $_.FullName.Substring($root.Length + 1)
+                $_.Extension -ne '.pdb' -and $rel -notlike 'ref\*' -and $rel -notlike 'StreamTweakUI.exe.WebView2\*'
+              } |
+              ForEach-Object {
+                $dest = Join-Path $app $_.FullName.Substring($root.Length + 1)
+                New-Item -ItemType Directory -Force (Split-Path $dest) | Out-Null
+                Copy-Item $_.FullName $dest -Force
+              }
+          }
+          New-Item -ItemType Directory -Force Output\symbols | Out-Null
+          Get-ChildItem $env:UI_BIN, $env:SERVICE_BIN -Filter 'StreamTweak*.pdb' | Copy-Item -Destination Output\symbols
+
+      - name: Summary
+        shell: pwsh
+        run: |
+          $ver = '${{ steps.version.outputs.version }}'
+          $app = (Resolve-Path 'Output\app').Path
+          $files = Get-ChildItem $app -Recurse -File
+          $setup = Get-Item "Output\StreamTweak_${ver}_Installer.exe"
+          $pe = Get-ChildItem $app -Recurse -Include *.exe, *.dll
+          $unsigned = $pe | Where-Object { (Get-AuthenticodeSignature $_.FullName).Status -ne 'Valid' }
+          # SignPath wants one product name and version on every file it signs: show ours.
+          $ours = $pe | Where-Object { $_.Name -like 'StreamTweak*' } | ForEach-Object {
+            "- ``$($_.Name)``: $($_.VersionInfo.ProductName) $($_.VersionInfo.ProductVersion), file $($_.VersionInfo.FileVersion)"
+          }
+          $setupSig = Get-AuthenticodeSignature $setup.FullName
+          $setupSigner = if ($setupSig.SignerCertificate) { "$($setupSig.SignerCertificate.Subject -replace ',.*', '') ($($setupSig.Status))" } else { 'not signed' }
+          @(
+            "### StreamTweak $ver (${{ steps.version.outputs.state }})"
+            ''
+            "- Installed files: $($files.Count), $([math]::Round(($files | Measure-Object Length -Sum).Sum / 1MB, 1)) MB ($($pe.Count) executables and DLLs)"
+            "- Installer: ``$($setup.Name)``, $([math]::Round($setup.Length / 1MB, 1)) MB, SHA-256 ``$((Get-FileHash $setup.FullName).Hash.ToLowerInvariant())``"
+            "- Installer signature: $setupSigner"
+            ''
+            'Our files:'
+            ''
+            $ours
+            ''
+            "Executables and DLLs installed without a valid signature ($($unsigned.Count)):"
+            ''
+            ($unsigned | ForEach-Object { "- ``$($_.FullName.Substring($app.Length + 1))``" })
+          ) -join "`n" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload installed files
+        uses: actions/upload-artifact@v7
+        with:
+          name: StreamTweak-${{ steps.version.outputs.version }}-files-${{ steps.version.outputs.state }}
+          path: Output/app/
+          if-no-files-found: error
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v7
+        with:
+          # archive: false uploads the .exe as it is, not inside a zip: the artifact downloads as
+          # StreamTweak_X.Y.Z_Installer.exe (the action names it after the file and ignores `name`).
+          # gh run download cannot fetch it ("not a valid zip file"): use
+          # gh api repos/FoggyBytes/StreamTweak/actions/artifacts/<id>/zip > file.exe, from Git Bash.
+          path: Output/StreamTweak_${{ steps.version.outputs.version }}_Installer.exe
+          archive: false
+          if-no-files-found: error
+
+      - name: Upload debugging symbols
+        uses: actions/upload-artifact@v7
+        with:
+          name: StreamTweak-${{ steps.version.outputs.version }}-symbols
+          path: Output/symbols/
+          if-no-files-found: warn

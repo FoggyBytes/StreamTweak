@@ -1,8 +1,6 @@
 using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Windows.Input;
-using H.NotifyIcon;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -18,7 +16,7 @@ namespace StreamTweak
         private DispatcherQueue _dispatcher = null!;
 
         // ── Tray icon ────────────────────────────────────────────────────────
-        private TaskbarIcon? _trayIcon;
+        private TrayIcon? _trayIcon;
         private LinkSpeedManager?     _linkSpeed;
         // Mirrors the session state the icon already shows, so the tooltip can name it too.
         private bool                  _trayStreamingActive;
@@ -456,12 +454,9 @@ namespace StreamTweak
             if (_trayIcon == null) return;
             string name     = sessionActive ? "streammodeok.ico" : "streammodeko.ico";
             string iconPath = Path.Combine(AppContext.BaseDirectory, "Resources", name);
-            try
-            {
-                using var icon = new System.Drawing.Icon(iconPath, 32, 32);
-                _trayIcon.UpdateIcon(icon);
-            }
-            catch { }
+            // The 32-pixel image, as before 9.2.4 (System.Drawing.Icon(path, 32, 32) handed to
+            // H.NotifyIcon); the shell scales it to the tray's size for the display's DPI.
+            _trayIcon.SetIcon(iconPath, 32);
         }
 
         // ── NIC helpers ──────────────────────────────────────────────────────

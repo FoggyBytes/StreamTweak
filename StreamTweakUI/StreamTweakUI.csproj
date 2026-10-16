@@ -24,15 +24,12 @@
          these two, which change the name without touching the file. -->
     <AssemblyName>StreamTweakUI</AssemblyName>
     <AssemblyTitle>StreamTweak</AssemblyTitle>
-    <Product>StreamTweak</Product>
-    <Company>FoggyBytes</Company>
+    <!-- Product, Company and the version come from Directory.Build.props, shared with Core
+         and the service. -->
     <!-- Keeps the compiler-generated Main (renamed to XamlGeneratedProgram.XamlGeneratedMain)
          but stops it being the entry point, so Program.cs can opt into the WinAppSDK 2.3
          XAML performance changes before Application.Start. See Program.cs. -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
-    <Version>9.2.3</Version>
-    <AssemblyVersion>9.2.3.0</AssemblyVersion>
-    <FileVersion>9.2.3.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -46,7 +43,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
-    <PackageReference Include="H.NotifyIcon.WinUI" Version="2.1.0" />
+    <!-- No tray package since 9.2.4: Services/TrayIcon.cs on Shell_NotifyIcon replaced
+         H.NotifyIcon.WinUI, whose three assemblies are published unsigned (§92.16). -->
+    <!-- SystemEvents.SessionEnding (App.xaml.cs, the session saved at Windows shutdown) used
+         to arrive unannounced through H.NotifyIcon → System.Drawing.Common. Named now; 8.0.0
+         is the version that came that way (file 8.0.23.53103), signed by .NET. -->
+    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

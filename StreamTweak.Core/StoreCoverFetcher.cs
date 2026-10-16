@@ -13,7 +13,6 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Graphics.Imaging;
 using Windows.Storage.Streams;
 using System.Xml.Linq;
-using Microsoft.Data.Sqlite;
 
 namespace StreamTweak
 {
@@ -306,115 +305,86 @@ namespace StreamTweak
 
             try
             {
-                string connStr = new SqliteConnectionStringBuilder
-                {
-                    DataSource = dbPath,
-                    Mode = SqliteOpenMode.ReadOnly
-                }.ToString();
-
-                using var conn = new SqliteConnection(connStr);
-                conn.Open();
+                // Windows' own SQLite (WinSqlite.cs), read-only: the six SELECTs below are all
+                // StreamTweak ever asks of a database.
+                using var db = WinSqliteDb.OpenReadOnly(dbPath);
 
                 string releaseKey = $"gog_{game.StoreId}";
 
                 int verticalCoverTypeId = 3;
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = "SELECT id FROM WebCacheResourceTypes WHERE type = 'verticalCover' LIMIT 1";
-                    if (cmd.ExecuteScalar() is long id) verticalCoverTypeId = (int)id;
-                }
+                if (db.Scalar("SELECT id FROM WebCacheResourceTypes WHERE type = 'verticalCover' LIMIT 1") is long vcId)
+                    verticalCoverTypeId = (int)vcId;
 
                 int originalImagesTypeId = 378;
-                using (var cmd = conn.CreateCommand())
-                {
-                    cmd.CommandText = "SELECT id FROM GamePieceTypes WHERE type = 'originalImages' LIMIT 1";
-                    if (cmd.ExecuteScalar() is long id) originalImagesTypeId = (int)id;
-                }
+                if (db.Scalar("SELECT id FROM GamePieceTypes WHERE type = 'originalImages' LIMIT 1") is long oiId)
+                    originalImagesTypeId = (int)oiId;
 
                 // Tier 1: local webcache file
-                using (var cmd = conn.CreateCommand())
+                foreach (var row in db.Rows("SELECT id, userId FROM WebCache WHERE releaseKey = @rk", ("@rk", releaseKey)))
                 {
-                    cmd.CommandText = "SELECT id, userId FROM WebCache WHERE releaseKey = @rk";
-                    cmd.Parameters.AddWithValue("@rk", releaseKey);
-                    using var reader = cmd.ExecuteReader();
-                    while (reader.Read())
+                    if (row[0] is not long webCacheId || row[1] is not long userId) continue;
+
+                    string? filename = db.Scalar(
+                        "SELECT filename FROM WebCacheResources WHERE webCacheId = @wid AND webCacheResourceTypeId = @tid LIMIT 1",
+                        ("@wid", webCacheId), ("@tid", verticalCoverTypeId)) as string;
+
+                    if (!string.IsNullOrEmpty(filename))
                     {
-                        long webCacheId = reader.GetInt64(0);
-                        long userId = reader.GetInt64(1);
-
-                        using var cmd2 = conn.CreateCommand();
-                        cmd2.CommandText = "SELECT filename FROM WebCacheResources WHERE webCacheId = @wid AND webCacheResourceTypeId = @tid LIMIT 1";
-                        cmd2.Parameters.AddWithValue("@wid", webCacheId);
-                        cmd2.Parameters.AddWithValue("@tid", verticalCoverTypeId);
-                        string? filename = cmd2.ExecuteScalar() as string;
-
-                        if (!string.IsNullOrEmpty(filename))
+                        string localPath = Path.Combine(programData, "GOG.com", "Galaxy", "webcache",
+                            userId.ToString(CultureInfo.InvariantCulture),
+                            "gog", game.StoreId, filename);
+                        if (File.Exists(localPath))
                         {
-                            string localPath = Path.Combine(programData, "GOG.com", "Galaxy", "webcache",
-                                userId.ToString(CultureInfo.InvariantCulture),
-                                "gog", game.StoreId, filename);
-                            if (File.Exists(localPath))
+                            byte[] bytes = await File.ReadAllBytesAsync(localPath);
+                            if (bytes.Length > 0)
                             {
-                                byte[] bytes = await File.ReadAllBytesAsync(localPath);
-                                if (bytes.Length > 0)
-                                {
-                                    // Written either way — it is the floor if nothing better
-                                    // turns up — but only good enough to stop here at full size.
-                                    if (await SaveBytesAsPngAsync(bytes, cachePath) >= GoodCoverHeight)
-                                        return true;
-                                }
+                                // Written either way — it is the floor if nothing better
+                                // turns up — but only good enough to stop here at full size.
+                                if (await SaveBytesAsPngAsync(bytes, cachePath) >= GoodCoverHeight)
+                                    return true;
                             }
                         }
                     }
                 }
 
                 // Tier 2: originalImages.verticalCover from GamePieces
-                using (var cmd = conn.CreateCommand())
+                if (db.Scalar("SELECT value FROM GamePieces WHERE releaseKey = @rk AND gamePieceTypeId = @tid LIMIT 1",
+                        ("@rk", releaseKey), ("@tid", originalImagesTypeId)) is string json)
                 {
-                    cmd.CommandText = "SELECT value FROM GamePieces WHERE releaseKey = @rk AND gamePieceTypeId = @tid LIMIT 1";
-                    cmd.Parameters.AddWithValue("@rk", releaseKey);
-                    cmd.Parameters.AddWithValue("@tid", originalImagesTypeId);
-                    if (cmd.ExecuteScalar() is string json)
+                    try
                     {
-                        try
+                        using var doc = JsonDocument.Parse(json);
+                        if (doc.RootElement.TryGetProperty("verticalCover", out var vc))
                         {
-                            using var doc = JsonDocument.Parse(json);
-                            if (doc.RootElement.TryGetProperty("verticalCover", out var vc))
+                            string? url = vc.GetString();
+                            if (!string.IsNullOrEmpty(url))
                             {
-                                string? url = vc.GetString();
-                                if (!string.IsNullOrEmpty(url))
-                                {
-                                    if (await DownloadAsPngAsync(url, cachePath) >= GoodCoverHeight)
-                                        return true;
-                                }
+                                if (await DownloadAsPngAsync(url, cachePath) >= GoodCoverHeight)
+                                    return true;
                             }
                         }
-                        catch { }
                     }
+                    catch { }
                 }
 
                 // Tier 3: LimitedDetails.Images.logo2x
-                using (var cmd = conn.CreateCommand())
+                if (db.Scalar("SELECT images FROM LimitedDetails WHERE productId = @pid LIMIT 1",
+                        ("@pid", game.StoreId)) is string imagesJson)
                 {
-                    cmd.CommandText = "SELECT images FROM LimitedDetails WHERE productId = @pid LIMIT 1";
-                    cmd.Parameters.AddWithValue("@pid", game.StoreId);
-                    if (cmd.ExecuteScalar() is string imagesJson)
+                    try
                     {
-                        try
+                        using var doc = JsonDocument.Parse(imagesJson);
+                        if (doc.RootElement.TryGetProperty("logo2x", out var logo2x))
                         {
-                            using var doc = JsonDocument.Parse(imagesJson);
-                            if (doc.RootElement.TryGetProperty("logo2x", out var logo2x))
+                            string? url = logo2x.GetString();
+                            if (!string.IsNullOrEmpty(url))
                             {
-                                string? url = logo2x.GetString();
-                                if (!string.IsNullOrEmpty(url))
-                                {
-                                    if (await DownloadAsPngAsync(url, cachePath) >= GoodCoverHeight)
-                                        return true;
-                                }
+                                if (await DownloadAsPngAsync(url, cachePath) >= GoodCoverHeight)
+                                    return true;
                             }
                         }
-                        catch { }
                     }
+                    catch { }
                 }
             }
             catch { /* DB locked or missing tables — fall through */ }

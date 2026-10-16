@@ -4,6 +4,15 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-------------------------------------------------------
+Version 9.2.4 - "The Trusted Parts Update" (17/10/2026)
+-------------------------------------------------------
+
+🔧 IMPROVEMENTS:
+• No unsigned third-party libraries left — SQLite now comes from Windows itself and the tray icon from StreamTweak's own code, so every file StreamTweak installs is either signed by Microsoft or built from this repository: a first step towards a signed StreamTweak for Windows Smart App Control. Covers from GOG Galaxy and the tray menu work as before
+• Name and version on every file — the service and the shared library said "1.0.0" under names of their own, and every file now says StreamTweak 9.2.4, as the installer does
+• Built on GitHub — a GitHub Actions workflow builds the installer from the public repository, the first requirement for signing StreamTweak itself
+
 -----------------------------------------------------
 Version 9.2.3 - "The Second Look Update" (16/10/2026)
 -----------------------------------------------------
