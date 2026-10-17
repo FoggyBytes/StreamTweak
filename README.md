@@ -91,6 +91,11 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched on the Clients page here, and on the device too
 
+## ✨ What's New in 9.2.5 — "The Tight Seal Update"
+
+- **A tighter service** — the LocalSystem service changes only the speed of an adapter that exists, to a value its driver offers, and copies only StreamTweak's own tile pictures
+- **Security and privacy, written down** — how the service and the bridge are protected is in [SECURITY.md](SECURITY.md), every connection StreamTweak makes is in [PRIVACY.md](PRIVACY.md)
+
 ## ✨ What's New in 9.2.4 — "The Trusted Parts Update"
 
 - **No unsigned third-party libraries** — SQLite comes from Windows and the tray icon from StreamTweak's own code, a first step towards a signed StreamTweak for Windows Smart App Control

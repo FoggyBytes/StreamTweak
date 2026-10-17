@@ -132,6 +132,16 @@ public class PipeWorker : BackgroundService
                             await writer.WriteLineAsync("ERROR:missing fields");
                             return;
                         }
+                        // Only an adapter that exists, and only a value its driver lists for
+                        // *SpeedDuplex. A name that matched nothing used to fall through CIM to the
+                        // PowerShell fallback, where a quote PowerShell honours but the escaping did
+                        // not (U+2019) ran the rest of the name as a command — as LocalSystem.
+                        if (!IsKnownSpeedSetting(cmd.AdapterName, cmd.RegistryValue))
+                        {
+                            _logger.LogWarning("Rejected speed change: not a *SpeedDuplex value of an existing adapter.");
+                            await writer.WriteLineAsync("ERROR:adapter or value not allowed");
+                            return;
+                        }
                         _logger.LogInformation("Applying speed: adapter={Adapter} value={Value}", cmd.AdapterName, cmd.RegistryValue);
                         bool speedOk = ApplySpeedViaCim(cmd.AdapterName, cmd.RegistryValue)
                                     || ApplySpeedViaPowerShell(cmd.AdapterName, cmd.RegistryValue);
@@ -171,7 +181,9 @@ public class PipeWorker : BackgroundService
                             await writer.WriteLineAsync("ERROR:missing fields");
                             return;
                         }
-                        if (!IsAllowedHostAssetsDir(cmd.AssetsDir))
+                        if (!IsAllowedHostAssetsDir(cmd.AssetsDir) ||
+                            !IsBundledTile(cmd.DesktopSource, "desktop.png") ||
+                            !IsBundledTile(cmd.SteamSource, "steam.png"))
                         {
                             await writer.WriteLineAsync("ERROR:path not allowed");
                             return;
@@ -322,6 +334,69 @@ public class PipeWorker : BackgroundService
         return hasAppName && IsUnderAllowedBase(normalized);
     }
 
+    /// <summary>
+    /// Security check for SWAPASSETS sources: the only pictures the service copies are the two
+    /// StreamTweak installs in its own Resources folder (admin-only, beside the service). Any
+    /// other path would let the caller have LocalSystem copy a file it cannot read itself into
+    /// the streaming server's assets folder.
+    /// </summary>
+    private static bool IsBundledTile(string source, string tileName)
+    {
+        try
+        {
+            string? serviceDir = Path.GetDirectoryName(Environment.ProcessPath ?? string.Empty);
+            if (string.IsNullOrEmpty(serviceDir))
+                return false;
+            string expected = Path.Combine(serviceDir, "Resources", tileName);
+            return string.Equals(Path.GetFullPath(source), Path.GetFullPath(expected),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// True when <paramref name="adapterName"/> is an existing adapter whose driver exposes
+    /// *SpeedDuplex and <paramref name="registryValue"/> is one of the values it lists. The
+    /// query carries no caller input: every *SpeedDuplex setting is listed and compared here.
+    /// </summary>
+    private bool IsKnownSpeedSetting(string adapterName, string registryValue)
+    {
+        try
+        {
+            using var session = CimSession.Create(null);
+            var settings = session.QueryInstances(@"root\StandardCimv2", "WQL",
+                    "SELECT Name, ValidRegistryValues FROM MSFT_NetAdapterAdvancedPropertySettingData " +
+                    "WHERE RegistryKeyword = '*SpeedDuplex'")
+                .Select(i => (Name: i.CimInstanceProperties["Name"].Value as string ?? string.Empty,
+                              Valid: i.CimInstanceProperties["ValidRegistryValues"].Value as string[]))
+                .ToList();
+            return MatchesSpeedSetting(adapterName, registryValue, settings);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not list *SpeedDuplex settings");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The comparison behind <see cref="IsKnownSpeedSetting"/>, kept apart from CIM. A driver
+    /// that lists no values still gets only a plain number (every *SpeedDuplex value is one).
+    /// </summary>
+    private static bool MatchesSpeedSetting(string adapterName, string registryValue,
+        IEnumerable<(string Name, string[]? Valid)> settings)
+    {
+        foreach (var (name, valid) in settings)
+        {
+            if (!string.Equals(name, adapterName, StringComparison.Ordinal))
+                continue;
+            return valid is { Length: > 0 }
+                ? valid.Contains(registryValue, StringComparer.Ordinal)
+                : registryValue.Length is > 0 and <= 4 && registryValue.All(char.IsAsciiDigit);
+        }
+        return false;
+    }
+
     private static readonly string[] _tileFiles = { "desktop.png", "steam.png" };
 
     private static void SwapAssets(string assetsDir, string desktopSource, string steamSource)
@@ -415,22 +490,23 @@ public class PipeWorker : BackgroundService
     {
         try
         {
-            // Escape single quotes for PowerShell string literals.
-            string safeAdapterName   = adapterName.Replace("'", "''");
-            string safeRegistryValue = registryValue.Replace("'", "''");
-
-            string script =
-                $"Set-NetAdapterAdvancedProperty -Name '{safeAdapterName}' " +
-                $"-RegistryKeyword '*SpeedDuplex' -RegistryValue '{safeRegistryValue}' -NoRestart; " +
-                $"Restart-NetAdapter -Name '{safeAdapterName}' -Confirm:$false";
+            // The two values reach PowerShell as environment variables, never inside the script
+            // text: doubling ' was not enough, PowerShell also takes U+2018/U+2019 as quotes.
+            // The caller has already checked both against the adapter's own *SpeedDuplex list.
+            const string script =
+                "Set-NetAdapterAdvancedProperty -Name $env:ST_ADAPTER " +
+                "-RegistryKeyword '*SpeedDuplex' -RegistryValue $env:ST_SPEEDVALUE -NoRestart; " +
+                "Restart-NetAdapter -Name $env:ST_ADAPTER -Confirm:$false";
 
             var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "powershell.exe",
-                Arguments = $"-ExecutionPolicy Bypass -WindowStyle Hidden -Command \"{script}\"",
+                Arguments = $"-NoProfile -NonInteractive -WindowStyle Hidden -Command \"{script}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+            psi.Environment["ST_ADAPTER"]    = adapterName;
+            psi.Environment["ST_SPEEDVALUE"] = registryValue;
 
             using var process = System.Diagnostics.Process.Start(psi);
             process?.WaitForExit();

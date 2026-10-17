@@ -15,7 +15,7 @@
   <PropertyGroup>
     <Product>StreamTweak</Product>
     <Company>FoggyBytes</Company>
-    <Version>9.2.4</Version>
+    <Version>9.2.5</Version>
     <AssemblyVersion>$(Version).0</AssemblyVersion>
     <FileVersion>$(Version).0</FileVersion>
     <InformationalVersion>$(Version).0</InformationalVersion>

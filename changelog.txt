@@ -4,6 +4,15 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+----------------------------------------------------
+Version 9.2.5 - "The Tight Seal Update" (17/10/2026)
+----------------------------------------------------
+
+🔒 SECURITY:
+• The service changes only the speed of an adapter that exists, and only to a value its driver offers — a crafted adapter name could make the LocalSystem service run a command of its choosing, for a program on the host that had first got inside StreamTweak's own process
+• The service copies only StreamTweak's own Desktop and Steam tile pictures into the streaming server's folder — before, any file was accepted as the picture to copy
+• The service's PowerShell fallback no longer bypasses the execution policy, and hands over the adapter's name and speed as values instead of writing them into the command
+
 -------------------------------------------------------
 Version 9.2.4 - "The Trusted Parts Update" (17/10/2026)
 -------------------------------------------------------
