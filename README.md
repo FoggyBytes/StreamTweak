@@ -28,6 +28,8 @@ Everything host-side works on its own. The paired features need [**StreamLight**
 >
 > Keeping Smart App Control on is a perfectly reasonable choice. Code signing is being looked into, and this note will be updated if that changes. The full source is in this repository.
 
+> 🛡️ **Security and privacy.** No analytics, no telemetry, nothing sent to FoggyBytes. How StreamTweak is protected and how to report a vulnerability is in [SECURITY.md](SECURITY.md); every connection it makes is listed in [PRIVACY.md](PRIVACY.md).
+
 ## 🔥 Features
 
 Everything below is in the current release, whichever version first introduced it.
