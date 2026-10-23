@@ -382,7 +382,17 @@ namespace StreamTweak.ViewModels
         }
 
         private void OnAutoRestoreStateChanged(object? sender, EventArgs e)
-            => _ui.TryEnqueue(UpdateStuckState);
+            => _ui.TryEnqueue(() =>
+            {
+                // 10.0.0: StreamLight can arm or disarm auto-restore over the bridge; follow it
+                // without going through the setter (which would write it back and re-arm).
+                if (_svc != null && _svc.AutoRestoreEnabled != _autoRestoreEnabled)
+                {
+                    _autoRestoreEnabled = _svc.AutoRestoreEnabled;
+                    OnPropertyChanged(nameof(AutoRestoreEnabled));
+                }
+                UpdateStuckState();
+            });
 
         private void UpdateStuckState()
         {

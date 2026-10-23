@@ -95,8 +95,43 @@ namespace StreamTweak.ViewModels
 
         // ── Public API ────────────────────────────────────────────────────────
 
+        // 10.0.0: StreamLight can flip an app's management over the bridge while this page is
+        // open. The flag is then taken from disk without being written back.
+        private Microsoft.UI.Dispatching.DispatcherQueue? _ui;
+        private bool _subscribed;
+        private bool _applyingExternal;
+
+        private void OnExternalChange() => _ui?.TryEnqueue(() =>
+        {
+            var onDisk = ManagedAppController.List();
+            _applyingExternal = true;
+            try
+            {
+                foreach (var entry in Apps)
+                {
+                    var app = onDisk.FirstOrDefault(a => string.Equals(a.Path, entry.Path, StringComparison.OrdinalIgnoreCase));
+                    if (app != null) entry.AutoManage = app.AutoManage;
+                }
+            }
+            finally { _applyingExternal = false; }
+        });
+
+        /// <summary>Stops following changes made over the bridge (page navigated away).</summary>
+        public void Unsubscribe()
+        {
+            if (!_subscribed) return;
+            ManagedAppController.Changed -= OnExternalChange;
+            _subscribed = false;
+        }
+
         public void Load()
         {
+            if (!_subscribed)
+            {
+                _ui ??= Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+                ManagedAppController.Changed += OnExternalChange;
+                _subscribed = true;
+            }
             try
             {
                 if (!File.Exists(AppsFilePath)) return;
@@ -120,7 +155,11 @@ namespace StreamTweak.ViewModels
             catch { /* file read errors are non-fatal */ }
         }
 
-        public async Task AddAsync()
+        /// <summary>
+        /// 10.0: the second way to add an app, after the programs running now — any executable,
+        /// so one does not have to be started first to be added.
+        /// </summary>
+        public async Task BrowseAsync()
         {
             var picker = new FileOpenPicker();
             if (App.MainWindow is { } win)
@@ -132,11 +171,53 @@ namespace StreamTweak.ViewModels
             StorageFile? file = await picker.PickSingleFileAsync();
             if (file == null) return;
 
-            string path = file.Path;
+            await AddAsync(file.Path, System.IO.Path.GetFileNameWithoutExtension(file.Path));
+        }
+
+        /// <summary>One program running in this session with a window of its own: what Add app
+        /// offers first (plan 10.0, Apps).</summary>
+        public sealed record RunningProgram(string Name, string Path);
+
+        /// <summary>
+        /// The programs with a visible window right now, one per executable, minus the ones already
+        /// in the list, Windows' own and StreamTweak itself. A process this account cannot open
+        /// (elevated, protected) is skipped: its path is what the list is keyed on.
+        /// </summary>
+        public List<RunningProgram> RunningPrograms()
+        {
+            var known = new HashSet<string>(Apps.Select(a => a.Path), StringComparer.OrdinalIgnoreCase);
+            string windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            int self = Environment.ProcessId;
+            var found = new Dictionary<string, RunningProgram>(StringComparer.OrdinalIgnoreCase);
+            foreach (var proc in System.Diagnostics.Process.GetProcesses())
+            {
+                using (proc)
+                {
+                    try
+                    {
+                        if (proc.Id == self || proc.MainWindowHandle == IntPtr.Zero) continue;
+                        string? path = proc.MainModule?.FileName;
+                        if (string.IsNullOrEmpty(path) || known.Contains(path) || found.ContainsKey(path)) continue;
+                        if (path.StartsWith(windows, StringComparison.OrdinalIgnoreCase)) continue;
+                        var info = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
+                        string name = !string.IsNullOrWhiteSpace(info.FileDescription) ? info.FileDescription.Trim()
+                                    : !string.IsNullOrWhiteSpace(info.ProductName)     ? info.ProductName.Trim()
+                                    : System.IO.Path.GetFileNameWithoutExtension(path);
+                        found[path] = new RunningProgram(name, path);
+                    }
+                    catch { /* gone, or not ours to open */ }
+                }
+            }
+            return found.Values.OrderBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase).ToList();
+        }
+
+        public static Task<BitmapImage?> IconFor(string path) => LoadIconForPathAsync(path);
+
+        public async Task AddAsync(string path, string name)
+        {
             if (Apps.Any(a => string.Equals(a.Path, path, StringComparison.OrdinalIgnoreCase)))
                 return;
 
-            string name = System.IO.Path.GetFileNameWithoutExtension(path);
             var app = new ManagedApp { Name = name, Path = path };
             var entry = new AppEntry(app);
             entry.PropertyChanged += (_, e) =>
@@ -219,16 +300,9 @@ namespace StreamTweak.ViewModels
 
         private void Save()
         {
-            try
-            {
-                Directory.CreateDirectory(System.IO.Path.GetDirectoryName(AppsFilePath)!);
-                var list = Apps.Select(a => a.ToManagedApp()).ToList();
-                string tmp = AppsFilePath + ".tmp";
-                File.WriteAllText(tmp,
-                    JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true }));
-                File.Move(tmp, AppsFilePath, overwrite: true);
-            }
-            catch { }
+            if (_applyingExternal) return;
+            // Through the controller, under the same lock as the bridge's writes (10.0.0).
+            ManagedAppController.SaveAll(Apps.Select(a => a.ToManagedApp()).ToList());
         }
 
         private async Task LoadIconsAsync()

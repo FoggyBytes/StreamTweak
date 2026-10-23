@@ -16,6 +16,13 @@ namespace StreamTweak
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "StreamTweak", "managedapps.json");
 
+        // 10.0.0: the bridge and the Apps page both write the file now; one lock for both.
+        private static readonly object _fileLock = new();
+
+        /// <summary>Raised (any thread) after the file changed through <see cref="SetAutoManage"/>,
+        /// so a page holding its own copy of the list reloads instead of overwriting the change.</summary>
+        public static event Action? Changed;
+
         private static List<ManagedApp> Load()
         {
             try
@@ -26,6 +33,58 @@ namespace StreamTweak
             catch { return new(); }
         }
 
+        /// <summary>The managed-app list as it is on disk.</summary>
+        public static List<ManagedApp> List()
+        {
+            lock (_fileLock) return Load();
+        }
+
+        /// <summary>
+        /// A stable, opaque id for an app (10.0.0): 16 hex digits of SHA-256 over the lowercased
+        /// path. It is what StreamLight names an app by on the bridge — hex because the bridge
+        /// upper-cases the command line, and so that no path ever travels back to the host.
+        /// </summary>
+        public static string IdOf(ManagedApp app) =>
+            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(app.Path.Trim().ToLowerInvariant())))[..16];
+
+        /// <summary>Turns an app's management on or off, found by <see cref="IdOf"/>. False when
+        /// no app has that id. Only the flag changes: the list itself is edited on the host.</summary>
+        public static bool SetAutoManage(string id, bool enabled)
+        {
+            lock (_fileLock)
+            {
+                var list = Load();
+                var app = list.FirstOrDefault(a => string.Equals(IdOf(a), id, StringComparison.OrdinalIgnoreCase));
+                if (app == null) return false;
+                if (app.AutoManage != enabled)
+                {
+                    app.AutoManage = enabled;
+                    Save(list);
+                }
+            }
+            Changed?.Invoke();
+            return true;
+        }
+
+        /// <summary>Writes the whole list (the Apps page). Same lock as the bridge's writes.</summary>
+        public static void SaveAll(List<ManagedApp> list)
+        {
+            lock (_fileLock) Save(list);
+        }
+
+        private static void Save(List<ManagedApp> list)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(_filePath)!);
+                string tmp = _filePath + ".tmp";
+                File.WriteAllText(tmp, JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true }));
+                File.Move(tmp, _filePath, overwrite: true);
+            }
+            catch { }
+        }
+
         /// <summary>
         /// Kills every managed app that is currently running.
         /// Returns the paths of apps that were actually running, for later relaunch.
@@ -34,7 +93,7 @@ namespace StreamTweak
         public static List<string> KillRunning()
         {
             var killed = new List<string>();
-            foreach (var app in Load().Where(a => a.AutoManage))
+            foreach (var app in List().Where(a => a.AutoManage))
             {
                 try
                 {

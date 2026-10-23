@@ -60,12 +60,6 @@ namespace StreamTweak.Views
             base.OnNavigatedTo(e);
             ViewModel.Load();
 
-            // Deep link from the Dashboard ("Open session ›", a recent-session row).
-            var pending = AppStateService.Instance.PendingSessionId;
-            AppStateService.Instance.PendingSessionId = null;
-            if (!string.IsNullOrEmpty(pending))
-                ViewModel.OpenDetailById(pending);
-
             ApplyLayout();
         }
 
@@ -252,8 +246,8 @@ namespace StreamTweak.Views
             if (e.ClickedItem is not SessionRow row) return;
             if (row.IsLive)
             {
-                // The live session has no detail yet: its numbers are on the Dashboard.
-                App.MainWindow?.NavigateTo("Home");
+                // The live session has no detail yet: Status shows it, with Return to client.
+                App.MainWindow?.NavigateTo("Status");
                 return;
             }
             ViewModel.OpenDetail(row.Entry);

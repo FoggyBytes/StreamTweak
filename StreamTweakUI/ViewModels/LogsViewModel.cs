@@ -408,22 +408,6 @@ namespace StreamTweak.ViewModels
             IsDetailVisible = true;
         }
 
-        public bool OpenDetailById(string id)
-        {
-            var s = _all.FirstOrDefault(x => x.Id == id);
-            if (s == null) return false;
-            // The filters could hide it: clear them so the list shows what the detail shows.
-            if (!Rows.Any(r => r.Id == id))
-            {
-                _periodIndex = 3; OnPropertyChanged(nameof(PeriodIndex));
-                _gradeFilter = -1; OnPropertyChanged(nameof(GradeFilter));
-                _searchText = ""; OnPropertyChanged(nameof(SearchText));
-                Rebuild();
-            }
-            OpenDetail(s);
-            return true;
-        }
-
         public void CloseDetail() => IsDetailVisible = false;
 
         // ── Detail: header ────────────────────────────────────────────────────

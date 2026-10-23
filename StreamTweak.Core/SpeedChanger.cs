@@ -161,6 +161,27 @@ namespace StreamTweak
             catch { return "{\"phase\":\"IDLE\"}"; }
         }
 
+        /// <summary>
+        /// Asks the service to restart the streaming server's own service (10.0.0, Sync and
+        /// restart). Blocks until the service has stopped and started it, up to about a minute.
+        /// Returns "OK", "ERROR:&lt;reason&gt;" from the service, or "ERROR:no service".
+        /// </summary>
+        public static string RestartStreamingServer(string serviceName)
+        {
+            try
+            {
+                using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut);
+                client.Connect(PipeTimeoutMs);
+
+                using var writer = new StreamWriter(client, leaveOpen: true) { AutoFlush = true };
+                using var reader = new StreamReader(client, leaveOpen: true);
+
+                writer.WriteLine(JsonSerializer.Serialize(new { Command = "RestartServer", Scope = serviceName }));
+                return reader.ReadLine() ?? "ERROR:no answer";
+            }
+            catch { return "ERROR:no service"; }
+        }
+
         private static bool SendSimple(string command, string? scope)
         {
             try

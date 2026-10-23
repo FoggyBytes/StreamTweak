@@ -52,6 +52,16 @@ namespace StreamTweak
     ///              CLIPKEY → "KEY &lt;base64&gt;" | ERR_NOT_ALLOWED; CLIPSET + one sealed
     ///              payload line → OK | ERR_*; CLIPGET → "CLIP &lt;seq&gt; &lt;base64&gt;" | OWN | EMPTY |
     ///              NOTEXT | ERR_*; CLIPEND → OK. CAPS carries "clip=on|off".
+    ///   DASHBOARD / APPS / NVIDIA — StreamLight 8.0's host section (10.0.0): one JSON read per
+    ///              tab, gated like STATS, each carrying "host_management" for the asking device.
+    ///   SETAUDIO ON|OFF, SETAPP &lt;id&gt; ON|OFF, SETSENTINEL ON|OFF — the matching writes:
+    ///              switches only, never a path or a command line. A verified signature AND
+    ///              the device's Host management permission, or ERR_NO_MANAGEMENT.
+    ///              CAPS carries "host=1 ver=&lt;version&gt;" from 10.0.0.
+    ///   SESSIONS &lt;offset&gt; &lt;count&gt; ALL|MINE, SESSION &lt;id&gt;, SERIES &lt;id&gt; &lt;track&gt;,
+    ///              COVER &lt;id&gt; &lt;n&gt; — the Sessions tab of the same section (10.0.0): the history a
+    ///              page at a time, one session's report, one track of its timeline, one cover.
+    ///              Read-only, gated like STATS; sessions are named by id, never by a game.
     ///
     /// Each connection is short-lived: client sends one line, server replies "OK",
     /// the speed string, or "ERR".
@@ -174,7 +184,33 @@ namespace StreamTweak
         /// The argument is the deserialized ClientBatch for the current session.
         /// Subscribe in App.xaml.cs to feed the TelemetryAccumulator.
         /// </summary>
-        public event Action<ClientBatch>? SessionDataReceived;
+        public event Action<ClientBatch, string?>? SessionDataReceived;
+
+        // ── Host section (10.0.0) ────────────────────────────────────────────────
+
+        /// <summary>This host's version, sent in CAPS as "ver=" so StreamLight 8.0 can tell a host
+        /// too old for its host section apart from one without StreamTweak. Null leaves it out.</summary>
+        public string? HostVersion { get; set; }
+
+        /// <summary>The three reads of StreamLight's host section. The argument is the asking
+        /// device's uniqueId (null on the legacy path), so the reply can say whether that device
+        /// holds Host management. Null answers "ERR", like a host that predates them.</summary>
+        public Func<string?, Task<string>>? DashboardProvider { get; set; }
+        public Func<string?, Task<string>>? AppsProvider      { get; set; }
+        public Func<string?, Task<string>>? NvidiaProvider    { get; set; }
+
+        /// <summary>The writes: (verb, argument) → reply line. Called only for a verified
+        /// signature from a device holding Host management; the bridge has already checked both.</summary>
+        public Func<string, string, string>? HostSettingWriter { get; set; }
+
+        /// <summary>The Sessions tab's reads (10.0.0): (verb, argument, asking device's uniqueId or
+        /// null) → reply line. Null answers "ERR", like a host that predates them.</summary>
+        public Func<string, string, string?, string>? SessionsProvider { get; set; }
+
+        /// <summary>The Library tab's read (10.0.0): LIBRARY — (verb, argument,
+        /// asking device's uniqueId or null) → reply line. Its one action, LIBSYNC, goes through
+        /// <see cref="HostSettingWriter"/> like the switches. Null answers "ERR".</summary>
+        public Func<string, string, string?, string>? LibraryProvider { get; set; }
 
         private TcpListener? _listener;
         private CancellationTokenSource? _cts;
@@ -329,7 +365,11 @@ namespace StreamTweak
                         // before any stream: a host without the token predates the feature. Harmless
                         // to reveal unauthenticated — it is a yes/no about a setting, not the clipboard.
                         string clip = Clipboard == null ? "" : ClipboardShare.Enabled ? " clip=on" : " clip=off";
-                        await writer.WriteLineAsync($"CAPS1 auth={(RequireAuth ? "required" : "optional")}{clip}");
+                        // "host=1" = the verbs of StreamLight 8.0's host section exist (10.0.0); the
+                        // version lets the client name the host as too old rather than missing.
+                        string host = DashboardProvider == null ? "" : " host=1";
+                        string ver  = string.IsNullOrEmpty(HostVersion) ? "" : $" ver={HostVersion}";
+                        await writer.WriteLineAsync($"CAPS1 auth={(RequireAuth ? "required" : "optional")}{clip}{host}{ver}");
                         return;
                     }
 
@@ -661,8 +701,10 @@ namespace StreamTweak
                     {
                         var batch = JsonSerializer.Deserialize<ClientBatch>(payload,
                             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        // The device is named only when its signature checked out (10.0.0): it is
+                        // what the session history records as the session's client.
                         if (batch != null)
-                            SessionDataReceived?.Invoke(batch);
+                            SessionDataReceived?.Invoke(batch, authenticated ? clientId : null);
                         await writer.WriteLineAsync("OK");
                     }
                     catch
@@ -697,6 +739,79 @@ namespace StreamTweak
                         "CLIPGET" => await Clipboard.HandleGetAsync(clientId),
                         _         => await Clipboard.HandleEndAsync(clientId),
                     };
+                    await writer.WriteLineAsync(reply);
+                    break;
+                }
+
+                // ── StreamLight 8.0's host section (10.0.0) ───────────────────────────
+                case "DASHBOARD":
+                case "APPS":
+                case "NVIDIA":
+                {
+                    // Read-only, gated like STATS. Each reply names the device's own permission,
+                    // so the client draws the switches live or greyed without a second round trip.
+                    var provider = verb switch
+                    {
+                        "DASHBOARD" => DashboardProvider,
+                        "APPS"      => AppsProvider,
+                        _           => NvidiaProvider,
+                    };
+                    string reply = "ERR";
+                    try { if (provider != null) reply = await provider(authenticated ? clientId : null); }
+                    catch (Exception ex) { DebugLog($"StreamTweakBridge: {verb} provider failed: {ex.Message}"); }
+                    await writer.WriteLineAsync(reply);
+                    break;
+                }
+
+                case "SESSIONS":
+                case "SESSION":
+                case "SERIES":
+                case "COVER":
+                {
+                    // Read-only, gated like STATS. The device is passed so "this device" can be told
+                    // apart from the rest of the history.
+                    string reply = "ERR";
+                    try { if (SessionsProvider != null) reply = SessionsProvider(verb, arg, authenticated ? clientId : null); }
+                    catch (Exception ex) { DebugLog($"StreamTweakBridge: {verb} provider failed: {ex.Message}"); }
+                    await writer.WriteLineAsync(reply);
+                    break;
+                }
+
+                case "LIBRARY":
+                {
+                    // Read-only, gated like STATS: games by a hex id. No covers: StreamLight shows its
+                    // own box art, the host page's (21/10/2026).
+                    string reply = "ERR";
+                    try { if (LibraryProvider != null) reply = LibraryProvider(verb, arg, authenticated ? clientId : null); }
+                    catch (Exception ex) { DebugLog($"StreamTweakBridge: {verb} provider failed: {ex.Message}"); }
+                    await writer.WriteLineAsync(reply);
+                    break;
+                }
+
+                case "SETAUDIO":
+                case "SETAPP":
+                case "SETSENTINEL":
+                case "LIBSYNC":    // Sync and restart (10.0.0): no argument; SECURITY.md
+                {
+                    // Changes a setting of this host: a verified signature AND the permission this
+                    // host granted that device. Arguments are switches and ids, never a path or a
+                    // command — the writer only flips state that already exists here.
+                    if (!authenticated || clientId == null)
+                    {
+                        DebugLog($"StreamTweakBridge: rejected unauthenticated {verb} from {remote}");
+                        await writer.WriteLineAsync("ERR");
+                        break;
+                    }
+                    if (AuthService == null || !AuthService.HasHostManagement(clientId))
+                    {
+                        DebugLog($"StreamTweakBridge: {verb} refused — {ResolveClientLabel(clientId, remote)} has no Host management");
+                        await writer.WriteLineAsync("ERR_NO_MANAGEMENT");
+                        break;
+                    }
+                    string reply = "ERR";
+                    try { if (HostSettingWriter != null) reply = HostSettingWriter(verb, arg); }
+                    catch (Exception ex) { DebugLog($"StreamTweakBridge: {verb} failed: {ex.Message}"); }
+                    DebugLog($"StreamTweakBridge: {verb} {arg} from {ResolveClientLabel(clientId, remote)} → {reply}");
                     await writer.WriteLineAsync(reply);
                     break;
                 }

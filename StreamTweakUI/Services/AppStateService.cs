@@ -114,34 +114,27 @@ namespace StreamTweak.Services
             SpatialAudioStatusChanged?.Invoke(status);
         }
 
-        // ── Live session telemetry (1 sample/sec from StreamLight) ───────────
+        /// <summary>10.0: Sync and restart, as the Library job of App.Library reports it.</summary>
+        public readonly record struct LibraryJob(
+            string Phase, TimeSpan Elapsed, List<string> Added, List<string> Removed,
+            string Error, int CooldownSeconds, string Server);
 
-        /// <summary>
-        /// One second of live telemetry for the Dashboard live cockpit. Client-side
-        /// fields come from the SESSIONDATA sample; host compute (Gpu/Enc/Cpu) from the
-        /// host metrics collector. Unavailable host fields are -1.
-        /// </summary>
-        public readonly record struct LiveSample(
-            float RttMs, float JitterMs, float BitrateMbps, int Drops, float FpsAvg,
-            float HostLatencyMs, int Gpu, int Enc, int Cpu);
+        /// <summary>10.0: starts Sync and restart from the host's Library page — the job StreamLight
+        /// starts with LIBSYNC. Returns "OK" or the refusal (ERR_BUSY, ERR_STREAMING, ERR_GAME_RUNNING,
+        /// ERR_NO_SERVER).</summary>
+        public Func<string>? LibrarySyncStarter { get; set; }
 
-        /// <summary>
-        /// Fired every second while a session is active and StreamLight is sending data.
-        /// Subscribers must marshal to the UI thread if needed.
-        /// </summary>
-        public event Action<LiveSample>? LiveTelemetrySample;
+        /// <summary>10.0: Clear library from the host's Library page — the same job, whose first step
+        /// empties the list instead of syncing it. Same replies as <see cref="LibrarySyncStarter"/>.
+        /// Host only: no bridge verb starts it.</summary>
+        public Func<string>? LibraryClearStarter { get; set; }
 
-        public void RaiseLiveSample(LiveSample sample)
-            => LiveTelemetrySample?.Invoke(sample);
+        /// <summary>10.0: the job's state, for the host's Library page.</summary>
+        public Func<LibraryJob>? LibraryJobReader { get; set; }
 
-        // ── Host metrics (idle vitals) ────────────────────────────────────────
-        //
-        // Exposes HostMetricsCollector.GetLatestSample() to the Dashboard so the
-        // idle "HOST · LIVE" box can show live GPU/encoder/VRAM/CPU/net even when
-        // no session is active. Set once by App.xaml.cs at boot. The collector
-        // runs from app start regardless of streaming, so this is available at all
-        // times. Read-only snapshot — no side effects.
-        public Func<HostMetricsSample>? HostMetricsProvider { get; set; }
+        /// <summary>10.0: the name of the device streaming now, for Status's "Streaming now";
+        /// null when nothing streams or the client sends no telemetry. Set by App.HostSection.</summary>
+        public Func<string?>? StreamingClientProvider { get; set; }
 
         /// <summary>
         /// The tile guard, so the Library page can tell it the user just changed their mind —
@@ -150,31 +143,11 @@ namespace StreamTweak.Services
         /// </summary>
         public HostAssetsGuard? HostAssetsGuard { get; set; }
 
-        /// <summary>
-        /// Bitrate ceiling configured on the client for the active session, in Mbps.
-        /// 0 when unknown (StreamLight older than 4.5.0, which doesn't report it) — the
-        /// Dashboard then shows the delivered rate without a target. Written on every
-        /// SESSIONDATA batch, so it self-corrects when a different client connects.
-        /// </summary>
-        public float CurrentTargetBitrateMbps { get; set; }
-
         // ── Glossary deep-link ────────────────────────────────────────────────
         // An ⓘ InfoHint sets this to the term it wants, then navigates to the Glossary;
         // GlossaryView reads + clears it on navigation and scrolls to that row. Plain
         // property (read once at navigation time) — no event needed.
         public string? PendingGlossaryTerm { get; set; }
-
-        // ── 9.0 deep links ────────────────────────────────────────────────────
-        // Same one-shot pattern as the glossary: the Dashboard sets one of these and
-        // navigates; the target page reads + clears it in OnNavigatedTo.
-
-        /// <summary>Session to open in the Sessions detail (SessionEntry.Id).</summary>
-        public string? PendingSessionId { get; set; }
-
-        /// <summary>Game to open in the Library sheet (ObservableGameEntry.Name).</summary>
-        public string? PendingGameName { get; set; }
-
-        // ── Settings changed notification ─────────────────────────────────────
 
         /// <summary>
         /// Fired when any user-facing toggle (Auto Mode, Spatial Audio, HDR, Auto HDR, audio

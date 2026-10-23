@@ -4,6 +4,50 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+---------------------------------------------------
+Version 10.0.0 - "The Hand Off Update" (23/10/2026)
+---------------------------------------------------
+
+🛋️ HOST SECTION:
+• The host from the sofa — StreamLight 8.0's new StreamTweak section reads this host's dashboard (GPU, CPU, RAM, which device is streaming, link speed, spatial audio, Windows Update), its managed apps with their icons and NVIDIA Sentinel, and turns apps, spatial audio and Sentinel's auto-restore on or off
+• Sessions on the couch — StreamLight 8.0 reads this host's session history: the list, each session's report and timeline, and two sessions side by side. Read-only: nothing is changed or deleted from the client
+• Library and Sync and restart — StreamLight 8.0 shows the games StreamTweak lists in the streaming server, and a device with Host management can sync the library and restart the server so the new list shows up, without going to the host. Refused while a device is streaming or a game is still open; excluded games stay out
+• Changes made from StreamLight show up here at once, on Status and in Setup
+
+🧭 INTERFACE:
+• A lighter StreamTweak — the sidebar is now Status, Sessions and Library, then a Setup block with Clients, Network, Apps, Spatial audio and NVIDIA Sentinel, and Glossary and Settings at the bottom: what you set once stays on the host, the everyday switches and the live figures moved to StreamLight
+• Status is the page StreamTweak opens on — a header drawn from the covers of the games on this PC, with whether the host is ready to stream, its link speed, the games listed and the last session's grade; a device asking for access, with its PIN and Approve, Approve with host management or Deny; the stream running now, with Return to client; then eight tiles, one per component (service, bridge port, streaming server, library, managed apps, spatial audio, network, NVIDIA Sentinel), green, amber or red, each opening the page that sets it
+• On a first run Status walks through four steps — streaming server found, bridge port open, a device approved, apps chosen — until they are done or hidden
+• Library is a table on solid surfaces — the streaming server's card with its state, Sync and restart and four figures (listed, excluded, added by hand, last sync), then every game on one row with the exact command written in the streaming server, in three tabs: in the server, excluded, added by hand. Play runs that command on this PC to test it, instead of a launcher of its own
+• Exclude keeps a game in the list and out of the streaming server at every sync, whoever starts it; Include again brings it back
+• Sync and restart on the Library page — the same job StreamLight starts: the sync, then the streaming server restarted through the service so it shows the new list, step by step
+• Clear library — takes every game StreamTweak listed out of the streaming server and empties the list, then restarts the server; it asks first, and only the host can do it
+• Add app offers the programs running now first, then any program on disk
+• Settings now holds Share clipboard with StreamLight
+• Donate in Settings now opens the FoggyBytes page on Ko-fi
+
+🗑️ REMOVED:
+• The Dashboard: its live host monitor and live session are in StreamLight, its last session and recent games are in Sessions, its performance trend is gone
+• The Display page and its HDR and Auto HDR switches: the streaming servers set HDR themselves
+• Sync now and Clear sync on the Library page: Sync and restart and Clear library replace them, each with the restart that makes the server show the change
+
+🔒 SECURITY:
+• Host management — a new permission per device under Setup › Clients: only a device that holds it can change settings from StreamLight, and only switches travel over the bridge, never a path or a command
+• Approval now offers Approve with host management, Approve or Deny; closing the dialog still denies. Devices approved before 10.0.0 keep Host management on and are listed once in a notice under Setup › Clients
+
+🗂️ SESSION HISTORY:
+• Each session now records which StreamLight device it was streamed to; earlier sessions and other clients stay unnamed
+
+🐛 BUG FIXES:
+• A game the streaming server launched is followed for as long as it runs, even when the Game Library does not list it — an Xbox app game outside the library was seen only at launch, and the timeline gave it its first minute
+• A session whose saved cover is gone shows the cover another session kept for the same game, instead of none
+
+🔒 SECURITY (Sync and restart):
+• The service restarts only the streaming server's own service (SunshineService or ApolloService), only after checking that its program is the server whose list StreamTweak writes, and only through Windows' service manager — the client sends no argument at all, and the full set of checks is in SECURITY.md
+
+⚠️ COMPATIBILITY:
+• StreamLight 8.0.0 is needed for the host section; older clients work as before
+
 ----------------------------------------------------
 Version 9.2.5 - "The Tight Seal Update" (17/10/2026)
 ----------------------------------------------------

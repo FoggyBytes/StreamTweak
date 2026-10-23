@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v9.2.5 - GitHub Release Installer
+; StreamTweak v10.0.0 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 2.4) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "9.2.5"
+#define MyAppVersion "10.0.0"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -97,6 +97,8 @@ Type: files; Name: "{app}\H.NotifyIcon.dll"
 Type: files; Name: "{app}\H.NotifyIcon.WinUI.dll"
 Type: files; Name: "{app}\H.GeneratedIcons.System.Drawing.dll"
 Type: files; Name: "{app}\System.Drawing.Common.dll"
+; 10.0.0: the Donate button's PayPal icon, replaced by kofi.svg.
+Type: files; Name: "{app}\Resources\paypal.svg"
 
 [Files]
 ; ── Main WinUI 3 application ─────────────────────────────────────────────────
@@ -290,7 +292,7 @@ begin
     '•  Per-session quality grading, charts and delivered-vs-target bitrate' + #13#10 +
     '•  Shared clipboard while you stream — encrypted, passwords cleared' + #13#10 +
     '•  Sleep, restart or power this host off, or update it, from the client' + #13#10 +
-    '•  Gamepad-first interface: every action reachable from the pad' + #13#10 +
+    '•  The host from the sofa — dashboard, sessions, library, apps, Sentinel' + #13#10 +
     '•  Per-game and per-host profiles, custom resolutions, live stream settings' + #13#10 +
     '•  Tailscale presence for streaming from outside your network';
 

@@ -83,23 +83,23 @@
                 SelectionChanged="NavView_SelectionChanged"
                 ItemInvoked="NavView_ItemInvoked">
 
-                <!-- ── MAIN NAV ITEMS (9.0 IA) ─────────────────────────────────
-                     Streaming = what you play, how it went, who streams it.
-                     Host = the machine the stream comes from. -->
+                <!-- ── MAIN NAV ITEMS (10.0, plan phase 4) ──────────────────────────
+                     Status = what a stream will find and what needs you; Sessions and Library =
+                     what was streamed and what can be; the Setup block = what you set once on this
+                     host, one item per page as in 9.x (Marcello, 22/10: not as tabs). The everyday
+                     controls live in StreamLight 8's StreamTweak section. -->
                 <NavigationView.MenuItems>
 
-                    <NavigationViewItem x:Name="NavHome" Tag="Home" Content="Dashboard">
+                    <NavigationViewItem x:Name="NavStatus" Tag="Status" Content="Status">
                         <NavigationViewItem.Icon>
-                            <FontIcon Glyph="&#xE80F;" FontFamily="Segoe MDL2 Assets"/>
+                            <FontIcon Glyph="&#xE9D9;" FontFamily="Segoe MDL2 Assets"/>
                         </NavigationViewItem.Icon>
-                    </NavigationViewItem>
-
-                    <NavigationViewItemHeader Content="Streaming"/>
-
-                    <NavigationViewItem Tag="GameLibrary" Content="Library">
-                        <NavigationViewItem.Icon>
-                            <FontIcon Glyph="&#xE7FC;" FontFamily="Segoe MDL2 Assets"/>
-                        </NavigationViewItem.Icon>
+                        <!-- Devices waiting for approval: the request sits on top of Status -->
+                        <NavigationViewItem.InfoBadge>
+                            <InfoBadge x:Name="ClientsBadge" Visibility="Collapsed"
+                                       Background="{StaticResource ST9Amber}"
+                                       Foreground="#FF2A1A02"/>
+                        </NavigationViewItem.InfoBadge>
                     </NavigationViewItem>
 
                     <NavigationViewItem Tag="Logs" Content="Sessions">
@@ -108,45 +108,45 @@
                         </NavigationViewItem.Icon>
                     </NavigationViewItem>
 
+                    <NavigationViewItem Tag="GameLibrary" Content="Library">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE7FC;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+
+                    <NavigationViewItemHeader Content="Setup"/>
+
                     <NavigationViewItem Tag="Clients" Content="Clients">
                         <NavigationViewItem.Icon>
                             <FontIcon Glyph="&#xE8CC;" FontFamily="Segoe MDL2 Assets"/>
                         </NavigationViewItem.Icon>
-                        <!-- Devices waiting for approval -->
-                        <NavigationViewItem.InfoBadge>
-                            <InfoBadge x:Name="ClientsBadge" Visibility="Collapsed"
-                                       Background="{StaticResource ST9Amber}"
-                                       Foreground="#FF2A1A02"/>
-                        </NavigationViewItem.InfoBadge>
                     </NavigationViewItem>
 
-                    <NavigationViewItemHeader Content="Host"/>
-
-                    <NavigationViewItem Tag="TuneNet" Content="Network">
+                    <NavigationViewItem Tag="Network" Content="Network">
                         <NavigationViewItem.Icon>
-                            <FontIcon Glyph="&#xE701;" FontFamily="Segoe MDL2 Assets"/>
+                            <FontIcon Glyph="&#xE839;" FontFamily="Segoe MDL2 Assets"/>
                         </NavigationViewItem.Icon>
                     </NavigationViewItem>
 
-                    <NavigationViewItem Tag="TuneAV" Content="Display &amp; audio">
+                    <NavigationViewItem Tag="Apps" Content="Apps">
                         <NavigationViewItem.Icon>
-                            <FontIcon Glyph="&#xE7F4;" FontFamily="Segoe MDL2 Assets"/>
+                            <FontIcon Glyph="&#xE71D;" FontFamily="Segoe MDL2 Assets"/>
                         </NavigationViewItem.Icon>
                     </NavigationViewItem>
 
-                    <NavigationViewItem x:Name="NavTuneNv" Tag="TuneNv" Content="NVIDIA Sentinel">
+                    <NavigationViewItem Tag="Audio" Content="Spatial audio">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE7F6;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+
+                    <NavigationViewItem x:Name="NavSentinel" Tag="Sentinel" Content="NVIDIA Sentinel">
                         <NavigationViewItem.Icon>
                             <ImageIcon>
                                 <ImageIcon.Source>
                                     <SvgImageSource UriSource="ms-appx:///Resources/nvidia-eye.svg"/>
                                 </ImageIcon.Source>
                             </ImageIcon>
-                        </NavigationViewItem.Icon>
-                    </NavigationViewItem>
-
-                    <NavigationViewItem Tag="TuneApps" Content="Managed apps">
-                        <NavigationViewItem.Icon>
-                            <FontIcon Glyph="&#xE71D;" FontFamily="Segoe MDL2 Assets"/>
                         </NavigationViewItem.Icon>
                     </NavigationViewItem>
 
@@ -198,7 +198,7 @@
                     <TextBlock x:Name="TitleVersionText"
                                FontFamily="{StaticResource JetBrainsMono}"
                                FontSize="11"
-                               Foreground="{StaticResource ST9Text4}"
+                               Foreground="{StaticResource ST9Text3}"
                                VerticalAlignment="Center"/>
                 </StackPanel>
 

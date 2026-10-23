@@ -41,11 +41,7 @@
                     <local:GlossaryRow Term="Link Speed"
                                        Definition="Negotiated transmission speed between two network adapters (e.g. 1 Gbps, 2.5 Gbps)."/>
                     <local:GlossaryRow Term="Link-speed switch"
-                                       Definition="StreamTweak's founding feature — temporarily switch the host NIC to a chosen speed while streaming, then restore it. Matching the host speed to the client eliminates bufferbloat and its latency spikes. A brief reconnect happens on switch."/>
-                    <local:GlossaryRow Term="Auto-switch"
-                                       Definition="Apply the link-speed switch automatically when the streaming-server log reports a client connecting, and restore it when the session ends."/>
-                    <local:GlossaryRow Term="NIC Throttle"
-                                       Definition="Temporary reduction of the host NIC speed to match the client, eliminating bufferbloat (the classic name for the link-speed switch)."/>
+                                       Definition="StreamTweak's founding feature. Before it connects, StreamLight reads its own wired link and asks the host to match it; the stream starts once the change is confirmed, and the speed is put back when a client asks for it. Matching the two links eliminates bufferbloat and its latency spikes. Allowed in Settings, never during a session."/>
                     <local:GlossaryRow Term="Bufferbloat"
                                        Definition="High latency caused by excessive packet queuing in network buffers between host and client."/>
                     <local:GlossaryRow Term="Net TX"
@@ -95,17 +91,13 @@
                     <local:GlossaryRow Term="Host Power"
                                        Definition="NVIDIA GPUs only: the card's board power during a stream (the whole card, PCIe slot included — not the 12V-2x6 connector alone), the power limit in force whoever set it (NVIDIA App, MSI Afterburner…), and the GPU temperature. Amber bands mark where the driver held the card at its limit, which it does about 10 % under it. Recorded from StreamTweak 9.2.0."/>
 
-                    <!-- ── DISPLAY &amp; AUDIO ── -->
-                    <TextBlock Text="// DISPLAY &amp; AUDIO"
+                    <!-- ── AUDIO (10.0: HDR left with the Display page — the streaming servers do it) ── -->
+                    <TextBlock Text="// AUDIO"
                                FontSize="11" FontWeight="SemiBold"
                                Foreground="{StaticResource STSuccess}"
                                Margin="0,20,0,3"/>
                     <Rectangle Height="0.5" Fill="{StaticResource STBorderActive}" Margin="0,0,0,10"/>
 
-                    <local:GlossaryRow Term="HDR"
-                                       Definition="High Dynamic Range — display mode that expands luminance range beyond standard SDR limits."/>
-                    <local:GlossaryRow Term="Auto HDR"
-                                       Definition="Windows feature that adds HDR to supported SDR games automatically. Requires at least one HDR-enabled display."/>
                     <local:GlossaryRow Term="Dolby Atmos"
                                        Definition="Spatial audio format that positions sound as 3D objects around the listener."/>
                     <local:GlossaryRow Term="Windows Sonic"
@@ -140,6 +132,8 @@
                                        Definition="A StreamLight device must be approved once (a 4-digit PIN shown on both sides is compared out of band) before it can use the bridge integration. Its Moonlight certificate then signs every command."/>
                     <local:GlossaryRow Term="Shared clipboard"
                                        Definition="Text copied on the host can be pasted on an approved StreamLight device while it streams, and the other way round — up to 32 KB, over the bridge, encrypted with a key that lasts one stream. Passwords marked by a password manager are cleared on the other side when the original is, and within 60 seconds anyway. Needs StreamLight 6.3.0 or later, with the option turned on there too."/>
+                    <local:GlossaryRow Term="Host management"
+                                       Definition="Per approved device: lets it change this host's settings from the StreamTweak section of StreamLight 8.0 — which apps are managed, spatial audio on or off, NVIDIA Sentinel's auto-restore — and run the Library's Sync and restart. Without it the device sees the same pages, read-only. Only switches travel: no path or command is ever sent to the host. Power, Windows Update and the link speed do not depend on it. Devices approved before StreamTweak 10.0.0 have it on; a new device gets it only from Approve with host management."/>
 
                     <!-- ── STREAMING SERVERS ── -->
                     <TextBlock Text="// STREAMING SERVERS"
@@ -150,6 +144,8 @@
 
                     <local:GlossaryRow Term="Sunshine / Apollo / Vibeshine / Vibepollo"
                                        Definition="Open-source game streaming server software installed on the host, all compatible with StreamTweak."/>
+                    <local:GlossaryRow Term="Sync and restart"
+                                       Definition="The Library's one way to reach the streaming server: StreamTweak looks for games in the stores installed on this PC, writes the list, then restarts the server's own service so it shows it — the servers read their app list only when they start. About a minute; refused while a device is streaming or a game the server launched is still open. Excluded games stay out."/>
 
                     <!-- ── SESSION QUALITY ── -->
                     <TextBlock Text="// SESSION QUALITY"
@@ -173,9 +169,7 @@
                     <Rectangle Height="0.5" Fill="{StaticResource STBorderActive}" Margin="0,0,0,10"/>
 
                     <local:GlossaryRow Term="Managed apps"
-                                       Definition="Apps StreamTweak closes when a stream starts and relaunches when it ends — e.g. Hue Sync, which conflicts when running on both host and client at once."/>
-                    <local:GlossaryRow Term="AutoManage"
-                                       Definition="When enabled, an app is automatically terminated at stream start and relaunched when the session ends."
+                                       Definition="Apps StreamTweak closes when a stream starts and relaunches when it ends — e.g. Hue Sync, which conflicts when running on both host and client at once. Each one has a switch to leave it alone without removing it."
                                        IsLast="True"/>
 
                 </StackPanel>

@@ -244,6 +244,16 @@ public class PipeWorker : BackgroundService
                         await writer.WriteLineAsync(WindowsUpdateManager.Instance.GetStateJson());
                         break;
 
+                    // Restart the streaming server after a library sync (10.0.0). The caller names one
+                    // of two fixed services in Scope; every other check happens in the class.
+                    case "RESTARTSERVER":
+                    {
+                        string reply = await Task.Run(() => StreamingServerRestart.Restart(cmd.Scope,
+                            m => _logger.LogInformation("{Message}", m)), ct);
+                        await writer.WriteLineAsync(reply);
+                        break;
+                    }
+
                     // GPU power readings for the session timeline (9.2.0). Read-only.
                     case "GPUPOWERSTATE":
                         await writer.WriteLineAsync(JsonSerializer.Serialize(_gpuPower.GetState()));

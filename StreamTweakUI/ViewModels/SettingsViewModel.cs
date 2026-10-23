@@ -23,7 +23,7 @@ namespace StreamTweak.ViewModels
         public string AppVersion { get; } =
             Assembly.GetExecutingAssembly().GetName().Version is { } v
                 ? $"{v.Major}.{v.Minor}.{v.Build}"
-                : "9.2.5";
+                : "10.0.0";
 
         // ── Update notice (mirrors AppStateService) ───────────────────────────
         // Rebroadcasts the centralized GitHub-release poll into properties the
@@ -255,10 +255,50 @@ namespace StreamTweak.ViewModels
                         PinText          = c.Status == "pending" ? c.Pin ?? "" : "",
                         IsApproved       = c.Status == "approved",
                         DeviceKind       = c.DeviceKind,
+                        HostManagement   = c.HostManagement == true,
                     });
                 }
             }
             OnPropertyChanged(nameof(HasNoBridgeClients));
+            RefreshHostManagementNotice();
+        }
+
+        // 10.0.0: devices that got Host management from the upgrade, named once.
+        private void RefreshHostManagementNotice()
+        {
+            var auth = AppStateService.Instance.BridgeAuth;
+            var upgraded = auth?.GetHostManagementByUpgrade() ?? Array.Empty<BridgeClient>();
+            HostManagementNoticeText = upgraded.Count == 0 ? "" :
+                (upgraded.Count == 1 ? "This device" : "These devices")
+                + " can now manage this host from StreamLight — managed apps, spatial audio, NVIDIA Sentinel and the library's Sync and restart: "
+                + string.Join(", ", upgraded.Select(c => StripStreamLightPrefix(c.Name)))
+                + ". Turn Host management off below for any you do not want to.";
+            OnPropertyChanged(nameof(HostManagementNoticeText));
+            OnPropertyChanged(nameof(HasHostManagementNotice));
+        }
+
+        /// <summary>The one-time notice of the 10.0.0 upgrade; empty once dismissed.</summary>
+        public string HostManagementNoticeText { get; private set; } = "";
+        public bool   HasHostManagementNotice  => !string.IsNullOrEmpty(HostManagementNoticeText);
+
+        public void DismissHostManagementNotice()
+        {
+            AppStateService.Instance.BridgeAuth?.DismissHostManagementNotice();
+            RefreshBridgeClients();
+        }
+
+        /// <summary>
+        /// ⚠️ Updates the one device in place, never the whole list: rebuilding it (as this did
+        /// until 21/10/2026) replaced the card under the pointer, so the switch that was clicked
+        /// vanished mid-animation and its new twin appeared already on or off — the clipboard
+        /// switch, which is not in the list, slid; these jumped.
+        /// </summary>
+        public void SetHostManagement(string uniqueId, bool enabled)
+        {
+            AppStateService.Instance.BridgeAuth?.SetHostManagement(uniqueId, enabled);
+            var item = BridgeClients.FirstOrDefault(c => c.UniqueId == uniqueId);
+            if (item != null) item.HostManagement = enabled;
+            RefreshHostManagementNotice();
         }
 
         private static string DeviceSubText(BridgeClient c)
@@ -494,6 +534,8 @@ namespace StreamTweak.ViewModels
 
         /// <summary>The kind the user picked for this device (<see cref="DeviceKinds"/>), or null.</summary>
         public string? DeviceKind { get; init; }
+        /// <summary>10.0.0: may change this host's settings from StreamLight.</summary>
+        public bool    HostManagement { get; set; }   // set by SetHostManagement, in place
         public string  Glyph      => DeviceKinds.Glyph(DeviceKind);
         public string  KindTip    => DeviceKind == null ? "Choose what this device is" : $"{DeviceKinds.Label(DeviceKind)} · click to change";
     }

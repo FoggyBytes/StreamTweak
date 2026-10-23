@@ -18,8 +18,7 @@
     <!-- ── COLOUR TOKENS ─────────────────────────────────────────────────── -->
     <!-- Cards as in 8.7 (STCard, STBorder): the translucent white of the first 9.0 cut read
          light grey next to the host pages and the sidebar. -->
-    <SolidColorBrush x:Key="ST9Card"        Color="#E60C0C0E"/>
-    <SolidColorBrush x:Key="ST9CardHover"   Color="#E6141416"/>
+    <SolidColorBrush x:Key="ST9Card"        Color="#FF1B1D1D"/>   <!-- 10.0: = ST10Surface, every page on the same solid card -->
     <SolidColorBrush x:Key="ST9CardStroke"  Color="#2a2724"/>
     <SolidColorBrush x:Key="ST9Inset"       Color="#08FFFFFF"/>
     <SolidColorBrush x:Key="ST9Pane"        Color="#FF0C0C0E"/>  <!-- the card black, opaque: side panels over a page -->
@@ -31,7 +30,6 @@
     <SolidColorBrush x:Key="ST9Text4"       Color="#646B67"/>
     <SolidColorBrush x:Key="ST9Mint"        Color="#4ade80"/>
     <SolidColorBrush x:Key="ST9Mint2"       Color="#86efac"/>
-    <SolidColorBrush x:Key="ST9MintInk"     Color="#052e16"/>
     <SolidColorBrush x:Key="ST9MintSoft"    Color="#214ade80"/>
     <SolidColorBrush x:Key="ST9MintStroke"  Color="#594ade80"/>
     <SolidColorBrush x:Key="ST9Amber"       Color="#fbbf24"/>
@@ -44,10 +42,11 @@
     <SolidColorBrush x:Key="ST9BlueSoft"    Color="#1F38bdf8"/>
     <SolidColorBrush x:Key="ST9BlueStroke"  Color="#5938bdf8"/>
     <SolidColorBrush x:Key="ST9GreySoft"    Color="#0FFFFFFF"/>
-    <!-- Chart series, validated for colour-blind separation on the dark surface -->
-    <SolidColorBrush x:Key="ST9Series1"     Color="#3987e5"/>
-    <SolidColorBrush x:Key="ST9Series2"     Color="#d95926"/>
-    <SolidColorBrush x:Key="ST9Series3"     Color="#199e70"/>
+    <!-- 10.0: solid surfaces for Status and the Library, which stand on Mica without letting it through -->
+    <SolidColorBrush x:Key="ST10Surface"    Color="#FF1B1D1D"/>
+    <SolidColorBrush x:Key="ST10Surface2"   Color="#FF222525"/>
+    <SolidColorBrush x:Key="ST10Code"       Color="#FF121414"/>
+    <SolidColorBrush x:Key="ST10Hero"       Color="#FF141716"/>
 
     <!-- ── TYPE ──────────────────────────────────────────────────────────── -->
     <Style x:Key="ST9_PageTitle" TargetType="TextBlock">
@@ -112,9 +111,6 @@
         <Setter Property="CharacterSpacing" Value="-20"/>
         <Setter Property="Foreground"       Value="{StaticResource ST9Text}"/>
     </Style>
-    <Style x:Key="ST9_ValueL" TargetType="TextBlock" BasedOn="{StaticResource ST9_Value}">
-        <Setter Property="FontSize" Value="34"/>
-    </Style>
     <Style x:Key="ST9_ValueS" TargetType="TextBlock" BasedOn="{StaticResource ST9_Value}">
         <Setter Property="FontSize" Value="19"/>
     </Style>
@@ -124,12 +120,6 @@
         <Setter Property="Foreground"        Value="{StaticResource ST9Text3}"/>
         <Setter Property="VerticalAlignment" Value="Bottom"/>
         <Setter Property="Margin"            Value="3,0,0,3"/>
-    </Style>
-    <Style x:Key="ST9_Eyebrow" TargetType="TextBlock">
-        <Setter Property="FontFamily"       Value="{StaticResource DMSansSemiBold}"/>
-        <Setter Property="FontSize"         Value="12"/>
-        <Setter Property="CharacterSpacing" Value="90"/>
-        <Setter Property="Foreground"       Value="{StaticResource ST9Mint2}"/>
     </Style>
     <Style x:Key="ST9_Mono" TargetType="TextBlock">
         <Setter Property="FontFamily"   Value="{StaticResource JetBrainsMono}"/>
@@ -146,18 +136,6 @@
         <Setter Property="CornerRadius"    Value="10"/>
         <Setter Property="Padding"         Value="20,18"/>
     </Style>
-    <Style x:Key="ST9_CardFlat" TargetType="Border">
-        <Setter Property="Background"      Value="{StaticResource ST9Card}"/>
-        <Setter Property="BorderBrush"     Value="{StaticResource ST9CardStroke}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius"    Value="10"/>
-    </Style>
-    <Style x:Key="ST9_Hero" TargetType="Border">
-        <Setter Property="Background"      Value="#FF0E0F0F"/>
-        <Setter Property="BorderBrush"     Value="{StaticResource ST9CardStroke}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius"    Value="14"/>
-    </Style>
     <Style x:Key="ST9_Inset" TargetType="Border">
         <Setter Property="Background"      Value="{StaticResource ST9Inset}"/>
         <Setter Property="BorderBrush"     Value="{StaticResource ST9Stroke}"/>
@@ -172,20 +150,11 @@
         <Setter Property="Background"      Value="{StaticResource ST9GreySoft}"/>
         <Setter Property="VerticalAlignment" Value="Center"/>
     </Style>
-    <Style x:Key="ST9_Divider" TargetType="Border">
-        <Setter Property="Height"     Value="1"/>
-        <Setter Property="Background" Value="{StaticResource ST9Stroke}"/>
-        <Setter Property="Margin"     Value="0,14"/>
-    </Style>
     <!-- One settings row: title + hint on the left, the control on the right. -->
     <Style x:Key="ST9_SetRow" TargetType="Border">
         <Setter Property="BorderBrush"     Value="{StaticResource ST9Stroke}"/>
         <Setter Property="BorderThickness" Value="0,0,0,1"/>
         <Setter Property="Padding"         Value="0,13"/>
-    </Style>
-    <Style x:Key="ST9_SetRowLast" TargetType="Border" BasedOn="{StaticResource ST9_SetRow}">
-        <Setter Property="BorderThickness" Value="0"/>
-        <Setter Property="Padding"         Value="0,13,0,2"/>
     </Style>
 
     <!-- ── TAGS (state pills: always a word, never colour alone) ─────────── -->
@@ -198,38 +167,10 @@
         <Setter Property="VerticalAlignment" Value="Center"/>
         <Setter Property="HorizontalAlignment" Value="Left"/>
     </Style>
-    <Style x:Key="ST9_TagAmber" TargetType="Border" BasedOn="{StaticResource ST9_TagGreen}">
-        <Setter Property="Background"  Value="{StaticResource ST9AmberSoft}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource ST9AmberStroke}"/>
-    </Style>
-    <Style x:Key="ST9_TagRed" TargetType="Border" BasedOn="{StaticResource ST9_TagGreen}">
-        <Setter Property="Background"  Value="{StaticResource ST9RedSoft}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource ST9RedStroke}"/>
-    </Style>
-    <Style x:Key="ST9_TagBlue" TargetType="Border" BasedOn="{StaticResource ST9_TagGreen}">
-        <Setter Property="Background"  Value="{StaticResource ST9BlueSoft}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource ST9BlueStroke}"/>
-    </Style>
-    <Style x:Key="ST9_TagGrey" TargetType="Border" BasedOn="{StaticResource ST9_TagGreen}">
-        <Setter Property="Background"  Value="{StaticResource ST9GreySoft}"/>
-        <Setter Property="BorderBrush" Value="{StaticResource ST9Stroke2}"/>
-    </Style>
     <Style x:Key="ST9_TagText" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource DMSansSemiBold}"/>
         <Setter Property="FontSize"   Value="11.5"/>
         <Setter Property="Foreground" Value="{StaticResource ST9Text2}"/>
-    </Style>
-    <Style x:Key="ST9_TagTextGreen" TargetType="TextBlock" BasedOn="{StaticResource ST9_TagText}">
-        <Setter Property="Foreground" Value="{StaticResource ST9Mint}"/>
-    </Style>
-    <Style x:Key="ST9_TagTextAmber" TargetType="TextBlock" BasedOn="{StaticResource ST9_TagText}">
-        <Setter Property="Foreground" Value="{StaticResource ST9Amber}"/>
-    </Style>
-    <Style x:Key="ST9_TagTextRed" TargetType="TextBlock" BasedOn="{StaticResource ST9_TagText}">
-        <Setter Property="Foreground" Value="{StaticResource ST9Red}"/>
-    </Style>
-    <Style x:Key="ST9_TagTextBlue" TargetType="TextBlock" BasedOn="{StaticResource ST9_TagText}">
-        <Setter Property="Foreground" Value="{StaticResource ST9Blue}"/>
     </Style>
 
     <!-- ── BUTTONS ───────────────────────────────────────────────────────────
@@ -384,64 +325,6 @@
         <Setter Property="Foreground"  Value="#fca5a5"/>
     </Style>
 
-    <!-- Clickable tile (Dashboard host-setup tiles, list rows that open something). -->
-    <Style x:Key="ST9_Tile" TargetType="Button">
-        <Setter Property="Background"                 Value="{StaticResource ST9Inset}"/>
-        <Setter Property="BorderBrush"                Value="{StaticResource ST9Stroke}"/>
-        <Setter Property="BorderThickness"            Value="1"/>
-        <Setter Property="CornerRadius"               Value="9"/>
-        <Setter Property="Padding"                    Value="12,10"/>
-        <Setter Property="HorizontalAlignment"        Value="Stretch"/>
-        <Setter Property="VerticalAlignment"          Value="Stretch"/>
-        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="VerticalContentAlignment"   Value="Center"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <ContentPresenter x:Name="ContentPresenter"
-                                      Background="{TemplateBinding Background}"
-                                      BorderBrush="{TemplateBinding BorderBrush}"
-                                      BorderThickness="{TemplateBinding BorderThickness}"
-                                      Content="{TemplateBinding Content}"
-                                      ContentTemplate="{TemplateBinding ContentTemplate}"
-                                      CornerRadius="{TemplateBinding CornerRadius}"
-                                      Padding="{TemplateBinding Padding}"
-                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                      AutomationProperties.AccessibilityView="Raw">
-                        <VisualStateManager.VisualStateGroups>
-                            <VisualStateGroup x:Name="CommonStates">
-                                <VisualState x:Name="Normal"/>
-                                <VisualState x:Name="PointerOver">
-                                    <Storyboard>
-                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Background">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#12FFFFFF"/>
-                                        </ObjectAnimationUsingKeyFrames>
-                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="BorderBrush">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#2EFFFFFF"/>
-                                        </ObjectAnimationUsingKeyFrames>
-                                    </Storyboard>
-                                </VisualState>
-                                <VisualState x:Name="Pressed">
-                                    <Storyboard>
-                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Background">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#08FFFFFF"/>
-                                        </ObjectAnimationUsingKeyFrames>
-                                    </Storyboard>
-                                </VisualState>
-                                <VisualState x:Name="Disabled">
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Opacity" To="0.4" Duration="0"/>
-                                    </Storyboard>
-                                </VisualState>
-                            </VisualStateGroup>
-                        </VisualStateManager.VisualStateGroups>
-                    </ContentPresenter>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
-
     <!-- Filter chip: a pill ToggleButton; checked = selected. -->
     <Style x:Key="ST9_Chip" TargetType="ToggleButton">
         <Setter Property="FontFamily"      Value="{StaticResource DMSans}"/>
@@ -528,14 +411,6 @@
         <Setter Property="MinHeight" Value="0"/>
     </Style>
 
-    <!-- Game cover tile in the Library grid -->
-    <Style x:Key="ST9_CoverItem" TargetType="GridViewItem" BasedOn="{StaticResource DefaultGridViewItemStyle}">
-        <Setter Property="Padding" Value="0"/>
-        <Setter Property="Margin"  Value="0"/>
-        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="VerticalContentAlignment"   Value="Stretch"/>
-    </Style>
-
     <!-- Search box look -->
     <Style x:Key="ST9_SearchBox" TargetType="TextBox">
         <Setter Property="FontFamily"   Value="{StaticResource DMSans}"/>
@@ -544,9 +419,107 @@
         <Setter Property="CornerRadius" Value="6"/>
     </Style>
 
-    <!-- Cover loaders: the hero / sheet cover and the Library tiles. The backdrop behind a
-         hero is Controls/CoverGradient, not a cover. -->
-    <converters:CoverPathToBitmapConverter x:Key="CoverPathToBitmapLargeConverter" DecodeWidth="360"/>
-    <converters:CoverPathToBitmapConverter x:Key="CoverPathToBitmapTileConverter" DecodeWidth="320"/>
+    <!-- 10.0: Status and the Library on solid surfaces -->
+    <Style x:Key="ST10_Panel" TargetType="Border">
+        <Setter Property="Background"      Value="{StaticResource ST10Surface}"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource ST9CardStroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius"    Value="12"/>
+        <Setter Property="Padding"         Value="20,18"/>
+    </Style>
+    <Style x:Key="ST10_Step" TargetType="Border">
+        <Setter Property="Background"      Value="{StaticResource ST10Surface2}"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource ST9Stroke}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius"    Value="9"/>
+        <Setter Property="Padding"         Value="14,12"/>
+    </Style>
+    <Style x:Key="ST10_HeroKpi" TargetType="Border">
+        <Setter Property="Background"      Value="#66000000"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource ST9Stroke2}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius"    Value="12"/>
+        <Setter Property="Padding"         Value="16,12"/>
+        <Setter Property="MinWidth"        Value="132"/>
+    </Style>
+    <Style x:Key="ST10_HeroKpiValue" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource DMSansSemiBold}"/>
+        <Setter Property="FontSize"   Value="22"/>
+        <Setter Property="Foreground" Value="{StaticResource ST9Text}"/>
+    </Style>
+    <Style x:Key="ST10_HeroKpiUnit" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource DMSans}"/>
+        <Setter Property="FontSize"   Value="13"/>
+        <Setter Property="Foreground" Value="{StaticResource ST9Text3}"/>
+        <Setter Property="VerticalAlignment" Value="Bottom"/>
+        <Setter Property="Margin"     Value="0,0,0,4"/>
+    </Style>
+    <Style x:Key="ST10_HeroKpiLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource DMSans}"/>
+        <Setter Property="FontSize"   Value="11.5"/>
+        <Setter Property="Foreground" Value="{StaticResource ST9Text3}"/>
+    </Style>
+
+    <!-- 10.0: a clickable tile on a solid surface — Status's eight components. From 9.x's ST9_Tile, with the
+         card's own fills instead of see-through ones (Marcello, 22/10: nothing floats on transparency). -->
+    <Style x:Key="ST10_Tile" TargetType="Button">
+        <Setter Property="Background"                 Value="{StaticResource ST10Surface}"/>
+        <Setter Property="BorderBrush"                Value="{StaticResource ST9CardStroke}"/>
+        <Setter Property="BorderThickness"            Value="1"/>
+        <Setter Property="CornerRadius"               Value="9"/>
+        <Setter Property="Padding"                    Value="12,10"/>
+        <Setter Property="HorizontalAlignment"        Value="Stretch"/>
+        <Setter Property="VerticalAlignment"          Value="Stretch"/>
+        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="VerticalContentAlignment"   Value="Center"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <ContentPresenter x:Name="ContentPresenter"
+                                      Background="{TemplateBinding Background}"
+                                      BorderBrush="{TemplateBinding BorderBrush}"
+                                      BorderThickness="{TemplateBinding BorderThickness}"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      CornerRadius="{TemplateBinding CornerRadius}"
+                                      Padding="{TemplateBinding Padding}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                      AutomationProperties.AccessibilityView="Raw">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal"/>
+                                <VisualState x:Name="PointerOver">
+                                    <Storyboard>
+                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Background">
+                                            <DiscreteObjectKeyFrame KeyTime="0" Value="{StaticResource ST10Surface2}"/>
+                                        </ObjectAnimationUsingKeyFrames>
+                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="BorderBrush">
+                                            <DiscreteObjectKeyFrame KeyTime="0" Value="{StaticResource ST9Stroke2}"/>
+                                        </ObjectAnimationUsingKeyFrames>
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <Storyboard>
+                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Background">
+                                            <DiscreteObjectKeyFrame KeyTime="0" Value="{StaticResource ST10Surface}"/>
+                                        </ObjectAnimationUsingKeyFrames>
+                                    </Storyboard>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Opacity" To="0.4" Duration="0"/>
+                                    </Storyboard>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </ContentPresenter>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Cover loader for the Library's rows (10.0): decoded at row size, only for the rows on screen. -->
+    <converters:CoverPathToBitmapConverter x:Key="CoverPathToBitmapRowConverter" DecodeWidth="96"/>
 
 </ResourceDictionary>

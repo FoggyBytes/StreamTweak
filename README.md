@@ -1,12 +1,12 @@
 ## <img src="installer/resources/streamtweak.png" alt="" width="32" height="32" align="absmiddle"> StreamTweak
 
-![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue.svg) ![Framework](https://img.shields.io/badge/Framework-.NET%208%20%2F%20WinUI%203-purple.svg) ![Downloads](.badges/downloads.svg) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-brightgreen.svg)](https://claude.ai/code)
+![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue.svg) ![Framework](https://img.shields.io/badge/Framework-.NET%208%20%2F%20WinUI%203-purple.svg) ![Downloads](.badges/downloads.svg) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-brightgreen.svg)](https://claude.ai/code) [![Support on Ko-fi](https://img.shields.io/badge/Support-Ko--fi-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/foggybytes)
 
 <div align="center">
   <img width="2065" height="1352" alt="Immagine 2026-09-30 181311" src="https://github.com/user-attachments/assets/641046d7-ed21-49b3-86d2-d352b5905dff" />
 </div>
 
-**StreamTweak** is the host half of the FoggyBytes streaming duo. It takes care of the setup that makes game streaming reliable — the network link, spatial audio, HDR, the game library, the NVIDIA driver profile — and keeps a record of how every session actually went.
+**StreamTweak** is the host half of the FoggyBytes streaming duo. It takes care of the setup that makes game streaming reliable — the network link, spatial audio, the game library, the NVIDIA driver profile — and keeps a record of how every session actually went.
 
 Paired with its companion client [**StreamLight**](https://github.com/FoggyBytes/StreamLight) the two work as one: the client asks for the link speed it needs, the host reports what is happening to a launch, and telemetry, store metadata, Tailscale presence and remote power and update controls travel between them over a local TCP bridge.
 
@@ -18,9 +18,9 @@ Paired with its companion client [**StreamLight**](https://github.com/FoggyBytes
 
 Windows 10 21H2 and later, alongside [Sunshine](https://github.com/LizardByte/Sunshine), [Apollo](https://github.com/ClassicOldSong/Apollo), [Vibeshine](https://github.com/Nonary/vibeshine) or [Vibepollo](https://github.com/Nonary/Vibepollo).
 
-Everything host-side works on its own. The paired features need [**StreamLight**](https://github.com/FoggyBytes/StreamLight) on the client, and the newest of them — client-driven link speed, the launch report, the shared session card and the PIN pad — need **StreamLight 5.0.0 or later**. Older clients keep the rest of the integration and simply never ask for what they don't know about.
+Everything host-side works on its own. The paired features need [**StreamLight**](https://github.com/FoggyBytes/StreamLight) on the client, and the newest of them — client-driven link speed, the launch report, the shared session card and the PIN pad — need **StreamLight 5.0.0 or later**; the host section, where a client manages this host from the sofa, needs **StreamLight 8.0.0**. Older clients keep the rest of the integration and simply never ask for what they don't know about.
 
-> 🔐 **The bridge is authenticated.** It accepts commands only from StreamLight devices you have approved: a one-time prompt shows a 4-digit PIN to confirm against the one on the device, and every command afterwards is signed with that client's Moonlight certificate. **Streaming is never gated by it** — approval only unlocks the paired features. Approve clients under **Clients** in the sidebar.
+> 🔐 **The bridge is authenticated.** It accepts commands only from StreamLight devices you have approved: a one-time prompt shows a 4-digit PIN to confirm against the one on the device, and every command afterwards is signed with that client's Moonlight certificate. **Streaming is never gated by it** — approval only unlocks the paired features. A device asking for access shows up at the top of **Status**, and under **Setup › Clients**.
 
 > ⚠️ **Windows SmartScreen and Smart App Control.** StreamTweak is not code-signed yet.
 > - **SmartScreen** may warn you when you run the installer: choose *More info → Run anyway*.
@@ -34,12 +34,16 @@ Everything host-side works on its own. The paired features need [**StreamLight**
 
 Everything below is in the current release, whichever version first introduced it.
 
+**🧭 Status and Setup** *(10.0.0)*
+- **Status** — the page StreamTweak opens on: a header drawn from the covers of the games on this PC, saying whether the host is ready to stream, with its link speed, the games listed and the last session's grade; a device asking for access, with its PIN and *Approve*, *Approve with host management* or *Deny*; the stream running now, with *Return to client*; then eight tiles, one per component — service, bridge port, streaming server, library, managed apps, spatial audio, network, NVIDIA Sentinel — green, amber or red, each opening the page that sets it. On a first run the same page walks through the four steps that matter
+- **Setup** — what you set once on this host, in its own block of the sidebar: Clients, Network, Apps, Spatial audio and NVIDIA Sentinel — the same names StreamLight 8.0 uses. Apps, spatial audio and Sentinel can also be switched from StreamLight 8.0's StreamTweak section, by a device with Host management. The everyday switches and the live figures are on the client
+
 **🌐 Network**
 - **Link-speed switch** — the client reads its own wired link and asks the host to match it **before** connecting; the stream starts once the change is confirmed. This is what fixes the packet loss and latency spikes caused by host and client NICs negotiating at different speeds — a 2.5 Gbps host feeding a 1 Gbps handheld sends each frame as a burst the slower link cannot drain, and the few packets carrying audio die first
 - **You stay in control of your hardware** — one permission switch decides whether clients may touch the adapter at all, the link is never changed while a session is running, and a manual restore is one click away. The host holds the speed until it is asked to put it back, so the gap between two games costs nothing
 - **Wired only** — Ethernet adapters that expose a speed setting, nothing else. Wi-Fi has no fixed link speed to match, and a request arriving over Wi-Fi or Tailscale is refused
 - **No UAC, ever** — a LocalSystem service performs the adapter changes over a named pipe
-- **[Tailscale](https://tailscale.com) detection** — the host's Tailscale IP is shown with a copy button on the Network page and in the title bar, beside this PC's LAN address, and the client tracks it on the host's tile for streaming from outside the LAN with no port forwarding
+- **[Tailscale](https://tailscale.com) detection** — the host's Tailscale IP is shown in the title bar, beside this PC's LAN address, one click to copy, and the client tracks it on the host's tile for streaming from outside the LAN with no port forwarding
 
 **🎬 Launch and lock state**
 - **The host reports the launch** — StreamTweak follows the game the streaming server was asked to open and reports whether it is still starting, has a window, is on screen, or is waiting for a click, so the client can cover the wait with its own screen instead of showing a desktop mid-reconfiguration
@@ -47,8 +51,7 @@ Everything below is in the current release, whichever version first introduced i
 - **The host says whether it is locked** — so a client that has just woken it can offer a PIN pad instead of leaving you with a host that answers pings and does nothing else. StreamTweak types nothing and unlocks nothing itself: the PIN travels on the streaming connection, the same path as any other keystroke
 - **The unlock is kept out of your history** — the brief session that carries the PIN is not recorded, switches on no spatial audio, closes no managed apps and credits no game
 
-**🖥️ Display and audio**
-- **HDR and Auto HDR toggles** per monitor, without opening Windows Settings
+**🎧 Spatial audio**
 - **Auto spatial audio** — Dolby Atmos for Headphones or Windows Sonic activated shortly after a session starts, on the output device of your choice, with live per-device availability shown before you commit
 
 **🛡️ NVIDIA Sentinel** *(NVIDIA GPUs only)*
@@ -61,21 +64,25 @@ Everything below is in the current release, whichever version first introduced i
 - **Multi-store discovery** — Steam, Epic Games, GOG, Ubisoft Connect, Xbox / Game Pass, EA App and Battle.net, synced into the streaming server's app list without touching entries you created by hand
 - **Native cover art** — fetched from each store and cached as PNG. A cover has to be full size to be accepted, so the search carries on past the small thumbnail a launcher keeps for its own grid, and a cover already downloaded is never replaced by a smaller one
 - **Each store launched the way it expects** — Steam and Epic through their launcher's own protocol, Xbox through the UWP shell, Battle.net through its client. Most Epic games cannot be started from their executable at all: the entitlement tokens arrive on the command line from the launcher
-- **Manual entries** — add any executable that was not detected, remove single entries, and keep them across re-syncs
+- **One row per game, with the exact command** — what StreamTweak wrote in the streaming server, so what you read is what the server runs. **Play** runs that same command on this PC, to test it
+- **Exclude** — a game stays in the list and out of the streaming server at every sync, whoever starts it; **Include again** brings it back
+- **Sync and restart** — the servers read their app list only when they start, so the sync restarts the streaming server's own service, through the LocalSystem service and Windows' service manager, and waits until it answers again. Refused while a device is streaming or a game it launched is still open
+- **Manual entries** — add any executable that was not detected, and keep it across re-syncs
 - **Host tile replacement** — swap the streaming server's Desktop and Steam tiles for bundled artwork, reversibly and with no UAC. They stay replaced: a server update reinstalls its own, and StreamTweak puts yours back
 
 **🗂️ Streaming app manager**
-- Apps to close when a session starts and reopen when it ends — Hue Sync, RGB suites, anything that fights with the client — with a per-app switch to exclude one without removing it
+- Apps to close when a session starts and reopen when it ends — Hue Sync, RGB suites, anything that fights with the client — with a per-app switch to exclude one without removing it. **Add app** offers the programs running now first, then any program on disk
 
 **📋 Sessions and telemetry**
 - **Full session log** — every session with duration, RTT, drop rate, and the games it played with their covers, and the codec of each stream. Optionally, sessions that never launched a game are discarded rather than recorded
 - **Quality report** — open any session for its client and host stats, a grade of Excellent / Good / Poor with the four checks behind it, and one timeline of RTT, host frame latency, drops, bitrate, decode latency, host compute and host power (board power against the power limit in force, and GPU temperature, on NVIDIA), with zoom, a Focus view and full screen
 - **Compare two sessions** side by side, with per-metric deltas
-- **Dashboard** — at the top, a live host monitor at rest (GPU temperature and load, VRAM, CPU, network, once a second) or the live session while streaming; below, the last session above your recently streamed games, the host setup, a performance trend over the period you choose, and your paired clients
 
 ## 🔗 Paired Features (with StreamLight)
 
 These cross the bridge and need both apps. The version shown is the **minimum StreamLight** on the client.
+
+- **Host section** *(8.0.0+)* — StreamLight's StreamTweak section reads this host's dashboard, managed apps and NVIDIA Sentinel over `DASHBOARD`, `APPS` and `NVIDIA` (plus RAM in `STATS`) its session history over `SESSIONS`, `SESSION`, `SERIES` and `COVER` and its game library over `LIBRARY`, read-only, and turns apps, spatial audio and Sentinel's auto-restore on or off with `SETAPP`, `SETAUDIO` and `SETSENTINEL` — switches only, never a path or a command — plus one action, `LIBSYNC`: sync the library and restart the streaming server through Windows' service manager, after the checks in SECURITY.md. Writing needs the device's **Host management** permission, granted under Setup › Clients; devices approved before 10.0.0 have it on. Each session also records which device it was streamed to
 
 - **Client-driven link speed** *(5.0.0+)* — the client reads the adapter over `NETINFO`, asks for a matching speed with `SETSPEED`, and waits for the host to confirm before launching. The host keeps the permission, the safety guards and the restore
 - **Launch state** *(5.0.0+)* — `GAMESTATE` reports what is happening to the game the server was asked to open, so the client can hold its own launch screen up until the game is really there
@@ -84,42 +91,24 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Last session on the client's home screen** *(5.0.0 – 5.6.1)* — `LASTSESSION` serves the host's most recent finished session with thumbnail cover art. ⚠️ **StreamLight stopped asking for it in 5.7.0**, where that card became the game *you* last played, kept by the client itself and working against a plain Sunshine host. Nothing was removed from the bridge — the verb is still served, and an older client still gets its answer. The reason it was replaced is the sentence that always followed it here: it is the *host's* last session, and StreamTweak keeps no record of which client a session belonged to
 - **Host metrics in the overlay** *(1.2.0+)* — GPU %, encoder %, GPU temperature, VRAM, CPU and network TX, over `STATS`
 - **Store badges on covers** *(2.0.0+)* — the per-game store map, over `APPSTORES`
-- **Session quality reports and live charts** *(2.1.0+)* — client telemetry every second; StreamTweak computes the grade and draws the charts
-- **Delivered vs target bitrate** *(4.5.0+)* — the client reports the rate it was told to aim for, so the Dashboard can show what was actually delivered against it
-- **Remote session pause** *(2.3.0+)* — "Return to client" on the Dashboard ends the stream client-side
+- **Session quality reports** *(2.1.0+)* — client telemetry every second; StreamTweak computes the grade and draws the session's timeline
+- **Delivered vs target bitrate** *(4.5.0+)* — the client reports the rate it was told to aim for, so a session's report can show what was actually delivered against it
+- **Remote session pause** *(2.3.0+)* — "Return to client" on Status ends the stream client-side
 - **Remote host power-off** *(3.2.0+)* — an approved client can shut down the host, itself, or both. Destructive, so it only ever fires on a verified signature
 - **Remote sleep and restart** *(6.2.0+)* — the host reports the power options it really has, and the client offers only those
 - **Remote Windows Update** *(3.3.0+)* — scan, classify and install updates on the host and reboot it, or install them as part of a shutdown, all from the client with no keyboard on the host. The privileged work runs in the LocalSystem service
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
-- **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched on the Clients page here, and on the device too
+- **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched in Settings here, and on the device too
 
-## ✨ What's New in 9.2.5 — "The Tight Seal Update"
+## ✨ What's New in 10.0.0 — "The Hand Off Update"
 
-- **A tighter service** — the LocalSystem service changes only the speed of an adapter that exists, to a value its driver offers, and copies only StreamTweak's own tile pictures
-- **Security and privacy, written down** — how the service and the bridge are protected is in [SECURITY.md](SECURITY.md), every connection StreamTweak makes is in [PRIVACY.md](PRIVACY.md)
+Pairs with StreamLight 8.0.0.
 
-## ✨ What's New in 9.2.4 — "The Trusted Parts Update"
-
-- **No unsigned third-party libraries** — SQLite comes from Windows and the tray icon from StreamTweak's own code, a first step towards a signed StreamTweak for Windows Smart App Control
-- **Built on GitHub** — the installer is built by GitHub Actions from the public source, with StreamTweak's name and version on every file
-
-## ✨ What's New in 9.2.3 — "The Second Look Update"
-
-- **A game left open after Quit, flagged** — StreamLight 7.0.2 asks after a Quit whether the game is still running here, and says so when the streaming server could not close it (Xbox app games, for one)
-
-## ✨ What's New in 9.2.2 — "The Big Picture Update"
-
-- **Big Picture waits too** — StreamLight's *Wait for the game to appear* now holds its launch screen until Steam Big Picture fills the host's screen
-- **Every launch recognised** — an app whose command has no quotes, like Steam Big Picture's, is seen again; and a stream without a launch of its own is no longer described by the game before it
-
-## ✨ What's New in 9.2.1 — "The Open Door Update"
-
-- **Found with the firewall on** — the installer now opens the bridge's port in Windows Firewall, so StreamLight no longer reports StreamTweak as not found on a host where nobody added the rule by hand
-
-## ✨ What's New in 9.2.0 — "The Host Power Update"
-
-- **Host power in every session** — a new timeline lane with the NVIDIA GPU's board power, the power limit in force whoever set it, and the GPU temperature, with amber bands where the driver held the card at its limit
-- **A service that stays reachable** — two requests arriving together no longer shut the service out for a second, and it restarts by itself if it ever stops
+- **Managed from the sofa** — StreamLight 8.0's new StreamTweak section reads this host's dashboard, session history, game library, apps and NVIDIA Sentinel, can sync the library and restart the streaming server, and switches managed apps, spatial audio and Sentinel's auto-restore; the change shows up here at once
+- **Host management** — a permission per device under Setup › Clients decides who may change anything; approval offers *Approve with host management*, *Approve* or *Deny*, and devices approved earlier keep it on, named once in a notice
+- **Who streamed** — each session now records the StreamLight device it was streamed to
+- **Every game followed** — a game the server launched is tracked for as long as it runs, even outside the Game Library, so an Xbox app game no longer drops off the timeline after a minute
+- **A lighter StreamTweak** — it opens on **Status**, what a stream will find and what needs you; the one-time settings sit in **Setup**; the **Library** lists each game with the command the server runs, **Exclude**, **Sync and restart** and **Clear library**. The Dashboard and the Display page are gone: the live figures and the everyday switches are in StreamLight, and HDR is the streaming server's job
 
 *Older releases are in [changelog.txt](changelog.txt).*
 
@@ -128,7 +117,7 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 Three components:
 
 - **`StreamTweakUI.exe`** — the WinUI 3 tray app, unprivileged, on Windows App SDK 2.4
-- **`StreamTweak.Core`** — shared logic: NIC control, audio, HDR, game library, telemetry, NVIDIA Sentinel, Tailscale detection, the TCP bridge
+- **`StreamTweak.Core`** — shared logic: NIC control, audio, game library, telemetry, NVIDIA Sentinel, Tailscale detection, the TCP bridge
 - **`StreamTweakService.exe`** — a LocalSystem Windows Service reached over a named pipe, which performs the NIC changes, host-asset writes and Windows Update work, so no UAC prompt ever appears
 
 The bridge is a TCP listener on **port 47998** (LAN, line-delimited ASCII). Commands accepted from StreamLight: `NETINFO`, `SETSPEED`, `RESTORE`, `STATUS`, `STATS`, `APPSTORES`, `TAILSCALE`, `SESSIONDATA`, `GAMESTATE`, `LASTSESSION`, `LOCKSTATE`, `UNLOCKBEGIN` / `UNLOCKEND`, and the power and update set `POWERCAPS`, `POWER`, `SHUTDOWN`, `SHUTDOWN_UPDATE`, `UPDATESTATE`, `UPDATECHECK`, `UPDATE_NOW`, `UPDATEPROGRESS`. A client negotiates with `CAPS`, enrolls its Moonlight certificate once with `ENROLL`, and signs every command afterwards with `AUTH1` (RSA-SHA256). Destructive commands additionally require a verified signature.
@@ -152,7 +141,10 @@ Download the latest installer from the [Releases](https://github.com/FoggyBytes/
 It registers `StreamTweakService` as a LocalSystem Windows Service, which is what keeps NIC and host-asset operations free of UAC prompts. The Windows App SDK 2.4 runtime is fetched only if missing, and installs alongside any older 1.x runtime, so upgrading from 7.x needs no uninstall.
 
 ## 🙏 Support the Project
-[![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-blue.svg)](https://paypal.me/foggypunk)
+
+StreamTweak is free, with no ads and no telemetry. If it made your streaming better, you can support its development on Ko-fi.
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/foggybytes)
 
 ## 🤝 Acknowledgements
 - [**StreamLight**](https://github.com/FoggyBytes/StreamLight) — the companion client, designed in lockstep with StreamTweak

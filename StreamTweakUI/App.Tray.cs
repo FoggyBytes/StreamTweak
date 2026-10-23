@@ -31,7 +31,7 @@ namespace StreamTweak
                     onDoubleClick: ShowMainWindow,
                     menu:
                     [
-                        new TrayIcon.MenuItem("Open StreamTweak", () => { ShowMainWindow(); MainWindow?.NavigateTo("Home"); }),
+                        new TrayIcon.MenuItem("Open StreamTweak", () => { ShowMainWindow(); MainWindow?.NavigateTo("Status"); }),
                         null,
                         new TrayIcon.MenuItem("Exit", ExitApp),
                     ]);

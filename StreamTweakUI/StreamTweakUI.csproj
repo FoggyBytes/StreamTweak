@@ -33,7 +33,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Resources\paypal.svg" />
+    <None Remove="Resources\kofi.svg" />
     <None Remove="Resources\nvidia-eye.svg" />
   </ItemGroup>
 
@@ -68,7 +68,7 @@
     <Content Include="Resources\JetBrainsMono-Medium.ttf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="Resources\paypal.svg">
+    <Content Include="Resources\kofi.svg">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Resources\nvidia-eye.svg">

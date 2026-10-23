@@ -404,77 +404,11 @@ namespace StreamTweak
 
         // ── Rename ────────────────────────────────────────────────────────────
 
-        /// <summary>
-        /// Renames a single StreamTweak-managed entry in apps.json in-place.
-        /// Matches by <paramref name="steamAppId"/> first, then by <paramref name="oldName"/>.
-        /// Returns null on success (or when the entry is not found), error string on write failure.
-        /// </summary>
-        public static string? RenameApp(
-            string appsJsonPath,
-            string? steamAppId,
-            string oldName,
-            string newName)
-        {
-            if (!File.Exists(appsJsonPath)) return null;
-
-            string existingJson;
-            try { existingJson = File.ReadAllText(appsJsonPath); }
-            catch (Exception ex) { return ex.Message; }
-
-            JsonObject doc;
-            try { doc = JsonNode.Parse(existingJson) as JsonObject ?? new JsonObject(); }
-            catch { return null; }
-
-            var appsArray = doc["apps"] as JsonArray;
-            if (appsArray == null) return null;
-
-            bool found = false;
-            foreach (var entry in appsArray)
-            {
-                if (entry == null) continue;
-                bool isManaged = entry[MANAGED_FIELD]?.GetValue<bool>() == true
-                              || entry["output"]?.GetValue<string>() == "streamtweak-managed";
-                if (!isManaged) continue;
-
-                string? entryAppId = entry["_steam_appid"]?.GetValue<string>();
-                string? entryName  = entry["name"]?.GetValue<string>();
-
-                bool byId   = steamAppId != null
-                           && steamAppId.Equals(entryAppId, StringComparison.OrdinalIgnoreCase);
-                bool byName = entryName != null
-                           && entryName.Equals(oldName, StringComparison.OrdinalIgnoreCase);
-
-                if (byId || byName)
-                {
-                    entry["name"] = newName;
-                    // Keep existing id/uuid stable — do NOT regenerate them on rename
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) return null; // Not yet in Sunshine; next sync will add it
-
-            string newJson = doc.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
-
-            bool written = SpeedChanger.WriteAppsJson(appsJsonPath, newJson);
-            if (!written)
-            {
-                try
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(appsJsonPath)!);
-                    File.WriteAllText(appsJsonPath, newJson, System.Text.Encoding.UTF8);
-                }
-                catch (Exception ex) { return ex.Message; }
-            }
-
-            return null;
-        }
-
         // ── Clear ─────────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Removes all StreamTweak-managed entries from apps.json, leaving manual apps untouched.
+        /// Removes all StreamTweak-managed entries from apps.json, leaving the server's own entries
+        /// (Desktop, Steam Big Picture…) untouched. 10.0: back for the Library's Clear library.
         /// Returns null on success, or an error string if the file could not be written.
         /// </summary>
         public static string? ClearAll(string appsJsonPath)
@@ -651,6 +585,46 @@ namespace StreamTweak
             return null;
         }
 
+        // ── What apps.json says (10.0) ────────────────────────────────────────
+
+        /// <summary>One app as the streaming server will run it: its command, the detached
+        /// commands and the folder it starts in, read back from apps.json.</summary>
+        public sealed record AppCommand(string Name, string Cmd, IReadOnlyList<string> Detached, string WorkingDir)
+        {
+            /// <summary>What the Library shows: the command, else the first detached one.</summary>
+            public string Shown => Cmd.Length > 0 ? Cmd : Detached.FirstOrDefault() ?? "";
+
+            /// <summary>"cmd" or "detached", for the label before it.</summary>
+            public string Kind => Cmd.Length > 0 ? "cmd" : Detached.Count > 0 ? "detached" : "";
+        }
+
+        /// <summary>
+        /// Every app in apps.json, by name (case-insensitive). The Library shows each game's
+        /// command from here and Play runs it, so the page can never show one thing while the
+        /// server runs another. Empty when the file cannot be read.
+        /// </summary>
+        public static Dictionary<string, AppCommand> ReadCommands(string appsJsonPath)
+        {
+            var result = new Dictionary<string, AppCommand>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                if (JsonNode.Parse(File.ReadAllText(appsJsonPath))?["apps"] is not JsonArray apps) return result;
+                foreach (var a in apps)
+                {
+                    if (a?["name"]?.GetValue<string>() is not string name) continue;
+                    var detached = new List<string>();
+                    if (a["detached"] is JsonArray d)
+                        foreach (var x in d)
+                            if (x?.GetValue<string>() is string c && c.Trim().Length > 0) detached.Add(c.Trim());
+                    result[name] = new AppCommand(name,
+                        (a["cmd"]?.GetValue<string>() ?? "").Trim(), detached,
+                        a["working-dir"]?.GetValue<string>() ?? "");
+                }
+            }
+            catch { }
+            return result;
+        }
+
         // ── Launch command helpers ────────────────────────────────────────────
 
         /// <summary>
@@ -658,11 +632,10 @@ namespace StreamTweak
         /// started by running its executable.
         /// </summary>
         /// <remarks>
-        /// Shared on purpose. There are two places that launch a game — the apps.json the
-        /// streaming server runs, and the Play button in the Library page — and when only the
-        /// first one knew about this, an Epic title streamed correctly and failed when started
-        /// from StreamTweak's own window. A rule that lives in one of two launchers is a rule
-        /// that will disagree with itself.
+        /// Until 10.0 the Library's Play button had launch rules of its own and used this too, so
+        /// that an Epic title would not stream correctly and fail from StreamTweak's window. Since
+        /// 10.0 Play runs the command written in apps.json (<see cref="ReadCommands"/>): there is
+        /// one launcher, the one the server uses.
         /// </remarks>
         public static string? StoreLaunchUri(string? store, string? launchId)
         {

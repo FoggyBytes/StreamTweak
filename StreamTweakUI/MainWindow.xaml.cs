@@ -25,7 +25,7 @@ namespace StreamTweak
             // The version lives in the title bar only (it was also at the bottom of the sidebar);
             // a newer release shows up next to it as the update pill.
             var v = Assembly.GetExecutingAssembly().GetName().Version;
-            TitleVersionText.Text = v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "9.2.5";
+            TitleVersionText.Text = v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "10.0.0";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -130,15 +130,12 @@ namespace StreamTweak
                 }
             };
 
-            // 8.0: NVIDIA Sentinel is now a panel inside the Tuning master-detail,
-            // not a top-level nav entry — the runtime injection is disabled.
-            // NVIDIA Sentinel is NVIDIA-only: hide its Host-setup nav item on AMD/Intel.
+            // 10.0: the app opens on Status (plan phase 4). NVIDIA Sentinel is NVIDIA-only: no
+            // item on AMD/Intel.
             if (AppStateService.Instance.NvidiaSentinel?.IsNvidiaAvailable != true)
-                NavTuneNv.Visibility = Visibility.Collapsed;
-
-            // Navigate to Home on startup
-            NavView.SelectedItem = NavHome;
-            ContentFrame.Navigate(typeof(Views.HomeView));
+                NavSentinel.Visibility = Visibility.Collapsed;
+            NavView.SelectedItem = NavStatus;
+            ContentFrame.Navigate(typeof(Views.StatusView));
 
             // 9.0 title-bar pills and the Clients badge.
             StartTitleBarState();
@@ -147,42 +144,6 @@ namespace StreamTweak
             // immediately in case the boot-time check has already completed.
             AppStateService.Instance.UpdateAvailabilityChanged += OnUpdateAvailabilityChanged;
             RefreshUpdateIndicator();
-        }
-
-        private void InsertNvidiaProfileNavItem()
-        {
-            var svc = AppStateService.Instance.NvidiaSentinel;
-            bool available = svc?.IsNvidiaAvailable == true;
-
-            // Locate the Display item and insert the new entry right after it.
-            int insertIndex = -1;
-            for (int i = 0; i < NavView.MenuItems.Count; i++)
-            {
-                if (NavView.MenuItems[i] is NavigationViewItem nvi
-                    && (nvi.Tag as string) == "Display")
-                {
-                    insertIndex = i + 1;
-                    break;
-                }
-            }
-            if (insertIndex < 0) insertIndex = NavView.MenuItems.Count;
-
-            var item = new NavigationViewItem
-            {
-                Tag       = "NvidiaProfile",
-                Content   = "NVIDIA Sentinel",
-                Icon      = new ImageIcon
-                {
-                    Source = new Microsoft.UI.Xaml.Media.Imaging.SvgImageSource(
-                        new Uri("ms-appx:///Resources/nvidia-eye.svg")),
-                },
-                // Greyed out + non-clickable on AMD/Intel or when NVAPI is unavailable.
-                IsEnabled = available,
-            };
-            if (!available)
-                ToolTipService.SetToolTip(item, "Requires an NVIDIA GPU");
-
-            NavView.MenuItems.Insert(insertIndex, item);
         }
 
         private void OnUpdateAvailabilityChanged(object? sender, EventArgs e)
@@ -243,7 +204,7 @@ namespace StreamTweak
                     var content = new StackPanel { Spacing = 12 };
                     content.Children.Add(new TextBlock
                     {
-                        Text         = $"{client.Name} wants to control StreamTweak — change the NIC speed, read host metrics and your game list. Allow it only if the PIN below matches the one shown on the device.",
+                        Text         = $"{client.Name} wants to control StreamTweak — change the link speed, read host metrics and your game list. Approve it only if the PIN below matches the one shown on the device.",
                         FontFamily   = DmSans,
                         FontSize     = 13,
                         Foreground   = new SolidColorBrush(DialogBodyText),
@@ -276,18 +237,29 @@ namespace StreamTweak
                         Foreground   = new SolidColorBrush(DialogMutedText),
                         TextWrapping = TextWrapping.Wrap,
                     });
+                    // 10.0.0: what the second Allow adds. Without it the device sees StreamLight's
+                    // host section but cannot change anything there.
+                    content.Children.Add(new TextBlock
+                    {
+                        Text         = "Host management also lets it change this host's settings from StreamLight — managed apps, spatial audio and NVIDIA Sentinel — and sync the library. You can change this later under Setup › Clients.",
+                        FontFamily   = DmSans,
+                        FontSize     = 11,
+                        Foreground   = new SolidColorBrush(DialogMutedText),
+                        TextWrapping = TextWrapping.Wrap,
+                    });
 
                     var dialog = new ContentDialog
                     {
-                        Title             = "Allow StreamLight client?",
+                        Title             = "Approve this StreamLight device?",
                         Content           = content,
-                        PrimaryButtonText = "Allow",
-                        CloseButtonText   = "Deny",
+                        PrimaryButtonText   = "Approve with host management",
+                        SecondaryButtonText = "Approve",
+                        CloseButtonText     = "Deny",
                         DefaultButton     = ContentDialogButton.Close,
                         XamlRoot          = this.Content.XamlRoot,
                     };
                     ApplyDialogChrome(dialog);
-                    // Allow = green. As the non-default button, "Allow" (Primary) uses the
+                    // Both Approves = green. As non-default buttons, Primary and Secondary use the
                     // regular Button* keys; "Deny" (the DefaultButton=Close) uses the
                     // AccentButton* keys — so we colour Button* green and AccentButton* red.
                     ApplyGreenButtonPalette(dialog);
@@ -297,8 +269,11 @@ namespace StreamTweak
                     try
                     {
                         var result = await dialog.ShowAsync();
-                        if (result == ContentDialogResult.Primary) auth?.Approve(client.UniqueId);
-                        else                                       auth?.Deny(client.UniqueId);
+                        // Closing the dialog without a choice is Deny, as it always was — so Host
+                        // management is never granted without being asked for.
+                        if (result == ContentDialogResult.Primary)        auth?.Approve(client.UniqueId, hostManagement: true);
+                        else if (result == ContentDialogResult.Secondary) auth?.Approve(client.UniqueId, hostManagement: false);
+                        else                                              auth?.Deny(client.UniqueId);
                     }
                     catch
                     {
@@ -513,16 +488,11 @@ namespace StreamTweak
 
             Type? pageType = tag switch
             {
-                "Home"          => typeof(Views.HomeView),
-                "GameLibrary"   => typeof(Views.GameLibraryView),
+                "Status"        => typeof(Views.StatusView),
                 "Logs"          => typeof(Views.LogsView),
-                // Host-setup subsections — all resolve to the parametric TuningView,
-                // which reads the tag to pick the panel (see TuningView.ShowSection).
-                "TuneNet"       => typeof(Views.TuningView),
-                "TuneAV"        => typeof(Views.TuningView),
-                "TuneNv"        => typeof(Views.TuningView),
-                "TuneApps"      => typeof(Views.TuningView),
-                "Clients"       => typeof(Views.ClientsView),
+                "GameLibrary"   => typeof(Views.GameLibraryView),
+                // The Setup block: one page, SetupView, showing the panel its item names.
+                "Clients" or "Network" or "Apps" or "Audio" or "Sentinel" => typeof(Views.SetupView),
                 "Settings"      => typeof(Views.SettingsView),
                 _               => null
             };
@@ -819,9 +789,6 @@ namespace StreamTweak
 
         private bool _immersive;
         private AppWindowPresenter? _presenterBeforeImmersive;
-
-        /// <summary>True while a page holds the window full screen (Sessions' Timeline).</summary>
-        public bool IsImmersive => _immersive;
 
         /// <summary>
         /// Full screen for one page's content: the window takes the whole display and the title

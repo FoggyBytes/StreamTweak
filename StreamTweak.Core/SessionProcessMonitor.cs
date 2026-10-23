@@ -110,6 +110,13 @@ namespace StreamTweak
         private Timer? _timer;
         private bool _disposed;
 
+        /// <summary>
+        /// A game found by other means than the library, asked every tick: the one the server
+        /// launched, while its process runs (<see cref="LaunchWatcher.RunningLaunchedGame"/>).
+        /// Null answers mean nothing to add.
+        /// </summary>
+        public Func<string?>? LaunchedGameProbe { get; set; }
+
         public SessionProcessMonitor(IReadOnlyList<GameLibraryEntry> games)
         {
             _exeToGame = BuildExeLookup(games);
@@ -274,7 +281,18 @@ namespace StreamTweak
 
         private void Tick(object? _)
         {
-            if (_disposed || (_exeToGame.Count == 0 && _installDirToGame.Count == 0 && _processNameToGame.Count == 0))
+            if (_disposed) return;
+
+            // The launched game first, and whatever the library holds: a game missing from the
+            // library (an Xbox app game the scan did not list) is only ever seen this way.
+            try
+            {
+                if (LaunchedGameProbe?.Invoke() is string launched && launched.Length > 0)
+                    AddDetected(launched);
+            }
+            catch { /* a failed probe costs one tick's sighting, nothing more */ }
+
+            if (_exeToGame.Count == 0 && _installDirToGame.Count == 0 && _processNameToGame.Count == 0)
                 return;
 
             try

@@ -12,6 +12,9 @@ The bridge on TCP 47998 answers only clients **you approved** on this PC (see [S
 - the host's last finished session — when, how long, its quality grade, the games played and small cover pictures;
 - the store each game comes from, the state of a game launch, whether the PC is locked, which power modes it supports, whether Windows updates are waiting;
 - the host's Tailscale address, if Tailscale is installed;
+- for StreamLight 8.0's host section (10.0.0): the host's load at rest including memory in use, which device is streaming from it and which game, the spatial audio setup, the names and icons of the apps in *Apps* (never their paths), and the GPU, driver and saved NVIDIA Sentinel profile;
+- also for the host section (10.0.0): the **session history** — for each session its times, games, quality grade and figures, the statistics recorded during it, small cover pictures, and the name of the device it was streamed to. Every approved client can read every session, not only its own;
+- also for the host section (10.0.0): the **game library** — the names and stores of the games StreamTweak lists in the streaming server, their covers, the names of the server's own entries (Desktop, Steam Big Picture…), the server's name and state, whether a game launched by the server is still running, and how a requested sync and restart is going;
 - with **Shared clipboard** on (on by default on the host, off by default on the client — both sides must agree), clipboard text, encrypted.
 
 The client sends back the statistics of each stream (frame rate, latency, jitter, bitrate, dropped frames), which StreamTweak keeps in its session history.
@@ -34,8 +37,8 @@ Links in Settings (releases, licence, donations, the streaming servers' pages) o
 Everything is in `%LOCALAPPDATA%\StreamTweak\`, for the current Windows user, and **never uploaded**:
 
 - `config.json` — settings;
-- `sessions.json` — the session history: games played, times, stream quality figures, and the host's power readings during each stream;
-- `bridgeclients.json` — the clients you approved or denied: their name, certificate, and when they were approved and last seen;
+- `sessions.json` — the session history: games played, times, stream quality figures, the host's power readings during each stream and, from 10.0.0, the name of the StreamLight device it was streamed to;
+- `bridgeclients.json` — the clients you approved or denied: their name, certificate, whether they hold Host management, and when they were approved and last seen;
 - `managedapps.json`, `gamelibrarystate.json` and `covers\` — the *Apps* list, the game library and its cover art;
 - `debug.log` — the diagnostic log. If you attach it to an issue, read it first: it contains client names, IP addresses and game names.
 

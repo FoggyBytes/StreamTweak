@@ -34,6 +34,17 @@ namespace StreamTweak
         /// desktop | handheld | phone | minipc | tablet. Null until picked. Host-side only —
         /// StreamLight neither sends nor reads it.</summary>
         public string? DeviceKind  { get; set; }
+        /// <summary>10.0.0: may this device change the host's settings from StreamLight's host
+        /// section (managed apps, spatial audio, Sentinel)? Without it the section is read-only.
+        /// Null only on a record written before 10.0.0 — <see cref="BridgeAuthService"/> turns that
+        /// into true for an approved device on load (it could already power the host off, so
+        /// withholding the harmless switches protected nothing) and remembers it for the one-time
+        /// notice. A device approved from 10.0.0 on gets an explicit value.</summary>
+        public bool? HostManagement { get; set; }
+        /// <summary>10.0.0: Host management was granted by the upgrade, not by a choice on this
+        /// host. Drives the one-time notice on the Clients page; cleared when it is dismissed or
+        /// the switch is touched.</summary>
+        public bool HostManagementByUpgrade { get; set; }
     }
 
     /// <summary>
@@ -122,6 +133,10 @@ namespace StreamTweak
                         existing.Status      = "pending";
                         existing.ApprovedUtc = null;
                         existing.Pin         = pin;
+                        // A new certificate is a new device as far as trust goes: the permission
+                        // is chosen again at the next approval.
+                        existing.HostManagement          = false;
+                        existing.HostManagementByUpgrade = false;
                         newlyPending = existing;
                         result = EnrollResult.Pending;
                     }
@@ -161,6 +176,7 @@ namespace StreamTweak
                         Name        = string.IsNullOrWhiteSpace(remoteName) ? uniqueId : remoteName,
                         Status      = "pending",
                         Pin         = pin,
+                        HostManagement = false,
                     };
                     _clients.Add(client);
                     newlyPending = client;
@@ -299,8 +315,74 @@ namespace StreamTweak
             ClientsChanged?.Invoke();
         }
 
-        public void Approve(string uniqueId) => SetStatus(uniqueId, "approved");
+        /// <summary>Approves a device. <paramref name="hostManagement"/> is the choice made in the
+        /// approval dialog (10.0.0); the plain Approve of the Clients page grants it off.</summary>
+        public void Approve(string uniqueId, bool hostManagement = false)
+        {
+            lock (_lock)
+            {
+                var c = _clients.FirstOrDefault(x =>
+                    string.Equals(x.UniqueId, uniqueId, StringComparison.OrdinalIgnoreCase));
+                if (c == null) return;
+                c.HostManagement          = hostManagement;
+                c.HostManagementByUpgrade = false;
+            }
+            SetStatus(uniqueId, "approved");
+        }
+
         public void Deny(string uniqueId)    => SetStatus(uniqueId, "denied");
+
+        /// <summary>Whether an APPROVED device may change the host's settings from StreamLight.
+        /// False for unknown, pending or denied devices.</summary>
+        public bool HasHostManagement(string uniqueId)
+        {
+            lock (_lock)
+            {
+                var c = _clients.FirstOrDefault(x =>
+                    string.Equals(x.UniqueId, uniqueId, StringComparison.OrdinalIgnoreCase));
+                return c is { Status: "approved", HostManagement: true };
+            }
+        }
+
+        public void SetHostManagement(string uniqueId, bool enabled)
+        {
+            lock (_lock)
+            {
+                var c = _clients.FirstOrDefault(x =>
+                    string.Equals(x.UniqueId, uniqueId, StringComparison.OrdinalIgnoreCase));
+                if (c == null) return;
+                if (c.HostManagement == enabled && !c.HostManagementByUpgrade) return;
+                c.HostManagement          = enabled;
+                c.HostManagementByUpgrade = false;
+                Save();
+            }
+            ClientsChanged?.Invoke();
+        }
+
+        /// <summary>Devices that got Host management from the 10.0.0 upgrade and have not been
+        /// looked at since — the one-time notice on the Clients page lists them.</summary>
+        public IReadOnlyList<BridgeClient> GetHostManagementByUpgrade()
+        {
+            lock (_lock)
+                return _clients.Where(c => c.Status == "approved" && c.HostManagementByUpgrade)
+                               .Select(Clone).ToList();
+        }
+
+        /// <summary>The notice was dismissed: the grants stay, the notice goes.</summary>
+        public void DismissHostManagementNotice()
+        {
+            bool changed = false;
+            lock (_lock)
+            {
+                foreach (var c in _clients.Where(c => c.HostManagementByUpgrade))
+                {
+                    c.HostManagementByUpgrade = false;
+                    changed = true;
+                }
+                if (changed) Save();
+            }
+            if (changed) ClientsChanged?.Invoke();
+        }
 
         public void Revoke(string uniqueId)
         {
@@ -338,6 +420,17 @@ namespace StreamTweak
                 if (data != null) _clients = data;
             }
             catch { _clients = new(); }
+
+            // 10.0.0: a record without the field predates Host management. An approved device
+            // gets it on, a pending or denied one off; the grant is remembered for the notice.
+            bool migrated = false;
+            foreach (var c in _clients.Where(c => c.HostManagement == null))
+            {
+                c.HostManagement          = c.Status == "approved";
+                c.HostManagementByUpgrade = c.Status == "approved";
+                migrated = true;
+            }
+            if (migrated) Save();
         }
 
         private void Save()
@@ -364,6 +457,8 @@ namespace StreamTweak
             LastSeenUtc = c.LastSeenUtc,
             Pin         = c.Pin,
             DeviceKind  = c.DeviceKind,
+            HostManagement          = c.HostManagement,
+            HostManagementByUpgrade = c.HostManagementByUpgrade,
         };
     }
 }

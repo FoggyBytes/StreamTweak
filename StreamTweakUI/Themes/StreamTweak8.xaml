@@ -13,50 +13,6 @@
     <!-- Master-detail rail item (Tuning, and future consolidated sections).
          Based on the Fluent default so keyboard/focus/selection all work; only the
          chrome is re-skinned to the StreamTweak card language. -->
-    <Style x:Key="ST8_RailItem" TargetType="ListViewItem" BasedOn="{StaticResource DefaultListViewItemStyle}">
-        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="Padding"        Value="12,10"/>
-        <Setter Property="Margin"         Value="0,0,0,4"/>
-        <Setter Property="MinHeight"      Value="0"/>
-        <Setter Property="CornerRadius"   Value="10"/>
-        <Setter Property="Background"     Value="Transparent"/>
-        <Setter Property="Foreground"     Value="{StaticResource STTextSecondary}"/>
-    </Style>
-
-    <!-- Rail row title / subtitle -->
-    <Style x:Key="ST8_RailTitle" TargetType="TextBlock">
-        <Setter Property="FontFamily"  Value="{StaticResource DMSansSemiBold}"/>
-        <Setter Property="FontSize"    Value="13"/>
-        <Setter Property="Foreground"  Value="{StaticResource STTextPrimary}"/>
-    </Style>
-    <Style x:Key="ST8_RailSub" TargetType="TextBlock">
-        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
-        <Setter Property="FontSize"    Value="11"/>
-        <Setter Property="Foreground"  Value="{StaticResource STTextDim}"/>
-        <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
-    </Style>
-
-    <!-- Detail panel title (slightly smaller than a page title) -->
-    <Style x:Key="ST8_PanelTitle" TargetType="TextBlock">
-        <Setter Property="FontFamily"        Value="{StaticResource DMSansSemiBold}"/>
-        <Setter Property="FontSize"          Value="17"/>
-        <Setter Property="Foreground"        Value="{StaticResource STTextPrimary}"/>
-        <Setter Property="CharacterSpacing"  Value="-20"/>
-    </Style>
-
-    <!-- Flow / pipeline chip (stream detected → switch → …) -->
-    <Style x:Key="ST8_FlowChip" TargetType="Border">
-        <Setter Property="Background"      Value="{StaticResource STInput}"/>
-        <Setter Property="BorderBrush"     Value="{StaticResource STBorder}"/>
-        <Setter Property="BorderThickness" Value="1"/>
-        <Setter Property="CornerRadius"    Value="4"/>
-        <Setter Property="Padding"         Value="11,6"/>
-    </Style>
-    <Style x:Key="ST8_FlowChipText" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="{StaticResource DMSans}"/>
-        <Setter Property="FontSize"   Value="12"/>
-        <Setter Property="Foreground" Value="{StaticResource STTextSecondary}"/>
-    </Style>
 
     <!-- ── Tidy-up primitives (8.0 §UI-declutter) ─────────────────────────────
          Card-per-group layout + inline info hint, so panels show only
@@ -73,71 +29,6 @@
          The full ControlTemplate is required: the WinUI default template animates
          Background on hover from theme resources and would override the setters.
     ────────────────────────────────────────────────────────────────────────── -->
-    <Style x:Key="ST8_ButtonAmber" TargetType="Button">
-        <Setter Property="FontFamily"       Value="{StaticResource DMSansMedium}"/>
-        <Setter Property="FontSize"         Value="13"/>
-        <Setter Property="Padding"          Value="14,6"/>
-        <Setter Property="CornerRadius"     Value="6"/>
-        <Setter Property="Background"       Value="#1Ffbbf24"/>
-        <Setter Property="Foreground"       Value="#fbbf24"/>
-        <Setter Property="BorderBrush"      Value="#4Dfbbf24"/>
-        <Setter Property="BorderThickness"  Value="1"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <ContentPresenter x:Name="ContentPresenter"
-                                      Background="{TemplateBinding Background}"
-                                      BorderBrush="{TemplateBinding BorderBrush}"
-                                      BorderThickness="{TemplateBinding BorderThickness}"
-                                      Content="{TemplateBinding Content}"
-                                      ContentTemplate="{TemplateBinding ContentTemplate}"
-                                      ContentTransitions="{TemplateBinding ContentTransitions}"
-                                      CornerRadius="{TemplateBinding CornerRadius}"
-                                      Padding="{TemplateBinding Padding}"
-                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                      AutomationProperties.AccessibilityView="Raw">
-                        <VisualStateManager.VisualStateGroups>
-                            <VisualStateGroup x:Name="CommonStates">
-                                <VisualState x:Name="Normal"/>
-                                <VisualState x:Name="PointerOver">
-                                    <Storyboard>
-                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Background">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#2Dfbbf24"/>
-                                        </ObjectAnimationUsingKeyFrames>
-                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="BorderBrush">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#66fbbf24"/>
-                                        </ObjectAnimationUsingKeyFrames>
-                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#fcd34d"/>
-                                        </ObjectAnimationUsingKeyFrames>
-                                    </Storyboard>
-                                </VisualState>
-                                <VisualState x:Name="Pressed">
-                                    <Storyboard>
-                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Background">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#12fbbf24"/>
-                                        </ObjectAnimationUsingKeyFrames>
-                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="BorderBrush">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#4Dfbbf24"/>
-                                        </ObjectAnimationUsingKeyFrames>
-                                        <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Foreground">
-                                            <DiscreteObjectKeyFrame KeyTime="0" Value="#fbbf24"/>
-                                        </ObjectAnimationUsingKeyFrames>
-                                    </Storyboard>
-                                </VisualState>
-                                <VisualState x:Name="Disabled">
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="ContentPresenter" Storyboard.TargetProperty="Opacity" To="0.4" Duration="0"/>
-                                    </Storyboard>
-                                </VisualState>
-                            </VisualStateGroup>
-                        </VisualStateManager.VisualStateGroups>
-                    </ContentPresenter>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
-    </Style>
 
     <!-- A group card: holds a stack of ST8_Row rows. Vertical padding is small —
          the rows carry their own. -->
@@ -162,6 +53,18 @@
         <Setter Property="Spacing" Value="18"/>
     </Style>
 
-    <!-- Converters (8.0 additions) -->
+    <!-- 10.0: back with the Network page (Setup) — the client-control flow -->
+    <Style x:Key="ST8_FlowChip" TargetType="Border">
+        <Setter Property="Background"      Value="{StaticResource STInput}"/>
+        <Setter Property="BorderBrush"     Value="{StaticResource STBorder}"/>
+        <Setter Property="BorderThickness" Value="1"/>
+        <Setter Property="CornerRadius"    Value="4"/>
+        <Setter Property="Padding"         Value="11,6"/>
+    </Style>
+    <Style x:Key="ST8_FlowChipText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource DMSans}"/>
+        <Setter Property="FontSize"   Value="12"/>
+        <Setter Property="Foreground" Value="{StaticResource STTextSecondary}"/>
+    </Style>
 
 </ResourceDictionary>

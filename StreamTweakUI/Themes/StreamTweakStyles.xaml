@@ -20,8 +20,7 @@
     <!-- Superfici — semi-trasparenti per lasciare filtrare Mica.
          Alpha ridotto (50–88%) per lasciare emergere l'effetto Mica Base. -->
     <SolidColorBrush x:Key="STBackground"     Color="Transparent"/>
-    <SolidColorBrush x:Key="STSidebar"        Color="Transparent"/>
-    <SolidColorBrush x:Key="STCard"           Color="#E60C0C0E"/>
+    <SolidColorBrush x:Key="STCard"           Color="#FF1B1D1D"/>   <!-- 10.0: = ST10Surface -->
     <SolidColorBrush x:Key="STInput"          Color="#E6141416"/>
     <SolidColorBrush x:Key="STTitlebar"       Color="Transparent"/>
 
@@ -35,15 +34,10 @@
     <SolidColorBrush x:Key="STTextSecondary"  Color="#DEDAD6"/>
     <SolidColorBrush x:Key="STTextMuted"      Color="#A8A49F"/>
     <SolidColorBrush x:Key="STTextDim"        Color="#8C8884"/>
-    <SolidColorBrush x:Key="STTextGhost"      Color="#3a3835"/>
 
     <!-- Semantici — versioni più brillanti per testo/icone ad alto contrasto -->
     <SolidColorBrush x:Key="STSuccess"        Color="#4ade80"/>
     <SolidColorBrush x:Key="STWarning"        Color="#fbbf24"/>
-    <SolidColorBrush x:Key="STDanger"         Color="#f87171"/>
-
-    <!-- Accent puro (SystemAccentColor, non la variante Light2 usata da WinUI3 di default) -->
-    <SolidColorBrush x:Key="STAccent"         Color="#4ade80"/>
 
     <!-- Force the OS system accent to StreamTweak green, so built-in WinUI controls
          that reference the accent IMPLICITLY (ListView selection indicator, ProgressRing
@@ -68,34 +62,7 @@
     <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush"     Color="#4ade80"/>
     <SolidColorBrush x:Key="AccentTextFillColorDisabledBrush"     Color="#514ade80"/>
 
-    <!-- Badge backgrounds (a bassa opacità) -->
-    <SolidColorBrush x:Key="STBadgeGreenBg"   Color="#214ade80"/>
-    <SolidColorBrush x:Key="STBadgeGreenBdr"  Color="#594ade80"/>
-    <SolidColorBrush x:Key="STBadgeGrayBg"    Color="#0FFFFFFF"/>
-    <SolidColorBrush x:Key="STBadgeGrayBdr"   Color="#1AFFFFFF"/>
-    <SolidColorBrush x:Key="STBadgeRedBg"     Color="#26ef4444"/>
-    <SolidColorBrush x:Key="STBadgeRedBdr"    Color="#4Def4444"/>
-
-    <!-- Active session banner -->
-    <SolidColorBrush x:Key="STActiveSessionBg"  Color="#104ade80"/>
-    <SolidColorBrush x:Key="STNicNoticeBg"       Color="#0F4ade80"/>
-
     <!-- ── TYPOGRAPHY ──────────────────────────────────────────────────────── -->
-
-    <!-- Page title: DM Sans SemiBold 20px -->
-    <Style x:Key="ST_PageTitle" TargetType="TextBlock">
-        <Setter Property="FontFamily"        Value="{StaticResource DMSansSemiBold}"/>
-        <Setter Property="FontSize"          Value="20"/>
-        <Setter Property="Foreground"        Value="{StaticResource STTextPrimary}"/>
-        <Setter Property="CharacterSpacing"  Value="-20"/>
-    </Style>
-
-    <!-- Page subtitle: DM Sans 13px muted -->
-    <Style x:Key="ST_PageSubtitle" TargetType="TextBlock">
-        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
-        <Setter Property="FontSize"    Value="13"/>
-        <Setter Property="Foreground"  Value="{StaticResource STTextDim}"/>
-    </Style>
 
     <!-- Card / section header label: DM Sans SemiBold 11px uppercase -->
     <Style x:Key="ST_SectionLabel" TargetType="TextBlock">
@@ -118,22 +85,6 @@
         <Setter Property="FontSize"      Value="12"/>
         <Setter Property="Foreground"    Value="{StaticResource STTextDim}"/>
         <Setter Property="TextWrapping"  Value="Wrap"/>
-    </Style>
-
-    <!-- Body text: DM Sans 13px secondary -->
-    <Style x:Key="ST_Body" TargetType="TextBlock">
-        <Setter Property="FontFamily"   Value="{StaticResource DMSans}"/>
-        <Setter Property="FontSize"     Value="13"/>
-        <Setter Property="Foreground"   Value="{StaticResource STTextSecondary}"/>
-        <Setter Property="TextWrapping" Value="Wrap"/>
-    </Style>
-
-    <!-- Small body text: DM Sans 12px muted -->
-    <Style x:Key="ST_BodySmall" TargetType="TextBlock">
-        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
-        <Setter Property="FontSize"    Value="12"/>
-        <Setter Property="Foreground"  Value="{StaticResource STTextMuted}"/>
-        <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
 
     <!-- ── Value styles ──────────────────────────────────────────────────────
@@ -159,27 +110,6 @@
         <Setter Property="Foreground"  Value="{StaticResource STTextSecondary}"/>
     </Style>
 
-    <!-- Secondary value (max / peak / frame count): same font, dimmer grey -->
-    <Style x:Key="ST_MonoValueDim" TargetType="TextBlock">
-        <Setter Property="FontFamily"  Value="{StaticResource DMSans}"/>
-        <Setter Property="FontSize"    Value="12"/>
-        <Setter Property="Foreground"  Value="{StaticResource STTextMuted}"/>
-    </Style>
-
-    <!-- Medium value: 18px — last session header -->
-    <Style x:Key="ST_MonoMedium" TargetType="TextBlock">
-        <Setter Property="FontFamily"        Value="{StaticResource DMSansMedium}"/>
-        <Setter Property="FontSize"          Value="18"/>
-        <Setter Property="Foreground"        Value="{StaticResource STTextPrimary}"/>
-        <Setter Property="CharacterSpacing"  Value="-20"/>
-    </Style>
-
-    <!-- Badge text: 12px Medium -->
-    <Style x:Key="ST_BadgeText" TargetType="TextBlock">
-        <Setter Property="FontFamily"  Value="{StaticResource DMSansMedium}"/>
-        <Setter Property="FontSize"    Value="12"/>
-    </Style>
-
     <!-- ── CARD CONTAINERS ──────────────────────────────────────────────────── -->
 
     <!-- Card standard: 10px radius, 20px padding, semi-trasparente -->
@@ -197,15 +127,6 @@
         <Setter Property="BorderBrush"      Value="{StaticResource STBorder}"/>
         <Setter Property="BorderThickness"  Value="1"/>
         <Setter Property="CornerRadius"     Value="10"/>
-    </Style>
-
-    <!-- Input container: sfondo #242220 -->
-    <Style x:Key="ST_InputBorder" TargetType="Border">
-        <Setter Property="Background"       Value="{StaticResource STInput}"/>
-        <Setter Property="BorderBrush"      Value="{StaticResource STBorder}"/>
-        <Setter Property="BorderThickness"  Value="1"/>
-        <Setter Property="CornerRadius"     Value="8"/>
-        <Setter Property="Padding"          Value="14,12"/>
     </Style>
 
     <!-- ── BUTTON STYLES ────────────────────────────────────────────────────── -->
@@ -305,86 +226,6 @@
         <Setter Property="Foreground"       Value="{StaticResource STTextSecondary}"/>
         <Setter Property="BorderBrush"      Value="#1AFFFFFF"/>
         <Setter Property="BorderThickness"  Value="1"/>
-    </Style>
-
-    <!-- Tile: card cliccabile con hover glow + nav arrow fade -->
-    <Style x:Key="ST_TileButton" TargetType="Button">
-        <Setter Property="Background"                 Value="{StaticResource STCard}"/>
-        <Setter Property="BorderBrush"                Value="{StaticResource STBorder}"/>
-        <Setter Property="BorderThickness"            Value="1"/>
-        <Setter Property="CornerRadius"               Value="9"/>
-        <Setter Property="Padding"                    Value="16,12"/>
-        <Setter Property="HorizontalAlignment"        Value="Stretch"/>
-        <Setter Property="VerticalAlignment"          Value="Stretch"/>
-        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-        <Setter Property="VerticalContentAlignment"   Value="Stretch"/>
-        <Setter Property="Template">
-            <Setter.Value>
-                <ControlTemplate TargetType="Button">
-                    <Grid x:Name="RootGrid">
-                        <VisualStateManager.VisualStateGroups>
-                            <VisualStateGroup x:Name="CommonStates">
-                                <VisualState x:Name="Normal">
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="HoverGlow"  Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"/>
-                                        <DoubleAnimation Storyboard.TargetName="NavArrow"   Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"/>
-                                    </Storyboard>
-                                </VisualState>
-                                <VisualState x:Name="PointerOver">
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="HoverGlow"  Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15"/>
-                                        <DoubleAnimation Storyboard.TargetName="NavArrow"   Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15"/>
-                                    </Storyboard>
-                                </VisualState>
-                                <VisualState x:Name="Pressed">
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="HoverGlow"  Storyboard.TargetProperty="Opacity" To="0.4" Duration="0:0:0"/>
-                                        <DoubleAnimation Storyboard.TargetName="NavArrow"   Storyboard.TargetProperty="Opacity" To="0.4" Duration="0:0:0"/>
-                                    </Storyboard>
-                                </VisualState>
-                                <VisualState x:Name="Disabled">
-                                    <VisualState.Setters>
-                                        <Setter Target="RootGrid.Opacity" Value="0.4"/>
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-                        </VisualStateManager.VisualStateGroups>
-
-                        <Border x:Name="TileBorder"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="{TemplateBinding CornerRadius}"
-                                Padding="{TemplateBinding Padding}">
-                            <Grid>
-                                <ContentPresenter x:Name="ContentPresenter"
-                                                  Content="{TemplateBinding Content}"
-                                                  ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                  ContentTransitions="{TemplateBinding ContentTransitions}"
-                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                  AutomationProperties.AccessibilityView="Raw"/>
-                                <FontIcon x:Name="NavArrow"
-                                          Glyph="&#xE8A7;"
-                                          FontFamily="Segoe MDL2 Assets"
-                                          FontSize="11"
-                                          Foreground="{StaticResource STTextMuted}"
-                                          HorizontalAlignment="Right"
-                                          VerticalAlignment="Top"
-                                          Opacity="0"/>
-                            </Grid>
-                        </Border>
-
-                        <!-- White glow overlay — sits on top of TileBorder, same corner radius -->
-                        <Border x:Name="HoverGlow"
-                                Background="#0EFFFFFF"
-                                CornerRadius="{TemplateBinding CornerRadius}"
-                                IsHitTestVisible="False"
-                                Opacity="0"/>
-                    </Grid>
-                </ControlTemplate>
-            </Setter.Value>
-        </Setter>
     </Style>
 
     <!-- Ghost: trasparente, testo dim -->
@@ -579,15 +420,6 @@
     <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedPressed"       Color="#111110"/>
     <SolidColorBrush x:Key="CheckBoxCheckGlyphForegroundCheckedDisabled"      Color="#88111110"/>
 
-    <!-- ── INFO BOX (callout accent-tinted) -->
-    <Style x:Key="ST_InfoBox" TargetType="Border">
-        <Setter Property="Background"       Value="#14C8562A"/>
-        <Setter Property="BorderBrush"      Value="#33C8562A"/>
-        <Setter Property="BorderThickness"  Value="1"/>
-        <Setter Property="CornerRadius"     Value="8"/>
-        <Setter Property="Padding"          Value="14,10"/>
-    </Style>
-
     <!-- ── SECTION SEPARATOR ─────────────────────────────────────────────────── -->
     <Style x:Key="ST_Separator" TargetType="Border">
         <Setter Property="Background"      Value="{StaticResource STBorderSubtle}"/>
@@ -601,5 +433,14 @@
     <converters:HexToSolidColorBrushConverter x:Key="HexToSolidColorBrushConverter"/>
     <converters:BoolToInfoBarSeverityConverter x:Key="BoolToInfoBarSeverityConverter"/>
     <converters:CoverPathToBitmapConverter x:Key="CoverPathToBitmapConverter"/>
+
+    <!-- 10.0: back with the Network page (Setup) -->
+    <Style x:Key="ST_InfoBox" TargetType="Border">
+        <Setter Property="Background"       Value="#14C8562A"/>
+        <Setter Property="BorderBrush"      Value="#33C8562A"/>
+        <Setter Property="BorderThickness"  Value="1"/>
+        <Setter Property="CornerRadius"     Value="8"/>
+        <Setter Property="Padding"          Value="14,10"/>
+    </Style>
 
 </ResourceDictionary>

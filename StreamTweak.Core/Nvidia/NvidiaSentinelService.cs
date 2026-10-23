@@ -104,9 +104,6 @@ namespace StreamTweak.Nvidia
         /// <summary>When the run of failures began, null when not stuck.</summary>
         public DateTime? StuckSince { get; private set; }
 
-        /// <summary>When the next retry is due while stuck, null when not stuck.</summary>
-        public DateTime? NextRetryAt => IsStuck && _retryNotBefore > DateTime.Now ? _retryNotBefore : null;
-
         /// <summary>Raised when <see cref="IsStuck"/> changes. Handlers must marshal to the UI thread.</summary>
         public event EventHandler AutoRestoreStateChanged;
 
@@ -250,9 +247,6 @@ namespace StreamTweak.Nvidia
             return profile == null ? new List<NvidiaSnapshotEntry>() : ToEntries(profile);
         }
 
-        public bool HasDrifted(string snapshotFilePath)
-            => ComputeDriftDescriptors(snapshotFilePath).Count > 0;
-
         // ── Auto-restore ───────────────────────────────────────────────────────────
 
         /// <summary>
@@ -276,6 +270,9 @@ namespace StreamTweak.Nvidia
             {
                 StopMonitoring();
             }
+            // 10.0.0: the switch can now be flipped from StreamLight too, so an open NVIDIA page
+            // has to hear about it.
+            AutoRestoreStateChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public void LoadLastRestoreAt(DateTime at) => LastRestoreAt = at;

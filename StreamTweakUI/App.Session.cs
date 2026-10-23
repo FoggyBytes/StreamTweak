@@ -474,10 +474,14 @@ namespace StreamTweak
                 _sessionProcessMonitor?.Dispose();
                 var games = GameLibraryState.Current.Games;
                 _sessionProcessMonitor = new SessionProcessMonitor(games);
+                // The game the server launched, followed by its own process even when the library
+                // does not hold it — before 10.0.0 such a game's span closed a minute after launch.
+                var watcher = _launchWatcher;
+                if (watcher != null) _sessionProcessMonitor.LaunchedGameProbe = watcher.RunningLaunchedGame;
                 _sessionProcessMonitor.Start();
                 SeedLaunchedGameIntoMonitor();  // credit the game named in the server log
-                // 9.0: the session remembers when each game ran (timeline game lane) and the
-                // Dashboard asks it which game is on screen right now.
+                // 9.0: the session remembers when each game ran (timeline game lane) and
+                // Status asks it which game is on screen right now.
                 SessionLogger.ActiveGameSpansProvider = _sessionProcessMonitor.GetGameSpans;
 
                 // Armed for every session, unlike the heartbeat one, which waits for telemetry
@@ -646,8 +650,8 @@ namespace StreamTweak
                 });
 
                 // Simulated game ranges for the 9.0 timeline: the first game for the first
-                // half of the debug session, the second from just after it until now — so the
-                // Dashboard also has a "current game" to show.
+                // half of the debug session, the second from just after it until now — so
+                // Status also has a "current game" to show.
                 if (fakeGames.Count > 0)
                 {
                     // The debug record is backdated 30 minutes (above), so the games start there too.
@@ -670,10 +674,6 @@ namespace StreamTweak
                 _isAutoSessionActive = true;
                 AppStateService.Instance.IsSessionActive = true;
                 UpdateTrayStreamingState(true);
-
-                // Feed the live Dashboard cockpit with synthetic per-second samples so
-                // the stat cards + charts populate exactly as in a real session.
-                StartDebugLiveFeed();
             }
             catch { _isDebugModeActive = false; AppStateService.Instance.IsDebugModeActive = false; }
             finally { _sessionStartInProgress = false; }
@@ -684,8 +684,6 @@ namespace StreamTweak
             if (!_isDebugModeActive) return;
             try
             {
-                StopDebugLiveFeed();
-
                 if (_isAudioMonitorEnabled)
                     _dolbyMonitor.OnStreamingStopped();
 
@@ -697,42 +695,6 @@ namespace StreamTweak
                 UpdateTrayStreamingState(false);
             }
             catch { _isDebugModeActive = false; AppStateService.Instance.IsDebugModeActive = false; }
-        }
-
-        // ── Debug live feed (drives the Dashboard cockpit in debug mode) ────────
-
-        private Microsoft.UI.Dispatching.DispatcherQueueTimer? _debugLiveTimer;
-        private int _debugTick;
-
-        private void StartDebugLiveFeed()
-        {
-            _debugTick = 0;
-            _debugLiveTimer ??= _dispatcher.CreateTimer();
-            _debugLiveTimer.Interval    = TimeSpan.FromSeconds(1);
-            _debugLiveTimer.IsRepeating = true;
-            _debugLiveTimer.Tick -= OnDebugLiveTick;   // guard against double-subscribe
-            _debugLiveTimer.Tick += OnDebugLiveTick;
-            _debugLiveTimer.Start();
-            OnDebugLiveTick(_debugLiveTimer, null!);   // emit one immediately
-        }
-
-        private void StopDebugLiveFeed() => _debugLiveTimer?.Stop();
-
-        private void OnDebugLiveTick(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
-        {
-            int t = _debugTick++;
-            float rtt     = 10f + 3.5f * (float)Math.Sin(t * 0.40) + Random.Shared.Next(0, 3);
-            float jitter  = 1.2f + Random.Shared.Next(0, 12) / 10f;
-            float bitrate = 146f + 5f * (float)Math.Sin(t * 0.20) + Random.Shared.Next(0, 4);
-            int   drops   = t % 23 == 0 ? 1 : 0;
-            float fps     = 60f;
-            float hostLat = 5.6f + 1.6f * (float)Math.Sin(t * 0.30);
-            int   gpu     = 60 + (int)(9 * Math.Sin(t * 0.25)) + Random.Shared.Next(0, 4);
-            int   enc     = 22 + (int)(5 * Math.Sin(t * 0.50)) + Random.Shared.Next(0, 3);
-            int   cpu     = 30 + (int)(6 * Math.Sin(t * 0.35)) + Random.Shared.Next(0, 3);
-
-            AppStateService.Instance.RaiseLiveSample(new AppStateService.LiveSample(
-                rtt, jitter, bitrate, drops, fps, hostLat, gpu, enc, cpu));
         }
 
         // ── Client-heartbeat watchdog ────────────────────────────────────────

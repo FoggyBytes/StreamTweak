@@ -65,6 +65,16 @@ namespace StreamTweak
 
         public string? EndReason { get; set; }
 
+        /// <summary>10.0.0: the StreamLight device that sent this session's telemetry — its
+        /// uniqueId from the AUTH1 line that signed the first SESSIONDATA, and its name as this
+        /// host knew it then. Null on sessions recorded before 10.0.0 and on sessions of clients
+        /// that send no telemetry (Moonlight, Artemis…): "unknown client", never guessed.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ClientId { get; set; }
+
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? ClientName { get; set; }
+
         // ── Telemetria qualità sessione (null se nessun dato client ricevuto) ──
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public SessionQualityStats? QualityStats { get; set; }
@@ -180,8 +190,11 @@ namespace StreamTweak
                         && File.Exists(snap))
                         return new GameCoverItem(name, snap);
 
-                    gameMap.TryGetValue(name, out var entry);
-                    return new GameCoverItem(name, entry?.CoverImagePath);
+                    if (gameMap.TryGetValue(name, out var entry) && File.Exists(entry.CoverImagePath))
+                        return new GameCoverItem(name, entry.CoverImagePath);
+
+                    // Neither: the same game's cover from another session, if one survives.
+                    return new GameCoverItem(name, SessionLogger.CoverFromOtherSessions(name));
                 }).ToList();
             }
         }
@@ -231,33 +244,6 @@ namespace StreamTweak
         [JsonIgnore]
         public int SessionDurationSeconds =>
             EndTime.HasValue ? (int)(EndTime.Value - StartTime).TotalSeconds : 0;
-
-        [JsonIgnore]
-        public bool NicThrottled => !string.IsNullOrEmpty(OriginalSpeed);
-
-        [JsonIgnore]
-        public string NicThrottleDisplay => string.IsNullOrEmpty(OriginalSpeed) ? "No" : "Yes";
-
-        [JsonIgnore]
-        public string OriginalNicSpeedDisplay => string.IsNullOrEmpty(OriginalSpeed) ? "N/A" : OriginalSpeed;
-
-        [JsonIgnore]
-        public string RttAvgDisplay =>
-            QualityStats != null && QualityStats.RttAvgMs > 0
-                ? $"{QualityStats.RttAvgMs:F0} ms"
-                : "—";
-
-        [JsonIgnore]
-        public string DropRateDisplay =>
-            QualityStats != null
-                ? $"{QualityStats.DropRatePct:0.#}%"
-                : "—";
-
-        [JsonIgnore]
-        public string NetTxAvgDisplay =>
-            QualityStats?.HostNetTxAvg >= 0
-                ? $"{QualityStats.HostNetTxAvg} Mbps"
-                : "—";
 
         // ── UI helpers for WinUI 3 (no WPF converters available in Core) ─────
 
@@ -709,6 +695,30 @@ namespace StreamTweak
             try { File.Delete(CheckpointPath); } catch { }
         }
 
+        /// <summary>
+        /// Names the client of a session (10.0.0), once: the first signed SESSIONDATA wins and a
+        /// later device on the same session does not overwrite it. Returns true when the entry was
+        /// written, so the caller can stop asking for the rest of the session.
+        /// </summary>
+        public static bool RecordClient(string sessionId, string clientId, string? clientName)
+        {
+            try
+            {
+                lock (_fileLock)
+                {
+                    var sessions = Load();
+                    var entry = sessions.FirstOrDefault(s => s.Id == sessionId);
+                    if (entry == null) return false;
+                    if (entry.ClientId != null) return true;
+                    entry.ClientId   = clientId;
+                    entry.ClientName = string.IsNullOrWhiteSpace(clientName) ? null : clientName;
+                    Save(sessions);
+                    return true;
+                }
+            }
+            catch { return false; }
+        }
+
         public static void UpdateSessionTelemetry(
             string sessionId,
             SessionQualityStats stats,
@@ -833,6 +843,54 @@ namespace StreamTweak
                 }
             }
             catch { }
+        }
+
+        /// <summary>When sessions.json was last written (MinValue when there is none) — lets a reader
+        /// keep its parsed copy until the history really changes (StreamLight's Sessions tab, 10.0.0).</summary>
+        public static DateTime LastWriteUtc
+        {
+            get
+            {
+                try { return File.Exists(LogPath) ? File.GetLastWriteTimeUtc(LogPath) : DateTime.MinValue; }
+                catch { return DateTime.MinValue; }
+            }
+        }
+
+        // Game name → a cover snapshot that still exists, from any session; rebuilt when the
+        // history is written again. See CoverFromOtherSessions.
+        private static readonly object _coverIndexLock = new();
+        private static Dictionary<string, string>? _coverIndex;
+        private static DateTime _coverIndexStamp;
+
+        /// <summary>
+        /// The cover another session snapshotted for this game, newest first, when the file is
+        /// still there; null otherwise. The last resort of a session whose own snapshot points to
+        /// a file that is gone and whose game left the library: Gears of War: E-Day on 06/10/2026
+        /// kept a path in the cover naming of that day (no package family), the cache was later
+        /// rewritten under the new name, the game left the library, and the session lost its
+        /// cover in StreamTweak and in StreamLight (21/10/2026).
+        /// </summary>
+        public static string? CoverFromOtherSessions(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            DateTime stamp = LastWriteUtc;
+            lock (_coverIndexLock)
+            {
+                if (_coverIndex == null || stamp != _coverIndexStamp)
+                {
+                    var index = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var s in Load().OrderByDescending(s => s.StartTime))
+                    {
+                        if (s.GamesDetectedCoverPaths == null) continue;
+                        foreach (var kv in s.GamesDetectedCoverPaths)
+                            if (!index.ContainsKey(kv.Key) && !string.IsNullOrEmpty(kv.Value) && File.Exists(kv.Value))
+                                index[kv.Key] = kv.Value;
+                    }
+                    _coverIndex = index;
+                    _coverIndexStamp = stamp;
+                }
+                return _coverIndex.TryGetValue(name, out var path) && File.Exists(path) ? path : null;
+            }
         }
 
         public static List<SessionEntry> Load()

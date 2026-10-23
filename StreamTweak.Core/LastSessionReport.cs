@@ -111,19 +111,7 @@ namespace StreamTweak
 
             foreach (string name in entry.GamesDetected.Take(MaxCovers))
             {
-                string? path = null;
-
-                if (entry.GamesDetectedCoverPaths != null &&
-                    entry.GamesDetectedCoverPaths.TryGetValue(name, out string? snap) &&
-                    !string.IsNullOrEmpty(snap) && File.Exists(snap))
-                {
-                    path = snap;
-                }
-                else if (live.TryGetValue(name, out var g) &&
-                         !string.IsNullOrEmpty(g.CoverImagePath) && File.Exists(g.CoverImagePath))
-                {
-                    path = g.CoverImagePath;
-                }
+                string? path = CoverPathFor(entry, name, live);
 
                 var item = new Dictionary<string, string> { ["name"] = name };
                 string? thumb = path != null ? ThumbnailBase64(path) : null;
@@ -135,11 +123,43 @@ namespace StreamTweak
         }
 
         /// <summary>
+        /// The cover of one game of a session: the path snapshotted when the session ended, then
+        /// the live library. Null when neither resolves. Shared with StreamLight's Sessions tab
+        /// (COVER, 10.0.0); <paramref name="live"/> may be passed when looking up several.
+        /// </summary>
+        public static string? CoverPathFor(SessionEntry entry, string name,
+                                           Dictionary<string, GameLibraryEntry>? live = null)
+        {
+            if (entry.GamesDetectedCoverPaths != null &&
+                entry.GamesDetectedCoverPaths.TryGetValue(name, out string? snap) &&
+                !string.IsNullOrEmpty(snap) && File.Exists(snap))
+            {
+                return snap;
+            }
+            if (live == null)
+            {
+                try
+                {
+                    live = GameLibraryState.Current.Games
+                        .ToDictionary(g => g.Name, g => g, StringComparer.OrdinalIgnoreCase);
+                }
+                catch { return null; }
+            }
+            if (live.TryGetValue(name, out var g) &&
+                !string.IsNullOrEmpty(g.CoverImagePath) && File.Exists(g.CoverImagePath))
+            {
+                return g.CoverImagePath;
+            }
+            // A dead snapshot and a game gone from the library: another session's cover of it.
+            return SessionLogger.CoverFromOtherSessions(name);
+        }
+
+        /// <summary>
         /// A base64 PNG thumbnail of the cover, or null when it cannot be produced — a missing
         /// picture costs the client a placeholder, a thrown exception would cost it the whole
         /// report.
         /// </summary>
-        private static string? ThumbnailBase64(string path)
+        public static string? ThumbnailBase64(string path)
         {
             try
             {

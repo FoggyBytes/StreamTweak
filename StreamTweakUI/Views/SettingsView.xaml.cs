@@ -69,7 +69,7 @@ namespace StreamTweak.Views
 
         private async void OpenDonate_Click(object sender, RoutedEventArgs e)
             => await Windows.System.Launcher.LaunchUriAsync(
-                new Uri("https://www.paypal.com/paypalme/foggypunk"));
+                new Uri("https://ko-fi.com/foggybytes"));
 
         private async void OpenStreamTweakReleases_Click(object sender, RoutedEventArgs e)
             => await Windows.System.Launcher.LaunchUriAsync(

@@ -165,6 +165,7 @@ namespace StreamTweak.ViewModels
             _selectedDevice = string.IsNullOrEmpty(savedDevice) ? null : savedDevice;
 
             AppStateService.Instance.SpatialAudioStatusChanged += OnSpatialAudioStatusChanged;
+            AppStateService.Instance.SettingsChanged += OnSettingsChanged;
 
             // Surface any already-cached status (e.g. "Ready — waiting for next stream…")
             string initial = AppStateService.Instance.CurrentSpatialAudioStatus;
@@ -175,8 +176,19 @@ namespace StreamTweak.ViewModels
         public void Unsubscribe()
         {
             AppStateService.Instance.SpatialAudioStatusChanged -= OnSpatialAudioStatusChanged;
+            AppStateService.Instance.SettingsChanged -= OnSettingsChanged;
             StopPolling();
         }
+
+        // 10.0.0: StreamLight can switch spatial audio on or off over the bridge. Take the new
+        // value from the config without going through the setter, which would write it back.
+        private void OnSettingsChanged(object? sender, EventArgs e) => _dispatcher.TryEnqueue(() =>
+        {
+            bool onDisk = ConfigService.GetBool("AudioMonitorEnabled", false);
+            if (onDisk == _spatialAudioEnabled) return;
+            _spatialAudioEnabled = onDisk;
+            OnPropertyChanged(nameof(SpatialAudioEnabled));
+        });
 
         private void StartPolling()
         {

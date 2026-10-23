@@ -10,24 +10,25 @@ using Windows.UI;
 namespace StreamTweak.Views
 {
     /// <summary>
-    /// 8.0 consolidated "Tuning" page: a master-detail rail hosting the five host
-    /// optimisations (Network / Display / Audio / NVIDIA Sentinel / Managed apps).
-    /// Each panel reuses the existing, unchanged ViewModels — no business logic is
-    /// duplicated here; the code-behind only recomposes the controls and forwards
-    /// the same handler calls the standalone 7.x pages used.
+    /// 10.0 Setup: what is set once on this host — Clients, Network, Apps, Spatial audio,
+    /// NVIDIA Sentinel — one sidebar item each, all on this page. It replaces the 8.0 Tuning page
+    /// (Display &amp; audio went: HDR is the streaming servers' job; Network is back as it was in
+    /// 9.2.5) and the Clients page. Each panel reuses
+    /// its ViewModel unchanged; the code-behind only picks the panel and forwards the handlers.
     /// </summary>
-    public sealed partial class TuningView : Page
+    public sealed partial class SetupView : Page
     {
-        public NetworkViewModel      Net    { get; } = new NetworkViewModel();
-        public DisplayViewModel      Disp   { get; } = new DisplayViewModel();
-        public AudioViewModel        Aud    { get; } = new AudioViewModel();
-        public NvidiaProfileViewModel Nv    { get; } = new NvidiaProfileViewModel();
-        public AppsViewModel         AppsVm { get; } = new AppsViewModel();
+        public SettingsViewModel      Clients { get; } = new SettingsViewModel();
+        public NetworkViewModel       Net     { get; } = new NetworkViewModel();
+        public AudioViewModel         Aud     { get; } = new AudioViewModel();
+        public NvidiaProfileViewModel Nv      { get; } = new NvidiaProfileViewModel();
+        public AppsViewModel          AppsVm  { get; } = new AppsViewModel();
 
-        // Guard: true while we programmatically set the audio toggles (see AudioView).
+        // Guard: true while we programmatically set the audio toggles.
         private bool _updatingToggles;
+        private Action? _bridgeClientsHandler;
 
-        public TuningView()
+        public SetupView()
         {
             this.InitializeComponent();
             SizeChanged += (_, e) =>
@@ -41,48 +42,69 @@ namespace StreamTweak.Views
         {
             base.OnNavigatedTo(e);
 
-            // Each Host-setup subsection navigates here with its tag as the parameter.
-            string section = e.Parameter as string ?? "TuneNet";
+            Clients.Load();
+            var auth = AppStateService.Instance.BridgeAuth;
+            if (auth != null)
+            {
+                _bridgeClientsHandler = () => DispatcherQueue.TryEnqueue(Clients.RefreshBridgeClients);
+                auth.ClientsChanged += _bridgeClientsHandler;
+            }
 
             _ = Net.InitializeAsync();
             Net.StartSpeedRefresh();
             Net.RefreshTailscale();
 
-            _ = Disp.InitializeAsync();
-
             Aud.PropertyChanged += OnAudioPropertyChanged;
             _ = Aud.InitializeAsync();
 
-            // NVIDIA Sentinel is NVIDIA-only (its sidebar item is hidden elsewhere too).
-            bool nvOk = AppStateService.Instance.NvidiaSentinel?.IsNvidiaAvailable == true;
-            if (nvOk) _ = Nv.InitializeAsync();
+            // NVIDIA Sentinel is NVIDIA-only (MainWindow hides its item on AMD/Intel).
+            if (AppStateService.Instance.NvidiaSentinel?.IsNvidiaAvailable == true) _ = Nv.InitializeAsync();
 
             AppsVm.Load();
 
-            ShowSection(section);
+            // The sidebar item's tag: Clients, Network, Apps, Audio or Sentinel.
+            ShowTab(e.Parameter as string ?? "Clients");
         }
 
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
 
+            var auth = AppStateService.Instance.BridgeAuth;
+            if (auth != null && _bridgeClientsHandler != null)
+                auth.ClientsChanged -= _bridgeClientsHandler;
+            _bridgeClientsHandler = null;
+
             Net.StopSpeedRefresh();
             Net.Unsubscribe();
             Aud.PropertyChanged -= OnAudioPropertyChanged;
             Aud.Unsubscribe();
             Nv.Cleanup();
+            AppsVm.Unsubscribe();
         }
 
-        // ── Section (nav parameter) → panel switching ──────────────────────────
-        private void ShowSection(string tag)
+        // ── Which page ───────────────────────────────────────────────────────────
+
+        /// <summary>Shows one page: Clients, Network, Apps, Audio or Sentinel.</summary>
+        public void ShowTab(string tab)
         {
-            PanelNet.Visibility     = tag == "TuneNet"  ? Visibility.Visible : Visibility.Collapsed;
-            PanelDispAud.Visibility = tag == "TuneAV"   ? Visibility.Visible : Visibility.Collapsed;
-            PanelNv.Visibility      = tag == "TuneNv"   ? Visibility.Visible : Visibility.Collapsed;
-            PanelApps.Visibility    = tag == "TuneApps" ? Visibility.Visible : Visibility.Collapsed;
+            PageTitle.Text = tab switch
+            {
+                "Network"  => "Network",
+                "Apps"     => "Apps",
+                "Audio"    => "Spatial audio",
+                "Sentinel" => "NVIDIA Sentinel",
+                _          => "Clients",
+            };
+            PanelClients.Visibility = tab is not ("Network" or "Apps" or "Audio" or "Sentinel") ? Visibility.Visible : Visibility.Collapsed;
+            PanelNet.Visibility     = tab == "Network"  ? Visibility.Visible : Visibility.Collapsed;
+            PanelApps.Visibility    = tab == "Apps"     ? Visibility.Visible : Visibility.Collapsed;
+            PanelAudio.Visibility   = tab == "Audio"    ? Visibility.Visible : Visibility.Collapsed;
+            PanelNv.Visibility      = tab == "Sentinel" ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        // ── Network ────────────────────────────────────────────────────────────
+        // ── Network ──────────────────────────────────────────────────────────────
+
         private void RestoreNow_Click(object sender, RoutedEventArgs e) => Net.RestoreNow();
 
         private async void CopyTailscaleIp_Click(object sender, RoutedEventArgs e)
@@ -91,18 +113,58 @@ namespace StreamTweak.Views
         private async void CopyLanIp_Click(object sender, RoutedEventArgs e)
             => await Net.CopyLanIpAsync();
 
-        // ── Display ────────────────────────────────────────────────────────────
-        private void RefreshDisplays_Click(object sender, RoutedEventArgs e)
-            => _ = Disp.InitializeAsync();
+        // ── Clients ──────────────────────────────────────────────────────────────
 
-        private void HdrToggle_Toggled(object sender, RoutedEventArgs e)
+        private void ApproveClient_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is not ToggleSwitch ts) return;
-            if (ts.DataContext is not MonitorEntry entry) return;
-            _ = Disp.ToggleMonitorHdrAsync(entry, ts.IsOn);
+            if (sender is FrameworkElement fe && fe.Tag is string uid)
+                Clients.ApproveBridgeClient(uid);
         }
 
-        // ── Audio ──────────────────────────────────────────────────────────────
+        /// <summary>The device icon opens a menu of the five kinds; the current one is checked.</summary>
+        private void DeviceKind_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement { Tag: string uid } anchor) return;
+            string? current = Clients.BridgeClients.FirstOrDefault(c => c.UniqueId == uid)?.DeviceKind;
+
+            var menu = new MenuFlyout { Placement = Microsoft.UI.Xaml.Controls.Primitives.FlyoutPlacementMode.BottomEdgeAlignedLeft };
+            foreach (var (key, label, glyph) in DeviceKinds.All)
+            {
+                var item = new RadioMenuFlyoutItem
+                {
+                    Text = label,
+                    GroupName = "DeviceKind",
+                    IsChecked = key == current,
+                    Icon = new FontIcon { Glyph = glyph },
+                };
+                item.Click += (_, _) => Clients.SetDeviceKind(uid, key);
+                menu.Items.Add(item);
+            }
+            menu.ShowAt(anchor);
+        }
+
+        /// <summary>10.0.0. The row is rebuilt on every refresh and a ToggleSwitch raises Toggled
+        /// when its first value is bound, so only a real change goes through: the same value
+        /// would otherwise clear the upgrade notice the moment the page opens.</summary>
+        private void HostManagement_Toggled(object sender, RoutedEventArgs e)
+        {
+            if (sender is not ToggleSwitch { Tag: string uid } ts) return;
+            var item = Clients.BridgeClients.FirstOrDefault(c => c.UniqueId == uid);
+            if (item == null || item.HostManagement == ts.IsOn) return;
+            Clients.SetHostManagement(uid, ts.IsOn);
+        }
+
+        private void HostManagementNotice_Close(InfoBar sender, object args)
+            => Clients.DismissHostManagementNotice();
+
+        private void RevokeClient_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.Tag is string uid)
+                Clients.RevokeBridgeClient(uid);
+        }
+
+        // ── Spatial audio ────────────────────────────────────────────────────────
+
         private void OnAudioPropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName is nameof(Aud.IsDolbyActive) or nameof(Aud.IsSonicActive))
@@ -129,6 +191,7 @@ namespace StreamTweak.Views
         }
 
         // ── NVIDIA Sentinel ──────────────────────────────────────────────────────
+
         private async void SaveProfile_Click(object sender, RoutedEventArgs e)
         {
             if (Nv.AutoRestoreEnabled)
@@ -220,9 +283,41 @@ namespace StreamTweak.Views
         private void OpenLog_Click(object sender, RoutedEventArgs e)
             => Nv.OpenLogFile();
 
-        // ── Managed apps ─────────────────────────────────────────────────────────
-        private async void AddButton_Click(object sender, RoutedEventArgs e)
-            => await AppsVm.AddAsync();
+        // ── Apps ─────────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Add app's menu, built each time it opens (plan 10.0, Apps): the programs running now
+        /// first — one click adds one — then "Browse for a program…" for anything else.
+        /// </summary>
+        private void AddMenu_Opening(object sender, object e)
+        {
+            AddMenu.Items.Clear();
+            var running = AppsVm.RunningPrograms();
+
+            if (running.Count == 0)
+                AddMenu.Items.Add(new MenuFlyoutItem { Text = "No other program is running", IsEnabled = false });
+
+            foreach (var prog in running)
+            {
+                var icon = new ImageIcon();
+                var item = new MenuFlyoutItem { Text = prog.Name, Icon = icon };
+                ToolTipService.SetToolTip(item, prog.Path);
+                item.Click += async (_, _) => await AppsVm.AddAsync(prog.Path, prog.Name);
+                AddMenu.Items.Add(item);
+                _ = SetIconAsync(icon, prog.Path);
+            }
+
+            AddMenu.Items.Add(new MenuFlyoutSeparator());
+            var browse = new MenuFlyoutItem { Text = "Browse for a program…", Icon = new FontIcon { Glyph = "" } };
+            browse.Click += async (_, _) => await AppsVm.BrowseAsync();
+            AddMenu.Items.Add(browse);
+        }
+
+        private static async Task SetIconAsync(ImageIcon icon, string path)
+        {
+            var bmp = await AppsViewModel.IconFor(path);
+            if (bmp != null) icon.Source = bmp;
+        }
 
         private void RemoveButton_Click(object sender, RoutedEventArgs e)
             => AppsVm.RemoveSelected();

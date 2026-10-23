@@ -38,7 +38,19 @@ namespace StreamTweak
         /// this clears the excluded-games blacklist so removed games reappear.
         /// Never throws — errors are returned as a status message.
         /// </summary>
-        public static async Task<string> PerformSyncAsync(bool isManual = false)
+        /// <summary>
+        /// Raised after a sync has saved the library, whoever asked for it — the Library page,
+        /// the start-up sync, or StreamLight's Sync and restart (10.0.0). An open Library page
+        /// reloads on it. Raised on the sync's thread: subscribers marshal to the UI.
+        /// </summary>
+        public static event Action? LibraryChanged;
+
+        /// <summary>
+        /// The sync: scan the stores, keep the user's choices, write the enabled games to apps.json.
+        /// Excluded games (Enabled false) stay in the list and out of the server at every sync,
+        /// whoever starts it; since 10.0 there is no "manual" sync that brings them back.
+        /// </summary>
+        public static async Task<string> PerformSyncAsync()
         {
             if (!await _syncLock.WaitAsync(0))
                 return "Sync already in progress.";
@@ -50,10 +62,6 @@ namespace StreamTweak
                     return $"{HostAppName} not found. Make sure Sunshine, Apollo, Vibeshine or Vibepollo is installed.";
 
                 var state = GameLibraryState.Current;
-
-                // Manual sync clears the exclusion list so previously removed games reappear.
-                if (isManual)
-                    state.ExcludedGames.Clear();
 
                 // 2. Scan game libraries
                 var games = await Task.Run(() => GameLibraryScanner.ScanAll());
@@ -75,8 +83,9 @@ namespace StreamTweak
                     .Select(g => g.First())
                     .ToList();
 
-                // Auto-sync: skip games the user explicitly removed.
-                if (!isManual && state.ExcludedGames.Count > 0)
+                // Games removed before 10.0 by a key without a name: kept out until the Library's
+                // "Let them back" clears the keys.
+                if (state.ExcludedGames.Count > 0)
                 {
                     var excluded = new System.Collections.Generic.HashSet<string>(
                         state.ExcludedGames, StringComparer.OrdinalIgnoreCase);
@@ -180,6 +189,7 @@ namespace StreamTweak
                 state.Games       = mergedGames;
                 state.LastSyncUtc = DateTime.UtcNow;
                 state.Save();
+                try { LibraryChanged?.Invoke(); } catch { }
 
                 var local = state.LastSyncUtc.Value.ToLocalTime();
                 return $"Done — {mergedGames.Count} games ({added} added, {removed} removed).\n" +
@@ -302,42 +312,40 @@ namespace StreamTweak
         }
 
         /// <summary>
-        /// Removes all StreamTweak-managed apps from Sunshine and clears the local game list.
-        /// Never throws — errors are returned as a status message.
+        /// 10.0, Clear library: every entry StreamTweak wrote leaves apps.json and the list starts
+        /// empty — synced games, games added by hand, exclusions (in the list and the pre-10.0 keys),
+        /// the last sync's time. The server's own entries stay. Returns null, or why it failed. The
+        /// server shows it after a restart: App.Library runs this as the first step of its job.
         /// </summary>
-        public static async Task<string> ClearSyncAsync()
+        public static async Task<string?> ClearAsync()
         {
-            if (!await _syncLock.WaitAsync(0))
-                return "Sync already in progress.";
+            if (!await _syncLock.WaitAsync(TimeSpan.FromSeconds(5)))
+                return "a sync is running";
             try
             {
                 string? appsJson = SunshineSync.FindAppsJsonPath();
-                if (appsJson == null)
-                    return $"{HostAppName} not found.";
+                if (appsJson == null) return $"{HostAppName} not found";
 
                 string? error = await Task.Run(() => SunshineSync.ClearAll(appsJson));
-                if (error != null)
-                    return $"Clear failed — could not write apps.json: {error}\n" +
-                           "Make sure StreamTweakService is running and up to date.";
+                if (error != null) return $"could not write apps.json: {error}";
 
                 var state = GameLibraryState.Current;
                 state.Games.Clear();
                 state.ExcludedGames.Clear();
                 state.LastSyncUtc = null;
                 state.Save();
-
-                return $"Sync cleared — managed apps removed from {HostAppName}. " +
-                       $"Restart {HostAppName} to apply.";
+                return null;
             }
             catch (Exception ex)
             {
                 DebugLogger.Log($"GameLibraryService: clear error — {ex.Message}");
-                return $"Clear failed: {ex.Message}";
+                return ex.Message;
             }
             finally
             {
                 _syncLock.Release();
             }
         }
+
     }
 }

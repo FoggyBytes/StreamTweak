@@ -30,6 +30,9 @@
     <!-- The GPU power state that crosses the pipe (9.2.0). One file for both sides: the
          service does not reference StreamTweak.Core, so it compiles this one by link. -->
     <Compile Include="..\StreamTweak.Core\Nvidia\GpuPowerState.cs" Link="Shared\GpuPowerState.cs" />
+    <!-- The "is a stream live?" probe (10.0.0): asked once more right before the service
+         restarts the streaming server (Sync and restart, SECURITY.md). -->
+    <Compile Include="..\StreamTweak.Core\UdpSockets.cs" Link="Shared\UdpSockets.cs" />
   </ItemGroup>
 
 </Project>

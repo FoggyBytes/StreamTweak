@@ -88,6 +88,11 @@ namespace StreamTweak
         {
             this.RequestedTheme = ApplicationTheme.Dark;
             this.InitializeComponent();
+
+            // 10.0: what took the UI down, in debug.log. Without it a XAML failure leaves only
+            // "0xc000027b in Microsoft.UI.Xaml.dll" in the event log and nothing to go on.
+            this.UnhandledException += (_, e) =>
+                DebugLogger.Log($"[Crash] unhandled UI exception: {e.Exception}");
         }
 
         protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -229,6 +234,10 @@ namespace StreamTweak
                 // host never has to push. Absent when sharing is off.
                 if (ClipboardShare.Enabled)
                     json = json.TrimEnd('}') + $",\"clip\":{ClipboardShare.SequenceNumber}}}";
+                // System RAM (10.0.0), for the Dashboard of StreamLight 8.0's host section. Read per
+                // request — one call — so it is current without anything sampling it in between.
+                var (ramUsed, ramTotal) = SystemMemory.Read();
+                json = json.TrimEnd('}') + $",\"ram_used\":{ramUsed},\"ram_total\":{ramTotal}}}";
                 return json;
             };
             _bridge.GameStateProvider  = () => _launchWatcher.ToJson();
@@ -243,6 +252,11 @@ namespace StreamTweak
             _bridge.UpdateStateProvider = () => WindowsUpdateState.ToJson();
             _bridge.LockStateProvider   = () => LockState.ToJson();
             _bridge.PowerCapsProvider   = () => HostPowerCapabilities.ToJson(_linkSpeed?.AdapterName);
+            // StreamLight 8.0's host section (10.0.0) — App.HostSection.cs.
+            RegisterHostSection();
+
+            // Status's first read runs while the window is built, so the page opens full (10.0.0).
+            ViewModels.StatusViewModel.Prewarm();
 
             // ── UI: window + tray ────────────────────────────────────────────
             // Deliberately here, AFTER the bridge is listening and its providers are wired.
@@ -302,11 +316,6 @@ namespace StreamTweak
             AppStateService.Instance.HostAssetsGuard = _hostAssetsGuard;
             _hostAssetsGuard.Start();
             _bridge.UnlockSessionMarked += OnBridgeUnlockSessionMarked;
-
-            // Dashboard idle vitals — the collector already samples every second from
-            // boot (it feeds the STATS bridge command); this just lets the Dashboard
-            // read the same snapshot while no session is running. Display-only.
-            AppStateService.Instance.HostMetricsProvider = () => _metricsCollector.GetLatestSample();
 
             // Remote "Update host" — relay scan/install/poll to the LocalSystem service,
             // which drives Windows Update Agent. UPDATE_NOW reboots, so the bridge only
@@ -418,9 +427,6 @@ namespace StreamTweak
         }
 
         // ── Public API (called by ViewModels / tray menu handlers) ───────────
-
-        public static void ShowToast(string title, string message, string? attribution = null)
-            => NotificationService.Show(title, message, attribution);
 
         public void ShowMainWindow()
         {
@@ -588,10 +594,14 @@ namespace StreamTweak
             });
         }
 
-        private void OnSessionDataReceived(ClientBatch batch)
+        private void OnSessionDataReceived(ClientBatch batch, string? clientId)
         {
             try
             {
+                // 10.0.0: who is streaming, for the host section's "Streaming now" line and for
+                // the session history ("this device / all").
+                NoteSessionClient(clientId);
+
                 if (SessionLogger.ActiveSessionId == null)
                 {
                     // Move the entire one-shot logic onto the UI thread to avoid a race
@@ -627,18 +637,6 @@ namespace StreamTweak
                 var hostSample = _metricsCollector.GetLatestSample();
                 _telemetryAccumulator.AddBatch(batch, hostSample);
 
-                // Session-constant, so it rides the batch rather than each sample.
-                // Assigned unconditionally: an older client reports 0 and the Dashboard
-                // falls back to showing the delivered rate alone.
-                AppStateService.Instance.CurrentTargetBitrateMbps = batch.TargetBitrateMbps;
-
-                // Forward every sample to the live Dashboard cockpit (preserves
-                // chronological order even on the final flush batch). Client fields
-                // come from the sample; host compute from the just-read host snapshot.
-                foreach (var s in batch.Samples)
-                    AppStateService.Instance.RaiseLiveSample(new AppStateService.LiveSample(
-                        s.RttAvg, s.JitterAvg, s.BitrateAvgMbps, s.Drops, s.FpsAvg,
-                        s.HostLatencyAvg, hostSample.Gpu, hostSample.GpuEnc, hostSample.Cpu));
             }
             catch (Exception ex) { DebugLogger.Log($"[Bridge] OnSessionDataReceived failed: {ex}"); }
         }

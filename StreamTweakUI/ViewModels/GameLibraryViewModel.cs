@@ -1,117 +1,52 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Globalization;
-using Microsoft.UI.Xaml;
-using StreamTweak.Services;
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml.Media.Imaging;
-using Windows.Storage;
-using Windows.Storage.FileProperties;
+using StreamTweak.Services;
 using Windows.Storage.Pickers;
 using WinRT.Interop;
 
 namespace StreamTweak.ViewModels
 {
-    // ── Per-game observable wrapper ───────────────────────────────────────────
+    // ── One game of the list ──────────────────────────────────────────────────
 
-    public sealed class ObservableGameEntry : ViewModelBase
+    /// <summary>
+    /// A row of the 10.0 Library (mockup A «Elenco»): the cover, the name and the store, the
+    /// command written in the streaming server, and what can be done with it.
+    /// </summary>
+    public sealed class LibraryRow
     {
         public GameLibraryEntry Entry { get; }
-
-        public string Name    => Entry.Name;
-        public string Store   => Entry.Store;
-        public bool   IsManual => Entry.IsManual;
-
-        public string? InstallFolder
-        {
-            get
-            {
-                var e = Entry;
-                if (e.Store == "Battle.net" && !string.IsNullOrEmpty(e.InstallDir))
-                    return e.InstallDir;
-                // Steam e Xbox: ExePath è già la directory di installazione (non un exe)
-                if ((e.Store == "Steam" || e.Store == "Xbox") && !string.IsNullOrEmpty(e.ExePath))
-                    return e.ExePath;
-                if (!string.IsNullOrEmpty(e.ExePath))
-                    return Path.GetDirectoryName(e.ExePath);
-                return null;
-            }
-        }
-
-        public bool ShowFolderButton => InstallFolder != null;
-
-        private bool _enabled;
-        public bool Enabled
-        {
-            get => _enabled;
-            set
-            {
-                if (SetProperty(ref _enabled, value))
-                {
-                    Entry.Enabled = value;
-                    OnPropertyChanged(nameof(CoverOpacity));
-                    OnPropertyChanged(nameof(HiddenVisibility));
-                    EnabledChanged?.Invoke(this);
-                }
-            }
-        }
-
-        /// <summary>Raised when the sync toggle flips, so the page can refresh its counts.</summary>
-        internal Action<ObservableGameEntry>? EnabledChanged;
-
-        // ── Cover (9.0) ───────────────────────────────────────────────────────
-        // Bound through CoverPathToBitmapConverter in the tile template instead of being
-        // decoded up front for every game: the GridView virtualises, so only the covers on
-        // screen are decoded — at tile size — and a 400-game library stays light.
-
+        public string  Name      => Entry.Name;
         public string? CoverPath => Entry.CoverImagePath;
-        public Visibility NameFallbackVisibility => string.IsNullOrEmpty(Entry.CoverImagePath) ? Visibility.Visible : Visibility.Collapsed;
+        public string  StoreText => Entry.IsManual ? "Added by hand" : Entry.Store;
+        public Uri?    BadgeUri  { get; }
+        public bool    ShowBadge => BadgeUri != null;
+        public bool    ShowNameOnCover => string.IsNullOrEmpty(Entry.CoverImagePath);
 
-        /// <summary>Games left out of the sync are dimmed, not hidden: they are still on this PC.</summary>
-        public double CoverOpacity => _enabled ? 1.0 : 0.4;
-        public Visibility HiddenVisibility => _enabled ? Visibility.Collapsed : Visibility.Visible;
-        public Visibility ManualVisibility => Entry.IsManual ? Visibility.Visible : Visibility.Collapsed;
+        /// <summary>From apps.json; empty for a game the server does not list.</summary>
+        public string Command { get; }
+        public string Kind    { get; }
+        public bool   HasCommand => Command.Length > 0;
+        public string CommandOrNote { get; }
 
-        // ── Session history (9.0) ─────────────────────────────────────────────
+        public bool   CanPlay    => HasCommand;
+        public string ActionText => !Entry.Enabled ? "Include again" : Entry.IsManual ? "Remove" : "Exclude";
+        public string ActionTip  => !Entry.Enabled ? "Back in the streaming server's list at the next Sync and restart"
+                                  : Entry.IsManual ? "Out of the library and of the streaming server's list"
+                                  : "Out of the streaming server's list, and kept out at every sync";
 
-        private GameStats? _stats;
-        public GameStats? Stats
+        public LibraryRow(GameLibraryEntry entry, SunshineSync.AppCommand? command, string server)
         {
-            get => _stats;
-            set
-            {
-                _stats = value;
-                OnPropertyChanged(nameof(MetaText));
-                OnPropertyChanged(nameof(StreamedText));
-                OnPropertyChanged(nameof(SessionsText));
-            }
+            Entry    = entry;
+            BadgeUri = entry.IsManual ? null : StoreBadge(entry.Store);
+            Command  = command?.Shown ?? "";
+            Kind     = command?.Kind ?? "";
+            CommandOrNote = Command.Length > 0 ? Command
+                          : entry.Enabled ? $"Not in {server} yet: Sync and restart writes it"
+                          : $"Not in {server}";
         }
 
-        public double   StreamedMinutes => _stats?.Minutes ?? 0;
-        public DateTime? LastPlayed     => _stats?.LastPlayed;
-
-        /// <summary>Line under the tile: when it was last streamed and for how long in total; "N/A" for a game never streamed.</summary>
-        public string MetaText => _stats?.LastPlayed is { } last
-            ? $"{GameStatsService.RelativeDay(last)} · {GameStatsService.FormatMinutes(_stats.Minutes)}"
-            : "N/A";
-
-        public string StreamedText => _stats is { Minutes: > 0 } st ? GameStatsService.FormatMinutes(st.Minutes) : "—";
-        public string SessionsText => _stats is { Sessions: > 0 } st ? st.Sessions.ToString(CultureInfo.InvariantCulture) : "—";
-
-        // Badge URI for SvgImageSource (e.g. "ms-appx:///Resources/Badges/store_steam.svg")
-        public Uri? BadgeUri { get; }
-        public bool ShowBadge => BadgeUri != null;
-        public string BadgeLabel { get; }
-
-        public ObservableGameEntry(GameLibraryEntry entry)
-        {
-            Entry = entry;
-            _enabled = entry.Enabled;
-            BadgeUri = ResolveBadgeUri(entry.Store);
-            BadgeLabel = entry.Store;
-        }
-
-        internal static Uri? ResolveBadgeUri(string store) => store switch
+        internal static Uri? StoreBadge(string store) => store switch
         {
             "Steam"           => new Uri("ms-appx:///Resources/Badges/store_steam.svg"),
             "Epic Games"      => new Uri("ms-appx:///Resources/Badges/store_epic.svg"),
@@ -124,298 +59,145 @@ namespace StreamTweak.ViewModels
         };
     }
 
-    /// <summary>A store filter chip: the store's badge, then "Steam 18".</summary>
-    public sealed class StoreChip
-    {
-        public string Key     { get; init; } = "";
-        public string Label   { get; init; } = "";
-        /// <summary>The same badge the covers carry; null for "All" and "Hidden".</summary>
-        public Uri?   IconUri { get; init; }
-    }
-
-    /// <summary>A session in the game sheet's "Recent sessions".</summary>
-    public sealed class GameSessionRow
-    {
-        public string Id        { get; init; } = "";
-        public string Title     { get; init; } = "";
-        public string Sub       { get; init; } = "";
-        public string StripeHex { get; init; } = "";
-        public string GradeLabel { get; init; } = "";
-        public string GradeFgHex { get; init; } = "";
-        public string GradeBgHex { get; init; } = "";
-        public string GradeBorderHex { get; init; } = "";
-    }
-
     // ── ViewModel ─────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// 10.0 Library (plan phase 4, mockup A «Elenco»): what StreamTweak writes in the streaming
+    /// server, one row per game with the exact command, in three tabs — in the server, excluded,
+    /// added by hand. Every change reaches the server through Sync and restart, the same job
+    /// StreamLight starts with LIBSYNC (App.Library): the servers read apps.json only when they
+    /// start. Exclude keeps the game in the list, out of the server, at every sync, whoever
+    /// starts it; Include again brings it back.
+    /// </summary>
     public sealed class GameLibraryViewModel : ViewModelBase
     {
-        private readonly DispatcherQueue _dispatcher;
+        private readonly DispatcherQueue _ui = DispatcherQueue.GetForCurrentThread();
+        private DispatcherQueueTimer? _jobTimer;
 
-        public GameLibraryViewModel()
-        {
-            _dispatcher = DispatcherQueue.GetForCurrentThread();
-        }
+        public ObservableCollection<LibraryRow> Rows { get; } = new();
 
-        // ── Game collection ───────────────────────────────────────────────────
+        // ── The server's card ────────────────────────────────────────────────────
 
-        public ObservableCollection<ObservableGameEntry> Games { get; } = new();
+        private string _server = "Sunshine";
+        public string Server { get => _server; private set => SetProperty(ref _server, value); }
 
-        // ── 9.0: what the page shows (search, store, sort) ────────────────────
+        private string _serverState = "", _serverStateHex = "#646b67";
+        /// <summary>"running", "stopped"… as Windows' service manager reports it; empty while unknown.</summary>
+        public string ServerState    { get => _serverState;    private set { if (SetProperty(ref _serverState, value)) OnPropertyChanged(nameof(HasServerState)); } }
+        public bool HasServerState   => _serverState.Length > 0;
+        public string ServerStateHex { get => _serverStateHex; private set => SetProperty(ref _serverStateHex, value); }
 
-        public ObservableCollection<ObservableGameEntry> FilteredGames { get; } = new();
-        public ObservableCollection<StoreChip> StoreChips { get; } = new();
+        // The card's four figures (mockup A «Tabella piena», 22/10).
+        private string _kpiListed = "0", _kpiExcluded = "0", _kpiManual = "0", _kpiSync = "—", _kpiSyncLabel = "Not synced yet";
+        public string KpiListed    { get => _kpiListed;    private set => SetProperty(ref _kpiListed, value); }
+        public string KpiExcluded  { get => _kpiExcluded;  private set => SetProperty(ref _kpiExcluded, value); }
+        public string KpiManual    { get => _kpiManual;    private set => SetProperty(ref _kpiManual, value); }
+        public string KpiSync      { get => _kpiSync;      private set => SetProperty(ref _kpiSync, value); }
+        public string KpiSyncLabel { get => _kpiSyncLabel; private set => SetProperty(ref _kpiSyncLabel, value); }
+        public string ListedLabel => $"In {_server}";
+        public string CommandHeader => $"COMMAND IN {_server.ToUpperInvariant()}";
 
-        public string[] SortOptions { get; } = { "Recently streamed", "Most streamed", "Name" };
-
-        private int _sortIndex;
-        public int SortIndex
-        {
-            get => _sortIndex;
-            set { if (SetProperty(ref _sortIndex, value)) ApplyFilter(); }
-        }
-
-        private string _searchText = "";
-        public string SearchText
-        {
-            get => _searchText;
-            set { if (SetProperty(ref _searchText, value ?? "")) ApplyFilter(); }
-        }
-
-        /// <summary>"all", "hidden" (left out of the sync) or a store name.</summary>
-        private string _storeFilter = "all";
-        public string StoreFilter
-        {
-            get => _storeFilter;
-            set { if (SetProperty(ref _storeFilter, value)) ApplyFilter(); }
-        }
-
-        private string _searchPlaceholder = "Search games";
-        public string SearchPlaceholder { get => _searchPlaceholder; private set => SetProperty(ref _searchPlaceholder, value); }
-
-        private string _countsText = "";
-        public string CountsText { get => _countsText; private set => SetProperty(ref _countsText, value); }
-
-        private bool _hasGames;
-        public bool HasGames
-        {
-            get => _hasGames;
-            private set { SetProperty(ref _hasGames, value); OnPropertyChanged(nameof(HasNoMatch)); }
-        }
-
-        private bool _hasFiltered = true;
-        public bool HasNoMatch => _hasGames && !_hasFiltered;
-
-        public string ShowInText => $"Show in {DetectedServerName}";
-
-        private string _pageSubtitle = "";
-        public string PageSubtitle { get => _pageSubtitle; private set => SetProperty(ref _pageSubtitle, value); }
-
-        private string _syncTitle = "Sunshine sync";
-        public string SyncTitle { get => _syncTitle; private set => SetProperty(ref _syncTitle, value); }
-
-        private string _hostTilesHint = "";
-        public string HostTilesHint { get => _hostTilesHint; private set => SetProperty(ref _hostTilesHint, value); }
-
-        // ── 9.0: hero (the cover the user is on, else the game being streamed, else the last
-        //    one streamed) ────
-
-        // The cover under the pointer or the keyboard focus; the hero follows it.
-        private ObservableGameEntry? _spotlight;
-
-        /// <summary>Shows <paramref name="g"/> in the hero; null goes back to the default game.</summary>
-        public void Spotlight(ObservableGameEntry? g)
-        {
-            if (ReferenceEquals(g, _spotlight)) return;
-            _spotlight = g;
-            RefreshHero();
-        }
-
-        private ObservableGameEntry? _heroGame;
-        public ObservableGameEntry? HeroGame
-        {
-            get => _heroGame;
-            private set { SetProperty(ref _heroGame, value); OnPropertyChanged(nameof(HeroCoverPath)); }
-        }
-        public string? HeroCoverPath => _heroGame?.CoverPath;
-
-        private string _heroEyebrow = "", _heroTitle = "", _heroMeta = "", _heroStreamed = "—", _heroSessions = "—", _heroGrade = "—", _heroGradeFg = "#C8CFCB";
-        public string HeroEyebrow  { get => _heroEyebrow;  private set => SetProperty(ref _heroEyebrow, value); }
-        public string HeroTitle    { get => _heroTitle;    private set => SetProperty(ref _heroTitle, value); }
-        public string HeroMeta     { get => _heroMeta;     private set => SetProperty(ref _heroMeta, value); }
-        public string HeroStreamed { get => _heroStreamed; private set => SetProperty(ref _heroStreamed, value); }
-        public string HeroSessions { get => _heroSessions; private set => SetProperty(ref _heroSessions, value); }
-        public string HeroGrade    { get => _heroGrade;    private set => SetProperty(ref _heroGrade, value); }
-        public string HeroGradeFg  { get => _heroGradeFg;  private set => SetProperty(ref _heroGradeFg, value); }
-
-        private bool _heroIsLive;
-        public bool HeroIsLive { get => _heroIsLive; private set { SetProperty(ref _heroIsLive, value); OnPropertyChanged(nameof(HeroIsNotLive)); } }
-        public bool HeroIsNotLive => !_heroIsLive;
-
-        // ── 9.0: game sheet ───────────────────────────────────────────────────
-
-        private ObservableGameEntry? _selectedGame;
-        public ObservableGameEntry? SelectedGame
-        {
-            get => _selectedGame;
-            private set
-            {
-                SetProperty(ref _selectedGame, value);
-                OnPropertyChanged(nameof(SelectedCoverPath));
-                RefreshSheet();
-            }
-        }
-        public string? SelectedCoverPath => _selectedGame?.CoverPath;
-
-        private string _sheetTitle = "", _sheetStore = "", _sheetStreamed = "", _sheetSessions = "", _sheetLast = "",
-                       _sheetGrade = "—", _sheetGradeFg = "#C8CFCB", _sheetGradeBg = "#0FFFFFFF", _sheetGradeBorder = "#24FFFFFF",
-                       _sheetLaunch = "", _sheetOrigin = "", _sheetSyncHint = "";
-        public string SheetTitle     { get => _sheetTitle;    private set => SetProperty(ref _sheetTitle, value); }
-        public string SheetStore     { get => _sheetStore;    private set => SetProperty(ref _sheetStore, value); }
-        public string SheetStreamed  { get => _sheetStreamed; private set => SetProperty(ref _sheetStreamed, value); }
-        public string SheetSessions  { get => _sheetSessions; private set => SetProperty(ref _sheetSessions, value); }
-        public string SheetLast      { get => _sheetLast;     private set => SetProperty(ref _sheetLast, value); }
-        public string SheetGrade     { get => _sheetGrade;    private set => SetProperty(ref _sheetGrade, value); }
-        public string SheetGradeFg   { get => _sheetGradeFg;  private set => SetProperty(ref _sheetGradeFg, value); }
-        public string SheetGradeBg   { get => _sheetGradeBg;  private set => SetProperty(ref _sheetGradeBg, value); }
-        public string SheetGradeBorder { get => _sheetGradeBorder; private set => SetProperty(ref _sheetGradeBorder, value); }
-        public string SheetLaunch    { get => _sheetLaunch;   private set => SetProperty(ref _sheetLaunch, value); }
-        public string SheetOrigin    { get => _sheetOrigin;   private set => SetProperty(ref _sheetOrigin, value); }
-        public string SheetSyncHint  { get => _sheetSyncHint; private set => SetProperty(ref _sheetSyncHint, value); }
-        public ObservableCollection<GameSessionRow> SheetRecent { get; } = new();
-
-        private bool _hasSheetRecent;
-        public bool HasSheetRecent { get => _hasSheetRecent; private set => SetProperty(ref _hasSheetRecent, value); }
-
-        private bool _sheetHasFolder;
-        public bool SheetHasFolder { get => _sheetHasFolder; private set => SetProperty(ref _sheetHasFolder, value); }
-
-        private Dictionary<string, GameStats> _stats = new(StringComparer.OrdinalIgnoreCase);
-
-        // ── Detected server name (static — readable from ObservableGameEntry DataTemplate) ───
-        internal static string DetectedServerName { get; private set; } = "Sunshine";
-
-        // ── Sync toggle ───────────────────────────────────────────────────────
-
-        private string _syncLabel = "Sync to Sunshine";
-        public string SyncLabel
-        {
-            get => _syncLabel;
-            private set => SetProperty(ref _syncLabel, value);
-        }
+        private string _steamConflict = "";
+        public string SteamConflict { get => _steamConflict; private set { if (SetProperty(ref _steamConflict, value)) OnPropertyChanged(nameof(HasSteamConflict)); } }
+        public bool HasSteamConflict => _steamConflict.Length > 0;
 
         private bool _syncEnabled;
+        /// <summary>The automatic sync when StreamTweak starts (GameLibraryState.SyncEnabled).</summary>
         public bool SyncEnabled
         {
             get => _syncEnabled;
             set
             {
-                if (SetProperty(ref _syncEnabled, value))
-                {
-                    var state = GameLibraryState.Current;
-                    state.SyncEnabled = value;
-                    state.Save();
-                }
+                if (!SetProperty(ref _syncEnabled, value)) return;
+                var state = GameLibraryState.Current;
+                state.SyncEnabled = value;
+                state.Save();
             }
         }
 
-        // ── Status / busy ─────────────────────────────────────────────────────
+        // ── Sync and restart ─────────────────────────────────────────────────────
 
-        private bool _isBusy;
-        public bool IsBusy
+        private bool _jobRunning;
+        public bool JobRunning
         {
-            get => _isBusy;
-            private set
-            {
-                SetProperty(ref _isBusy, value);
-                OnPropertyChanged(nameof(IsNotBusy));
-            }
+            get => _jobRunning;
+            private set { if (SetProperty(ref _jobRunning, value)) { OnPropertyChanged(nameof(CanChange)); OnPropertyChanged(nameof(SyncButtonText)); } }
         }
+        public bool CanChange => !_jobRunning && !_busy;
+        public string SyncButtonText => _jobRunning ? "Working…" : "Sync and restart";
 
-        public bool IsNotBusy => !_isBusy;
+        private string _jobText = "";
+        public string JobText { get => _jobText; private set { if (SetProperty(ref _jobText, value)) OnPropertyChanged(nameof(HasJobText)); } }
+        public bool HasJobText => _jobText.Length > 0;
 
-        private string _statusText = string.Empty;
-        public string StatusText
-        {
-            get => _statusText;
-            private set => SetProperty(ref _statusText, value);
-        }
+        private bool _jobFailed;
+        public bool JobFailed { get => _jobFailed; private set => SetProperty(ref _jobFailed, value); }
 
-        private bool _hasStatus;
-        public bool HasStatus
-        {
-            get => _hasStatus;
-            set => SetProperty(ref _hasStatus, value);
-        }
+        private bool _pending;
+        /// <summary>Changes made here since the last Sync and restart: the server does not show them yet.</summary>
+        public bool Pending { get => _pending; private set { if (SetProperty(ref _pending, value)) OnPropertyChanged(nameof(PendingText)); } }
+        public string PendingText => $"{_server} shows these changes after Sync and restart.";
 
-        private bool _statusIsError;
-        public bool StatusIsError
-        {
-            get => _statusIsError;
-            private set => SetProperty(ref _statusIsError, value);
-        }
+        // ── Tabs and filter ──────────────────────────────────────────────────────
 
-        // ── Last sync display ─────────────────────────────────────────────────
+        private string _tab = "listed";   // listed · excluded · manual
+        public string Tab { get => _tab; set { if (SetProperty(ref _tab, value)) Fill(); } }
 
-        private string _lastSyncText = "Never synced";
-        public string LastSyncText
-        {
-            get => _lastSyncText;
-            private set => SetProperty(ref _lastSyncText, value);
-        }
+        private string _filter = "";
+        public string Filter { get => _filter; set { if (SetProperty(ref _filter, value ?? "")) Fill(); } }
 
-        // ── Host tile swap (desktop.png / steam.png in <HostInstallDir>\assets) ──
+        private string _listedTab = "", _excludedTab = "Excluded", _manualTab = "Added by hand";
+        public string ListedTab   { get => _listedTab;   private set => SetProperty(ref _listedTab, value); }
+        public string ExcludedTab { get => _excludedTab; private set => SetProperty(ref _excludedTab, value); }
+        public string ManualTab   { get => _manualTab;   private set => SetProperty(ref _manualTab, value); }
+
+        private string _emptyText = "";
+        public string EmptyText { get => _emptyText; private set { if (SetProperty(ref _emptyText, value)) OnPropertyChanged(nameof(IsEmpty)); } }
+        public bool IsEmpty => _emptyText.Length > 0;
+
+        /// <summary>Games removed before 10.0, kept out of every sync by a key without a name.</summary>
+        private int _legacyExcluded;
+        public int LegacyExcluded { get => _legacyExcluded; private set { if (SetProperty(ref _legacyExcluded, value)) { OnPropertyChanged(nameof(HasLegacyExcluded)); OnPropertyChanged(nameof(LegacyText)); } } }
+        public bool HasLegacyExcluded => _legacyExcluded > 0 && _tab == "excluded";
+        public string LegacyText => _legacyExcluded == 1
+            ? "1 more game, removed before StreamTweak 10.0, is kept out of every sync without a name to show here."
+            : $"{_legacyExcluded} more games, removed before StreamTweak 10.0, are kept out of every sync without a name to show here.";
+
+        // ── Host tiles (desktop.png / steam.png in <server>\assets) ──────────────
 
         private string? _hostAssetsDir;
-
-        private bool _hostAssetsAvailable;
-        public bool HostAssetsAvailable
-        {
-            get => _hostAssetsAvailable;
-            private set => SetProperty(ref _hostAssetsAvailable, value);
-        }
-
-        private bool _hostAssetsApplied;
+        private bool _hostAssetsAvailable, _hostAssetsApplied;
+        public bool HostAssetsAvailable { get => _hostAssetsAvailable; private set => SetProperty(ref _hostAssetsAvailable, value); }
         public bool HostAssetsApplied
         {
             get => _hostAssetsApplied;
-            private set
-            {
-                if (SetProperty(ref _hostAssetsApplied, value))
-                {
-                    OnPropertyChanged(nameof(HostAssetsButtonText));
-                    OnPropertyChanged(nameof(HostAssetsHelpText));
-                }
-            }
+            private set { if (SetProperty(ref _hostAssetsApplied, value)) OnPropertyChanged(nameof(HostAssetsButtonText)); }
         }
+        public string HostAssetsButtonText => _hostAssetsApplied ? "Restore Desktop & Steam tiles" : "Replace Desktop & Steam tiles";
 
-        public string HostAssetsButtonText => _hostAssetsApplied ? "Restore tiles" : "Change tiles";
+        // ── Status (an InfoBar) ──────────────────────────────────────────────────
 
-        public string HostAssetsHelpText => _hostAssetsApplied
-            ? $"Restore {DetectedServerName}'s original Desktop & Steam tiles"
-            : $"Replace {DetectedServerName}'s default Desktop & Steam tiles";
+        private bool _busy;
+        private string _statusText = "";
+        public string StatusText { get => _statusText; private set => SetProperty(ref _statusText, value); }
+        private bool _hasStatus;
+        public bool HasStatus { get => _hasStatus; set => SetProperty(ref _hasStatus, value); }
+        private bool _statusIsError;
+        public bool StatusIsError { get => _statusIsError; private set => SetProperty(ref _statusIsError, value); }
 
-        // ── Public API ────────────────────────────────────────────────────────
+        // ── Loading ──────────────────────────────────────────────────────────────
+
+        private Dictionary<string, SunshineSync.AppCommand> _commands = new(StringComparer.OrdinalIgnoreCase);
 
         public void Load()
         {
-            _spotlight = null;   // a new visit opens on the default hero
-
-            // Detect the installed streaming server and set the sync toggle label accordingly.
             var hostInfo = LogParser.FindStreamingAppInfo();
-            DetectedServerName = hostInfo?.AppName ?? "Sunshine";
-            SyncLabel = $"Sync to {DetectedServerName}";
-            SyncTitle = $"{DetectedServerName} sync";
-            PageSubtitle = $"Games found on this PC, kept in {DetectedServerName}'s app list with their store cover art.";
-            HostTilesHint = $"Desktop and Steam tiles in {DetectedServerName}";
-            OnPropertyChanged(nameof(ShowInText));
+            Server = hostInfo?.AppName ?? "Sunshine";
+            OnPropertyChanged(nameof(PendingText));
 
-            // Host tile-swap state: derive the <HostInstallDir>\assets folder and check
-            // whether a previous swap is still applied (a *_backup.png is present).
-            _hostAssetsDir = HostAssetsManager.GetAssetsDirectory(hostInfo);
+            _hostAssetsDir      = HostAssetsManager.GetAssetsDirectory(hostInfo);
             HostAssetsAvailable = _hostAssetsDir != null;
             HostAssetsApplied   = _hostAssetsDir != null && HostAssetsManager.IsApplied(_hostAssetsDir);
-
             // One-time migration: installs that swapped their tiles before the guard existed
             // have no config key, so the guard would sit disabled on exactly the setups that
             // need it. The backup files are the evidence that the swap happened.
@@ -424,22 +206,301 @@ namespace StreamTweak.ViewModels
                 ConfigService.Set("HostTilesApplied", true);
                 AppStateService.Instance.HostAssetsGuard?.NudgeAfterUserAction();
             }
-            OnPropertyChanged(nameof(HostAssetsButtonText));
-            OnPropertyChanged(nameof(HostAssetsHelpText));
 
-            var state = GameLibraryState.Current;
-            _syncEnabled = state.SyncEnabled;
+            _syncEnabled = GameLibraryState.Current.SyncEnabled;
             OnPropertyChanged(nameof(SyncEnabled));
 
-            RefreshLastSyncText(state);
-            RefreshGameList(state);
+            Reload();
+            WatchJob();
+            _ = ReadServerAsync();
         }
+
+        /// <summary>The list again: after a sync this page did not start, or a change made here.</summary>
+        public void Reload()
+        {
+            string? appsJson = SunshineSync.FindAppsJsonPath();
+            _commands = appsJson != null ? SunshineSync.ReadCommands(appsJson) : new(StringComparer.OrdinalIgnoreCase);
+
+            var state = GameLibraryState.Current;
+            if (state.LastSyncUtc is DateTime t)
+            {
+                var local = DateTime.SpecifyKind(t, DateTimeKind.Utc).ToLocalTime();
+                KpiSync      = local.ToString("HH:mm");
+                KpiSyncLabel = $"Last sync · {GameStatsService.RelativeDay(local).ToLowerInvariant()}";
+            }
+            else { KpiSync = "—"; KpiSyncLabel = "Not synced yet"; }
+
+            int listed = state.Games.Count(g => g.Enabled && !g.IsManual), excluded = state.Games.Count(g => !g.Enabled),
+                manual = state.Games.Count(g => g.Enabled && g.IsManual);
+            KpiListed = listed.ToString(); KpiExcluded = excluded.ToString(); KpiManual = manual.ToString();
+            OnPropertyChanged(nameof(ListedLabel));
+            OnPropertyChanged(nameof(CommandHeader));
+            ListedTab   = $"In {Server}";
+            ExcludedTab = "Excluded";
+            ManualTab   = "Added by hand";
+            LegacyExcluded = state.ExcludedGames.Count;
+            Fill();
+        }
+
+        private void Fill()
+        {
+            var state = GameLibraryState.Current;
+            IEnumerable<GameLibraryEntry> games = _tab switch
+            {
+                "excluded" => state.Games.Where(g => !g.Enabled),
+                "manual"   => state.Games.Where(g => g.Enabled && g.IsManual),
+                _          => state.Games.Where(g => g.Enabled && !g.IsManual),
+            };
+            if (_filter.Trim().Length > 0)
+                games = games.Where(g => g.Name.Contains(_filter.Trim(), StringComparison.CurrentCultureIgnoreCase));
+
+            Rows.Clear();
+            foreach (var g in games.OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase))
+                Rows.Add(new LibraryRow(g, _commands.TryGetValue(g.Name, out var c) ? c : null, Server));
+
+            EmptyText = Rows.Count > 0 ? ""
+                      : _filter.Trim().Length > 0 ? "No game matches."
+                      : _tab switch
+                        {
+                            "excluded" => "No game is excluded. Exclude keeps a game out of the streaming server at every sync.",
+                            "manual"   => "Nothing added by hand. Add a game takes any program.",
+                            _          => state.Games.Count == 0
+                                          ? "No games yet. Sync and restart looks for them in the stores installed on this PC."
+                                          : "Every game is excluded or was added by hand.",
+                        };
+            OnPropertyChanged(nameof(HasLegacyExcluded));
+        }
+
+        /// <summary>The server's service state and its own Steam sync, read off the UI thread (CIM, sunshine.conf).</summary>
+        private async Task ReadServerAsync()
+        {
+            string text = "", state = "";
+            try
+            {
+                var svc = await Task.Run(() => StreamingServer.ServiceFor(SunshineSync.FindAppsJsonPath()));
+                if (svc != null)
+                {
+                    // The fork's name as Status shows it (Vibeshine installs into a Sunshine folder).
+                    if (svc.ServerName.Length > 0 && svc.ServerName != Server)
+                    {
+                        Server = svc.ServerName;
+                        OnPropertyChanged(nameof(PendingText));
+                        Reload();
+                    }
+                    state = await Task.Run(() => StreamingServer.State(svc.Name));
+                    if (await Task.Run(() => StreamingServer.SteamSyncOn(svc)))
+                        text = $"{svc.ServerName} syncs Steam too, so Steam games would be listed twice. Turn one of the two off.";
+                }
+            }
+            catch { }
+            SteamConflict  = text;
+            ServerState    = state.Length == 0 ? "" : state.ToLowerInvariant();
+            ServerStateHex = state == "Running" ? "#4ade80" : state.Length == 0 ? "#646b67" : "#fbbf24";
+        }
+
+        // ── Actions on a game ────────────────────────────────────────────────────
+
+        /// <summary>Exclude, Include again or (added by hand) Remove — the row's one action.</summary>
+        public async Task ActAsync(LibraryRow row)
+        {
+            if (!CanChange) return;
+            var state = GameLibraryState.Current;
+            if (row.Entry.IsManual && row.Entry.Enabled)
+            {
+                _busy = true; OnPropertyChanged(nameof(CanChange));
+                try { ShowStatus(await GameLibraryService.RemoveGameAsync(row.Entry), isError: false); }
+                finally { _busy = false; OnPropertyChanged(nameof(CanChange)); }
+            }
+            else
+            {
+                row.Entry.Enabled = !row.Entry.Enabled;
+                state.Save();
+            }
+            Pending = true;
+            Reload();
+        }
+
+        /// <summary>
+        /// Play, as a test of the command (plan 10.0): runs what apps.json says — the detached
+        /// commands, then the command — in the folder it names. Not a replay of the server: no
+        /// prep commands, no elevation, no SUNSHINE_CLIENT_* variables.
+        /// </summary>
+        public void Play(LibraryRow row)
+        {
+            if (!_commands.TryGetValue(row.Name, out var c)) return;
+            try
+            {
+                foreach (var d in c.Detached) Run(d, c.WorkingDir);
+                if (c.Cmd.Length > 0) Run(c.Cmd, c.WorkingDir);
+            }
+            catch (Exception ex)
+            {
+                ShowStatus($"Could not run the command of \"{row.Name}\": {ex.Message}", isError: true);
+            }
+        }
+
+        /// <summary>A command line as the server holds it: an URI (steam://…), a quoted program
+        /// with arguments, or a bare program with arguments.</summary>
+        private static void Run(string commandLine, string workingDir)
+        {
+            string line = commandLine.Trim();
+            string file, args = "";
+            if (line.StartsWith('"'))
+            {
+                int end = line.IndexOf('"', 1);
+                file = end > 0 ? line[1..end] : line.Trim('"');
+                args = end > 0 ? line[(end + 1)..].Trim() : "";
+            }
+            else if (line.Contains("://", StringComparison.Ordinal) && !line.Contains(' '))
+                file = line;
+            else
+            {
+                int space = line.IndexOf(' ');
+                file = space > 0 ? line[..space] : line;
+                args = space > 0 ? line[(space + 1)..].Trim() : "";
+            }
+            var psi = new ProcessStartInfo { FileName = file, Arguments = args, UseShellExecute = true };
+            // ⚠️ Without a folder the game inherits StreamTweak's, under Program Files, and one that
+            // looks for its data beside where it was started refuses to run (Alan Wake 2, 7.x).
+            string dir = workingDir.Length > 0 ? workingDir : (Path.IsPathRooted(file) ? Path.GetDirectoryName(file) ?? "" : "");
+            if (dir.Length > 0 && Directory.Exists(dir)) psi.WorkingDirectory = dir;
+            Process.Start(psi);
+        }
+
+        public async Task AddGameAsync()
+        {
+            var picker = new FileOpenPicker();
+            if (App.MainWindow is { } win)
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(win));
+            picker.FileTypeFilter.Add(".exe");
+            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
+
+            var file = await picker.PickSingleFileAsync();
+            if (file == null) return;
+
+            _busy = true; OnPropertyChanged(nameof(CanChange));
+            try
+            {
+                ShowStatus(await GameLibraryService.AddManualGameAsync(file.Path), isError: false);
+                Pending = true;
+                Reload();
+            }
+            catch (Exception ex) { ShowStatus($"Could not add the game: {ex.Message}", isError: true); }
+            finally { _busy = false; OnPropertyChanged(nameof(CanChange)); }
+        }
+
+        /// <summary>The pre-10.0 removals let back in: their keys are cleared, the next sync finds them.</summary>
+        public void ClearLegacyExclusions()
+        {
+            var state = GameLibraryState.Current;
+            state.ExcludedGames.Clear();
+            state.Save();
+            Pending = true;
+            Reload();
+        }
+
+        // ── Sync and restart ─────────────────────────────────────────────────────
+
+        public void StartSyncAndRestart() => StartJob(AppStateService.Instance.LibrarySyncStarter, "Looking for games…");
+
+        /// <summary>Clear library: the page has asked first.</summary>
+        public void StartClearAndRestart() => StartJob(AppStateService.Instance.LibraryClearStarter, $"Clearing {Server}'s list…");
+
+        private void StartJob(Func<string>? starter, string firstStep)
+        {
+            string? reply = starter?.Invoke();
+            switch (reply)
+            {
+                case "OK": JobFailed = false; JobText = firstStep; WatchJob(); break;
+                case "ERR_STREAMING":    ShowStatus("A device is streaming from this PC. Try again when the stream has ended.", isError: true); break;
+                case "ERR_GAME_RUNNING": ShowStatus($"A game launched by {Server} is still running: restarting {Server} would close it. Close it first.", isError: true); break;
+                case "ERR_NO_SERVER":    ShowStatus("StreamTweak found no streaming server it can restart.", isError: true); break;
+                case "ERR_BUSY":
+                    var job = AppStateService.Instance.LibraryJobReader?.Invoke();
+                    ShowStatus(job is { CooldownSeconds: > 0 } j && j.Phase is "done" or "failed"
+                        ? $"{Server} was restarted a moment ago. Try again in {j.CooldownSeconds} s."
+                        : "A sync is already running.", isError: true);
+                    break;
+                default: ShowStatus("Sync and restart is not available.", isError: true); break;
+            }
+        }
+
+        /// <summary>Follows the job once a second while it runs — started here or from StreamLight.</summary>
+        private void WatchJob()
+        {
+            if (_jobTimer == null)
+            {
+                _jobTimer = _ui.CreateTimer();
+                _jobTimer.Interval = TimeSpan.FromSeconds(1);
+                _jobTimer.Tick += (_, _) => ReadJob();
+            }
+            _jobTimer.Start();
+            ReadJob();
+        }
+
+        private string _lastPhase = "";
+
+        private void ReadJob()
+        {
+            if (AppStateService.Instance.LibraryJobReader?.Invoke() is not { } job) { _jobTimer?.Stop(); return; }
+            bool running = job.Phase is "scanning" or "writing" or "stopping" or "starting" or "waiting";
+            JobRunning = running;
+            string server = job.Server.Length > 0 ? job.Server : Server;
+            int s = (int)job.Elapsed.TotalSeconds;
+
+            if (running)
+            {
+                string step = job.Phase switch
+                {
+                    "scanning" => "Looking for games in the stores",
+                    "writing"  => $"Writing {server}'s list",
+                    "stopping" => $"Stopping {server}",
+                    "starting" => $"Starting {server}",
+                    _          => $"Waiting for {server} to answer",
+                };
+                JobText = $"{step}… · {s} s";
+                JobFailed = false;
+            }
+            else if (_lastPhase is "scanning" or "writing" or "stopping" or "starting" or "waiting")
+            {
+                // It has just ended: say how, once, and take the new list.
+                if (job.Phase == "done")
+                {
+                    string changes = (job.Added.Count, job.Removed.Count) switch
+                    {
+                        (0, 0) => "no change in the list",
+                        var (a, r) => string.Join(" · ", new[] { a > 0 ? $"{a} added" : "", r > 0 ? $"{r} removed" : "" }.Where(x => x.Length > 0)),
+                    };
+                    JobText = $"Done in {s} s: {changes}. {server} is back.";
+                    JobFailed = false;
+                    Pending = false;
+                }
+                else
+                {
+                    JobText = job.Error switch
+                    {
+                        "streaming" => "Stopped: a device started streaming. Nothing was restarted.",
+                        "no answer" => $"{server} restarted but does not answer yet. Check it from its own page.",
+                        var e       => $"It did not finish: {e}",
+                    };
+                    JobFailed = true;
+                }
+                Reload();
+                _jobTimer?.Stop();
+            }
+            else if (!running)
+                _jobTimer?.Stop();
+            _lastPhase = job.Phase;
+        }
+
+        public void Stop() => _jobTimer?.Stop();
+
+        // ── Host tiles ───────────────────────────────────────────────────────────
 
         public async Task ToggleHostAssetsAsync()
         {
-            if (_isBusy || _hostAssetsDir == null) return;
-
-            IsBusy = true;
+            if (_busy || _hostAssetsDir == null) return;
+            _busy = true; OnPropertyChanged(nameof(CanChange));
             try
             {
                 if (_hostAssetsApplied)
@@ -452,402 +513,32 @@ namespace StreamTweak.ViewModels
                         ConfigService.Set("HostTilesApplied", false);
                         AppStateService.Instance.HostAssetsGuard?.NudgeAfterUserAction();
                         HostAssetsApplied = HostAssetsManager.IsApplied(_hostAssetsDir);
-                        ShowStatus($"Restored {DetectedServerName}'s original Desktop & Steam tiles.", isError: false);
+                        ShowStatus($"Restored {Server}'s original Desktop & Steam tiles.", isError: false);
                     }
-                    else
-                    {
-                        ShowStatus("Could not restore host tiles. Is the StreamTweak service running?", isError: true);
-                    }
+                    else ShowStatus("Could not restore the tiles. Is the StreamTweak service running?", isError: true);
                 }
                 else
                 {
-                    string baseDir = AppContext.BaseDirectory;
-                    string desktopSrc = Path.Combine(baseDir, "Resources", "desktop.png");
-                    string steamSrc   = Path.Combine(baseDir, "Resources", "steam.png");
-
+                    string desktopSrc = Path.Combine(AppContext.BaseDirectory, "Resources", "desktop.png");
+                    string steamSrc   = Path.Combine(AppContext.BaseDirectory, "Resources", "steam.png");
                     if (!File.Exists(desktopSrc) || !File.Exists(steamSrc))
                     {
-                        ShowStatus("Bundled replacement tiles not found in Resources/.", isError: true);
+                        ShowStatus("The replacement tiles are missing from StreamTweak's Resources folder.", isError: true);
                         return;
                     }
-
                     bool ok = await HostAssetsManager.SwapAsync(_hostAssetsDir, desktopSrc, steamSrc);
                     if (ok)
                     {
                         ConfigService.Set("HostTilesApplied", true);
                         AppStateService.Instance.HostAssetsGuard?.NudgeAfterUserAction();
                         HostAssetsApplied = HostAssetsManager.IsApplied(_hostAssetsDir);
-                        ShowStatus($"Replaced {DetectedServerName}'s Desktop & Steam tiles. Originals backed up.", isError: false);
+                        ShowStatus($"Replaced {Server}'s Desktop & Steam tiles. The originals are kept.", isError: false);
                     }
-                    else
-                    {
-                        ShowStatus("Could not replace host tiles. Is the StreamTweak service running?", isError: true);
-                    }
+                    else ShowStatus("Could not replace the tiles. Is the StreamTweak service running?", isError: true);
                 }
             }
-            catch (Exception ex)
-            {
-                ShowStatus($"Host tiles operation failed: {ex.Message}", isError: true);
-            }
-            finally { IsBusy = false; }
-        }
-
-        public async Task SyncNowAsync()
-        {
-            if (_isBusy) return;
-            IsBusy = true;
-            try
-            {
-                string result = await GameLibraryService.PerformSyncAsync(isManual: true);
-                ShowStatus(result, isError: false);
-                var state = GameLibraryState.Current;
-                RefreshLastSyncText(state);
-                RefreshGameList(state);
-
-            }
-            catch (Exception ex)
-            {
-                ShowStatus($"Sync failed: {ex.Message}", isError: true);
-            }
-            finally { IsBusy = false; }
-        }
-
-        public async Task ClearSyncAsync()
-        {
-            if (_isBusy) return;
-            IsBusy = true;
-            try
-            {
-                string result = await GameLibraryService.ClearSyncAsync();
-                ShowStatus(result, isError: false);
-                var state = GameLibraryState.Current;
-                RefreshLastSyncText(state);
-                RefreshGameList(state);
-            }
-            catch (Exception ex)
-            {
-                ShowStatus($"Clear failed: {ex.Message}", isError: true);
-            }
-            finally { IsBusy = false; }
-        }
-
-        public async Task AddGameAsync()
-        {
-            var picker = new FileOpenPicker();
-            if (App.MainWindow is { } win)
-                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(win));
-
-            picker.FileTypeFilter.Add(".exe");
-            picker.SuggestedStartLocation = PickerLocationId.ComputerFolder;
-
-            Windows.Storage.StorageFile? file = await picker.PickSingleFileAsync();
-            if (file == null) return;
-
-            IsBusy = true;
-            try
-            {
-                string result = await GameLibraryService.AddManualGameAsync(file.Path);
-                ShowStatus(result, isError: false);
-                RefreshGameList(GameLibraryState.Current);
-            }
-            catch (Exception ex)
-            {
-                ShowStatus($"Could not add game: {ex.Message}", isError: true);
-            }
-            finally { IsBusy = false; }
-        }
-
-        public void OpenGameFolder(ObservableGameEntry observableEntry)
-        {
-            string? folder = observableEntry.InstallFolder;
-            if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
-            {
-                ShowStatus("Install folder not found.", isError: true);
-                return;
-            }
-            try
-            {
-                Process.Start(new ProcessStartInfo("explorer.exe", $"\"{folder}\"")
-                {
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception ex)
-            {
-                ShowStatus($"Could not open folder: {ex.Message}", isError: true);
-            }
-        }
-
-        public void LaunchGame(ObservableGameEntry observableEntry)
-        {
-            var entry = observableEntry.Entry;
-            try
-            {
-                // Steam — use native Steam URI so the overlay works correctly
-                if (entry.SteamAppId != null)
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName        = $"steam://rungameid/{entry.SteamAppId}",
-                        UseShellExecute = true
-                    });
-                    return;
-                }
-
-                // Xbox / Game Pass — UWP shell protocol
-                if (entry.Store == "Xbox" && !string.IsNullOrEmpty(entry.StoreId))
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName  = "explorer.exe",
-                        Arguments = $"shell:appsFolder\\{entry.StoreId}"
-                    });
-                    return;
-                }
-
-                // Stores whose games have to be started by their own launcher — Epic today.
-                // Through the same helper the apps.json sync uses, so a game cannot launch
-                // correctly when streamed and fail when started from this window.
-                string? storeUri = SunshineSync.StoreLaunchUri(entry.Store, entry.LaunchId);
-                if (storeUri != null)
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName        = storeUri,
-                        UseShellExecute = true
-                    });
-                    return;
-                }
-
-                // All other stores (Ubisoft, GOG, EA App, Battle.net, Manual):
-                // ExePath is persisted from the scanner for auto-discovered games and
-                // from the user's file picker for manual games — use it directly.
-                if (!string.IsNullOrEmpty(entry.ExePath))
-                {
-                    Process.Start(new ProcessStartInfo
-                    {
-                        FileName        = entry.ExePath,
-                        UseShellExecute = true,
-                        // ⚠️ Without this the game inherits *StreamTweak's* working directory,
-                        // which is its install folder under Program Files. A game that resolves
-                        // its data relative to the current directory then looks for it there and
-                        // refuses to start — Alan Wake 2 reported exactly
-                        // "Could not find: 'C:/Program Files/StreamTweak/data'".
-                        WorkingDirectory = System.IO.Path.GetDirectoryName(entry.ExePath) ?? ""
-                    });
-                    return;
-                }
-
-                ShowStatus($"No launch path available for \"{entry.Name}\".", isError: true);
-            }
-            catch (Exception ex)
-            {
-                ShowStatus($"Could not launch \"{entry.Name}\": {ex.Message}", isError: true);
-            }
-        }
-
-        public async Task RemoveGameAsync(ObservableGameEntry entry)
-        {
-            IsBusy = true;
-            try
-            {
-                string result = await GameLibraryService.RemoveGameAsync(entry.Entry);
-                ShowStatus(result, isError: false);
-                Games.Remove(entry);
-                FilteredGames.Remove(entry);
-                if (_selectedGame == entry) SelectedGame = null;
-                RefreshSummary();
-                RefreshHero();
-            }
-            catch (Exception ex)
-            {
-                ShowStatus($"Could not remove game: {ex.Message}", isError: true);
-            }
-            finally { IsBusy = false; }
-        }
-
-        // ── Private ───────────────────────────────────────────────────────────
-
-        private void RefreshGameList(GameLibraryState state)
-        {
-            foreach (var g in Games) g.EnabledChanged = null;
-            Games.Clear();
-            foreach (var g in state.Games)
-            {
-                var entry = new ObservableGameEntry(g) { EnabledChanged = _ => RefreshSummary() };
-                if (_stats.TryGetValue(g.Name, out var st)) entry.Stats = st;
-                Games.Add(entry);
-            }
-            RefreshSummary();
-            ApplyFilter();
-            RefreshHero();
-            _ = LoadStatsAsync();
-        }
-
-        /// <summary>
-        /// Reads the session history off the UI thread and attaches to every game how long,
-        /// how often and how well it was streamed. Nothing new is stored for this.
-        /// </summary>
-        private async Task LoadStatsAsync()
-        {
-            Dictionary<string, GameStats> stats;
-            try { stats = await Task.Run(() => GameStatsService.Compute(SessionLogger.Load())); }
-            catch { return; }
-            _stats = stats;
-            foreach (var g in Games)
-                g.Stats = _stats.TryGetValue(g.Name, out var st) ? st : null;
-            ApplyFilter();
-            RefreshHero();
-            if (_selectedGame != null) RefreshSheet();
-        }
-
-        // ── Filter / sort ─────────────────────────────────────────────────────
-
-        public void ApplyFilter()
-        {
-            string q = _searchText.Trim();
-            IEnumerable<ObservableGameEntry> list = Games.Where(g =>
-                (_storeFilter == "all" || (_storeFilter == "hidden" ? !g.Enabled : g.Store == _storeFilter)) &&
-                (q.Length == 0 || g.Name.Contains(q, StringComparison.OrdinalIgnoreCase)));
-
-            list = _sortIndex switch
-            {
-                1 => list.OrderByDescending(g => g.StreamedMinutes).ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
-                2 => list.OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
-                _ => list.OrderByDescending(g => g.LastPlayed ?? DateTime.MinValue).ThenBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase),
-            };
-
-            // Edited in place, never cleared: a Clear() is a Reset, and a Reset sends the
-            // GridView back to the top — the store chips live in its header, so every click on
-            // one used to scroll them out of sight.
-            var result = list.ToList();
-            var keep = new HashSet<ObservableGameEntry>(result);
-            for (int i = FilteredGames.Count - 1; i >= 0; i--)
-                if (!keep.Contains(FilteredGames[i])) FilteredGames.RemoveAt(i);
-            for (int i = 0; i < result.Count; i++)
-            {
-                int at = FilteredGames.IndexOf(result[i]);
-                if (at < 0) FilteredGames.Insert(i, result[i]);
-                else if (at != i) FilteredGames.Move(at, i);
-            }
-            // Only HasNoMatch reads this: "no game matches" is shown when the library has games but none pass.
-            _hasFiltered = FilteredGames.Count > 0;
-            OnPropertyChanged(nameof(HasNoMatch));
-        }
-
-        private void RefreshSummary()
-        {
-            HasGames = Games.Count > 0;
-            SearchPlaceholder = Games.Count == 1 ? "Search 1 game" : $"Search {Games.Count} games";
-
-            int shown = Games.Count(g => g.Enabled), manual = Games.Count(g => g.IsManual);
-            var bits = new List<string> { Games.Count == 1 ? "1 game" : $"{Games.Count} games", $"{shown} shown in {DetectedServerName}" };
-            if (manual > 0) bits.Add(manual == 1 ? "1 manual entry you added" : $"{manual} manual entries you added");
-            CountsText = string.Join(" · ", bits);
-
-            // Most games first; stores with the same count in alphabetical order.
-            var byStore = Games.GroupBy(g => g.Store).Select(grp => (Store: grp.Key, Count: grp.Count()))
-                               .OrderByDescending(x => x.Count)
-                               .ThenBy(x => x.Store, StringComparer.CurrentCultureIgnoreCase).ToList();
-
-            StoreChips.Clear();
-            StoreChips.Add(new StoreChip { Key = "all", Label = $"All  {Games.Count}" });
-            foreach (var (store, count) in byStore)
-                StoreChips.Add(new StoreChip { Key = store, Label = $"{store}  {count}", IconUri = ObservableGameEntry.ResolveBadgeUri(store) });
-            int hidden = Games.Count - shown;
-            if (hidden > 0)
-                StoreChips.Add(new StoreChip { Key = "hidden", Label = $"Hidden from {DetectedServerName}  {hidden}" });
-            if (_storeFilter != "all" && StoreChips.All(c => c.Key != _storeFilter))
-                StoreFilter = "all";
-        }
-
-        // ── Hero ──────────────────────────────────────────────────────────────
-
-        public void RefreshHero()
-        {
-            string? live = AppStateService.Instance.IsSessionActive
-                ? SessionLogger.CurrentGameName(TimeSpan.FromMinutes(2)) : null;
-            ObservableGameEntry? liveGame = live != null
-                ? Games.FirstOrDefault(x => string.Equals(x.Name, live, StringComparison.OrdinalIgnoreCase))
-                : null;
-            ObservableGameEntry? g = _spotlight != null && Games.Contains(_spotlight) ? _spotlight : null;
-            g ??= liveGame;
-            g ??= Games.Where(x => x.LastPlayed != null).OrderByDescending(x => x.LastPlayed).FirstOrDefault();
-            g ??= Games.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase).FirstOrDefault();
-            HeroIsLive = g != null && ReferenceEquals(g, liveGame);
-            HeroGame = g;
-            if (g == null) return;
-            bool played = g.LastPlayed != null;
-
-            HeroEyebrow = HeroIsLive ? "STREAMING NOW"
-                        : played ? $"LAST STREAMED · {GameStatsService.RelativeDay(g.LastPlayed!.Value).ToUpperInvariant()}"
-                        : "IN YOUR LIBRARY";
-            HeroTitle = g.Name;
-            HeroMeta = g.IsManual ? "Added by you" : g.Store;
-            HeroStreamed = g.StreamedText;
-            HeroSessions = g.SessionsText;
-            var gc = GameStatsService.GradeColors(g.Stats?.TypicalGrade);
-            HeroGrade = gc.Label;
-            HeroGradeFg = gc.Fg;
-        }
-
-        // ── Game sheet ────────────────────────────────────────────────────────
-
-        public void OpenSheet(ObservableGameEntry g) => SelectedGame = g;
-
-        public void CloseSheet() => SelectedGame = null;
-
-        public ObservableGameEntry? FindGame(string name)
-            => Games.FirstOrDefault(g => string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase));
-
-        private void RefreshSheet()
-        {
-            SheetRecent.Clear();
-            var g = _selectedGame;
-            if (g == null) { HasSheetRecent = false; return; }
-            var e = g.Entry;
-
-            SheetTitle = g.Name;
-            SheetStore = g.IsManual ? "Manual entry" : g.Store;
-            var st = g.Stats;
-            SheetStreamed = st is { Minutes: > 0 } ? GameStatsService.FormatMinutes(st.Minutes) : "Never";
-            SheetSessions = (st?.Sessions ?? 0).ToString(CultureInfo.InvariantCulture);
-            SheetLast = st?.LastPlayed is { } lp ? GameStatsService.RelativeDay(lp) : "—";
-            var gc = GameStatsService.GradeColors(st?.TypicalGrade);
-            (SheetGrade, SheetGradeFg, SheetGradeBg, SheetGradeBorder) = gc;
-
-            SheetLaunch = e.SteamAppId != null ? $"steam://rungameid/{e.SteamAppId}"
-                        : e.Store == "Xbox" && !string.IsNullOrEmpty(e.StoreId) ? $"shell:appsFolder\\{e.StoreId}"
-                        : SunshineSync.StoreLaunchUri(e.Store, e.LaunchId) ?? e.ExePath ?? "—";
-            SheetOrigin = g.IsManual ? "Manual entries stay across re-syncs." : "Found by the library scan.";
-            SheetSyncHint = $"Kept in {DetectedServerName}'s app list across re-syncs";
-            SheetHasFolder = g.ShowFolderButton;
-
-            if (st != null)
-            {
-                foreach (var s in st.RecentSessions.Take(6))
-                {
-                    var c = GameStatsService.GradeColors(s.Grade);
-                    string dur = s.EndTime is { } end ? GameStatsService.FormatMinutes((end - s.StartTime).TotalMinutes) : "";
-                    string rtt = s.QualityStats is { RttAvgMs: > 0 } q ? $" · RTT {q.RttAvgMs.ToString("0.0", CultureInfo.InvariantCulture)} ms" : "";
-                    SheetRecent.Add(new GameSessionRow
-                    {
-                        Id = s.Id,
-                        Title = s.StartTime.ToString("dddd d MMMM", CultureInfo.InvariantCulture),
-                        Sub = $"{s.StartTime.ToString("HH:mm", CultureInfo.InvariantCulture)} · {dur}{rtt}",
-                        StripeHex = GameStatsService.GradeStripe(s.Grade),
-                        GradeLabel = c.Label, GradeFgHex = c.Fg, GradeBgHex = c.Bg, GradeBorderHex = c.Border,
-                    });
-                }
-            }
-            HasSheetRecent = SheetRecent.Count > 0;
-        }
-
-        private void RefreshLastSyncText(GameLibraryState state)
-        {
-            LastSyncText = state.LastSyncUtc == null
-                ? "Never synced"
-                : $"Last sync: {state.LastSyncUtc.Value.ToLocalTime():dd/MM/yyyy HH:mm}";
+            catch (Exception ex) { ShowStatus($"The tiles could not be changed: {ex.Message}", isError: true); }
+            finally { _busy = false; OnPropertyChanged(nameof(CanChange)); }
         }
 
         private void ShowStatus(string text, bool isError)
@@ -856,6 +547,5 @@ namespace StreamTweak.ViewModels
             StatusIsError = isError;
             HasStatus     = true;
         }
-
     }
 }

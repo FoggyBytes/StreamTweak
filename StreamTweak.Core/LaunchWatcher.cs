@@ -493,6 +493,33 @@ namespace StreamTweak
                 known ? "true" : "false", JsonEscape(game), running ? "true" : "false");
         }
 
+        /// <summary>
+        /// The name of the last game launched while one of its processes is running, else null.
+        /// Read by the session's <see cref="SessionProcessMonitor"/> every tick (21/10/2026): it
+        /// finds games only through the library, so a game the server launched that the library
+        /// does not hold — an Xbox app game, in practice — was credited once, at launch, and its
+        /// span on the timeline closed within a minute while the game played on for an hour.
+        /// </summary>
+        public string? RunningLaunchedGame()
+        {
+            bool known;
+            string game, store;
+            string? exeFile, dir, procName;
+
+            lock (_lock)
+            {
+                known = _lastKnown;
+                game = _lastGameName;
+                exeFile = _lastExeFile;
+                dir = _lastDirectory;
+                procName = _lastProcessName;
+                store = _lastStore;
+            }
+
+            if (!known || string.IsNullOrEmpty(game)) return null;
+            return TargetProcessRunning(exeFile, dir, procName, store) ? game : null;
+        }
+
         private static string JsonEscape(string s) =>
             s.Replace("\\", "\\\\").Replace("\"", "\\\"");
 
