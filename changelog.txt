@@ -4,6 +4,13 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+--------------------------------------------------------
+Version 10.0.1 - "The Good Neighbor Update" (23/10/2026)
+--------------------------------------------------------
+
+🟩 NVIDIA SENTINEL:
+• Auto-restore no longer undoes the streaming server's own driver setting — Sunshine, Apollo, Vibeshine and Vibepollo set Vulkan/OpenGL present method in the global profile every time they start, and Sentinel took it out again within a second; that setting is now left out of the saved profile and of the check, and kept as it is when your profile is put back
+
 ---------------------------------------------------
 Version 10.0.0 - "The Hand Off Update" (23/10/2026)
 ---------------------------------------------------

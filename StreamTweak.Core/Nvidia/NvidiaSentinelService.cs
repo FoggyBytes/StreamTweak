@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -63,6 +64,18 @@ namespace StreamTweak.Nvidia
 
         private int      _consecutiveFailures;
         private DateTime _retryNotBefore = DateTime.MinValue;
+
+        // ── Settings the Sentinel leaves alone ────────────────────────────────
+        //
+        // Vulkan/OpenGL present method (OGL_CPL_PREFER_DXPRESENT). Sunshine and its forks
+        // (nvprefs, driver_settings.cpp) set it to "prefer layered on DXGI" in the global
+        // profile every time the server starts, and put it back when it exits. The Sentinel
+        // read that as drift and removed it within a second — on 21-23/10/2026 Vibeshine's
+        // "Changed OGL_CPL_PREFER_DXPRESENT" line and our restore were one second apart, every
+        // time — and at its next start the server found its value gone. It belongs to the
+        // streaming server, not to the user's profile: never captured, never compared, and
+        // kept as it is across a restore.
+        private static readonly HashSet<uint> IgnoredSettingIds = new() { 0x20D690F8 };
 
         public bool IsNvidiaAvailable { get; }
 
@@ -149,7 +162,7 @@ namespace StreamTweak.Nvidia
             {
                 RefreshSession();
                 Directory.CreateDirectory(Path.GetDirectoryName(SnapshotPath)!);
-                _import.ExportGlobalProfile(SnapshotPath);
+                ExportGlobalProfile(SnapshotPath);
             }
             // A fresh capture is the usual cure for a stuck sentinel — a snapshot taken on a
             // different driver is exactly what the driver refuses to write back.
@@ -163,8 +176,16 @@ namespace StreamTweak.Nvidia
             lock (_drsLock)
             {
                 RefreshSession();
-                _import.ExportGlobalProfile(filePath);
+                ExportGlobalProfile(filePath);
             }
+        }
+
+        /// <summary>The global profile's diff-from-default, without <see cref="IgnoredSettingIds"/>, written as a .nip.</summary>
+        private void ExportGlobalProfile(string filePath)
+        {
+            var profile = _import.CreateGlobalProfileExport();
+            profile.Settings.RemoveAll(s => IgnoredSettingIds.Contains(s.SettingId));
+            XMLHelper<Profiles>.SerializeToXmlFile(new Profiles { profile }, filePath, Encoding.Unicode, true);
         }
 
         /// <summary>
@@ -222,7 +243,7 @@ namespace StreamTweak.Nvidia
             lock (_drsLock)
             {
                 RefreshSession();
-                return _import.ImportProfiles(SnapshotPath);
+                return ImportKeepingIgnored(SnapshotPath);
             }
         }
 
@@ -233,7 +254,39 @@ namespace StreamTweak.Nvidia
             lock (_drsLock)
             {
                 RefreshSession();
-                return _import.ImportProfiles(filePath);
+                return ImportKeepingIgnored(filePath);
+            }
+        }
+
+        /// <summary>
+        /// The import resets the global profile to the driver defaults before applying the
+        /// snapshot, which would drop the live value of every <see cref="IgnoredSettingIds"/>
+        /// setting too. So the snapshot is imported from a copy where those settings carry
+        /// whatever the global profile holds right now — or are absent, when it holds nothing.
+        /// </summary>
+        private string ImportKeepingIgnored(string filePath)
+        {
+            var live = _import.CreateGlobalProfileExport().Settings
+                .Where(s => IgnoredSettingIds.Contains(s.SettingId))
+                .ToList();
+
+            var profiles = XMLHelper<Profiles>.DeserializeFromXMLFile(filePath);
+            foreach (var profile in profiles)
+            {
+                profile.Settings.RemoveAll(s => IgnoredSettingIds.Contains(s.SettingId));
+                if (string.IsNullOrEmpty(profile.ProfileName))
+                    profile.Settings.AddRange(live);
+            }
+
+            var temp = TempFile.GetTempFileName();
+            try
+            {
+                XMLHelper<Profiles>.SerializeToXmlFile(profiles, temp, Encoding.Unicode, true);
+                return _import.ImportProfiles(temp);
+            }
+            finally
+            {
+                try { File.Delete(temp); } catch { }
             }
         }
 
@@ -604,6 +657,9 @@ namespace StreamTweak.Nvidia
             var list = new List<NvidiaSnapshotEntry>(profile.Settings.Count);
             foreach (var s in profile.Settings)
             {
+                // Out of the comparison and out of the list the user sees, also for a snapshot
+                // saved before these settings were ignored.
+                if (IgnoredSettingIds.Contains(s.SettingId)) continue;
                 list.Add(new NvidiaSnapshotEntry
                 {
                     SettingId = s.SettingId,
