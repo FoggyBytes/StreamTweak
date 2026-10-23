@@ -3,7 +3,7 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue.svg) ![Framework](https://img.shields.io/badge/Framework-.NET%208%20%2F%20WinUI%203-purple.svg) ![Downloads](.badges/downloads.svg) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-brightgreen.svg)](https://claude.ai/code) [![Support on Ko-fi](https://img.shields.io/badge/Support-Ko--fi-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/foggybytes)
 
 <div align="center">
-  <img width="1582" height="892" alt="Immagine 2026-10-23 110821" src="https://github.com/user-attachments/assets/4772fb80-de3c-4e66-8d91-83c4b2f6e748" />
+  <img width="1582" height="892" alt="Immagine 2026-10-23 112513" src="https://github.com/user-attachments/assets/d4ba727f-cd51-410a-9c39-77556ee48b8f" />
 </div>
 
 **StreamTweak** is the host half of the FoggyBytes streaming duo. It takes care of the setup that makes game streaming reliable — the network link, spatial audio, the game library, the NVIDIA driver profile — and keeps a record of how every session actually went.
