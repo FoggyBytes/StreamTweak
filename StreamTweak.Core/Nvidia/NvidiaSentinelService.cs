@@ -77,6 +77,22 @@ namespace StreamTweak.Nvidia
         // kept as it is across a restore.
         private static readonly HashSet<uint> IgnoredSettingIds = new() { 0x20D690F8 };
 
+        // ── Quiet while a stream is live ──────────────────────────────────────
+        //
+        // The streaming servers also change the global profile for the length of a stream and put
+        // it back afterwards: Vibeshine with frame_limiter_disable_vsync forces Vertical Sync off
+        // when a stream starts ("NVIDIA Control Panel VSYNC forced off for stream"), and the
+        // Sentinel put the user's value back within a second — 11:29:45.568 and 11:29:46 on
+        // 25/10/2026, again at 11:30:46.863 / 11:30:47. V-Sync cannot be ignored like the present
+        // method, it is one of the settings the Sentinel exists to keep; so auto-restore sleeps
+        // while a stream is live and checks once after it, when the server has undone its own
+        // change. Nothing is lost: the resets it is there for happen at boot, never mid-stream.
+        private const int StreamEndCheckDelayMs = 15_000;
+
+        private readonly object _streamLock = new();
+        private volatile bool _streamActive;
+        private Timer _streamEndTimer;
+
         public bool IsNvidiaAvailable { get; }
 
         /// <summary>Driver version as float (e.g. 610.47), 0 when unavailable.</summary>
@@ -330,6 +346,44 @@ namespace StreamTweak.Nvidia
 
         public void LoadLastRestoreAt(DateTime at) => LastRestoreAt = at;
 
+        /// <summary>
+        /// A stream started (true) or stopped (false). While one is live auto-restore does
+        /// nothing; <see cref="StreamEndCheckDelayMs"/> after the stop it checks once and goes
+        /// back to watching. A start inside that delay keeps it asleep. Safe to call twice in a
+        /// row — Vibeshine and Vibepollo write two start lines per stream — and from any thread.
+        /// </summary>
+        public void SetStreamActive(bool active)
+        {
+            if (!IsNvidiaAvailable || _disposed) return;
+            lock (_streamLock)
+            {
+                if (active)
+                {
+                    _streamEndTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+                    if (_streamActive) return;
+                    _streamActive = true;
+                    NvidiaRestoreLogger.LogInfo("Stream started: auto-restore paused until it ends.");
+                }
+                else
+                {
+                    if (!_streamActive) return;
+                    _streamEndTimer ??= new Timer(_ => OnStreamEndDelayElapsed(), null, Timeout.Infinite, Timeout.Infinite);
+                    _streamEndTimer.Change(StreamEndCheckDelayMs, Timeout.Infinite);
+                }
+            }
+        }
+
+        private void OnStreamEndDelayElapsed()
+        {
+            lock (_streamLock)
+            {
+                if (!_streamActive) return;
+                _streamActive = false;
+            }
+            NvidiaRestoreLogger.LogInfo("Stream ended: auto-restore resumed.");
+            SafeCheck("stream-end");
+        }
+
         private void StartMonitoring()
         {
             if (_disposed) return;
@@ -449,6 +503,7 @@ namespace StreamTweak.Nvidia
         private void CheckDriftAndRestore(string reason)
         {
             if (!AutoRestoreEnabled || _restoring || _disposed) return;
+            if (_streamActive) return;
             if (DateTime.Now < _suppressUntil) return;
             if (!HasSnapshot) return;
             // Backing off after repeated failures. Checked before the lock and before the drift
@@ -458,6 +513,7 @@ namespace StreamTweak.Nvidia
             lock (_drsLock)
             {
                 if (!AutoRestoreEnabled || _restoring || _disposed) return;
+                if (_streamActive) return;
                 if (DateTime.Now < _suppressUntil) return;
                 if (DateTime.Now < _retryNotBefore) return;
 
@@ -679,9 +735,11 @@ namespace StreamTweak.Nvidia
             try { if (_watcher != null) { _watcher.EnableRaisingEvents = false; _watcher.Dispose(); } } catch { }
             try { _pollTimer?.Dispose(); } catch { }
             try { _debounceTimer?.Dispose(); } catch { }
+            try { _streamEndTimer?.Dispose(); } catch { }
             _watcher = null;
             _pollTimer = null;
             _debounceTimer = null;
+            _streamEndTimer = null;
         }
     }
 }

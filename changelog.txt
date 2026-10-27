@@ -4,6 +4,14 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+------------------------------------------------------
+Version 10.0.2 - "The Quiet Hours Update" (27/10/2026)
+------------------------------------------------------
+
+🟩 NVIDIA SENTINEL:
+• Auto-restore waits while a stream is live — streaming servers change the global profile for the length of a stream and put it back afterwards (Vibeshine's frame limiter turns Vertical Sync off, for example), and Sentinel used to undo that within a second; it now checks your profile once, 15 seconds after the stream ends
+• Restore my profile still works during a stream
+
 --------------------------------------------------------
 Version 10.0.1 - "The Good Neighbor Update" (23/10/2026)
 --------------------------------------------------------

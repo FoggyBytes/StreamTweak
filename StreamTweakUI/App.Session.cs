@@ -145,6 +145,7 @@ namespace StreamTweak
                 _logMonitor.GameLaunchDetected += OnGameLaunchDetected;
                 _logMonitor.AppLaunchDetected += _launchWatcher.OnAppLaunched;
                 _logMonitor.StreamingEventDetected += LaunchWatcher_StreamingEvent;
+                _logMonitor.StreamingEventDetected += Sentinel_StreamingEvent;
                 _logMonitor.EncoderDetected += OnEncoderDetected;
                 _logMonitor.StartMonitoring();
             }
@@ -160,6 +161,17 @@ namespace StreamTweak
                 _launchWatcher.OnStreamStarted();
         }
 
+        // Same raw feed, for the same reason: NVIDIA Sentinel must sleep through every stream —
+        // a PIN-unlock one and a stream outside an auto session included — because the server
+        // changes the driver profile for each of them (frame limiter V-Sync, §94).
+        private void Sentinel_StreamingEvent(object? sender, StreamingLogMonitor.StreamingEventArgs e)
+        {
+            if (e.Event == LogParser.StreamingEvent.StreamStarted)
+                _nvidiaSentinel?.SetStreamActive(true);
+            else if (e.Event == LogParser.StreamingEvent.StreamStopped)
+                _nvidiaSentinel?.SetStreamActive(false);
+        }
+
         // The monitor is infrastructure now and only stops when the app does —
         // see StopLogMonitorForced, called from the shutdown path.
 
@@ -172,6 +184,7 @@ namespace StreamTweak
                 _logMonitor.GameLaunchDetected -= OnGameLaunchDetected;
                 _logMonitor.AppLaunchDetected -= _launchWatcher.OnAppLaunched;
                 _logMonitor.StreamingEventDetected -= LaunchWatcher_StreamingEvent;
+                _logMonitor.StreamingEventDetected -= Sentinel_StreamingEvent;
                 _logMonitor.EncoderDetected -= OnEncoderDetected;
                 _logMonitor.StopMonitoring();
                 _logMonitor.Dispose();
@@ -502,6 +515,10 @@ namespace StreamTweak
                 // The link goes back on its own: LinkSpeedManager arms a grace period so a
                 // client reconnecting within a minute doesn't pay for a second renegotiation.
                 _linkSpeed?.OnSessionEnded();
+
+                // A session can end without its stop line ever being written (the socket watchdog,
+                // §65): without this the Sentinel would sleep on with nothing to wake it.
+                _nvidiaSentinel?.SetStreamActive(false);
 
                 // Forget the launch we were watching: a stale phase would tell the next client's
                 // curtain that a game is already on screen before anything has been launched.
