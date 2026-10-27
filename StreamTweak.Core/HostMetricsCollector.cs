@@ -939,7 +939,10 @@ namespace StreamTweak
 
                 // If the chosen interface changed, drop the byte baseline so the
                 // next sample doesn't report a spurious spike across interfaces.
-                if (!ReferenceEquals(previous, _iface))
+                // ⚠️ By Id, not by reference: GetAllNetworkInterfaces() hands out new
+                // objects on every call, so the reference test said "changed" at every
+                // 30 s re-resolve and net_tx went to -1 (N/A) for one tick each time.
+                if (previous?.Id != _iface?.Id)
                     _haveBaseline = false;
             }
 

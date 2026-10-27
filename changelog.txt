@@ -4,6 +4,13 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+---------------------------------------------------------
+Version 10.0.3 - "The Steady Reading Update" (27/10/2026)
+---------------------------------------------------------
+
+🛠️ HOST METRICS:
+• Net TX no longer blanks out every 30 seconds — the network card was looked up again every 30 seconds and always taken for a new one, so StreamLight's overlay showed Net TX as N/A for a second each time
+
 ------------------------------------------------------
 Version 10.0.2 - "The Quiet Hours Update" (27/10/2026)
 ------------------------------------------------------

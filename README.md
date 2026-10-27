@@ -100,6 +100,10 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched in Settings here, and on the device too
 
+## ✨ What's New in 10.0.3 — "The Steady Reading Update"
+
+- **Net TX stays put** — the host's outbound traffic in StreamLight's overlay no longer drops to N/A for a second every 30 seconds
+
 ## ✨ What's New in 10.0.2 — "The Quiet Hours Update"
 
 - **Sentinel waits for the stream to end** — what the streaming server changes in the driver profile for a stream, like the frame limiter's V-Sync, stays as it is until the stream is over; your profile is checked once right after
