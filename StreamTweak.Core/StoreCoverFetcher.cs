@@ -126,7 +126,7 @@ namespace StreamTweak
         /// deterministic CDN pattern (library_600x900.jpg) as fallback.
         /// Returns true if a cover was successfully saved to cachePath.
         /// </summary>
-        private static async Task<bool> TryFetchSteamCoverByAppIdAsync(string appId, string cachePath)
+        internal static async Task<bool> TryFetchSteamCoverByAppIdAsync(string appId, string cachePath)
         {
             try
             {
@@ -509,7 +509,7 @@ namespace StreamTweak
         // to fetch the portrait cover via IStoreBrowseService + CDN fallback.
         // Returns true if a portrait cover was successfully saved.
 
-        private static async Task<bool> TryFetchViaSteamSearchAsync(DiscoveredGame game, string cachePath)
+        internal static async Task<bool> TryFetchViaSteamSearchAsync(DiscoveredGame game, string cachePath)
         {
             try
             {

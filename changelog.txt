@@ -4,6 +4,18 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-------------------------------------------------------
+Version 10.0.4 - "The Full Picture Update" (28/10/2026)
+-------------------------------------------------------
+
+Pairs with StreamLight 8.0.1.
+
+📈 CHARTS:
+• The whole timeline in StreamLight — Host compute and Host power in StreamLight's Sessions tab now get every series this PC records, not only GPU and Power: encoder and CPU load, the power limit in force, the GPU temperature and the moments at the limit, with the encoder shown as n/a on the streams that do not use it (PyroWave)
+
+🗂️ SESSION HISTORY:
+• Covers come back — a past session's game whose cover was no longer on this PC, and that is not installed any more, gets it again from Steam, here and in StreamLight's Sessions tab
+
 ---------------------------------------------------------
 Version 10.0.3 - "The Steady Reading Update" (27/10/2026)
 ---------------------------------------------------------

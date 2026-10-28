@@ -82,7 +82,7 @@ Everything below is in the current release, whichever version first introduced i
 
 These cross the bridge and need both apps. The version shown is the **minimum StreamLight** on the client.
 
-- **Host section** *(8.0.0+)* — StreamLight's StreamTweak section reads this host's dashboard, managed apps and NVIDIA Sentinel over `DASHBOARD`, `APPS` and `NVIDIA` (plus RAM in `STATS`) its session history over `SESSIONS`, `SESSION`, `SERIES` and `COVER` and its game library over `LIBRARY`, read-only, and turns apps, spatial audio and Sentinel's auto-restore on or off with `SETAPP`, `SETAUDIO` and `SETSENTINEL` — switches only, never a path or a command — plus one action, `LIBSYNC`: sync the library and restart the streaming server through Windows' service manager, after the checks in SECURITY.md. Writing needs the device's **Host management** permission, granted under Setup › Clients; devices approved before 10.0.0 have it on. Each session also records which device it was streamed to
+- **Host section** *(8.0.0+)* — StreamLight's StreamTweak section reads this host's dashboard, managed apps and NVIDIA Sentinel over `DASHBOARD`, `APPS` and `NVIDIA` (plus RAM in `STATS`) its session history over `SESSIONS`, `SESSION`, `SERIES` and `COVER` (every series of Host compute and Host power from 10.0.4, for StreamLight 8.0.1) and its game library over `LIBRARY`, read-only, and turns apps, spatial audio and Sentinel's auto-restore on or off with `SETAPP`, `SETAUDIO` and `SETSENTINEL` — switches only, never a path or a command — plus one action, `LIBSYNC`: sync the library and restart the streaming server through Windows' service manager, after the checks in SECURITY.md. Writing needs the device's **Host management** permission, granted under Setup › Clients; devices approved before 10.0.0 have it on. Each session also records which device it was streamed to
 
 - **Client-driven link speed** *(5.0.0+)* — the client reads the adapter over `NETINFO`, asks for a matching speed with `SETSPEED`, and waits for the host to confirm before launching. The host keeps the permission, the safety guards and the restore
 - **Launch state** *(5.0.0+)* — `GAMESTATE` reports what is happening to the game the server was asked to open, so the client can hold its own launch screen up until the game is really there
@@ -99,6 +99,13 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Remote Windows Update** *(3.3.0+)* — scan, classify and install updates on the host and reboot it, or install them as part of a shutdown, all from the client with no keyboard on the host. The privileged work runs in the LocalSystem service
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched in Settings here, and on the device too
+
+## ✨ What's New in 10.0.4 — "The Full Picture Update"
+
+Pairs with StreamLight 8.0.1.
+
+- **The whole timeline on the client** — StreamLight's Sessions tab now gets every series of Host compute and Host power: encoder, CPU, power limit, GPU temperature and the moments at the limit
+- **Covers come back** — a past session's game that lost its cover and is no longer installed gets it again from Steam
 
 ## ✨ What's New in 10.0.3 — "The Steady Reading Update"
 

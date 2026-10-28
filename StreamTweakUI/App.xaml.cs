@@ -303,6 +303,10 @@ namespace StreamTweak
             // Fire-and-forget: silent on network failure, no UI blocking.
             _ = AppStateService.Instance.CheckForUpdatesAsync();
 
+            // Covers of past sessions' games that left the cache and the library: fetched again
+            // 30 s after startup, one at a time (10.0.4, §95.9). Nothing to do when none is missing.
+            _ = CoverRecovery.SweepAsync();
+
             // The tile guard. Enabled state comes from config rather than from the backup files
             // still sitting in the assets folder: an updater that wipes the folder would take
             // those with it, and the guard would then quietly stop guarding.

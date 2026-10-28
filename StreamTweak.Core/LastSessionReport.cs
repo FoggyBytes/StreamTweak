@@ -150,8 +150,9 @@ namespace StreamTweak
             {
                 return g.CoverImagePath;
             }
-            // A dead snapshot and a game gone from the library: another session's cover of it.
-            return SessionLogger.CoverFromOtherSessions(name);
+            // A dead snapshot and a game gone from the library: another session's cover of it,
+            // then one brought back by CoverRecovery (10.0.4).
+            return SessionLogger.CoverFromOtherSessions(name) ?? CoverRecovery.Existing(name);
         }
 
         /// <summary>

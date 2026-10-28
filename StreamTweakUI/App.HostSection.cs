@@ -358,9 +358,18 @@ namespace StreamTweak
             "DEC"   => s.DecodeTimeSeries,
             "GPU"   => s.HostGpuTimeSeries,
             "POWER" => s.HostPowerTimeSeries,
+            // 10.0.4: the other series of the two host tracks, drawn as strips under GPU and Power
+            // (StreamLight 8.0.1). Listed apart in SESSION's "subtracks", so an 8.0.0 client,
+            // which shows every name in "tracks" as a tab, never sees them.
+            "ENC"    => s.HostEncTimeSeries,
+            "CPU"    => s.HostCpuTimeSeries,
+            "PLIMIT" => s.HostPowerLimitTimeSeries,
+            "TEMP"   => s.HostGpuTempTimeSeries,
+            "PCAP"   => s.HostPowerCappedTimeSeries,
             _       => null,
         };
         private static readonly string[] SeriesTracks = { "HL", "RTT", "DROPS", "BR", "DEC", "GPU", "POWER" };
+        private static readonly string[] SubTracks    = { "ENC", "CPU", "PLIMIT", "TEMP", "PCAP" };
 
         private static JsonArray Checks(SessionEntry s)
         {
@@ -395,8 +404,9 @@ namespace StreamTweak
         /// The Sessions tab of StreamLight 8.0 (10.0.0). Read-only, and nothing here names a file:
         /// sessions travel by id, covers as thumbnails.
         ///   SESSIONS &lt;offset&gt; &lt;count&gt; ALL|MINE → {v,total,total_all,total_mine,items[summary]}
-        ///   SESSION &lt;id&gt;                      → summary + stats, game and stream spans, tracks
-        ///   SERIES &lt;id&gt; &lt;track&gt;             → {v,track,points[]}
+        ///   SESSION &lt;id&gt;                      → summary + stats, game and stream spans, tracks,
+        ///                                         subtracks, enc_bypass[], enc_bypass_all (10.0.4)
+        ///   SERIES &lt;id&gt; &lt;track&gt;             → {v,track,points[]} — a track or a subtrack
         ///   COVER &lt;id&gt; &lt;n&gt;                  → {v,cover} (base64 PNG, "" when there is none)
         /// </summary>
         private string AnswerSessions(string verb, string arg, string? clientId)
@@ -458,6 +468,23 @@ namespace StreamTweak
                     foreach (var t in SeriesTracks)
                         if (SeriesOf(s, t) is { Count: > 0 }) tracks.Add(t);
                     o["tracks"] = tracks;
+                    var subtracks = new JsonArray();
+                    foreach (var t in SubTracks)
+                        if (SeriesOf(s, t) is { Count: > 0 }) subtracks.Add(t);
+                    o["subtracks"] = subtracks;
+                    // The streams whose encoder the Enc series cannot see (PyroWave on the shaders,
+                    // software on the CPU — §82): the client shows Enc as n/a over them, with the
+                    // encoder's name.
+                    var bypass = new JsonArray();
+                    foreach (var st in s.StreamSpans ?? new List<StreamSpan>())
+                        if (!string.IsNullOrWhiteSpace(st.Encoder) && !EncoderNames.UsesVideoEncodeEngine(st.Encoder))
+                            bypass.Add(new JsonObject
+                            {
+                                ["start"] = Iso(st.Start), ["end"] = Iso(st.End ?? s.EndTime ?? st.Start),
+                                ["label"] = EncoderNames.Label(st.Encoder),
+                            });
+                    o["enc_bypass"] = bypass;
+                    o["enc_bypass_all"] = EncoderSummary.Of(s.StreamSpans, s.EndTime).AllBypass;
                     return o.ToJsonString();
                 }
 
@@ -481,8 +508,20 @@ namespace StreamTweak
                     if (s == null) return "ERR_UNKNOWN_SESSION";
                     var games = s.GamesDetected ?? new List<string>();
                     string cover = "";
-                    if (n < games.Count && LastSessionReport.CoverPathFor(s, games[n]) is string path)
-                        cover = LastSessionReport.ThumbnailBase64(path) ?? "";
+                    if (n < games.Count)
+                    {
+                        string? path = LastSessionReport.CoverPathFor(s, games[n]);
+                        // Nowhere on this PC: fetched again (10.0.4), waited for a short while —
+                        // StreamLight gives up on a reply after 3 s. Late, it is there next time.
+                        if (path == null)
+                        {
+                            string? snap = null;
+                            s.GamesDetectedCoverPaths?.TryGetValue(games[n], out snap);
+                            var fetch = CoverRecovery.RecoverAsync(games[n], snap);
+                            if (fetch.Wait(TimeSpan.FromSeconds(1.5))) path = fetch.Result;
+                        }
+                        if (path != null) cover = LastSessionReport.ThumbnailBase64(path) ?? "";
+                    }
                     return new JsonObject { ["v"] = 1, ["cover"] = cover }.ToJsonString();
                 }
             }

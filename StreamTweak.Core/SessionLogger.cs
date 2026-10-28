@@ -193,8 +193,10 @@ namespace StreamTweak
                     if (gameMap.TryGetValue(name, out var entry) && File.Exists(entry.CoverImagePath))
                         return new GameCoverItem(name, entry.CoverImagePath);
 
-                    // Neither: the same game's cover from another session, if one survives.
-                    return new GameCoverItem(name, SessionLogger.CoverFromOtherSessions(name));
+                    // Neither: the same game's cover from another session, if one survives,
+                    // then one brought back by CoverRecovery (10.0.4).
+                    return new GameCoverItem(name, SessionLogger.CoverFromOtherSessions(name)
+                                                   ?? CoverRecovery.Existing(name));
                 }).ToList();
             }
         }
