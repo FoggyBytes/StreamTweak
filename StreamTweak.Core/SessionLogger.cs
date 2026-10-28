@@ -912,6 +912,32 @@ namespace StreamTweak
         /// <summary>Persists a caller-supplied session list (e.g. after removing one entry).</summary>
         public static void SavePublic(List<SessionEntry> sessions) => Save(sessions);
 
+        /// <summary>
+        /// Raised after <see cref="DeleteSession"/> removed a session — StreamLight can delete one
+        /// over the bridge, and the Sessions page is open on its own copy of the list (10.0.6).
+        /// Fired on the caller's thread.
+        /// </summary>
+        public static event Action? SessionDeleted;
+
+        /// <summary>
+        /// Removes one session from the history, by id, in one hold of the file lock so a session
+        /// being written at the same moment cannot be lost (10.0.6, DELETESESSION). Never the session
+        /// still open. False when there is no such session.
+        /// </summary>
+        public static bool DeleteSession(string id)
+        {
+            lock (_fileLock)
+            {
+                if (string.Equals(_activeSessionId, id, StringComparison.OrdinalIgnoreCase)) return false;
+                var sessions = Load();
+                if (sessions.RemoveAll(s => string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase)) == 0)
+                    return false;
+                Save(sessions);
+            }
+            SessionDeleted?.Invoke();
+            return true;
+        }
+
         private static void Save(List<SessionEntry> sessions)
         {
             lock (_fileLock)

@@ -5,6 +5,17 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 -----------------------------------------------------
+Version 10.0.6 - "The Fresh Page Update" (28/10/2026)
+-----------------------------------------------------
+
+Pairs with StreamLight 8.2.0 for deleting a session from the client.
+
+🗂️ SESSION HISTORY:
+• Delete a session from StreamLight — StreamLight 8.2.0 can delete a session from its StreamTweak section, after a confirmation; it needs Host management for that device, and the Sessions page here follows at once
+• Sessions end on time again — when Vibeshine started its log over under the same name in the middle of a stream (it does at 2 MB), StreamTweak stopped reading it, so the end of the session went unseen for another minute and StreamLight's section showed the game as still streaming to another device; the log is now followed across the restart
+• "Streaming now" means a live stream — StreamLight's section was told a stream was running for the thirty seconds a session stays open after the client leaves, and showed the game just quit as streaming to another device; it now hears so only while a client is connected
+
+-----------------------------------------------------
 Version 10.0.5 - "The Right Game Update" (28/10/2026)
 -----------------------------------------------------
 

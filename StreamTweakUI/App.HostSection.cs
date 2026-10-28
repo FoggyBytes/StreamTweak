@@ -98,7 +98,12 @@ namespace StreamTweak
 
             // Streaming now. The device comes from its telemetry, so a client that sends none
             // (Moonlight, Artemis…) streams with an empty name: "another device".
-            bool active = SessionLogger.ActiveSessionId != null;
+            // ⚠️ 10.0.6: a stream LIVE, not a session open. The session outlives the client's
+            // disconnect by a thirty-second grace period, and for that half minute StreamLight's
+            // section showed the game just quit as still streaming — to "this device", then, once
+            // the telemetry name aged out, to "another device" (28/10/2026, §99.4). The link
+            // manager's flag is the live span: the server's connect to its disconnect.
+            bool active = SessionLogger.ActiveSessionId != null && (_linkSpeed == null || _linkSpeed.SessionActive);
             string? who = null, whoId = null;
             lock (_sessionClientLock)
             {
@@ -565,6 +570,19 @@ namespace StreamTweak
                 case "LIBSYNC":
                     // No argument is accepted: the client cannot choose what is synced or restarted.
                     return words.Length == 0 ? StartLibrarySync() : "ERR";
+
+                case "DELETESESSION":
+                {
+                    // 10.0.6: StreamLight's Sessions tab deletes a session as the Sessions page does.
+                    // An id, nothing else: letters, digits and dashes (the bridge upper-cases the line,
+                    // and ids are compared without case). Never the session still open.
+                    if (words.Length != 1 || words[0].Length > 64
+                            || !words[0].All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) return "ERR";
+                    if (FindSession(words[0]) == null) return "ERR_UNKNOWN_SESSION";
+                    bool deleted = SessionLogger.DeleteSession(words[0]);
+                    DebugLogger.Log($"[Sessions] DELETESESSION {words[0]} → {(deleted ? "deleted" : "not found")}");
+                    return deleted ? "OK" : "ERR_UNKNOWN_SESSION";
+                }
 
                 case "SETSENTINEL":
                 {

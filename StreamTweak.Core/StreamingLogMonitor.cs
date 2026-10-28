@@ -28,6 +28,11 @@ namespace StreamTweak
         // CheckForLogRotation().
         private DateTime lastDirWriteTimeUtc = DateTime.MinValue;
 
+        // A rotation that keeps the name (see CheckForSameNameRotation) is looked for once a
+        // second, not on every idle pass: it costs a stat of the file.
+        private const int SAME_NAME_CHECK_MS = 1000;
+        private DateTime lastSameNameCheckUtc = DateTime.MinValue;
+
         public event EventHandler<StreamingEventArgs>? StreamingEventDetected;
 
         /// <summary>
@@ -366,6 +371,7 @@ namespace StreamTweak
                     {
                         // No new lines — check for rotation within current directory, then wait
                         CheckForLogRotation();
+                        CheckForSameNameRotation();
                         await Task.Delay(100, cancellationToken);
                     }
                 }
@@ -481,9 +487,51 @@ namespace StreamTweak
             catch { return null; }
         }
 
+        /// <summary>
+        /// A rotation that keeps the file's name (10.0.6). Vibeshine rotates its log at 2 MB by
+        /// moving the text into <c>sunshine-….log.1</c> and starting again under the SAME name, so
+        /// <see cref="CheckForLogRotation"/>, which waits for a new name, never sees it. Measured on
+        /// 28/10/2026: rotation at 18:53:22 in the middle of a stream, and from then on not one line
+        /// read — the end of the session at 19:07:06 went unseen, and the session stayed open for
+        /// another minute until the telemetry watchdog closed it (StreamLight's section meanwhile
+        /// showed the game "streaming to another device").
+        /// <para>Either way of doing it leaves the same mark: the file at our path is now shorter
+        /// than the point we had read to — whether our handle followed the old text elsewhere or
+        /// the file was cut under it. Then the file at the path is read again from its start,
+        /// not from its end: everything in it was written after the rotation.</para>
+        /// <para>Only called at the end of what we have, so with a rename nothing of the old file
+        /// is left unread; a copy-and-cut can lose what was written in the last idle pass.</para>
+        /// </summary>
+        private void CheckForSameNameRotation()
+        {
+            if (logStreamReader == null || string.IsNullOrEmpty(currentLogFilePath)) return;
+            if ((DateTime.UtcNow - lastSameNameCheckUtc).TotalMilliseconds < SAME_NAME_CHECK_MS) return;
+            lastSameNameCheckUtc = DateTime.UtcNow;
+
+            try
+            {
+                var atPath = new FileInfo(currentLogFilePath);
+                if (!atPath.Exists) return;                 // between the move and the new file
+
+                long position = logStreamReader.BaseStream.Position;
+                long ours     = logStreamReader.BaseStream.Length;
+                if (ours >= position && atPath.Length >= position) return;
+
+                DebugLog($"Log rotation: '{Path.GetFileName(currentLogFilePath)}' started again under the same name " +
+                         $"(read to {position} bytes, now {atPath.Length}) — reading it from the start");
+                OpenStreamReader(currentLogFilePath, fromStart: true);
+            }
+            catch (Exception ex)
+            {
+                DebugLog($"Error during same-name rotation check: {ex.Message}");
+            }
+        }
+
         // FileStream intentionally NOT in a using block — it must outlive the StreamReader.
         // The StreamReader disposes the FileStream when it is itself disposed (leaveOpen=false default).
-        private void OpenStreamReader(string? filePath = null)
+        // fromStart (10.0.6): a log that was just started again under the same name — every line
+        // in it is new, so none of it may be skipped.
+        private void OpenStreamReader(string? filePath = null, bool fromStart = false)
         {
             try { logStreamReader?.Dispose(); } catch { }
             logStreamReader = null;
@@ -500,9 +548,9 @@ namespace StreamTweak
                     FileShare.ReadWrite);
                 try
                 {
-                    fileStream.Seek(0, SeekOrigin.End);
+                    if (!fromStart) fileStream.Seek(0, SeekOrigin.End);
                     logStreamReader = new StreamReader(fileStream);
-                    DebugLog($"StreamReader opened on: {Path.GetFileName(targetPath)}");
+                    DebugLog($"StreamReader opened on: {Path.GetFileName(targetPath)}" + (fromStart ? " (from the start)" : ""));
                 }
                 catch
                 {

@@ -369,12 +369,8 @@ namespace StreamTweak.ViewModels
 
         public void DeleteSession(SessionEntry entry)
         {
-            try
-            {
-                var sessions = SessionLogger.Load();
-                if (sessions.RemoveAll(s => s.Id == entry.Id) > 0)
-                    SessionLogger.SavePublic(sessions);
-            }
+            // 10.0.6: the same removal StreamLight's DELETESESSION uses — one hold of the file lock.
+            try { SessionLogger.DeleteSession(entry.Id); }
             catch { }
             if (_selectedSession?.Id == entry.Id) SelectedSession = null;
             _picked.RemoveAll(p => p.Id == entry.Id);

@@ -59,6 +59,7 @@ namespace StreamTweak.Views
         {
             base.OnNavigatedTo(e);
             ViewModel.Load();
+            SessionLogger.SessionDeleted += OnSessionDeleted;
 
             ApplyLayout();
         }
@@ -66,8 +67,13 @@ namespace StreamTweak.Views
         protected override void OnNavigatedFrom(NavigationEventArgs e)
         {
             base.OnNavigatedFrom(e);
+            SessionLogger.SessionDeleted -= OnSessionDeleted;
             SetTimelineFull(false);   // never leave the window full screen behind another page
         }
+
+        // 10.0.6: a session deleted from StreamLight (DELETESESSION) while this page is open.
+        // Raised on the bridge's thread; Load() also drops a selection or pick that is gone.
+        private void OnSessionDeleted() => DispatcherQueue.TryEnqueue(() => ViewModel.Load());
 
         // ── Layout ────────────────────────────────────────────────────────────
 

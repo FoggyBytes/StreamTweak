@@ -62,6 +62,9 @@ namespace StreamTweak
     ///              COVER &lt;id&gt; &lt;n&gt; — the Sessions tab of the same section (10.0.0): the history a
     ///              page at a time, one session's report, one track of its timeline, one cover.
     ///              Read-only, gated like STATS; sessions are named by id, never by a game.
+    ///   DELETESESSION &lt;id&gt; — removes one finished session from the history (10.0.6), as the
+    ///              Sessions page can. A verified signature AND Host management, like the writes
+    ///              above: OK | ERR_UNKNOWN_SESSION | ERR_NO_MANAGEMENT | ERR.
     ///
     /// Each connection is short-lived: client sends one line, server replies "OK",
     /// the speed string, or "ERR".
@@ -792,6 +795,7 @@ namespace StreamTweak
                 case "SETAPP":
                 case "SETSENTINEL":
                 case "LIBSYNC":    // Sync and restart (10.0.0): no argument; SECURITY.md
+                case "DELETESESSION":   // 10.0.6: one session out of the history, by id
                 {
                     // Changes a setting of this host: a verified signature AND the permission this
                     // host granted that device. Arguments are switches and ids, never a path or a
