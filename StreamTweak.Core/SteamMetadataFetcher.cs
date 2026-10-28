@@ -10,7 +10,7 @@ namespace StreamTweak
     /// <summary>
     /// Uses Steam's IStoreBrowseService/GetItems API to enrich discovered Steam games with:
     ///   • Correct English display names (forces country_code "US")
-    ///   • App type filtering (keeps only actual games, drops DLC/tools/demos)
+    ///   • App type filtering (drops software and DLC: Wallpaper Engine, Lossless Scaling, OBS…)
     ///   • Cover art URLs (library_capsule_2x asset)
     ///
     /// Replaces the old store.steampowered.com/api/appdetails approach which returned
@@ -160,19 +160,19 @@ namespace StreamTweak
                     continue;
                 }
 
-                // App type filtering:
-                // IStoreBrowseService returns "type" (store item type) and optionally "app_type".
-                // We want to keep only actual games. Known app_type values:
-                //   0=Invalid, 1=Game, 2=Application, 3=Tool, 4=Demo, 5=Depots, 6=DLC, 7=Guide, 10=Mod
-                // If app_type is available, filter by it. Otherwise keep the item.
-                if (item.TryGetProperty("app_type", out var appType))
+                // App type filtering, on "type". ⚠️ This used to read "app_type", which the
+                // API does not send (checked live on 28/10/2026, with and without
+                // include_basic_info), so nothing was ever filtered: software installed from
+                // Steam went into the library as a game, and SessionProcessMonitor credited its
+                // always-running process as played (Wallpaper Engine for a whole session).
+                // Values measured: 0 = game (SteamVR too), 2 = mod (Portal Stories: Mel —
+                // playable, kept), 4 = DLC, 6 = software (Wallpaper Engine, Lossless Scaling,
+                // OBS Studio). Only 4 and 6 go; anything else, or no type, stays.
+                if (item.TryGetProperty("type", out var storeType) &&
+                    storeType.TryGetInt32(out int st) && (st == 4 || st == 6))
                 {
-                    int at = appType.GetInt32();
-                    if (at != 0 && at != 1) // 0=Invalid (keep, might be untyped), 1=Game
-                    {
-                        result[appIdStr] = ("", null, false);
-                        continue;
-                    }
+                    result[appIdStr] = ("", null, false);
+                    continue;
                 }
 
                 // Extract name

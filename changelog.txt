@@ -4,6 +4,13 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-----------------------------------------------------
+Version 10.0.5 - "The Right Game Update" (28/10/2026)
+-----------------------------------------------------
+
+🎮 LIBRARY:
+• Steam software is no longer taken for a game — Wallpaper Engine, Lossless Scaling, OBS Studio and the like went into the library and the server's app list at every sync, and since they keep running in the background they showed up as the game of every session; the next sync takes them out, games added by hand stay
+
 -------------------------------------------------------
 Version 10.0.4 - "The Full Picture Update" (28/10/2026)
 -------------------------------------------------------

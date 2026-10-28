@@ -100,6 +100,10 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched in Settings here, and on the device too
 
+## ✨ What's New in 10.0.5 — "The Right Game Update"
+
+- **Steam software stays out of the library** — Wallpaper Engine, Lossless Scaling, OBS Studio and the like are no longer synced as games, so they stop showing up as the game you played
+
 ## ✨ What's New in 10.0.4 — "The Full Picture Update"
 
 Pairs with StreamLight 8.0.1.
