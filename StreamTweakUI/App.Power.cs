@@ -9,32 +9,34 @@ namespace StreamTweak
     {
         // ── Host power-off (Win32) ───────────────────────────────────────────────
         // Enables SeShutdownPrivilege on the current process token, then requests a
-        // full power-off. When installUpdates is true, uses InitiateShutdown with
-        // SHUTDOWN_INSTALL_UPDATES ("Update and shut down") so any pending Windows
-        // updates are installed before the machine powers off; otherwise uses the plain
-        // ExitWindowsEx path. Falls back to the `shutdown` CLI if the Win32 path fails.
+        // full power-off through InitiateShutdown — with SHUTDOWN_INSTALL_UPDATES ("Update
+        // and shut down") when installUpdates is true, so pending Windows updates are installed
+        // first, and always with SHUTDOWN_ARSO (10.1.0). Then ExitWindowsEx, then the
+        // `shutdown` CLI, each with its own ARSO flag.
         private static void ShutdownHost(bool installUpdates = false)
         {
             try
             {
-                if (installUpdates && TryEnableShutdownPrivilege())
+                if (TryEnableShutdownPrivilege())
                 {
                     // SHUTDOWN_FORCE_SELF: guarantee our own session is logged off (no
                     // interactive prompt on a headless host). Planned reason avoids the
                     // unplanned-shutdown state-file delay (see InitiateShutdown docs).
+                    // 10.1.0: InitiateShutdown for the plain power-off too, for SHUTDOWN_ARSO.
                     uint rc = InitiateShutdownW(null, null, 0,
-                        SHUTDOWN_INSTALL_UPDATES | SHUTDOWN_POWEROFF | SHUTDOWN_FORCE_SELF,
+                        SHUTDOWN_POWEROFF | SHUTDOWN_FORCE_SELF | SHUTDOWN_ARSO
+                        | (installUpdates ? SHUTDOWN_INSTALL_UPDATES : 0),
                         SHTDN_REASON_MAJOR_APPLICATION | SHTDN_REASON_FLAG_PLANNED);
                     if (rc == ERROR_SUCCESS)
                         return;
 
                     // Fall through to a plain power-off so the host still shuts down even
                     // if the update path is refused (updates just won't be installed).
-                    DebugLogger.Log($"[Shutdown] InitiateShutdown(install updates) failed (rc {rc}); falling back to plain power-off");
+                    DebugLogger.Log($"[Shutdown] InitiateShutdown({(installUpdates ? "install updates" : "power off")}) failed (rc {rc}); falling back to ExitWindowsEx");
                 }
 
                 if (TryEnableShutdownPrivilege() &&
-                    ExitWindowsEx(EWX_SHUTDOWN | EWX_POWEROFF, SHTDN_REASON_MAJOR_OTHER))
+                    ExitWindowsEx(EWX_SHUTDOWN | EWX_POWEROFF | EWX_ARSO, SHTDN_REASON_MAJOR_OTHER))
                     return;
 
                 DebugLogger.Log($"[Shutdown] ExitWindowsEx failed (err {Marshal.GetLastWin32Error()}); falling back to shutdown.exe");
@@ -48,7 +50,8 @@ namespace StreamTweak
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = System.IO.Path.Combine(Environment.SystemDirectory, "shutdown.exe"),
-                    Arguments = "/s /t 0",
+                    // /sg: shut down and, on the next boot, sign in and lock (ARSO) — 10.1.0.
+                    Arguments = "/sg /t 0",
                     CreateNoWindow = true,
                     UseShellExecute = false,
                 });
@@ -66,7 +69,7 @@ namespace StreamTweak
             {
                 if (TryEnableShutdownPrivilege())
                 {
-                    uint flags = SHUTDOWN_RESTART | SHUTDOWN_FORCE_SELF
+                    uint flags = SHUTDOWN_RESTART | SHUTDOWN_FORCE_SELF | SHUTDOWN_ARSO
                                | (installUpdates ? SHUTDOWN_INSTALL_UPDATES : 0);
                     uint rc = InitiateShutdownW(null, null, 0, flags,
                         SHTDN_REASON_MAJOR_APPLICATION | SHTDN_REASON_FLAG_PLANNED);
@@ -74,7 +77,7 @@ namespace StreamTweak
                         return;
                     DebugLogger.Log($"[Power] InitiateShutdown(restart{(installUpdates ? ", install updates" : "")}) failed (rc {rc}); trying ExitWindowsEx");
 
-                    if (ExitWindowsEx(EWX_REBOOT, SHTDN_REASON_MAJOR_OTHER))
+                    if (ExitWindowsEx(EWX_REBOOT | EWX_ARSO, SHTDN_REASON_MAJOR_OTHER))
                         return;
                     DebugLogger.Log($"[Power] ExitWindowsEx(reboot) failed (err {Marshal.GetLastWin32Error()}); falling back to shutdown.exe");
                 }
@@ -86,7 +89,8 @@ namespace StreamTweak
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = System.IO.Path.Combine(Environment.SystemDirectory, "shutdown.exe"),
-                    Arguments = "/r /t 0",
+                    // /g: restart and sign in and lock (ARSO) — 10.1.0.
+                    Arguments = "/g /t 0",
                     CreateNoWindow = true,
                     UseShellExecute = false,
                 });
@@ -240,6 +244,12 @@ namespace StreamTweak
         private const uint SHUTDOWN_FORCE_SELF        = 0x00000002;
         private const uint SHUTDOWN_POWEROFF          = 0x00000008;
         private const uint SHUTDOWN_INSTALL_UPDATES   = 0x00000040;
+        // 10.1.0: "sign in and lock the last interactive user" on the next boot (Automatic Restart
+        // Sign-On), asked for explicitly — what the Start menu's Shut down does. Without it Windows
+        // chose by itself, and on 02/11 and 03/11/2026 it chose not to: no session after the WOL,
+        // so no StreamTweak, so no PIN pad (Marcello). Honoured only when ARSO is on for the user.
+        private const uint SHUTDOWN_ARSO              = 0x00002000;
+        private const uint EWX_ARSO                   = 0x04000000;
         private const uint SHTDN_REASON_MAJOR_APPLICATION = 0x00040000;
         private const uint SHTDN_REASON_FLAG_PLANNED  = 0x80000000;
         private const uint ERROR_SUCCESS              = 0;

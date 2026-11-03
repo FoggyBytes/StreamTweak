@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v10.0.6 - GitHub Release Installer
+; StreamTweak v10.1.0 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 2.4) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "10.0.6"
+#define MyAppVersion "10.1.0"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -294,6 +294,7 @@ begin
     '•  Sleep, restart or power this host off, or update it, from the client' + #13#10 +
     '•  The host from the sofa — dashboard, sessions, library, apps, Sentinel' + #13#10 +
     '•  Per-game and per-host profiles, custom resolutions, live stream settings' + #13#10 +
+    '•  Hue Sync on this host waits while the client syncs the lights' + #13#10 +
     '•  Tailscale presence for streaming from outside your network';
 
   StreamLightOutroLabel := TNewStaticText.Create(StreamLightPage);

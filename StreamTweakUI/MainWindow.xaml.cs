@@ -25,7 +25,7 @@ namespace StreamTweak
             // The version lives in the title bar only (it was also at the bottom of the sidebar);
             // a newer release shows up next to it as the update pill.
             var v = Assembly.GetExecutingAssembly().GetName().Version;
-            TitleVersionText.Text = v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "10.0.6";
+            TitleVersionText.Text = v != null ? $"{v.Major}.{v.Minor}.{v.Build}" : "10.1.0";
 
             // Set NavigationView pane background via resource dictionary override.
             // PaneBackground does not exist as a XAML property on WinUI3 NavigationView;
@@ -492,7 +492,7 @@ namespace StreamTweak
                 "Logs"          => typeof(Views.LogsView),
                 "GameLibrary"   => typeof(Views.GameLibraryView),
                 // The Setup block: one page, SetupView, showing the panel its item names.
-                "Clients" or "Network" or "Apps" or "Audio" or "Sentinel" => typeof(Views.SetupView),
+                "Clients" or "Network" or "Apps" or "Audio" or "Sentinel" or "Hue" => typeof(Views.SetupView),
                 "Settings"      => typeof(Views.SettingsView),
                 _               => null
             };

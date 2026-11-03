@@ -634,6 +634,121 @@
                 </Border>
             </StackPanel>
 
+            <!-- ═══ HUE SYNC (10.1.0) — StreamLight 8.4.0's tab, variant B: the bridge's areas as
+                 tiles, a sentence on what this host does, the rules in one card; plus pairing,
+                 which only this page and a client's tab can start. SECURITY.md, "Hue Sync (10.1.0)". -->
+            <StackPanel x:Name="PanelHue" Style="{StaticResource ST8_PanelRoot}" Visibility="Collapsed">
+                <TextBlock Text="Starts Hue Sync on this PC only while no other device is syncing the lights." Style="{StaticResource ST9_PageSubtitle}" TextWrapping="Wrap"/>
+
+                <InfoBar IsOpen="{x:Bind Hue.HueSyncMissing, Mode=OneWay}"
+                         Visibility="{x:Bind Hue.HueSyncMissing, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                         Severity="Informational" Message="Hue Sync is not installed on this PC." IsClosable="False">
+                    <InfoBar.Resources><SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#4ade80"/></InfoBar.Resources>
+                </InfoBar>
+
+                <!-- THE BRIDGE -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{x:Bind Hue.BridgeTitle, Mode=OneWay}" Style="{StaticResource ST_SectionLabel}"/>
+                    <Border Style="{StaticResource ST8_GroupCard}">
+                        <StackPanel Padding="0,14" Spacing="14">
+                            <!-- Not paired: the button, and what to do with the bridge's own. -->
+                            <Grid Visibility="{x:Bind Hue.UnpairedVisibility, Mode=OneWay}">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2" Margin="0,0,16,0">
+                                    <TextBlock Text="Not paired" Style="{StaticResource ST_RowLabel}"/>
+                                    <TextBlock Text="{x:Bind Hue.PairText, Mode=OneWay}" Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                    <ProgressRing IsActive="{x:Bind Hue.IsPairing, Mode=OneWay}" Width="18" Height="18"
+                                                  Visibility="{x:Bind Hue.IsPairing, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                    <Button Content="Pair" Style="{StaticResource ST_ButtonGreen}" IsEnabled="{x:Bind Hue.CanPair, Mode=OneWay}" Click="HuePair_Click"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <!-- Paired: the areas, the one streaming lit, and who streams to it. -->
+                            <ItemsRepeater ItemsSource="{x:Bind Hue.Areas}" Visibility="{x:Bind Hue.PairedVisibility, Mode=OneWay}">
+                                <ItemsRepeater.Layout>
+                                    <UniformGridLayout MinItemWidth="220" MinColumnSpacing="12" MinRowSpacing="12" ItemsStretch="Fill"/>
+                                </ItemsRepeater.Layout>
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:HueAreaRow">
+                                        <Grid>
+                                            <Border Background="{StaticResource STInput}" BorderBrush="{StaticResource STBorder}" BorderThickness="1"
+                                                    CornerRadius="8" Padding="16,14" Opacity="{x:Bind TileOpacity}">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST_RowLabel}" FontSize="15" TextTrimming="CharacterEllipsis"/>
+                                                    <TextBlock Text="{x:Bind LightsText}" Style="{StaticResource ST_RowDescription}"/>
+                                                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0">
+                                                        <Ellipse Width="8" Height="8" Fill="{StaticResource STSuccess}" VerticalAlignment="Center" Visibility="{x:Bind ActiveVisibility}"/>
+                                                        <Ellipse Width="8" Height="8" Fill="{StaticResource STTextDim}" VerticalAlignment="Center" Visibility="{x:Bind IdleVisibility}"/>
+                                                        <TextBlock Text="{x:Bind WhoText}" Style="{StaticResource ST_RowDescription}" TextTrimming="CharacterEllipsis"/>
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </Border>
+                                            <Border BorderBrush="{StaticResource STSuccess}" BorderThickness="2" CornerRadius="8" Visibility="{x:Bind ActiveVisibility}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+
+                            <!-- What this host will do, in a sentence; Forget on the right. -->
+                            <Grid Visibility="{x:Bind Hue.PairedVisibility, Mode=OneWay}">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2" Margin="0,0,16,0">
+                                    <TextBlock Text="{x:Bind Hue.VerdictTitle, Mode=OneWay}" Style="{StaticResource ST_RowLabel}" TextWrapping="Wrap"/>
+                                    <TextBlock Text="{x:Bind Hue.VerdictHint, Mode=OneWay}" Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"
+                                               Visibility="{x:Bind Hue.VerdictHintVisibility, Mode=OneWay}"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="Unpair" Style="{StaticResource ST_ButtonSecondary}" VerticalAlignment="Center" Click="HueForget_Click"
+                                        ToolTipService.ToolTip="Forget the bridge's key. Remove StreamTweak from the Hue app's list of apps to take it off the bridge too."/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- RULES -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="RULES" Style="{StaticResource ST_SectionLabel}"/>
+                    <Border Style="{StaticResource ST8_GroupCard}">
+                        <StackPanel>
+                            <Border Style="{StaticResource ST8_Row}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2" Margin="0,0,16,0">
+                                        <TextBlock Text="Wait while the lights are in use" Style="{StaticResource ST_RowLabel}"/>
+                                        <TextBlock Text="StreamTweak starts Hue Sync here, at sign-in and after a stream, only when no other device is syncing" Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" Style="{StaticResource ST_Toggle}" IsOn="{x:Bind Hue.Hold, Mode=TwoWay}"
+                                                  IsEnabled="{x:Bind Hue.IsPaired, Mode=OneWay}" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource ST8_Row}" BorderThickness="0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2" Margin="0,0,16,0">
+                                        <TextBlock Text="Give way to" Style="{StaticResource ST_RowLabel}"/>
+                                        <TextBlock Text="Any device, or only one of your StreamLight devices; any other is taken over as before" Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ComboBox Grid.Column="1" MinWidth="200" ItemsSource="{x:Bind Hue.GiveWayChoices}" SelectedItem="{x:Bind Hue.GiveWay, Mode=TwoWay}"
+                                              IsEnabled="{x:Bind Hue.Hold, Mode=OneWay}" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                            <!-- Hue Sync's own start with Windows would start it before StreamTweak can look:
+                                 read here, never changed (Marcello, 03/11/2026). -->
+                            <InfoBar IsOpen="{x:Bind Hue.StartupWarning, Mode=OneWay}"
+                                     Visibility="{x:Bind Hue.StartupWarning, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                                     Severity="Warning" Title="Hue Sync also starts with Windows"
+                                     Message="Turn its start off in Settings › Apps › Startup: StreamTweak starts it now, and Hue Sync starting by itself would take the lights first."
+                                     IsClosable="False" Margin="0,4,0,14">
+                                <InfoBar.ActionButton>
+                                    <Button Content="Open Startup settings" Click="HueStartupSettings_Click"/>
+                                </InfoBar.ActionButton>
+                            </InfoBar>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+
           </Grid>
           </StackPanel>
         </ScrollViewer>

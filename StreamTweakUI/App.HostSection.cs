@@ -45,6 +45,7 @@ namespace StreamTweak
             _bridge.NvidiaProvider    = id => Task.FromResult(BuildNvidiaJson(id));
             _bridge.HostSettingWriter = ApplyHostSetting;
             _bridge.SessionsProvider  = AnswerSessions;
+            _bridge.HueProvider       = AnswerHue;
             RegisterLibrary();
             AppStateService.Instance.StreamingClientProvider = StreamingClientName;
         }
@@ -529,6 +530,40 @@ namespace StreamTweak
                     }
                     return new JsonObject { ["v"] = 1, ["cover"] = cover }.ToJsonString();
                 }
+            }
+            return "ERR";
+        }
+
+        // ── Hue Sync (10.1.0) ────────────────────────────────────────────────
+
+        /// <summary>
+        /// HUESYNC (read), HUEPAIR, SETHUE HOLD ON|OFF, SETHUE GIVEWAY ANY|THIS. The bridge has
+        /// already checked signature and Host management for the writes. No address, path or key is
+        /// accepted from the client — SECURITY.md, "Hue Sync (10.1.0)".
+        /// </summary>
+        private async Task<string> AnswerHue(string verb, string arg, string? clientId)
+        {
+            var gate = HueSyncGate.Instance;
+            string[] words = arg.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            switch (verb)
+            {
+                case "HUESYNC":
+                    return words.Length == 0 ? await gate.BuildJsonAsync(clientId, HostManagementFor(clientId)) : "ERR";
+                case "HUEPAIR":
+                    return words.Length == 0 ? await gate.PairAsync() : "ERR";
+                case "SETHUE":
+                    if (words.Length != 2) return "ERR";
+                    if (words[0] == "HOLD" && (words[1] == "ON" || words[1] == "OFF"))
+                    {
+                        gate.SetHold(words[1] == "ON");
+                        return "OK";
+                    }
+                    if (words[0] == "GIVEWAY" && (words[1] == "ANY" || words[1] == "THIS"))
+                    {
+                        gate.SetGiveWay(words[1] == "THIS" ? "this" : "any", clientId);
+                        return "OK";
+                    }
+                    return "ERR";
             }
             return "ERR";
         }

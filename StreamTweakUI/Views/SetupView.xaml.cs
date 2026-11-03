@@ -23,6 +23,7 @@ namespace StreamTweak.Views
         public AudioViewModel         Aud     { get; } = new AudioViewModel();
         public NvidiaProfileViewModel Nv      { get; } = new NvidiaProfileViewModel();
         public AppsViewModel          AppsVm  { get; } = new AppsViewModel();
+        public HueSyncViewModel       Hue     { get; } = new HueSyncViewModel();
 
         // Guard: true while we programmatically set the audio toggles.
         private bool _updatingToggles;
@@ -61,8 +62,9 @@ namespace StreamTweak.Views
             if (AppStateService.Instance.NvidiaSentinel?.IsNvidiaAvailable == true) _ = Nv.InitializeAsync();
 
             AppsVm.Load();
+            Hue.Start(DispatcherQueue);
 
-            // The sidebar item's tag: Clients, Network, Apps, Audio or Sentinel.
+            // The sidebar item's tag: Clients, Network, Apps, Audio, Sentinel or Hue.
             ShowTab(e.Parameter as string ?? "Clients");
         }
 
@@ -81,6 +83,7 @@ namespace StreamTweak.Views
             Aud.Unsubscribe();
             Nv.Cleanup();
             AppsVm.Unsubscribe();
+            Hue.Stop();
         }
 
         // ── Which page ───────────────────────────────────────────────────────────
@@ -94,14 +97,25 @@ namespace StreamTweak.Views
                 "Apps"     => "Apps",
                 "Audio"    => "Spatial audio",
                 "Sentinel" => "NVIDIA Sentinel",
+                "Hue"      => "Hue Sync",
                 _          => "Clients",
             };
-            PanelClients.Visibility = tab is not ("Network" or "Apps" or "Audio" or "Sentinel") ? Visibility.Visible : Visibility.Collapsed;
+            PanelClients.Visibility = tab is not ("Network" or "Apps" or "Audio" or "Sentinel" or "Hue") ? Visibility.Visible : Visibility.Collapsed;
             PanelNet.Visibility     = tab == "Network"  ? Visibility.Visible : Visibility.Collapsed;
             PanelApps.Visibility    = tab == "Apps"     ? Visibility.Visible : Visibility.Collapsed;
             PanelAudio.Visibility   = tab == "Audio"    ? Visibility.Visible : Visibility.Collapsed;
             PanelNv.Visibility      = tab == "Sentinel" ? Visibility.Visible : Visibility.Collapsed;
+            PanelHue.Visibility     = tab == "Hue"      ? Visibility.Visible : Visibility.Collapsed;
         }
+
+        // ── Hue Sync (10.1.0) ────────────────────────────────────────────────────
+
+        private void HuePair_Click(object sender, RoutedEventArgs e) => Hue.Pair();
+
+        private void HueForget_Click(object sender, RoutedEventArgs e) => Hue.Forget();
+
+        private async void HueStartupSettings_Click(object sender, RoutedEventArgs e)
+            => await Windows.System.Launcher.LaunchUriAsync(new Uri("ms-settings:startupapps"));
 
         // ── Network ──────────────────────────────────────────────────────────────
 

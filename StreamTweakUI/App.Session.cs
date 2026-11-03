@@ -557,6 +557,12 @@ namespace StreamTweak
                 // HandleAutoStreamStart (log-detected session) or StartManualStreamingMode.
                 if (_appsToRelaunch.Count > 0)
                 {
+                    // 10.1.0: with "Wait while the lights are in use", Hue Sync goes through the
+                    // gate instead — reopened now it would take the lights from a device still
+                    // syncing, and that device's Hue Sync does not get them back.
+                    var gate = HueSyncGate.Instance;
+                    if (gate.Hold && gate.Paired && _appsToRelaunch.RemoveAll(HueSyncGate.IsHueSyncPath) > 0)
+                        _ = gate.TryStartAsync("Session ended", sessionEnded: true);
                     ManagedAppController.StartApps(_appsToRelaunch);
                     _appsToRelaunch.Clear();
                 }

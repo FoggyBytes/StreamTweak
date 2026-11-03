@@ -215,6 +215,12 @@ namespace StreamTweak
         /// <see cref="HostSettingWriter"/> like the switches. Null answers "ERR".</summary>
         public Func<string, string, string?, string>? LibraryProvider { get; set; }
 
+        /// <summary>The Hue Sync tab (10.1.0): (verb, argument, asking device's uniqueId or null) →
+        /// reply line. HUESYNC is a read gated like STATS; HUEPAIR and SETHUE reach it only with a
+        /// verified signature from a device holding Host management. Null answers "ERR".
+        /// SECURITY.md, "Hue Sync (10.1.0)".</summary>
+        public Func<string, string, string?, Task<string>>? HueProvider { get; set; }
+
         private TcpListener? _listener;
         private CancellationTokenSource? _cts;
         private Task? _listenTask;
@@ -787,6 +793,37 @@ namespace StreamTweak
                     string reply = "ERR";
                     try { if (LibraryProvider != null) reply = LibraryProvider(verb, arg, authenticated ? clientId : null); }
                     catch (Exception ex) { DebugLog($"StreamTweakBridge: {verb} provider failed: {ex.Message}"); }
+                    await writer.WriteLineAsync(reply);
+                    break;
+                }
+
+                case "HUESYNC":
+                case "HUEPAIR":
+                case "SETHUE":
+                {
+                    // HUESYNC reads, gated like STATS. The two writes change this host: a verified
+                    // signature and Host management, as for the switches below. SETHUE passes the
+                    // signer on because "give way to this device" records which device that is.
+                    if (verb != "HUESYNC")
+                    {
+                        if (!authenticated || clientId == null)
+                        {
+                            DebugLog($"StreamTweakBridge: rejected unauthenticated {verb} from {remote}");
+                            await writer.WriteLineAsync("ERR");
+                            break;
+                        }
+                        if (AuthService == null || !AuthService.HasHostManagement(clientId))
+                        {
+                            DebugLog($"StreamTweakBridge: {verb} refused — {ResolveClientLabel(clientId, remote)} has no Host management");
+                            await writer.WriteLineAsync("ERR_NO_MANAGEMENT");
+                            break;
+                        }
+                    }
+                    string reply = "ERR";
+                    try { if (HueProvider != null) reply = await HueProvider(verb, arg, authenticated ? clientId : null); }
+                    catch (Exception ex) { DebugLog($"StreamTweakBridge: {verb} failed: {ex.Message}"); }
+                    if (verb != "HUESYNC")
+                        DebugLog($"StreamTweakBridge: {verb} {arg} from {ResolveClientLabel(clientId, remote)} → {reply}");
                     await writer.WriteLineAsync(reply);
                     break;
                 }

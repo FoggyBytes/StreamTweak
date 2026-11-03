@@ -150,6 +150,13 @@
                         </NavigationViewItem.Icon>
                     </NavigationViewItem>
 
+                    <!-- 10.1.0: Hue Sync started only while the lights are free (Services/HueSyncGate.cs). -->
+                    <NavigationViewItem Tag="Hue" Content="Hue Sync">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xEA80;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+
                 </NavigationView.MenuItems>
 
                 <!-- ── FOOTER NAV ITEMS ──────────────────────────────────────── -->

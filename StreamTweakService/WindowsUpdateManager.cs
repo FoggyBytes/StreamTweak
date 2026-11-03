@@ -362,7 +362,9 @@ public sealed class WindowsUpdateManager
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
                 FileName = System.IO.Path.Combine(Environment.SystemDirectory, "shutdown.exe"),
-                Arguments = "/r /t 10",   // delay so the client sees the REBOOTING state
+                // /g (10.1.0): restart, then sign in and lock the last user (ARSO), so StreamTweak
+                // is back for the client's PIN pad; the delay lets the client see REBOOTING.
+                Arguments = "/g /t 10",
                 CreateNoWindow = true,
                 UseShellExecute = false,
             });

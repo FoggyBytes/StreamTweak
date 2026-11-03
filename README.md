@@ -36,7 +36,7 @@ Everything below is in the current release, whichever version first introduced i
 
 **🧭 Status and Setup** *(10.0.0)*
 - **Status** — the page StreamTweak opens on: a header drawn from the covers of the games on this PC, saying whether the host is ready to stream, with its link speed, the games listed and the last session's grade; a device asking for access, with its PIN and *Approve*, *Approve with host management* or *Deny*; the stream running now, with *Return to client*; then eight tiles, one per component — service, bridge port, streaming server, library, managed apps, spatial audio, network, NVIDIA Sentinel — green, amber or red, each opening the page that sets it. On a first run the same page walks through the four steps that matter
-- **Setup** — what you set once on this host, in its own block of the sidebar: Clients, Network, Apps, Spatial audio and NVIDIA Sentinel — the same names StreamLight 8.0 uses. Apps, spatial audio and Sentinel can also be switched from StreamLight 8.0's StreamTweak section, by a device with Host management. The everyday switches and the live figures are on the client
+- **Setup** — what you set once on this host, in its own block of the sidebar: Clients, Network, Apps, Spatial audio, NVIDIA Sentinel and *(10.1.0)* Hue Sync — the same names StreamLight uses. Apps, spatial audio and Sentinel can also be switched from StreamLight 8.0's StreamTweak section, by a device with Host management. The everyday switches and the live figures are on the client
 
 **🌐 Network**
 - **Link-speed switch** — the client reads its own wired link and asks the host to match it **before** connecting; the stream starts once the change is confirmed. This is what fixes the packet loss and latency spikes caused by host and client NICs negotiating at different speeds — a 2.5 Gbps host feeding a 1 Gbps handheld sends each frame as a burst the slower link cannot drain, and the few packets carrying audio die first
@@ -70,6 +70,11 @@ Everything below is in the current release, whichever version first introduced i
 - **Manual entries** — add any executable that was not detected, and keep it across re-syncs
 - **Host tile replacement** — swap the streaming server's Desktop and Steam tiles for bundled artwork, reversibly and with no UAC. They stay replaced: a server update reinstalls its own, and StreamTweak puts yours back
 
+**💡 Hue Sync** *(10.1.0)*
+- **Waits its turn** — a Hue bridge syncs one area at a time, and a Hue Sync that loses the lights does not get them back. With *Wait while the lights are in use*, StreamTweak starts Hue Sync on this PC itself — at sign-in and after a stream, in the background as Hue Sync's own start with Windows does — and only when no other device is syncing, or only when one chosen StreamLight device is not
+- **Read only** — paired with the bridge by its button; StreamTweak reads which area is syncing and which app opened it, and never changes a light, a scene or an area. The key is kept encrypted for your Windows account
+- **Tells you what is in the way** — Hue Sync's own start with Windows would beat StreamTweak to the lights: the page says so and opens the Startup settings
+
 **🗂️ Streaming app manager**
 - Apps to close when a session starts and reopen when it ends — Hue Sync, RGB suites, anything that fights with the client — with a per-app switch to exclude one without removing it. **Add app** offers the programs running now first, then any program on disk
 
@@ -99,6 +104,15 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Remote Windows Update** *(3.3.0+)* — scan, classify and install updates on the host and reboot it, or install them as part of a shutdown, all from the client with no keyboard on the host. The privileged work runs in the LocalSystem service
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched in Settings here, and on the device too
+- **Hue Sync** *(8.4.0+)* — StreamLight's Hue Sync tab reads the bridge's areas and who has the lights over `HUESYNC`, starts pairing with `HUEPAIR` and sets the two rules with `SETHUE`, with Host management; no address, key or area ever comes from the client. *Take back*, which restarts Hue Sync on the client, needs nothing from this host
+
+## ✨ What's New in 10.1.0 — "The Shared Lights Update"
+
+Pairs with StreamLight 8.4.0.
+
+- **Hue Sync waits its turn** — a new *Hue Sync* page under Setup: StreamTweak starts Hue Sync on this PC only while no other device is syncing the lights, so waking it from a client that is already syncing no longer takes them away
+- **From StreamLight** — StreamLight 8.4.0's Hue Sync tab shows the bridge's areas and who has the lights, and sets the rules
+- **Back for the PIN pad** — a shut down or restart from StreamLight now asks Windows to sign you in and lock this PC at the next start, so StreamTweak is there when a client wakes it
 
 ## ✨ What's New in 10.0.6 — "The Fresh Page Update"
 

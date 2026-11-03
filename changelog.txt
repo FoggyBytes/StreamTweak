@@ -4,6 +4,22 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+--------------------------------------------------------
+Version 10.1.0 - "The Shared Lights Update" (03/11/2026)
+--------------------------------------------------------
+
+Pairs with StreamLight 8.4.0 for the Hue Sync tab of its StreamTweak section.
+
+💡 HUE SYNC:
+• Hue Sync waits its turn — with Setup › Hue Sync › Wait while the lights are in use, StreamTweak starts Hue Sync on this PC at sign-in and after a stream only when no other device is syncing the lights, so waking this PC from a client that is already syncing no longer takes the lights away from it; a Hue bridge streams to one area at a time, and the Hue Sync it replaces does not get them back; it starts Hue Sync in the background, in the tray, as Hue Sync's own start with Windows does
+• Give way to one device — the rule can hold for any device or only for one of your StreamLight devices
+• Paired with the bridge, read only — pairing takes the button on the bridge; StreamTweak only reads which area is syncing and which app opened it, and never changes a light, a scene or an area
+• Hue Sync's own start with Windows — when the rule is on and Hue Sync still starts with Windows by itself, StreamTweak says so and opens the Startup settings to turn it off
+• From StreamLight — StreamLight 8.4.0 shows the bridge's areas and who has the lights, changes the rules and starts pairing; the rules need Host management for that device
+
+🌙 REMOTE POWER:
+• Back for the PIN pad after a shut down — a shut down or restart from StreamLight, and the restart after updates, now ask Windows to sign you in and lock this PC at the next start, as the Start menu does; Windows sometimes skipped it, and then StreamTweak did not start before you signed in, so StreamLight's PIN pad after a wake had nothing to talk to. It needs "Use my sign-in info to automatically finish setting up" on in Windows' sign-in options
+
 -----------------------------------------------------
 Version 10.0.6 - "The Fresh Page Update" (28/10/2026)
 -----------------------------------------------------

@@ -45,7 +45,7 @@ The service accepts requests only through a local named pipe (`StreamTweakServic
 - **A client is approved once, by the person at the host.** An `ENROLL` request only puts a dialog on the host's screen with the client's name, address and a 4-digit PIN that the client shows too; nothing is trusted until someone compares the two and clicks *Approve*. An approved client can be revoked from the *Clients* page.
 - Commands that act on the PC — sleep, restart, shut down, Windows Update, link speed, clipboard — run only when the signature verifies.
 - **Host management** (10.0.0) is a second, per-device permission, set on the *Clients* page and chosen at approval (*Approve with host management* / *Approve* / *Deny*; closing the dialog denies). Only a device that holds it can change this host's settings from StreamLight's host section, and what it can change is a short, fixed list of switches over state that already exists here: whether an app in *Apps* is managed (`SETAPP`, naming the app by a 16-hex-digit hash of its path, so no path travels back), spatial audio on or off (`SETAUDIO`), NVIDIA Sentinel's auto-restore (`SETSENTINEL`, refused without a saved profile). **No path, file or command line is ever accepted from a client**, and the link-speed permission is not among the things a client can write. The section's reads (`DASHBOARD`, `APPS`, `NVIDIA`, and the session history: `SESSIONS`, `SESSION`, `SERIES`, `COVER`) are signed like `STATS` and change nothing; sessions are named by their short id, covers and app icons are sent as pictures, not as paths. Devices approved before 10.0.0 were given the permission on upgrade — they could already power the host off — and are listed once on the *Clients* page so it can be withdrawn.
-- **Sync and restart** (10.0.0) is the one *action* a client can ask for beyond those switches — see the next section.
+- **Sync and restart** (10.0.0) and **pairing with a Hue bridge** (10.1.0) are the two *actions* a client can ask for beyond those switches — see the next two sections. The Hue Sync rules (`SETHUE`) are switches like the ones above.
 - The **shared clipboard** (can be switched off on the host) is encrypted with AES-256-GCM under a key made for each stream, sent to the client wrapped with RSA-OAEP for its certificate, and discarded when the stream ends.
 
 ### Sync and restart (10.0.0)
@@ -76,6 +76,28 @@ If Vibeshine's or Vibepollo's own Steam sync is on, Steam games would be listed 
 
 **Clear library, on the host only.** The Library page also has *Clear library*: the same job, whose first step takes every entry StreamTweak wrote out of `apps.json` (the server's own entries stay) and empties StreamTweak's list, followed by the same restart, the same checks and the same refusals. No bridge verb starts it: a client can only sync.
 
+### Hue Sync (10.1.0)
+
+A Philips Hue bridge streams to **one entertainment area at a time**, and Hue Sync takes the lights as soon as it starts syncing. When the host is woken from a client whose Hue Sync is already syncing, the host's Hue Sync starts with Windows and takes the lights away, and the client's Hue Sync does not get them back by itself. StreamTweak 10.1.0 can start Hue Sync on the host itself, and only while no other device is syncing. StreamLight 8.4.0's *Hue Sync* tab shows it and sets it.
+
+**What StreamTweak does with the bridge: it only reads.** Once paired it asks the bridge which entertainment areas exist, how many lights each has, which one is streaming and which app opened that stream — the app's name as the bridge lists it, for example *Hue Sync#FOGGY-STREAM*. It never turns a light on or off, never starts or stops a stream, never changes a scene, a light or an area, and never removes an app from the bridge.
+
+- **Pairing needs the bridge's button**, pressed by someone in the room. Started from the host or from a client, StreamTweak asks the bridge for a key for 60 seconds and then stops. The key is kept in `config.json`, encrypted with Windows DPAPI for the signed-in user (`CryptProtectData`, no extra library). *Unpair* on the host forgets it; the entry stays on the bridge until it is removed from the Hue app.
+- **Only the bridge on the local network.** Its address comes from Hue Sync's own settings on this PC or from mDNS (`_hue._tcp`), never from a client. StreamTweak talks to it over HTTPS on the local network only, with no Hue account and no cloud. The bridge's certificate must name the bridge's id, and the certificate seen at pairing is pinned: a different one later stops StreamTweak talking to that bridge until it is paired again.
+- **What leaves the host, and only to an approved client:** the area names, the number of lights in each, which one is streaming and the name of the app streaming to it; the bridge's model; whether Hue Sync is installed, running or waiting here, and whether it starts with Windows by itself; the rules, with the name of the device they give way to. Never a key, an address, or the bridge's list of apps.
+
+**What StreamTweak may start: only Hue Sync, as the signed-in user.** Hue Sync is found where its installer registered it — the Windows *Uninstall* entry named *Hue Sync*, else its folder under Program Files — and started by the tray app, without administrator rights; the LocalSystem service has no part in any of this. It is started at three moments, each time only if the rule below lets it: when StreamTweak starts, when a session ends and StreamTweak reopens the apps it closed (*Setup › Apps*), and once a minute while it is waiting. StreamTweak never closes Hue Sync because of what the bridge says: closing it when a session starts is the existing *Setup › Apps* feature, unchanged. Hue Sync's own *start with Windows* (a startup task of its package) is never changed either; StreamTweak reads whether it is on and says so, because it would start Hue Sync before StreamTweak could check.
+
+**The rule.** *Wait while the lights are in use*, off by default: Hue Sync is started only when no area of the bridge is streaming. *Give way to*: **any device**, so any stream holds it; or **this device**, so only a stream opened by Hue Sync on the device that chose the rule holds it. That device is matched by name — the name it enrolled with on this host against the computer name Hue Sync writes after `#` on the bridge. A wrong match can only make the host wait when it need not, or not wait; it gives no one access to anything.
+
+**What the client can send.** One read, `HUESYNC`, signed like `STATS`. Three writes, each with a verified signature **and** the device's *Host management*:
+
+- `HUEPAIR` — start the 60-second pairing (`ERR_BUSY` while one is under way, `ERR_NO_BRIDGE` when no bridge is found);
+- `SETHUE HOLD ON|OFF` — the first rule;
+- `SETHUE GIVEWAY ANY|THIS` — the second; `THIS` records the device that signed it.
+
+No address, path, key, area name or command line is accepted from a client. **Taking the lights back is done by the client on its own PC** — StreamLight restarts its own Hue Sync, which then takes the lights — and asks nothing of the host: the host is never asked to close Hue Sync, and no verb can make it.
+
 ### What changes on the PC
 
 Installation:
@@ -84,7 +106,7 @@ Installation:
 - adds the **StreamTweak Bridge** firewall rule for TCP 47998, and removes *block* rules that an earlier "Windows Security Alert" answer may have left on `StreamTweakUI.exe`;
 - installs the .NET 8 runtime and the Windows App SDK runtime if they are missing.
 
-While running, and only for the features you turn on: the network adapter's link speed, spatial audio, the games listed by your streaming server, the server's Desktop/Steam tile pictures, closing and reopening the apps you list in *Setup › Apps*, start with Windows (a Run entry or a scheduled task), and — when an approved client asks — sleep, restart, shutdown, Windows Update and, with *Host management*, a library sync with a restart of the streaming server.
+While running, and only for the features you turn on: the network adapter's link speed, spatial audio, the games listed by your streaming server, the server's Desktop/Steam tile pictures, closing and reopening the apps you list in *Setup › Apps*, starting Hue Sync only while the lights are free (*Setup › Hue Sync*, with the Hue bridge's key kept in `config.json`), start with Windows (a Run entry or a scheduled task), and — when an approved client asks — sleep, restart, shutdown, Windows Update and, with *Host management*, a library sync with a restart of the streaming server.
 
 The uninstaller (*Settings → Apps*) stops and deletes the service and removes the firewall rule and the autostart entry or task. A link speed StreamTweak changed is restored by StreamTweak when a client asks for it or from the tray, so put it back before uninstalling.
 

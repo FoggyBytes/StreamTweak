@@ -254,6 +254,8 @@ namespace StreamTweak
             _bridge.PowerCapsProvider   = () => HostPowerCapabilities.ToJson(_linkSpeed?.AdapterName);
             // StreamLight 8.0's host section (10.0.0) — App.HostSection.cs.
             RegisterHostSection();
+            // 10.1.0: Hue Sync started only while the lights are free (Services/HueSyncGate.cs).
+            HueSyncGate.Instance.Start(id => bridgeAuth.GetClientName(id));
 
             // Status's first read runs while the window is built, so the page opens full (10.0.0).
             ViewModels.StatusViewModel.Prewarm();
