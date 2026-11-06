@@ -11,7 +11,7 @@
 Paired with its companion client [**StreamLight**](https://github.com/FoggyBytes/StreamLight) the two work as one: the client asks for the link speed it needs, the host reports what is happening to a launch, and telemetry, store metadata, Tailscale presence and remote power and update controls travel between them over a local TCP bridge.
 
 <div align="center">
-  <img width="3840" height="2160" alt="Immagine 2026-10-23 111129" src="https://github.com/user-attachments/assets/33ca0c4f-2cc9-4019-b014-30d22139642e" />
+  <img width="3840" height="2160" alt="StreamLight with StreamTweak on the host" src=".github/images/streamdark.png" />
 </div>
 
 ## ✅ Compatibility
@@ -106,6 +106,15 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched in Settings here, and on the device too
 - **Hue Sync** *(8.4.0+)* — StreamLight's Hue Sync tab reads the bridge's areas and who has the lights over `HUESYNC`, starts pairing with `HUEPAIR` and sets the two rules with `SETHUE`, with Host management; no address, key or area ever comes from the client. *Take back*, which restarts Hue Sync on the client, needs nothing from this host
 
+## ✨ What's New in 10.1.1 — "The Safe Path Update"
+
+Works with any StreamLight; out the same day as StreamLight 8.5.0.
+
+- **The service's path is quoted** — StreamTweak's service, which runs with the system's rights, was registered with an unquoted path; updating registers it again, quoted
+- **Installed outside Program Files** — a folder elsewhere gets the permissions of Program Files, so no other user can replace what the service runs
+- **Shut down like the Start menu** — with Windows' Fast Startup on, a shut down from StreamLight uses it, so the next start is as quick as after a Shut down from Start
+- **Only a real Hue bridge is paired** — its certificate must come from Signify, and a certificate the bridge gets with a firmware update is taken over by itself
+
 ## ✨ What's New in 10.1.0 — "The Shared Lights Update"
 
 Pairs with StreamLight 8.4.0.
@@ -113,47 +122,6 @@ Pairs with StreamLight 8.4.0.
 - **Hue Sync waits its turn** — a new *Hue Sync* page under Setup: StreamTweak starts Hue Sync on this PC only while no other device is syncing the lights, so waking it from a client that is already syncing no longer takes them away
 - **From StreamLight** — StreamLight 8.4.0's Hue Sync tab shows the bridge's areas and who has the lights, and sets the rules
 - **Back for the PIN pad** — a shut down or restart from StreamLight now asks Windows to sign you in and lock this PC at the next start, so StreamTweak is there when a client wakes it
-
-## ✨ What's New in 10.0.6 — "The Fresh Page Update"
-
-Pairs with StreamLight 8.2.0.
-
-- **Delete a session from StreamLight** — the Sessions tab of StreamLight's StreamTweak section can delete a session, with Host management
-- **Sessions end on time** — a session no longer stays open for an extra minute after a long stream on Vibeshine, whose log starts over under the same name at 2 MB
-- **No ghost stream in StreamLight** — the game you just quit no longer shows up in StreamLight's section as streaming to another device
-
-## ✨ What's New in 10.0.5 — "The Right Game Update"
-
-- **Steam software stays out of the library** — Wallpaper Engine, Lossless Scaling, OBS Studio and the like are no longer synced as games, so they stop showing up as the game you played
-
-## ✨ What's New in 10.0.4 — "The Full Picture Update"
-
-Pairs with StreamLight 8.0.1.
-
-- **The whole timeline on the client** — StreamLight's Sessions tab now gets every series of Host compute and Host power: encoder, CPU, power limit, GPU temperature and the moments at the limit
-- **Covers come back** — a past session's game that lost its cover and is no longer installed gets it again from Steam
-
-## ✨ What's New in 10.0.3 — "The Steady Reading Update"
-
-- **Net TX stays put** — the host's outbound traffic in StreamLight's overlay no longer drops to N/A for a second every 30 seconds
-
-## ✨ What's New in 10.0.2 — "The Quiet Hours Update"
-
-- **Sentinel waits for the stream to end** — what the streaming server changes in the driver profile for a stream, like the frame limiter's V-Sync, stays as it is until the stream is over; your profile is checked once right after
-
-## ✨ What's New in 10.0.1 — "The Good Neighbor Update"
-
-- **Sentinel lets the streaming server be** — the Vulkan/OpenGL present method that Sunshine and its forks set when they start is no longer taken out by auto-restore
-
-## ✨ What's New in 10.0.0 — "The Hand Off Update"
-
-Pairs with StreamLight 8.0.0.
-
-- **Managed from the sofa** — StreamLight 8.0's new StreamTweak section reads this host's dashboard, session history, game library, apps and NVIDIA Sentinel, can sync the library and restart the streaming server, and switches managed apps, spatial audio and Sentinel's auto-restore; the change shows up here at once
-- **Host management** — a permission per device under Setup › Clients decides who may change anything; approval offers *Approve with host management*, *Approve* or *Deny*, and devices approved earlier keep it on, named once in a notice
-- **Who streamed** — each session now records the StreamLight device it was streamed to
-- **Every game followed** — a game the server launched is tracked for as long as it runs, even outside the Game Library, so an Xbox app game no longer drops off the timeline after a minute
-- **A lighter StreamTweak** — it opens on **Status**, what a stream will find and what needs you; the one-time settings sit in **Setup**; the **Library** lists each game with the command the server runs, **Exclude**, **Sync and restart** and **Clear library**. The Dashboard and the Display page are gone: the live figures and the everyday switches are in StreamLight, and HDR is the streaming server's job
 
 *Older releases are in [changelog.txt](changelog.txt).*
 

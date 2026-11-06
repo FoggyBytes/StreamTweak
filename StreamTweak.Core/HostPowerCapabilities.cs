@@ -65,6 +65,29 @@ namespace StreamTweak
                 HiberFilePresent: buf[8] != 0, AoAc: buf[20] != 0);
         }
 
+        /// <summary>
+        /// Whether Windows' Fast Startup is on, so a shut down from a client can be the same as the
+        /// Start menu's (10.1.1): "Turn on fast startup" in the power options (HiberbootEnabled = 1)
+        /// AND a hibernation file, which Fast Startup writes its kernel to (<c>powercfg /h off</c>
+        /// turns it off with hibernation). Either one missing: a full shut down, as before.
+        /// </summary>
+        public static bool FastStartupEnabled()
+        {
+            try
+            {
+                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                    @"SYSTEM\CurrentControlSet\Control\Session Manager\Power");
+                if (key?.GetValue("HiberbootEnabled") is not int on || on != 1)
+                    return false;
+            }
+            catch (Exception ex)
+            {
+                DebugLogger.Log($"[Power] HiberbootEnabled not readable: {ex.Message}");
+                return false;
+            }
+            return ReadStates().HiberFilePresent;
+        }
+
         /// <summary>The modes a client may ask for, in display order.</summary>
         public static IReadOnlyList<string> GetModes()
         {

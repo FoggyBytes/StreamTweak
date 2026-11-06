@@ -65,7 +65,7 @@ namespace StreamTweak.Services
             string cert = ConfigService.Get("HueBridgeCert", "");
             // ⚠️ Never without the pinned certificate: an empty one would accept any (CheckCertificate).
             if (_key != null && addr.Length > 0 && cert.Length > 0)
-                _bridge = new HueBridge(addr, cert);
+                _bridge = new HueBridge(addr, cert, ConfigService.Get("HueBridgeId", ""));
             else
                 _key = null;
             _ = TryStartAsync("StreamTweak started");
@@ -227,6 +227,9 @@ namespace StreamTweak.Services
             {
                 if (!force && LastReading != null && DateTime.UtcNow - _readAt < TimeSpan.FromSeconds(3)) return LastReading;
                 var r = await _bridge.ReadAsync(_key!);
+                // 10.1.1: the same bridge, re-issued a certificate by Signify — the new one is the pin.
+                if (_bridge.RenewedCert is string renewed && renewed != ConfigService.Get("HueBridgeCert", ""))
+                    ConfigService.Set("HueBridgeCert", renewed);
                 if (r.Unauthorized)
                 {
                     DebugLogger.Log("[Hue] The bridge no longer accepts StreamTweak's key — unpaired");
@@ -259,13 +262,15 @@ namespace StreamTweak.Services
                     ConfigService.Set("HueBridgeAddress", addr);
                     ConfigService.Set("HueBridgeCert", b.PinnedCert);
                     ConfigService.Set("HueBridgeModel", b.Model);
+                    // 10.1.1: the id the certificate carries, so a re-issued one can be recognised.
+                    ConfigService.Set("HueBridgeId", b.BridgeId);
                     ConfigService.Set("HueBridgeKey", Protect(key));
                     // Swapped under the read lock, so a read in flight never meets a disposed client.
                     await _lock.WaitAsync();
                     try
                     {
                         _bridge?.Dispose();
-                        _bridge = new HueBridge(addr, b.PinnedCert);
+                        _bridge = new HueBridge(addr, b.PinnedCert, b.BridgeId);
                         _key = key;
                         LastReading = null;
                     }
@@ -290,6 +295,7 @@ namespace StreamTweak.Services
         {
             ConfigService.Set("HueBridgeKey", "");
             ConfigService.Set("HueBridgeCert", "");
+            ConfigService.Set("HueBridgeId", "");
             _key = null;
             _bridge?.Dispose();
             _bridge = null;

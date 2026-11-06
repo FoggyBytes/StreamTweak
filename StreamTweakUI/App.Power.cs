@@ -13,8 +13,16 @@ namespace StreamTweak
         // and shut down") when installUpdates is true, so pending Windows updates are installed
         // first, and always with SHUTDOWN_ARSO (10.1.0). Then ExitWindowsEx, then the
         // `shutdown` CLI, each with its own ARSO flag.
+        //
+        // ⚠️ 10.1.1: with Fast Startup on, the plain power-off is a Fast Startup one
+        // (SHUTDOWN_HYBRID / EWX_HYBRID_SHUTDOWN), as the Start menu's Shut down. Without the flag
+        // InitiateShutdown always shuts down in full, and the next boot was a cold one — slower
+        // than after a Shut down from Start (Marcello, 05/11/2026). Not with updates: the Start
+        // menu's "Update and shut down" is a full one too. Refused → the full one, as before.
         private static void ShutdownHost(bool installUpdates = false)
         {
+            bool hybrid = !installUpdates && HostPowerCapabilities.FastStartupEnabled();
+            DebugLogger.Log($"[Shutdown] power off{(installUpdates ? ", installing updates" : "")}{(hybrid ? ", Fast Startup" : ", full")}");
             try
             {
                 if (TryEnableShutdownPrivilege())
@@ -23,9 +31,18 @@ namespace StreamTweak
                     // interactive prompt on a headless host). Planned reason avoids the
                     // unplanned-shutdown state-file delay (see InitiateShutdown docs).
                     // 10.1.0: InitiateShutdown for the plain power-off too, for SHUTDOWN_ARSO.
-                    uint rc = InitiateShutdownW(null, null, 0,
-                        SHUTDOWN_POWEROFF | SHUTDOWN_FORCE_SELF | SHUTDOWN_ARSO
-                        | (installUpdates ? SHUTDOWN_INSTALL_UPDATES : 0),
+                    uint flags = SHUTDOWN_POWEROFF | SHUTDOWN_FORCE_SELF | SHUTDOWN_ARSO
+                                 | (installUpdates ? SHUTDOWN_INSTALL_UPDATES : 0);
+                    if (hybrid)
+                    {
+                        uint hybridRc = InitiateShutdownW(null, null, 0, flags | SHUTDOWN_HYBRID,
+                            SHTDN_REASON_MAJOR_APPLICATION | SHTDN_REASON_FLAG_PLANNED);
+                        if (hybridRc == ERROR_SUCCESS)
+                            return;
+                        DebugLogger.Log($"[Shutdown] InitiateShutdown(Fast Startup) failed (rc {hybridRc}); a full shut down instead");
+                        hybrid = false;
+                    }
+                    uint rc = InitiateShutdownW(null, null, 0, flags,
                         SHTDN_REASON_MAJOR_APPLICATION | SHTDN_REASON_FLAG_PLANNED);
                     if (rc == ERROR_SUCCESS)
                         return;
@@ -36,7 +53,8 @@ namespace StreamTweak
                 }
 
                 if (TryEnableShutdownPrivilege() &&
-                    ExitWindowsEx(EWX_SHUTDOWN | EWX_POWEROFF | EWX_ARSO, SHTDN_REASON_MAJOR_OTHER))
+                    ExitWindowsEx(EWX_SHUTDOWN | EWX_POWEROFF | EWX_ARSO | (hybrid ? EWX_HYBRID_SHUTDOWN : 0),
+                                  SHTDN_REASON_MAJOR_OTHER))
                     return;
 
                 DebugLogger.Log($"[Shutdown] ExitWindowsEx failed (err {Marshal.GetLastWin32Error()}); falling back to shutdown.exe");
@@ -244,6 +262,9 @@ namespace StreamTweak
         private const uint SHUTDOWN_FORCE_SELF        = 0x00000002;
         private const uint SHUTDOWN_POWEROFF          = 0x00000008;
         private const uint SHUTDOWN_INSTALL_UPDATES   = 0x00000040;
+        // 10.1.1: a shut down for Fast Startup, as the Start menu's (see ShutdownHost).
+        private const uint SHUTDOWN_HYBRID            = 0x00000200;
+        private const uint EWX_HYBRID_SHUTDOWN        = 0x00400000;
         // 10.1.0: "sign in and lock the last interactive user" on the next boot (Automatic Restart
         // Sign-On), asked for explicitly — what the Start menu's Shut down does. Without it Windows
         // chose by itself, and on 02/11 and 03/11/2026 it chose not to: no session after the WOL,

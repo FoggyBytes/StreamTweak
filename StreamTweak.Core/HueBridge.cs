@@ -46,9 +46,14 @@ namespace StreamTweak
     /// against. Nothing is ever written to the bridge apart from asking it for a key when paired; the
     /// whitelist's keys never leave this class.</para>
     ///
-    /// <para><b>Whose bridge.</b> Its certificate must be named after the bridge id the bridge itself
-    /// reports (CN = "C42996FFFEC45CFA" on the BSB003, issued by Philips Hue's "root-bridge"), and the
-    /// certificate seen at pairing is pinned: a different one later is refused until paired again.</para>
+    /// <para><b>Whose bridge.</b> Its certificate must be issued by Signify — one of the two Hue root
+    /// CAs below — and named after the bridge id the bridge itself reports (CN = "C42996FFFEC45CFA" on
+    /// the BSB003). The certificate seen at pairing is pinned: a different one later is refused,
+    /// unless it is a re-issue of the same bridge's (Signify's, same id), which is taken over.</para>
+    ///
+    /// <para>⚠️ 10.1.1 (security review, 05/11/2026): until then the name was the only check before
+    /// pairing, and a name is whatever the certificate's maker writes — any device answering the mDNS
+    /// query first could present itself as a bridge with a certificate of its own making.</para>
     /// </summary>
     public sealed class HueBridge : IDisposable
     {
@@ -59,14 +64,82 @@ namespace StreamTweak
         public string Model { get; private set; } = "";
         /// <summary>Why the last <see cref="PairAsync"/> gave no key: no_bridge · bad_cert · timeout.</summary>
         public string PairFailure { get; private set; } = "";
+        /// <summary>A certificate that replaced the pinned one — the same bridge, re-issued by Signify
+        /// (a firmware update) — for the caller to save as the new pin. Null when nothing changed.</summary>
+        public string? RenewedCert { get; private set; }
 
         private readonly HttpClient _http;
+        private readonly string? _expectedId;
         private X509Certificate2? _lastCert;
+        private bool _lastFromSignify;
 
-        public HueBridge(string address, string? pinnedCert)
+        /// <summary>
+        /// Signify's two root CAs for Hue bridges: "root-bridge" (2017-2038, Philips Hue) and "Hue Root
+        /// CA 01" (2025-2050, Signify Hue, with the May 2025 firmware 1971060010 that replaced the
+        /// self-signed certificates). Published on the Hue developer site behind a login; these are
+        /// the copies openHAB's Hue binding ships (huebridge_cacert.pem), and FOGGY's BSB003 verifies
+        /// against the first (openssl verify and X509Chain, 05/11/2026). SHA-256: F0BD8E65…8D8ACF and
+        /// D8B89448…FE0328B8.
+        /// </summary>
+        private const string SignifyRootsPem = @"-----BEGIN CERTIFICATE-----
+MIICMjCCAdigAwIBAgIUO7FSLbaxikuXAljzVaurLXWmFw4wCgYIKoZIzj0EAwIw
+OTELMAkGA1UEBhMCTkwxFDASBgNVBAoMC1BoaWxpcHMgSHVlMRQwEgYDVQQDDAty
+b290LWJyaWRnZTAiGA8yMDE3MDEwMTAwMDAwMFoYDzIwMzgwMTE5MDMxNDA3WjA5
+MQswCQYDVQQGEwJOTDEUMBIGA1UECgwLUGhpbGlwcyBIdWUxFDASBgNVBAMMC3Jv
+b3QtYnJpZGdlMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEjNw2tx2AplOf9x86
+aTdvEcL1FU65QDxziKvBpW9XXSIcibAeQiKxegpq8Exbr9v6LBnYbna2VcaK0G22
+jOKkTqOBuTCBtjAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBhjAdBgNV
+HQ4EFgQUZ2ONTFrDT6o8ItRnKfqWKnHFGmQwdAYDVR0jBG0wa4AUZ2ONTFrDT6o8
+ItRnKfqWKnHFGmShPaQ7MDkxCzAJBgNVBAYTAk5MMRQwEgYDVQQKDAtQaGlsaXBz
+IEh1ZTEUMBIGA1UEAwwLcm9vdC1icmlkZ2WCFDuxUi22sYpLlwJY81Wrqy11phcO
+MAoGCCqGSM49BAMCA0gAMEUCIEBYYEOsa07TH7E5MJnGw557lVkORgit2Rm1h3B2
+sFgDAiEA1Fj/C3AN5psFMjo0//mrQebo0eKd3aWRx+pQY08mk48=
+-----END CERTIFICATE-----
+-----BEGIN CERTIFICATE-----
+MIIBzDCCAXOgAwIBAgICEAAwCgYIKoZIzj0EAwIwPDELMAkGA1UEBhMCTkwxFDAS
+BgNVBAoMC1NpZ25pZnkgSHVlMRcwFQYDVQQDDA5IdWUgUm9vdCBDQSAwMTAgFw0y
+NTAyMjUwMDAwMDBaGA8yMDUwMTIzMTIzNTk1OVowPDELMAkGA1UEBhMCTkwxFDAS
+BgNVBAoMC1NpZ25pZnkgSHVlMRcwFQYDVQQDDA5IdWUgUm9vdCBDQSAwMTBZMBMG
+ByqGSM49AgEGCCqGSM49AwEHA0IABFfOO0jfSAUXGQ9kjEDzyBrcMQ3ItyA5krE+
+cyvb1Y3xFti7KlAad8UOnAx0FBLn7HZrlmIwm1QnX0fK3LPM13mjYzBhMB0GA1Ud
+DgQWBBTF1pSpsCASX/z0VHLigxU2CAaqoTAfBgNVHSMEGDAWgBTF1pSpsCASX/z0
+VHLigxU2CAaqoTAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAKBggq
+hkjOPQQDAgNHADBEAiAk7duT+IHbOGO4UUuGLAEpyYejGZK9Z7V9oSfnvuQ5BQIg
+IYSgwwxHXm73/JgcU9lAM6c8Bmu3UE3kBIUwBs1qXFw=
+-----END CERTIFICATE-----";
+
+        private static readonly X509Certificate2Collection SignifyRoots = LoadRoots();
+
+        private static X509Certificate2Collection LoadRoots()
+        {
+            var roots = new X509Certificate2Collection();
+            roots.ImportFromPem(SignifyRootsPem);
+            return roots;
+        }
+
+        /// <summary>Whether the certificate chains to one of Signify's roots, with what the bridge
+        /// presented as intermediates. Names are not part of it: the bridge is reached by address.</summary>
+        private static bool FromSignify(X509Certificate2 leaf, X509Chain? presented)
+        {
+            using var chain = new X509Chain();
+            chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
+            chain.ChainPolicy.CustomTrustStore.AddRange(SignifyRoots);
+            chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
+            if (presented != null)
+                foreach (var element in presented.ChainElements)
+                    if (!element.Certificate.RawData.AsSpan().SequenceEqual(leaf.RawData))
+                        chain.ChainPolicy.ExtraStore.Add(element.Certificate);
+            return chain.Build(leaf);
+        }
+
+        /// <param name="expectedId">The bridge id recorded at pairing: a re-issued certificate is taken
+        /// over only when it carries this id. Null for a pairing older than 10.1.1, which then keeps
+        /// its pin as it is.</param>
+        public HueBridge(string address, string? pinnedCert, string? expectedId = null)
         {
             Address = address;
             PinnedCert = string.IsNullOrEmpty(pinnedCert) ? null : pinnedCert;
+            _expectedId = string.IsNullOrEmpty(expectedId) ? null : expectedId;
             var handler = new SocketsHttpHandler
             {
                 ConnectTimeout = TimeSpan.FromSeconds(2),
@@ -80,15 +153,28 @@ namespace StreamTweak
 
         public void Dispose() => _http.Dispose();
 
-        // The bridge's certificate is self-issued by Philips Hue, so the system store cannot vouch for
-        // it: a pinned one must match exactly; before pairing, any is accepted for /api/0/config and
-        // kept, and PairAsync checks its name against the id the bridge reports before pinning it.
+        // The bridge's certificate comes from Signify's own CA, which no system store knows. A pinned
+        // one must match exactly — or be the same bridge's, re-issued by Signify (RenewedCert). Before
+        // pairing, only a certificate from Signify is accepted, and PairAsync then checks its name
+        // against the id the bridge reports before pinning it.
         private bool CheckCertificate(object sender, X509Certificate? cert, X509Chain? chain, SslPolicyErrors errors)
         {
             if (cert == null) return false;
             var c2 = new X509Certificate2(cert);
             _lastCert = c2;
-            return PinnedCert == null || string.Equals(Hash(c2), PinnedCert, StringComparison.OrdinalIgnoreCase);
+            string hash = Hash(c2);
+            if (PinnedCert != null && string.Equals(hash, PinnedCert, StringComparison.OrdinalIgnoreCase)) return true;
+            _lastFromSignify = FromSignify(c2, chain);
+            if (PinnedCert == null) return _lastFromSignify;
+            string cn = c2.GetNameInfo(X509NameType.SimpleName, false) ?? "";
+            if (_lastFromSignify && _expectedId != null && string.Equals(cn, _expectedId, StringComparison.OrdinalIgnoreCase))
+            {
+                DebugLogger.Log($"[Hue] The bridge {cn} presents a new certificate from Signify — taken over as the pin");
+                PinnedCert = hash;
+                RenewedCert = hash;
+                return true;
+            }
+            return false;
         }
 
         private static string Hash(X509Certificate2 c) => c.GetCertHashString(HashAlgorithmName.SHA256);
@@ -182,7 +268,16 @@ namespace StreamTweak
         public async Task<string?> PairAsync(string deviceType, TimeSpan window, CancellationToken ct = default)
         {
             PairFailure = "no_bridge";
-            if (!await ReadIdentityAsync(ct) || _lastCert == null) return null;
+            if (!await ReadIdentityAsync(ct) || _lastCert == null)
+            {
+                // TLS refused by CheckCertificate: something answered, but not with Signify's certificate.
+                if (_lastCert != null && !_lastFromSignify)
+                {
+                    DebugLogger.Log($"[Hue] {Address} does not present a certificate from Signify (a bridge on software older than May 2025 does not either: update it in the Hue app) — not pairing");
+                    PairFailure = "bad_cert";
+                }
+                return null;
+            }
             string cn = _lastCert.GetNameInfo(X509NameType.SimpleName, false) ?? "";
             if (!string.Equals(cn, BridgeId, StringComparison.OrdinalIgnoreCase))
             {

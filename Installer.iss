@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v10.1.0 - GitHub Release Installer
+; StreamTweak v10.1.1 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 2.4) unpackaged deployment
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "10.1.0"
+#define MyAppVersion "10.1.1"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -348,7 +348,7 @@ procedure RemoveBridgeFirewallRule;
 var
   ResultCode: Integer;
 begin
-  Exec('netsh.exe', 'advfirewall firewall delete rule name="{#BridgeRuleName}"',
+  Exec(ExpandConstant('{sys}\netsh.exe'), 'advfirewall firewall delete rule name="{#BridgeRuleName}"',
     '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
@@ -367,7 +367,7 @@ var
 begin
   PsPath := ExePath;
   StringChangeEx(PsPath, '''', '''''', True);
-  Exec('powershell.exe',
+  Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
     '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "' +
     '$p = ''' + PsPath + '''; ' +
     'Get-NetFirewallApplicationFilter | ' +
@@ -382,7 +382,7 @@ procedure AddBridgeFirewallRule(const ExePath: String);
 var
   ResultCode: Integer;
 begin
-  Exec('netsh.exe',
+  Exec(ExpandConstant('{sys}\netsh.exe'),
     'advfirewall firewall add rule name="{#BridgeRuleName}" dir=in action=allow' +
     ' program="' + ExePath + '" protocol=TCP localport={#BridgePort} profile=any enable=yes' +
     ' description="Lets StreamLight reach StreamTweak on this host."',
@@ -399,7 +399,7 @@ begin
   // service and shutting it down — which is implicit, not guaranteed, and can race
   // with the sc delete/create that runs later in ssPostInstall.
   // A failure here is ignored on purpose: on a first install the service doesn't exist.
-  Exec('sc.exe', 'stop ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Exec(ExpandConstant('{sys}\sc.exe'), 'stop ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   // sc.exe returns as soon as the STOP is accepted, not once the service has actually
   // stopped, so give it a moment to release the file handle before the copy starts.
   Sleep(1500);
@@ -415,20 +415,39 @@ begin
   begin
     AppDir := ExpandConstant('{app}');
 
-    // Stop and remove any existing service instance before (re)creating
-    Exec('sc.exe', 'stop '   + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec('sc.exe', 'delete ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    // ⚠️ 10.1.1 (security review, 05/11/2026): the service runs StreamTweakService.exe and its
+    // DLLs from {app} as LocalSystem. Under Program Files only administrators can change them; a
+    // folder chosen elsewhere (D:\…) inherits write access for every signed-in user from its
+    // drive, and whoever replaced a file there would run as SYSTEM. Such a folder gets Program
+    // Files' rights: SYSTEM and administrators full, users and app packages read.
+    if Pos(Lowercase(ExpandConstant('{commonpf}')) + '\', Lowercase(AppDir) + '\') <> 1 then
+    begin
+      Exec(ExpandConstant('{sys}\icacls.exe'), '"' + AppDir + '" /setowner *S-1-5-32-544 /T /C /Q',
+        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Exec(ExpandConstant('{sys}\icacls.exe'), '"' + AppDir + '" /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F' +
+        ' *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX *S-1-15-2-1:(OI)(CI)RX /C /Q',
+        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      Exec(ExpandConstant('{sys}\icacls.exe'), '"' + AppDir + '\*" /reset /T /C /Q',
+        '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    end;
 
-    // Create service with automatic start, running as LocalSystem
-    Exec('sc.exe',
+    // Stop and remove any existing service instance before (re)creating
+    Exec(ExpandConstant('{sys}\sc.exe'), 'stop '   + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{sys}\sc.exe'), 'delete ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
+    // Create service with automatic start, running as LocalSystem.
+    // ⚠️ 10.1.1: the path is quoted INSIDE the value (\"…\"). sc takes the outer quotes as the
+    // argument's own, so until then the registry held C:\Program Files\StreamTweak\… with no
+    // quotes — an unquoted service path, which Windows reads as C:\Program.exe first.
+    Exec(ExpandConstant('{sys}\sc.exe'),
       'create ' + '{#ServiceName}' +
-      ' binPath= "' + AppDir + '\{#ServiceExe}"' +
+      ' binPath= "\"' + AppDir + '\{#ServiceExe}\""' +
       ' DisplayName= "StreamTweak Speed Service"' +
       ' start= auto',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
     // Set service description
-    Exec('sc.exe',
+    Exec(ExpandConstant('{sys}\sc.exe'),
       'description ' + '{#ServiceName}' +
       ' "Applies network adapter speed changes for StreamTweak without UAC prompts."',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
@@ -437,12 +456,12 @@ begin
     // NVML, and an NVML call can fault during a driver reset (TDR): without this the service
     // stayed down until the next reboot, NIC control included. 5 s, every time; the failure
     // count resets after a day.
-    Exec('sc.exe',
+    Exec(ExpandConstant('{sys}\sc.exe'),
       'failure ' + '{#ServiceName}' + ' reset= 86400 actions= restart/5000/restart/5000/restart/5000',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
     // Start the service immediately
-    Exec('sc.exe', 'start ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{sys}\sc.exe'), 'start ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
     // Open the bridge port to clients (9.2.1) — see AddBridgeFirewallRule.
     RemoveBridgeFirewallRule;
@@ -457,13 +476,13 @@ var
 begin
   if CurUninstallStep = usUninstall then
   begin
-    Exec('sc.exe', 'stop '   + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    Exec('sc.exe', 'delete ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{sys}\sc.exe'), 'stop '   + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{sys}\sc.exe'), 'delete ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     // Remove autostart registry entry if the user had it enabled in-app
     RegDeleteValue(HKCU, 'SOFTWARE\Microsoft\Windows\CurrentVersion\Run', 'StreamTweak');
     // ...and the logon task, if the user chose Priority instead. Without this the task
     // survives the uninstall and fails at every logon, forever, launching an exe that is gone.
-    Exec('schtasks.exe', '/Delete /TN "StreamTweak Startup" /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{sys}\schtasks.exe'), '/Delete /TN "StreamTweak Startup" /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     // ...and the bridge's firewall rule (9.2.1), which would otherwise outlive the exe.
     RemoveBridgeFirewallRule;
   end;

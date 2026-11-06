@@ -4,6 +4,24 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+----------------------------------------------------
+Version 10.1.1 - "The Safe Path Update" (06/11/2026)
+----------------------------------------------------
+
+Out the same day as StreamLight 8.5.0, from the same security review; works with any StreamLight.
+
+🔒 SECURITY:
+• The service's path is quoted — the setup registered StreamTweak's service, which runs with the system's own rights, with its path unquoted; installed in a folder with a space in its name and a writable folder above it, another program could have been started in its place. The service is registered again at every install, so updating fixes it
+• Installed outside Program Files — in a folder elsewhere (D:\…), the setup gives StreamTweak's folder the permissions of Program Files, so no other user can replace the files the service runs
+• The setup runs Windows' own tools — sc, netsh, schtasks and PowerShell are started from Windows' system folder, never looked for in the folder the setup was opened from
+
+🌙 REMOTE POWER:
+• Shut down like the Start menu — a shut down from StreamLight was always a full one, so this PC started up more slowly than after a Shut down from Start; with Windows' Fast Startup on, it now uses it too ("Update and shut down" stays a full one, as in Start)
+
+💡 HUE SYNC:
+• Only a real Hue bridge is paired — before pairing, the bridge's certificate must now come from Signify, Philips Hue's maker; a device on the network answering first, with a certificate of its own making, could have posed as the bridge. A bridge on software older than May 2025 has to be updated in the Hue app first
+• A renewed certificate is kept — when a firmware update gives the bridge a new certificate from Signify, StreamTweak takes it over by itself instead of losing the bridge until it is paired again (bridges paired with 10.1.1 or later)
+
 --------------------------------------------------------
 Version 10.1.0 - "The Shared Lights Update" (03/11/2026)
 --------------------------------------------------------
