@@ -36,8 +36,9 @@ DirExistsWarning=no
 ; force since 10.2.1: Restart Manager first asks StreamTweak to close, and only ends it if it
 ; does not. StreamTweak up to 10.2.0 never answered that request (it lives in the tray, so
 ; Restart Manager has no window to close), and the setup stopped on "unable to automatically
-; close all applications". From 10.2.1 the app exits by itself (Services/TrayIcon.cs); force
-; is for the older versions still running when their update starts.
+; close all applications". From 10.2.1 the app exits by itself (Services/TrayIcon.cs), and an
+; older one running from {app} is ended in PrepareToInstall without waiting
+; (EndStreamTweakOlderThan1021); force is the net for anything those two miss.
 CloseApplications=force
 Compression=lzma2
 SolidCompression=yes
@@ -394,10 +395,33 @@ begin
     '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
+// 10.2.1: a StreamTweak older than 10.2.1 never answers Restart Manager's request to close
+// (it lives in the tray), so CloseApplications=force waited out Restart Manager's timeout
+// before ending it — tens of seconds on the first update to 10.2.1, measured on 07/11/2026
+// in the RestartManager event log. Ending it here, before the setup looks for files in use,
+// is the same forced end without the wait. From 10.2.1 the app closes itself, cleanly, when
+// Restart Manager asks, so a newer version is left alone.
+procedure EndStreamTweakOlderThan1021;
+var
+  Exe: String;
+  Installed: Int64;
+  ResultCode: Integer;
+begin
+  Exe := ExpandConstant('{app}\{#MyAppExeName}');
+  if not FileExists(Exe) or not GetPackedVersion(Exe, Installed) then
+    Exit;
+  if ComparePackedVersion(Installed, PackVersionComponents(10, 2, 1, 0)) >= 0 then
+    Exit;
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#MyAppExeName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Log('StreamTweak older than 10.2.1: taskkill -> ' + IntToStr(ResultCode));
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
 begin
+  EndStreamTweakOlderThan1021;
+
   // Stop the service BEFORE [Files] copies anything. On an upgrade over a running
   // install, StreamTweakService.exe holds a lock on its own binary, so overwriting it
   // would otherwise depend on Restart Manager (CloseApplications=yes) noticing the
