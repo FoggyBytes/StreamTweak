@@ -3,7 +3,8 @@
   <PropertyGroup>
     <!-- Stesso TFM del progetto WPF: garantisce accesso alle stesse API WinRT (Spatial Audio,
          Windows.Graphics.Imaging, ecc.) senza dipendenze WPF (UseWPF non è presente). -->
-    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <!-- .NET 10 since 10.2.0 (.NET 8 leaves support on 10/11/2026): the same in all five projects. -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -18,7 +19,7 @@
     <!-- CIM/WMI per NetworkManager e SpeedChanger -->
     <PackageReference Include="Microsoft.Management.Infrastructure" Version="3.0.0" />
     <!-- PDH PerformanceCounter per HostMetricsCollector -->
-    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.14" />
     <!-- No SQLite package since 9.2.4: the GOG reader uses Windows' own winsqlite3.dll
          (WinSqlite.cs). Microsoft.Data.Sqlite brought SQLitePCLRaw and e_sqlite3.dll, four
          files published unsigned (§92.16) — and with them went the SQLitePCLRaw 3.0.3 pin

@@ -1,6 +1,6 @@
 ## <img src="installer/resources/streamtweak.png" alt="" width="32" height="32" align="absmiddle"> StreamTweak
 
-![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue.svg) ![Framework](https://img.shields.io/badge/Framework-.NET%208%20%2F%20WinUI%203-purple.svg) ![Downloads](.badges/downloads.svg) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-brightgreen.svg)](https://claude.ai/code) [![Support on Ko-fi](https://img.shields.io/badge/Support-Ko--fi-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/foggybytes)
+![Platform](https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011-blue.svg) ![Framework](https://img.shields.io/badge/Framework-.NET%2010%20%2F%20WinUI%203-purple.svg) ![Downloads](.badges/downloads.svg) [![Built with Claude Code](https://img.shields.io/badge/Built%20with-Claude%20Code-brightgreen.svg)](https://claude.ai/code) [![Support on Ko-fi](https://img.shields.io/badge/Support-Ko--fi-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/foggybytes)
 
 <div align="center">
   <img width="1582" height="892" alt="Immagine 2026-10-23 112513" src="https://github.com/user-attachments/assets/d4ba727f-cd51-410a-9c39-77556ee48b8f" />
@@ -106,22 +106,12 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched in Settings here, and on the device too
 - **Hue Sync** *(8.4.0+)* — StreamLight's Hue Sync tab reads the bridge's areas and who has the lights over `HUESYNC`, starts pairing with `HUEPAIR` and sets the two rules with `SETHUE`, with Host management; no address, key or area ever comes from the client. *Take back*, which restarts Hue Sync on the client, needs nothing from this host
 
-## ✨ What's New in 10.1.1 — "The Safe Path Update"
+## ✨ What's New in 10.2.0 — "The New Footing Update"
 
-Works with any StreamLight; out the same day as StreamLight 8.5.0.
+Works with any StreamLight.
 
-- **The service's path is quoted** — StreamTweak's service, which runs with the system's rights, was registered with an unquoted path; updating registers it again, quoted
-- **Installed outside Program Files** — a folder elsewhere gets the permissions of Program Files, so no other user can replace what the service runs
-- **Shut down like the Start menu** — with Windows' Fast Startup on, a shut down from StreamLight uses it, so the next start is as quick as after a Shut down from Start
-- **Only a real Hue bridge is paired** — its certificate must come from Signify, and a certificate the bridge gets with a firmware update is taken over by itself
-
-## ✨ What's New in 10.1.0 — "The Shared Lights Update"
-
-Pairs with StreamLight 8.4.0.
-
-- **Hue Sync waits its turn** — a new *Hue Sync* page under Setup: StreamTweak starts Hue Sync on this PC only while no other device is syncing the lights, so waking it from a client that is already syncing no longer takes them away
-- **From StreamLight** — StreamLight 8.4.0's Hue Sync tab shows the bridge's areas and who has the lights, and sets the rules
-- **Back for the PIN pad** — a shut down or restart from StreamLight now asks Windows to sign you in and lock this PC at the next start, so StreamTweak is there when a client wakes it
+- **Runs on .NET 10** — .NET 8 stops receiving security fixes on 10 November 2026; .NET 10 is supported until November 2028. The installer fetches its runtime only if it is missing
+- **Windows App SDK 2.6** — the latest release of the UI framework, with fixes for crashes in the sidebar and when the app closes; its runtime installs alongside the older ones
 
 *Older releases are in [changelog.txt](changelog.txt).*
 
@@ -129,7 +119,7 @@ Pairs with StreamLight 8.4.0.
 
 Three components:
 
-- **`StreamTweakUI.exe`** — the WinUI 3 tray app, unprivileged, on Windows App SDK 2.4
+- **`StreamTweakUI.exe`** — the WinUI 3 tray app, unprivileged, on Windows App SDK 2.6 and .NET 10
 - **`StreamTweak.Core`** — shared logic: NIC control, audio, game library, telemetry, NVIDIA Sentinel, Tailscale detection, the TCP bridge
 - **`StreamTweakService.exe`** — a LocalSystem Windows Service reached over a named pipe, which performs the NIC changes, host-asset writes and Windows Update work, so no UAC prompt ever appears
 
@@ -151,7 +141,7 @@ StreamTweak (WinUI 3, host PC)  →  Named Pipe  →  StreamTweakService (LocalS
 
 Download the latest installer from the [Releases](https://github.com/FoggyBytes/StreamTweak/releases) page and run it.
 
-It registers `StreamTweakService` as a LocalSystem Windows Service, which is what keeps NIC and host-asset operations free of UAC prompts. The Windows App SDK 2.4 runtime is fetched only if missing, and installs alongside any older 1.x runtime, so upgrading from 7.x needs no uninstall.
+It registers `StreamTweakService` as a LocalSystem Windows Service, which is what keeps NIC and host-asset operations free of UAC prompts. The .NET 10 and Windows App SDK 2.6 runtimes are fetched only if missing, and install alongside any older ones, so upgrading needs no uninstall.
 
 ## 🙏 Support the Project
 

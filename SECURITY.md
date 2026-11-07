@@ -104,7 +104,7 @@ Installation:
 
 - installs to Program Files and registers **StreamTweak Speed Service** (LocalSystem, automatic start, restarted by Windows if it stops) with its path quoted — unquoted before 10.1.1; a folder chosen outside Program Files is given Program Files' permissions, so only administrators can change what the service runs, and the system tools the setup calls are taken from Windows' own folder;
 - adds the **StreamTweak Bridge** firewall rule for TCP 47998, and removes *block* rules that an earlier "Windows Security Alert" answer may have left on `StreamTweakUI.exe`;
-- installs the .NET 8 runtime and the Windows App SDK runtime if they are missing.
+- installs the .NET 10 runtime (.NET 8 before 10.2.0) and the Windows App SDK runtime if they are missing.
 
 While running, and only for the features you turn on: the network adapter's link speed, spatial audio, the games listed by your streaming server, the server's Desktop/Steam tile pictures, closing and reopening the apps you list in *Setup › Apps*, starting Hue Sync only while the lights are free (*Setup › Hue Sync*, with the Hue bridge's key kept in `config.json`), start with Windows (a Run entry or a scheduled task), and — when an approved client asks — sleep, restart, shutdown, Windows Update and, with *Host management*, a library sync with a restart of the streaming server.
 

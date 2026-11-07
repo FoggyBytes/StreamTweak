@@ -4,6 +4,16 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+------------------------------------------------------
+Version 10.2.0 - "The New Footing Update" (07/11/2026)
+------------------------------------------------------
+
+Works with any StreamLight.
+
+🧹 UNDER THE HOOD:
+• Runs on .NET 10 — .NET 8, which StreamTweak used until now, stops receiving security fixes on 10 November 2026; .NET 10 is supported until November 2028. The installer fetches the .NET 10 runtime only if it is missing, and leaves the .NET 8 one on the PC for the apps that still use it
+• Updated to Windows App SDK 2.6 — the latest release of the UI framework, with fixes for crashes in the sidebar and when the app closes; the installer fetches the 2.6 runtime only if it is missing and installs it alongside whatever is already on the PC, so nothing needs uninstalling
+
 ----------------------------------------------------
 Version 10.1.1 - "The Safe Path Update" (06/11/2026)
 ----------------------------------------------------

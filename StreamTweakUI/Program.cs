@@ -11,13 +11,13 @@ namespace StreamTweak
     /// by the time the <c>App</c> constructor runs, XAML is already up and the
     /// settings are locked (<c>XamlOptionalChanges.IsLocked()</c> returns true).
     ///
-    /// The body below mirrors the compiler-generated Main verbatim. With
-    /// DISABLE_XAML_GENERATED_MAIN the generated version is kept but renamed to
-    /// <c>XamlGeneratedProgram.XamlGeneratedMain</c> — it is emitted without an
-    /// access modifier (so, private) and therefore cannot be called from here.
-    /// Hence the copy. It is four lines and has been stable across SDK versions,
-    /// but if a future Windows App SDK changes its startup sequence, re-check
-    /// App.g.i.cs in obj\ and mirror it again.
+    /// With DISABLE_XAML_GENERATED_MAIN the compiler-generated Main is kept but renamed
+    /// to <c>XamlGeneratedProgram.XamlGeneratedMain</c>, and this Main calls it once the
+    /// opt-ins are in. It is <c>internal</c> since Windows App SDK 2.4.0 ("access
+    /// modifier" fix in its release notes); until then it was emitted private, so up to
+    /// 10.1.1 this file carried a copy of its body that had to be mirrored by hand
+    /// whenever the SDK changed the startup sequence. Calling it keeps whatever the
+    /// SDK generates (App.g.i.cs in obj\, which ends in App.g.cs's <c>new App()</c>).
     /// </summary>
     public static class Program
     {
@@ -38,14 +38,9 @@ namespace StreamTweak
 
             ApplyXamlPerformanceOptIns();
 
-            global::WinRT.ComWrappersSupport.InitializeComWrappers();
-            global::Microsoft.UI.Xaml.Application.Start((p) =>
-            {
-                var context = new global::Microsoft.UI.Dispatching.DispatcherQueueSynchronizationContext(
-                    global::Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
-                global::System.Threading.SynchronizationContext.SetSynchronizationContext(context);
-                new App();
-            });
+            // COM wrappers, Application.Start, the dispatcher's SynchronizationContext and
+            // new App() — the SDK's own sequence, generated at build time.
+            XamlGeneratedProgram.XamlGeneratedMain();
         }
 
         /// <summary>
@@ -59,6 +54,8 @@ namespace StreamTweak
         /// 2.4 adds none: the enum was read out of the metadata of both SDK builds and is
         /// byte-for-byte the same set — these four plus a _Reserved member. So there is no
         /// new opt-in to consider on the 2.3.1 → 2.4.0 move, and nothing here had to change.
+        /// Nor does 2.6.5 (10.2.0): WinUI 2.3.6 and 2.6.5 list the same five members with the
+        /// same values, read the same way on 07/11/2026.
         ///
         /// Every call is logged: EnableChange returns false if the setting was rejected or
         /// applied too late, so debug.log is the ground truth on whether these took effect.

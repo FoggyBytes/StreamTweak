@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <Platforms>x64</Platforms>
     <Nullable>enable</Nullable>
@@ -12,18 +12,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.14" />
     <PackageReference Include="Microsoft.Management.Infrastructure" Version="3.0.0" />
-    <PackageReference Include="System.IO.Pipes.AccessControl" Version="5.0.0" />
     <!--
-      Explicit reference to override the transitive System.Text.Json brought in by
-      Microsoft.Extensions.Hosting.WindowsServices 8.0.0 (which pulls 8.0.0).
-      Closes Dependabot alerts:
-        • CVE-2024-30105 (GHSA-hh2w-p6rv-4g7w) — DoS, fixed in 8.0.4
-        • CVE-2024-43485 (GHSA-8g4q-xg66-9fp4) — DoS, fixed in 8.0.5
-      Pinned to the latest stable 8.x patch (LTS line, matching net8.0 TFM).
+      10.2.0: System.IO.Pipes.AccessControl 5.0.0 and the System.Text.Json 8.0.6 pin are gone.
+      On .NET 10 both are part of the shared framework (the SDK flags them NU1510), so the
+      runtime the setup installs services them — including the two DoS CVEs the pin closed on
+      the 8.0 line (CVE-2024-30105, CVE-2024-43485).
     -->
-    <PackageReference Include="System.Text.Json" Version="8.0.6" />
   </ItemGroup>
 
   <ItemGroup>

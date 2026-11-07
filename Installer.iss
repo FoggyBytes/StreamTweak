@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v10.1.1 - GitHub Release Installer
-; WinUI 3 (Windows App SDK 2.4) unpackaged deployment
+; StreamTweak v10.2.0 - GitHub Release Installer
+; WinUI 3 (Windows App SDK 2.6) unpackaged deployment, .NET 10
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "10.1.1"
+#define MyAppVersion "10.2.0"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -38,7 +38,7 @@ Compression=lzma2
 SolidCompression=yes
 OutputDir=Output
 OutputBaseFilename=StreamTweak_{#MyAppVersion}_Installer
-; WinUI 3 + Windows App SDK 2.4 require Windows 10 1903+ (build 18362) — the 2.x line
+; WinUI 3 + Windows App SDK 2.x require Windows 10 1903+ (build 18362) — the 2.x line
 ; raised this from the 1809 (17763) floor of the 1.x line.
 ; StreamTweak targets 19041 (20H1), which is stricter than both, so nothing changes here.
 MinVersion=10.0.19041
@@ -111,10 +111,10 @@ Type: files; Name: "{app}\Resources\paypal.svg"
 ;                                  from the 6.2.x era can still sit in bin and would be
 ;                                  swept in by recursesubdirs — it holds browsing cache
 ;                                  and cookies and must never ship. Safety net only.
-Source: "StreamTweakUI\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb,ref\*,StreamTweakUI.exe.WebView2\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "StreamTweakUI\bin\x64\Release\net10.0-windows10.0.19041.0\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb,ref\*,StreamTweakUI.exe.WebView2\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; ── Background service (LocalSystem account, manages NIC speed via CIM) ─────
-Source: "StreamTweakService\bin\x64\Release\net8.0-windows\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb,ref\*"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "StreamTweakService\bin\x64\Release\net10.0-windows\win-x64\*"; DestDir: "{app}"; Excludes: "*.pdb,ref\*"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 ; ── Release notes ────────────────────────────────────────────────────────────
 Source: "changelog.txt"; DestDir: "{app}"; Flags: ignoreversion
@@ -490,9 +490,10 @@ end;
 
 function InitializeSetup: Boolean;
 begin
-  // .NET 8 base runtime (Microsoft.NETCore.App) — WinUI 3 does not need Desktop runtime
-  Dependency_AddDotNet80;
-  // Windows App SDK 2.4 runtime — provides the WinUI 3 XAML framework (DDLM package)
-  Dependency_AddWindowsAppRuntime24;
+  // .NET 10 base runtime (Microsoft.NETCore.App) — WinUI 3 does not need Desktop runtime.
+  // .NET 8 until 10.1.1; an old 8.0 runtime stays on the PC, shared with other apps.
+  Dependency_AddDotNet100;
+  // Windows App SDK 2.6 runtime — provides the WinUI 3 XAML framework (DDLM package)
+  Dependency_AddWindowsAppRuntime26;
   Result := True;
 end;

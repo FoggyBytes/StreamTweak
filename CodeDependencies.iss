@@ -551,11 +551,13 @@ end;
 procedure Dependency_AddDotNet100;
 begin
   // https://dotnet.microsoft.com/download/dotnet/10.0
-  if not Dependency_IsNetCoreInstalled('Microsoft.NETCore.App', 10, 0, 3) then begin
+  // StreamTweak 10.2.0: raised from 10.0.3 to 10.0.14 (25/10/2026, a security release), and the
+  // minimum is the version downloaded — an older 10.0 on the PC is topped up, not trusted.
+  if not Dependency_IsNetCoreInstalled('Microsoft.NETCore.App', 10, 0, 14) then begin
     Dependency_Add('dotnet100' + Dependency_ArchSuffix + '.exe',
       '/lcid ' + IntToStr(GetUILanguage) + ' /passive /norestart',
-      '.NET Runtime 10.0.3' + Dependency_ArchTitle,
-      Dependency_String('https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.3/dotnet-runtime-10.0.3-win-x86.exe', 'https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.3/dotnet-runtime-10.0.3-win-x64.exe'),
+      '.NET Runtime 10.0.14' + Dependency_ArchTitle,
+      Dependency_String('https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.14/dotnet-runtime-10.0.14-win-x86.exe', 'https://builds.dotnet.microsoft.com/dotnet/Runtime/10.0.14/dotnet-runtime-10.0.14-win-x64.exe'),
       '', False, False);
   end;
 end;
@@ -844,23 +846,25 @@ begin
   end;
 end;
 
-procedure Dependency_AddWindowsAppRuntime24;
+procedure Dependency_AddWindowsAppRuntime26;
 begin
   // https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads
-  // Windows App SDK 2.4 (2.4.0) — required by WinUI 3 unpackaged apps.
+  // Windows App SDK 2.6 (2.6.5, since StreamTweak 10.2.0) — required by WinUI 3 unpackaged apps.
   // The installer handles idempotency itself (exits 0 if already present),
   // so ForceSuccess=True is safe. We ship x64 only; 2.x also has x86/arm64 builds.
-  // Coexists side-by-side with the 1.x runtimes: nothing needs uninstalling.
+  // Coexists side-by-side with the 1.x runtimes and older 2.x ones: nothing needs uninstalling.
   //
-  // The detection helper above needs NO change for 2.4: since 2.0 the package family
-  // name tracks the MAJOR version only, so 2.4 lands under the same
+  // The detection helper above needs NO change for 2.6: since 2.0 the package family
+  // name tracks the MAJOR version only, so 2.6 lands under the same
   // "Microsoft.WindowsAppRuntime.2_" prefix and is caught by the version compare.
-  // Only the minimum and the download URL move.
-  if not Dependency_HasWindowsAppRuntime2('2.4.0.0') then begin
+  // Only the minimum and the download URL move. 2.6.5 registers as
+  // Microsoft.WindowsAppRuntime.2_2.6.5.0_x64__8wekyb3d8bbwe (measured on 07/11/2026), and
+  // 2.6.4.0 must NOT pass: it is the release with the Windows 10 transparency regression.
+  if not Dependency_HasWindowsAppRuntime2('2.6.5.0') then begin
     Dependency_Add('WindowsAppRuntimeInstall-x64.exe',
       '--quiet',
-      'Windows App Runtime 2.4',
-      'https://aka.ms/windowsappsdk/2.4/2.4.0/windowsappruntimeinstall-x64.exe',
+      'Windows App Runtime 2.6',
+      'https://aka.ms/windowsappsdk/2.6/2.6.5/windowsappruntimeinstall-x64.exe',
       '', True, False);
   end;
 end;

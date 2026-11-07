@@ -17,8 +17,8 @@ name: Build Windows
 # Same layout as StreamLight's workflow of the same name.
 #
 # Differences from the local build, on purpose:
-#  - the .NET SDK is the latest 10.0.x (the one that builds here too; it targets net8.0),
-#    logged below;
+#  - the .NET SDK is the latest 10.0.x (the one that builds here too; the projects target
+#    net10.0 since 10.2.0, net8.0 before), logged below;
 #  - the bin folders start empty, so nothing left over from an older build can be swept into
 #    the installer.
 
@@ -51,8 +51,8 @@ env:
   DOTNET_NOLOGO: '1'
   DOTNET_CLI_TELEMETRY_OPTOUT: '1'
   # The folders Installer.iss sweeps into {app}.
-  UI_BIN: StreamTweakUI\bin\x64\Release\net8.0-windows10.0.19041.0\win-x64
-  SERVICE_BIN: StreamTweakService\bin\x64\Release\net8.0-windows\win-x64
+  UI_BIN: StreamTweakUI\bin\x64\Release\net10.0-windows10.0.19041.0\win-x64
+  SERVICE_BIN: StreamTweakService\bin\x64\Release\net10.0-windows\win-x64
 
 jobs:
   build:

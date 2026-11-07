@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <!-- Stesso TFM di Core: garantisce accesso alle stesse API WinRT -->
-    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <RootNamespace>StreamTweak</RootNamespace>
@@ -42,13 +42,15 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
+    <!-- 2.6.5 since 10.2.0. From 2.6 every sub-package carries the same number (WinUI was
+         2.3.6 under 2.4.0); the runtime it needs registers as 2.6.5.0 (CodeDependencies.iss). -->
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.6.5" />
     <!-- No tray package since 9.2.4: Services/TrayIcon.cs on Shell_NotifyIcon replaced
          H.NotifyIcon.WinUI, whose three assemblies are published unsigned (§92.16). -->
     <!-- SystemEvents.SessionEnding (App.xaml.cs, the session saved at Windows shutdown) used
-         to arrive unannounced through H.NotifyIcon → System.Drawing.Common. Named now; 8.0.0
-         is the version that came that way (file 8.0.23.53103), signed by .NET. -->
-    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="8.0.0" />
+         to arrive unannounced through H.NotifyIcon → System.Drawing.Common. Named since 9.2.4;
+         on the .NET line of the TFM since 10.2.0, signed by .NET. -->
+    <PackageReference Include="Microsoft.Win32.SystemEvents" Version="10.0.14" />
   </ItemGroup>
 
   <ItemGroup>
