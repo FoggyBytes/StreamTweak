@@ -4,6 +4,15 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-----------------------------------------------------
+Version 10.2.1 - "The Clean Swap Update" (07/11/2026)
+-----------------------------------------------------
+
+Works with any StreamLight.
+
+🐛 BUG FIXES:
+• Updating while StreamTweak is running no longer stops on "Setup was unable to automatically close all applications" — StreamTweak lives in the tray and never answered the setup's request to close; it now exits by itself, and the setup closes a version that does not answer, as the 10.2.0 still running during this update
+
 ------------------------------------------------------
 Version 10.2.0 - "The New Footing Update" (07/11/2026)
 ------------------------------------------------------

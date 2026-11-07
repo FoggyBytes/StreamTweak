@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v10.2.0 - GitHub Release Installer
+; StreamTweak v10.2.1 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 2.6) unpackaged deployment, .NET 10
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "10.2.0"
+#define MyAppVersion "10.2.1"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -33,7 +33,12 @@ WizardImageFile=installer\resources\streamtweakinstaller.png
 UninstallDisplayIcon={app}\Resources\streamtweak.ico
 AllowNoIcons=yes
 DirExistsWarning=no
-CloseApplications=yes
+; force since 10.2.1: Restart Manager first asks StreamTweak to close, and only ends it if it
+; does not. StreamTweak up to 10.2.0 never answered that request (it lives in the tray, so
+; Restart Manager has no window to close), and the setup stopped on "unable to automatically
+; close all applications". From 10.2.1 the app exits by itself (Services/TrayIcon.cs); force
+; is for the older versions still running when their update starts.
+CloseApplications=force
 Compression=lzma2
 SolidCompression=yes
 OutputDir=Output

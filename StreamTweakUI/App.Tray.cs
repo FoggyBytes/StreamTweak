@@ -29,6 +29,12 @@ namespace StreamTweak
                 _trayIcon = new TrayIcon(
                     toolTip: "StreamTweak",
                     onDoubleClick: ShowMainWindow,
+                    // The setup of an update asking for its files (10.2.1): exit as Exit does.
+                    onCloseApp: () =>
+                    {
+                        DebugLogger.Log("[Tray] the setup asked StreamTweak to close (Restart Manager) — exiting");
+                        ExitApp();
+                    },
                     menu:
                     [
                         new TrayIcon.MenuItem("Open StreamTweak", () => { ShowMainWindow(); MainWindow?.NavigateTo("Status"); }),

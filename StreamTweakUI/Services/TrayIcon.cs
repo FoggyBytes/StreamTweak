@@ -24,8 +24,11 @@ namespace StreamTweak.Services
         private const string ClassName = "StreamTweakTrayIcon";
         private const uint IconId = 1;
         private const uint CallbackMessage = WM_APP + 1;
+        // Posted to ourselves to leave the WM_ENDSESSION handler before the app exits.
+        private const uint CloseAppMessage = WM_APP + 2;
 
         private readonly Action _onDoubleClick;
+        private readonly Action _onCloseApp;
         private readonly IReadOnlyList<MenuItem?> _menu;
         // Kept in a field: the window calls back into it for as long as it exists, and a
         // collected delegate would crash the process on the next message.
@@ -39,10 +42,13 @@ namespace StreamTweak.Services
         private string _toolTip;
         private bool _added;
 
-        public TrayIcon(string toolTip, Action onDoubleClick, IReadOnlyList<MenuItem?> menu)
+        /// <param name="onCloseApp">Run when Restart Manager asks the app to close so files can be
+        /// replaced — the setup of an update (10.2.1). The app must exit: it is not asked twice.</param>
+        public TrayIcon(string toolTip, Action onDoubleClick, Action onCloseApp, IReadOnlyList<MenuItem?> menu)
         {
             _toolTip = toolTip;
             _onDoubleClick = onDoubleClick;
+            _onCloseApp = onCloseApp;
             _menu = menu;
             _wndProc = WndProc;
             _taskbarCreated = NativeMethods.RegisterWindowMessageW("TaskbarCreated");
@@ -179,6 +185,33 @@ namespace StreamTweak.Services
                 return IntPtr.Zero;
             }
 
+            // 10.2.1: Restart Manager — what Inno Setup's CloseApplications uses to free the files
+            // an update replaces — sees StreamTweak as an app with no visible top-level window
+            // (RmOtherWindow: it lives in the tray) and closes it only with these two messages,
+            // flagged ENDSESSION_CLOSEAPP. Left to DefWindowProc nothing exited, Restart Manager
+            // timed out and the setup stopped on "unable to automatically close all
+            // applications". A real sign-out or shut down never carries the flag and still
+            // goes to DefWindowProc (SystemEvents.SessionEnding handles that one).
+            if ((msg == WM_QUERYENDSESSION || msg == WM_ENDSESSION) &&
+                (lParam.ToInt64() & ENDSESSION_CLOSEAPP) != 0)
+            {
+                if (msg == WM_QUERYENDSESSION)
+                    return (IntPtr)1;   // yes, we can close
+                if (wParam != IntPtr.Zero)
+                {
+                    // Out of this handler first: Restart Manager sends it and waits for the
+                    // answer, and the exit (session, bridge, monitors) takes longer than that.
+                    NativeMethods.PostMessageW(_hwnd, CloseAppMessage, IntPtr.Zero, IntPtr.Zero);
+                }
+                return IntPtr.Zero;
+            }
+
+            if (msg == CloseAppMessage)
+            {
+                Run(_onCloseApp);
+                return IntPtr.Zero;
+            }
+
             return NativeMethods.DefWindowProcW(hWnd, msg, wParam, lParam);
         }
 
@@ -225,6 +258,9 @@ namespace StreamTweak.Services
         // ── Win32 ────────────────────────────────────────────────────────────
 
         private const uint WM_NULL          = 0x0000;
+        private const uint WM_QUERYENDSESSION = 0x0011;
+        private const uint WM_ENDSESSION    = 0x0016;
+        private const long ENDSESSION_CLOSEAPP = 0x00000001;
         private const uint WM_CONTEXTMENU   = 0x007B;
         private const uint WM_LBUTTONDBLCLK = 0x0203;
         private const uint WM_APP           = 0x8000;
