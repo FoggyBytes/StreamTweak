@@ -280,6 +280,36 @@ namespace StreamTweak.Views
 
         private void ClearPicks_Click(object sender, RoutedEventArgs e) => ViewModel.ClearPicks();
 
+        private void AllShown_Click(object sender, RoutedEventArgs e) => ViewModel.ToggleAllShown();
+
+        /// <summary>10.3.0: the ticked sessions, deleted after one confirmation.</summary>
+        private async void DeletePicked_Click(object sender, RoutedEventArgs e)
+        {
+            int n = ViewModel.PickedCount;
+            if (n == 0) return;
+            var dialog = new ContentDialog
+            {
+                Title             = n == 1 ? "Delete this session?" : $"Delete {n} sessions?",
+                Content           = new TextBlock
+                {
+                    Text = (n == 1 ? "The session and its charts are" : "They go from the history, their charts and grades with them, and are")
+                           + " removed for good. This cannot be undone.",
+                    TextWrapping = TextWrapping.Wrap, FontFamily = DmSans, Foreground = new SolidColorBrush(DialogBodyText),
+                },
+                PrimaryButtonText = "Delete",
+                CloseButtonText   = "Cancel",
+                DefaultButton     = ContentDialogButton.Close,
+                XamlRoot          = this.XamlRoot,
+            };
+            ApplyDialogChrome(dialog);
+            ApplyDangerAccentPalette(dialog);
+            if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+            ViewModel.DeletePicked();
+            ViewModel.CloseDetail();
+            ApplyLayout();
+        }
+
         private void ComparePicked_Click(object sender, RoutedEventArgs e) => ViewModel.ComparePicked();
 
         private void RowCompare_Click(object sender, RoutedEventArgs e)

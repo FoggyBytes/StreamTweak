@@ -134,17 +134,34 @@
                         </NavigationViewItem.Icon>
                     </NavigationViewItem>
 
-                    <NavigationViewItem Tag="Audio" Content="Spatial audio">
-                        <NavigationViewItem.Icon>
-                            <FontIcon Glyph="&#xE7F6;" FontFamily="Segoe MDL2 Assets"/>
-                        </NavigationViewItem.Icon>
-                    </NavigationViewItem>
+                    <!-- 10.3.0 (Marcello, 10/11/2026): two blocks. Setup = what the stream needs between
+                         host and client (who connects, the link, what closes); This PC = the devices of this
+                         PC a stream touches (GPU, audio, controllers, lights). Same page, SetupView. -->
+                    <NavigationViewItemHeader Content="This PC"/>
 
                     <NavigationViewItem x:Name="NavSentinel" Tag="Sentinel" Content="NVIDIA Sentinel">
                         <NavigationViewItem.Icon>
                             <ImageIcon>
                                 <ImageIcon.Source>
                                     <SvgImageSource UriSource="ms-appx:///Resources/nvidia-eye.svg"/>
+                                </ImageIcon.Source>
+                            </ImageIcon>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+
+                    <NavigationViewItem Tag="Audio" Content="Spatial audio">
+                        <NavigationViewItem.Icon>
+                            <FontIcon Glyph="&#xE7F6;" FontFamily="Segoe MDL2 Assets"/>
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+
+                    <!-- 10.3.0: Xbox controllers turned off with this PC (the service's XboxControllerPower).
+                         Microsoft controllers only, hence Xbox's logo. -->
+                    <NavigationViewItem Tag="Xbox" Content="Xbox controllers">
+                        <NavigationViewItem.Icon>
+                            <ImageIcon>
+                                <ImageIcon.Source>
+                                    <SvgImageSource UriSource="ms-appx:///Resources/xbox-logo.svg"/>
                                 </ImageIcon.Source>
                             </ImageIcon>
                         </NavigationViewItem.Icon>

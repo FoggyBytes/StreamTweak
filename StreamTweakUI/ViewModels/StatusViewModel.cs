@@ -5,7 +5,7 @@ using StreamTweak.Services;
 
 namespace StreamTweak.ViewModels
 {
-    /// <summary>One of Status's eight tiles: a component, how it is, where it is set.</summary>
+    /// <summary>One of Status's tiles: a component, how it is, where it is set.</summary>
     public sealed class StatusRow
     {
         public string Key    { get; init; } = "";
@@ -25,6 +25,14 @@ namespace StreamTweak.ViewModels
         /// <summary>Segoe Fluent glyph and the tile's own colour (the bubble behind the glyph).</summary>
         public string Glyph  { get; init; } = "";
         public string Tint   { get; init; } = "#4ade80";
+        /// <summary>10.3.0: the sidebar block it belongs to — "setup" (what a stream needs between
+        /// host and client) or "pc" (the devices of this PC a stream touches).</summary>
+        public string Group  { get; init; } = "setup";
+        /// <summary>10.3.0: a picture in place of the glyph (the Xbox logo, white); empty for a glyph.</summary>
+        public string Svg    { get; init; } = "";
+        public bool   HasSvg   => Svg.Length > 0;
+        public bool   HasGlyph => Svg.Length == 0;
+        public Uri?   SvgUri   => HasSvg ? new Uri(Svg) : null;
 
         public bool   HasUnit   => Unit.Length > 0;
         public string DotHex    => Level switch { "warn" => "#fbbf24", "bad" => "#f87171", "off" => "#646b67", _ => "#4ade80" };
@@ -39,7 +47,7 @@ namespace StreamTweak.ViewModels
     /// 10.0 Status, the page StreamTweak opens on and the one the README shows (plan phase 4, mockup
     /// «Vetrina» B, 22/10): a hero that says in one line how the host is — over the covers of the
     /// games on this PC, picked afresh each time — with three figures; then a device asking for
-    /// access and the stream running now when there are; then eight tiles, one per component, each
+    /// access and the stream running now when there are; then the tiles, one per component — in the sidebar's two blocks since 10.3.0 — each
     /// opening the page that sets it. The everyday switches are in StreamLight 8.
     /// </summary>
     public sealed class StatusViewModel : ViewModelBase
@@ -59,6 +67,9 @@ namespace StreamTweak.ViewModels
         public static void Prewarm() => s_warm ??= Task.Run(Probe.Read);
 
         public ObservableCollection<StatusRow> Rows { get; } = new();
+        /// <summary>10.3.0: the same tiles in the sidebar's two blocks, Setup and This PC.</summary>
+        public ObservableCollection<StatusRow> SetupRows { get; } = new();
+        public ObservableCollection<StatusRow> PcRows { get; } = new();
 
         // ── Hero ─────────────────────────────────────────────────────────────────
         private string _heroTitle = "Ready to stream", _heroSub = "", _eyebrow = "All set", _eyebrowHex = "#4ade80";
@@ -90,13 +101,14 @@ namespace StreamTweak.ViewModels
         private bool _streaming;
         public bool Streaming { get => _streaming; private set => SetProperty(ref _streaming, value); }
 
-        private string _liveTitle = "", _liveSub = "";
-        public string LiveTitle { get => _liveTitle; private set => SetProperty(ref _liveTitle, value); }
-        public string LiveSub   { get => _liveSub;   private set => SetProperty(ref _liveSub, value); }
-
         private string? _liveCover;
         public string? LiveCover { get => _liveCover; private set { if (SetProperty(ref _liveCover, value)) OnPropertyChanged(nameof(HasLiveCover)); } }
         public bool HasLiveCover => !string.IsNullOrEmpty(_liveCover);
+        // 10.3.0: the game's box in the hero, while a stream runs — its name, and the codec and
+        // start time under it.
+        private string _liveGame = "", _liveDetail = "";
+        public string LiveGame   { get => _liveGame;   private set => SetProperty(ref _liveGame, value); }
+        public string LiveDetail { get => _liveDetail; private set => SetProperty(ref _liveDetail, value); }
 
         // ── Getting started: the four steps of a first run ───────────────────────
         private bool _showSteps;
@@ -203,7 +215,13 @@ namespace StreamTweak.ViewModels
                 if (!same)
                 {
                     Rows.Clear();
-                    foreach (var r in rows) Rows.Add(r);
+                    SetupRows.Clear();
+                    PcRows.Clear();
+                    foreach (var r in rows)
+                    {
+                        Rows.Add(r);
+                        (r.Group == "pc" ? PcRows : SetupRows).Add(r);
+                    }
                 }
 
                 var clients = AppStateService.Instance.BridgeAuth?.GetClients() ?? new List<BridgeClient>();
@@ -289,17 +307,22 @@ namespace StreamTweak.ViewModels
                 }
                 LiveCover = cover;
             }
-            LiveTitle = string.IsNullOrEmpty(game) ? "A stream is running" : game;
 
             var start = SessionLogger.ActiveSessionStartTime;
             var d = start != default ? DateTime.Now - start : TimeSpan.Zero;
             string clock = d.TotalHours >= 1 ? $"{(int)d.TotalHours} h {d.Minutes:00} min" : $"{Math.Max(0, d.Minutes)} min";
-            LiveSub = string.IsNullOrEmpty(who) ? $"For {clock}" : $"To {who} · for {clock}";
 
-            HeroTitle  = string.IsNullOrEmpty(game) ? "Streaming now" : $"Streaming {game}";
-            HeroSub    = $"Started {clock} ago" + (string.IsNullOrEmpty(who) ? "." : $" on {who}.");
-            Eyebrow    = string.IsNullOrEmpty(who) ? "Live" : $"Live · {who}";
+            HeroTitle  = "Streaming now";
+            HeroSub    = string.IsNullOrEmpty(who) ? $"For {clock}" : $"To {who} · for {clock}";
+            Eyebrow    = "Live";
             EyebrowHex = "#4ade80";
+
+            LiveGame = string.IsNullOrEmpty(game) ? "A stream is running" : game;
+            string since = start != default ? $"since {start:HH:mm}" : "";
+            string? encoder = SessionLogger.ActiveStreamEncoder;
+            LiveDetail = encoder != null
+                ? EncoderNames.Label(encoder) + (since.Length > 0 ? " · " + since : "")
+                : since.Length > 0 ? char.ToUpperInvariant(since[0]) + since[1..] : "";
         }
 
         private static List<StatusRow> BuildRows(Probe p)
@@ -311,12 +334,12 @@ namespace StreamTweak.ViewModels
             rows.Add(p.ServiceState switch
             {
                 "Running" => new StatusRow { Key = "service", Name = "Service", Value = "Running", Line = "LocalSystem · no UAC prompts", Target = "Settings", Glyph = gService, Tint = "#4ade80" },
-                ""        => new StatusRow { Key = "service", Name = "Service", Value = "Missing", Line = "Reinstall StreamTweak: link speed and Sync and restart need it", Level = "bad", Target = "Settings", Glyph = gService },
+                ""        => new StatusRow { Key = "service", Name = "Service", Value = "Missing", Line = "Reinstall StreamTweak", Level = "bad", Target = "Settings", Glyph = gService },
                 var s     => new StatusRow { Key = "service", Name = "Service", Value = s, Line = "Link speed and Sync and restart need it", Level = "bad", Target = "Settings", Glyph = gService },
             });
 
             rows.Add(p.PortOpen == false
-                ? new StatusRow { Key = "bridge", Name = "Bridge", Value = "Blocked", Line = "Port 47998 is closed in Windows Firewall · run the installer again", Level = "warn", Target = "Clients", Glyph = gBridge }
+                ? new StatusRow { Key = "bridge", Name = "Bridge", Value = "Blocked", Line = "Port 47998 closed · run the installer again", Level = "warn", Target = "Clients", Glyph = gBridge }
                 : new StatusRow { Key = "bridge", Name = "Bridge", Value = p.Approved.ToString(CultureInfo.InvariantCulture), Unit = p.Approved == 1 ? "device" : "devices",
                                   Line = p.Approved == 0 ? "No device approved yet" : p.PortOpen == true ? "Port 47998 open" : "Listening on port 47998",
                                   Level = p.Approved == 0 ? "off" : "ok", Target = "Clients", Glyph = gBridge, Tint = "#38bdf8" });
@@ -334,15 +357,15 @@ namespace StreamTweak.ViewModels
                                   Level = p.Listed > 0 ? "ok" : "off", Target = "GameLibrary", Glyph = gLibrary, Tint = "#fb923c" });
 
             rows.Add(new StatusRow { Key = "apps", Name = "Apps", Value = p.ManagedApps.ToString(CultureInfo.InvariantCulture), Unit = p.ManagedApps == 1 ? "app" : "apps",
-                                     Line = p.ManagedApps > 0 ? "Closed while streaming" : "Nothing is closed when a stream starts",
+                                     Line = p.ManagedApps > 0 ? "Closed while streaming" : "Nothing closed while streaming",
                                      Level = p.ManagedApps > 0 ? "ok" : "off", Target = "Apps", Glyph = gApps, Tint = "#f472b6" });
 
             rows.Add(p.AudioOn
-                ? new StatusRow { Key = "audio", Name = "Spatial audio", Value = p.AudioShort, Line = "On when a stream starts", Target = "Audio", Glyph = gAudio, Tint = "#22d3ee" }
-                : new StatusRow { Key = "audio", Name = "Spatial audio", Value = "Off", Line = "Dolby Atmos or Windows Sonic, when a stream starts", Level = "off", Target = "Audio", Glyph = gAudio, Tint = "#22d3ee" });
+                ? new StatusRow { Key = "audio", Group = "pc", Name = "Spatial audio", Value = p.AudioShort, Line = "On when a stream starts", Target = "Audio", Glyph = gAudio, Tint = "#22d3ee" }
+                : new StatusRow { Key = "audio", Group = "pc", Name = "Spatial audio", Value = "Off", Line = "Dolby Atmos or Windows Sonic", Level = "off", Target = "Audio", Glyph = gAudio, Tint = "#22d3ee" });
 
             if (!p.HasAdapter)
-                rows.Add(new StatusRow { Key = "network", Name = "Network", Value = "No cable", Line = "Link-speed matching works over Ethernet only", Level = "off", Target = "Network", Glyph = gNet, Tint = "#60a5fa" });
+                rows.Add(new StatusRow { Key = "network", Name = "Network", Value = "No cable", Line = "Link-speed matching needs Ethernet", Level = "off", Target = "Network", Glyph = gNet, Tint = "#60a5fa" });
             else if (p.Switched)
                 rows.Add(new StatusRow { Key = "network", Name = "Network", Value = p.SpeedNumber, Unit = p.SpeedUnit, Line = $"For {p.SwitchedBy} · was {p.Original}", Level = "warn", Target = "Network", CanRestore = true, Glyph = gNet });
             else
@@ -352,13 +375,55 @@ namespace StreamTweak.ViewModels
             if (p.Nvidia)
             {
                 rows.Add(p.SentinelStuck
-                    ? new StatusRow { Key = "sentinel", Name = "NVIDIA Sentinel", Value = "Stuck", Line = "Auto-restore cannot put your profile back", Level = "warn", Target = "Sentinel", Glyph = gSentinel }
+                    ? new StatusRow { Key = "sentinel", Group = "pc", Name = "NVIDIA Sentinel", Value = "Stuck", Line = "Auto-restore cannot put your profile back", Level = "warn", Target = "Sentinel", Glyph = gSentinel }
                     : p.SentinelSaved == 0
-                        ? new StatusRow { Key = "sentinel", Name = "NVIDIA Sentinel", Value = "No profile", Line = "Save your driver profile to keep it", Level = "off", Target = "Sentinel", Glyph = gSentinel, Tint = "#76b900" }
-                        : new StatusRow { Key = "sentinel", Name = "NVIDIA Sentinel", Value = p.SentinelSaved.ToString(CultureInfo.InvariantCulture), Unit = "settings",
+                        ? new StatusRow { Key = "sentinel", Group = "pc", Name = "NVIDIA Sentinel", Value = "No profile", Line = "Save your driver profile to keep it", Level = "off", Target = "Sentinel", Glyph = gSentinel, Tint = "#76b900" }
+                        : new StatusRow { Key = "sentinel", Group = "pc", Name = "NVIDIA Sentinel", Value = p.SentinelSaved.ToString(CultureInfo.InvariantCulture), Unit = "settings",
                                           Line = "Saved · auto-restore " + (p.SentinelAuto ? "on" : "off"), Target = "Sentinel", Glyph = gSentinel, Tint = "#76b900" });
             }
-            return rows;
+
+            // 10.3.0: Xbox controllers — shown when there is an adapter or a rule is on.
+            if (p.XboxKnown && (p.XboxAdapter || p.XboxShut || p.XboxSleep))
+            {
+                const string xboxTint = "#52b043", xboxSvg = "ms-appx:///Resources/xbox-logo.svg";
+                string rules = p.XboxShut && p.XboxSleep ? "Off at shut down and sleep"
+                             : p.XboxShut ? "Off at shut down" : p.XboxSleep ? "Off at sleep" : "";
+                string count = p.XboxPads.ToString(CultureInfo.InvariantCulture), unit = p.XboxPads == 1 ? "controller" : "controllers";
+                if (p.XboxLow != null)
+                    rows.Add(new StatusRow { Key = "xbox", Group = "pc", Name = "Xbox controllers", Value = count, Unit = unit, Line = p.XboxLow,
+                                             Level = "warn", Target = "Xbox", Svg = xboxSvg, Tint = xboxTint });
+                else if (!p.XboxAdapter)
+                    rows.Add(new StatusRow { Key = "xbox", Group = "pc", Name = "Xbox controllers", Value = "No adapter", Line = "Plug in the Xbox Wireless Adapter",
+                                             Level = "off", Target = "Xbox", Svg = xboxSvg, Tint = xboxTint });
+                else if (rules.Length == 0)
+                    rows.Add(new StatusRow { Key = "xbox", Group = "pc", Name = "Xbox controllers", Value = "Off", Line = "Left on at a Fast Startup shut down",
+                                             Level = "off", Target = "Xbox", Svg = xboxSvg, Tint = xboxTint });
+                else
+                    rows.Add(new StatusRow { Key = "xbox", Group = "pc", Name = "Xbox controllers", Value = count, Unit = unit, Line = rules,
+                                             Level = p.XboxPads > 0 ? "ok" : "off", Target = "Xbox", Svg = xboxSvg, Tint = xboxTint });
+            }
+
+            // 10.3.0: Hue Sync — shown when it is installed or the bridge is paired.
+            if (p.HueInstalled || p.HuePaired)
+            {
+                const string gHue = "\uEA80", hueTint = "#e879f9";
+                if (!p.HuePaired)
+                    rows.Add(new StatusRow { Key = "hue", Group = "pc", Name = "Hue Sync", Value = "Not paired", Line = "Pair the bridge first",
+                                             Level = "off", Target = "Hue", Glyph = gHue, Tint = hueTint });
+                else if (!p.HueHold)
+                    rows.Add(new StatusRow { Key = "hue", Group = "pc", Name = "Hue Sync", Value = "Off", Line = "Starts without waiting",
+                                             Level = "off", Target = "Hue", Glyph = gHue, Tint = hueTint });
+                else if (p.HueStartsWithWindows)
+                    rows.Add(new StatusRow { Key = "hue", Group = "pc", Name = "Hue Sync", Value = "Starts by itself", Line = "Turn its start with Windows off",
+                                             Level = "warn", Target = "Hue", Glyph = gHue });
+                else
+                    rows.Add(new StatusRow { Key = "hue", Group = "pc", Name = "Hue Sync", Value = p.HueValue, Line = p.HueLine,
+                                             Target = "Hue", Glyph = gHue, Tint = hueTint });
+            }
+
+            // The sidebar's order (10.3.0): Setup, then This PC.
+            string[] order = { "service", "bridge", "server", "library", "network", "apps", "sentinel", "audio", "xbox", "hue" };
+            return rows.OrderBy(x => Array.IndexOf(order, x.Key)).ToList();
         }
 
         private static string DisplayName(BridgeClient c) => string.IsNullOrWhiteSpace(c.Name) ? "A StreamLight device" : c.Name;
@@ -383,6 +448,12 @@ namespace StreamTweak.ViewModels
             public int    SentinelSaved;
             public string? LastGrade, LastGradeHex, LastGradeWhen;
             public List<string> Covers = new();
+            // 10.3.0
+            public bool   XboxKnown, XboxAdapter, XboxShut, XboxSleep;
+            public int    XboxPads;
+            public string? XboxLow;
+            public bool   HueInstalled, HuePaired, HueHold, HueStartsWithWindows;
+            public string HueValue = "", HueLine = "";
 
             public static Probe Read()
             {
@@ -451,6 +522,58 @@ namespace StreamTweak.ViewModels
                     p.SentinelAuto  = nv.AutoRestoreEnabled;
                     try { p.SentinelSaved = nv.HasSnapshot ? StreamTweak.Nvidia.NvidiaSentinelService.ReadSnapshot(nv.SnapshotPath)?.Count ?? 0 : 0; } catch { }
                 }
+
+                // 10.3.0: the Xbox controllers — the service's rules and adapter, Windows' pads.
+                try
+                {
+                    // Only with the service running: a missing one would hold every refresh for the
+                    // pipe's 5 s, and the Service tile already says it.
+                    string? xbox = p.ServiceState == "Running" ? SpeedChanger.GetXboxControllerState() : null;
+                    if (xbox != null)
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(xbox);
+                        var root = doc.RootElement;
+                        p.XboxKnown   = true;
+                        p.XboxAdapter = root.GetProperty("adapter").GetBoolean();
+                        p.XboxShut    = root.GetProperty("offAtShutdown").GetBoolean();
+                        p.XboxSleep   = root.GetProperty("offAtSleep").GetBoolean();
+                        var pads = XboxControllersViewModel.ReadPadsFromWindows();
+                        p.XboxPads = pads.Count;
+                        int low = pads.FindIndex(x => x.Level == 0 && !x.Charging);   // Critical, as the page's amber
+                        if (low >= 0)
+                            p.XboxLow = $"{XboxControllersViewModel.PadName(low, pads.Count)} is running out";
+                    }
+                }
+                catch { }
+
+                // 10.3.0: Hue Sync — installed, paired, the rule, and who has the lights.
+                try
+                {
+                    var gate = HueSyncGate.Instance;
+                    p.HueInstalled = HueSyncGate.HueSyncPath() != null;
+                    p.HuePaired    = gate.Paired;
+                    p.HueHold      = gate.Hold;
+                    if (p.HuePaired && p.HueHold)
+                    {
+                        p.HueStartsWithWindows = HueSyncGate.HueSyncStartsWithWindows();
+                        var reading = gate.LastReading;
+                        if (reading == null)
+                        {
+                            var t = gate.ReadAsync();
+                            if (t.Wait(1500)) reading = t.Result;
+                        }
+                        var area = reading?.ActiveArea;
+                        string state = gate.HostState();
+                        if (state == "syncing")
+                            (p.HueValue, p.HueLine) = ("Syncing", area != null ? $"This PC · {area.Name}" : "This PC");
+                        else if (area != null)
+                            (p.HueValue, p.HueLine) = (state == "waiting" ? "Waiting" : "In use",
+                                                       (area.OwnerDevice.Length > 0 ? area.OwnerDevice : "Another device") + $" · {area.Name}");
+                        else
+                            (p.HueValue, p.HueLine) = ("Free", "Starts here when no device is syncing");
+                    }
+                }
+                catch { }
 
                 // The last finished session's grade, as Sessions shows it.
                 try

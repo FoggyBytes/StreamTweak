@@ -86,10 +86,25 @@ namespace StreamTweak
                 : mbps >= 1000             ? $"{mbps / 1000.0:0.##} Gbps"
                 :                            $"{mbps} Mbps";
 
-            // Windows caps a tray tooltip at 127 characters; three short lines stay well inside.
-            _trayIcon.ToolTipText =
-                $"StreamTweak\n{_adapterName}: {speedText}\n"
-              + (_trayStreamingActive ? "Streaming: active" : "Streaming: inactive");
+            // 10.3.0: the charge of the Xbox controllers connected, on one line — the four levels a
+            // controller reports over the adapter, "⚡" while it charges. No line without one.
+            string pads = "";
+            var found = ViewModels.XboxControllersViewModel.ReadPadsFromWindows();
+            if (found.Count > 0)
+            {
+                static string Level(int l) => l switch { 3 => "Full", 2 => "Medium", 1 => "Low", 0 => "Critical", _ => "?" };
+                pads = found.Count == 1
+                    ? $"\nXbox controller: {Level(found[0].Level)}{(found[0].Charging ? " ⚡" : "")}"
+                    : "\nXbox controllers: " + string.Join(" · ", found.Select((p, i) => $"{i + 1} {Level(p.Level)}{(p.Charging ? " ⚡" : "")}"));
+            }
+
+            // Windows caps a tray tooltip at 127 characters: a long adapter name gives way first.
+            string streaming = _trayStreamingActive ? "Streaming: active" : "Streaming: inactive";
+            string adapter = _adapterName;
+            int room = 127 - ("StreamTweak\n".Length + $": {speedText}\n".Length + streaming.Length + pads.Length);
+            if (adapter.Length > room) adapter = room > 1 ? adapter[..(room - 1)] + "…" : "";
+            string tip = $"StreamTweak\n{adapter}: {speedText}\n{streaming}{pads}";
+            _trayIcon.ToolTipText = tip.Length > 127 ? tip[..127] : tip;
         }
 
         // Polls the NIC every second for up to 15 s after a speed change so the

@@ -69,7 +69,9 @@ namespace StreamTweak.ViewModels
         public string StripeHex      { get; init; } = "";
 
         public bool IsLive { get; init; }
-        public Visibility PickVisibility => Entry.QualityStats != null && !IsLive ? Visibility.Visible : Visibility.Collapsed;
+        // 10.3.0: every finished session can be ticked — to compare two, or to delete many. Compare
+        // still needs the two to have quality stats (CanComparePicked).
+        public Visibility PickVisibility => !IsLive ? Visibility.Visible : Visibility.Collapsed;
 
         internal Action<SessionRow>? CheckedChanged;
         private bool _isChecked;
@@ -151,7 +153,7 @@ namespace StreamTweak.ViewModels
         public string ChipGoodText      { get => _chipGood;      private set => SetProperty(ref _chipGood, value); }
         public string ChipPoorText      { get => _chipPoor;      private set => SetProperty(ref _chipPoor, value); }
 
-        // ── Compare picks (ticked rows) ───────────────────────────────────────
+        // ── Ticked rows: Compare (two) and Delete (any number, 10.3.0) ───────
 
         private readonly List<SessionEntry> _picked = new();
 
@@ -163,6 +165,17 @@ namespace StreamTweak.ViewModels
 
         private string _compareBarText = "";
         public string CompareBarText { get => _compareBarText; private set => SetProperty(ref _compareBarText, value); }
+
+        private string _deletePickedText = "Delete";
+        public string DeletePickedText { get => _deletePickedText; private set => SetProperty(ref _deletePickedText, value); }
+
+        /// <summary>The ticked sessions, for the confirmation.</summary>
+        public int PickedCount => _picked.Count;
+
+        /// <summary>The heading's tick: true when every row shown is ticked, null when some are, false
+        /// when none (10.3.0).</summary>
+        private bool? _allShownChecked = false;
+        public bool? AllShownChecked { get => _allShownChecked; private set => SetProperty(ref _allShownChecked, value); }
 
         // ── Load / filter ─────────────────────────────────────────────────────
 
@@ -326,15 +339,8 @@ namespace StreamTweak.ViewModels
         {
             if (row.IsChecked)
             {
+                // No limit since 10.3.0: the ticks also choose what to delete; Compare takes two.
                 if (_picked.All(p => p.Id != row.Id)) _picked.Add(row.Entry);
-                // Two at most: ticking a third replaces the oldest pick.
-                while (_picked.Count > 2)
-                {
-                    var drop = _picked[0];
-                    _picked.RemoveAt(0);
-                    var other = Rows.FirstOrDefault(r => r.Id == drop.Id);
-                    if (other != null) { other.CheckedChanged = null; other.IsChecked = false; other.CheckedChanged = OnRowChecked; }
-                }
             }
             else _picked.RemoveAll(p => p.Id == row.Id);
             RefreshCompareBar();
@@ -347,11 +353,47 @@ namespace StreamTweak.ViewModels
             RefreshCompareBar();
         }
 
+        /// <summary>The heading's tick: ticks every row the filter shows, or clears them all when
+        /// they already are. Rows hidden by the filter keep their tick.</summary>
+        public void ToggleAllShown()
+        {
+            var shown = Rows.Where(r => !r.IsLive).ToList();
+            bool tick = shown.Any(r => !r.IsChecked);
+            foreach (var r in shown)
+            {
+                r.CheckedChanged = null;
+                r.IsChecked = tick;
+                r.CheckedChanged = OnRowChecked;
+                if (tick) { if (_picked.All(p => p.Id != r.Id)) _picked.Add(r.Entry); }
+                else _picked.RemoveAll(p => p.Id == r.Id);
+            }
+            RefreshCompareBar();
+            // The box toggled itself on the click: say the value again even when it did not move.
+            OnPropertyChanged(nameof(AllShownChecked));
+        }
+
+        /// <summary>Deletes every ticked session in one write (10.3.0). Never the open one.</summary>
+        public void DeletePicked()
+        {
+            var ids = _picked.Select(p => p.Id).ToList();
+            try { SessionLogger.DeleteSessions(ids); }
+            catch { }
+            if (_selectedSession != null && ids.Contains(_selectedSession.Id)) SelectedSession = null;
+            _picked.Clear();
+            Load();
+        }
+
         private void RefreshCompareBar()
         {
-            IsCompareBarVisible = _picked.Count > 0;
-            CanComparePicked = _picked.Count == 2;
-            CompareBarText = _picked.Count == 1 ? "1 session selected · tick one more" : $"{_picked.Count} sessions selected";
+            int n = _picked.Count;
+            IsCompareBarVisible = n > 0;
+            CanComparePicked = n == 2 && _picked.All(p => p.QualityStats != null);
+            CompareBarText = n == 1 ? "1 session selected" : $"{n} sessions selected";
+            DeletePickedText = n == 1 ? "Delete" : $"Delete {n}";
+            OnPropertyChanged(nameof(PickedCount));
+            var shown = Rows.Where(r => !r.IsLive).ToList();
+            int ticked = shown.Count(r => r.IsChecked);
+            AllShownChecked = ticked == 0 ? false : ticked == shown.Count ? true : null;
         }
 
         // ── Maintenance ───────────────────────────────────────────────────────

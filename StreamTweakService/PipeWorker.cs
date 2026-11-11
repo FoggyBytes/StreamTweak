@@ -12,11 +12,13 @@ public class PipeWorker : BackgroundService
     public const string PipeName = "StreamTweakService";
     private readonly ILogger<PipeWorker> _logger;
     private readonly GpuPowerMonitor _gpuPower;
+    private readonly XboxControllerPower _xbox;
 
-    public PipeWorker(ILogger<PipeWorker> logger, GpuPowerMonitor gpuPower)
+    public PipeWorker(ILogger<PipeWorker> logger, GpuPowerMonitor gpuPower, XboxControllerPower xbox)
     {
         _logger   = logger;
         _gpuPower = gpuPower;
+        _xbox     = xbox;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -257,6 +259,40 @@ public class PipeWorker : BackgroundService
                     // GPU power readings for the session timeline (9.2.0). Read-only.
                     case "GPUPOWERSTATE":
                         await writer.WriteLineAsync(JsonSerializer.Serialize(_gpuPower.GetState()));
+                        break;
+
+                    // Controllers off with the PC (10.3.0): state, the two settings, turn off now.
+                    case "XBOXSTATE":
+                        await writer.WriteLineAsync(_xbox.StateJson());
+                        break;
+
+                    case "XBOXSET":
+                    {
+                        bool on = cmd.Content == "1";
+                        try
+                        {
+                            if (string.Equals(cmd.Scope, "shutdown", StringComparison.OrdinalIgnoreCase))
+                                XboxControllerPower.OffAtShutdown = on;
+                            else if (string.Equals(cmd.Scope, "sleep", StringComparison.OrdinalIgnoreCase))
+                                XboxControllerPower.OffAtSleep = on;
+                            else
+                            {
+                                await writer.WriteLineAsync("ERROR:unknown setting");
+                                break;
+                            }
+                            ServiceLog.Write($"[xbox] off at {cmd.Scope!.ToLowerInvariant()} now {(on ? "on" : "off")}");
+                            await writer.WriteLineAsync("OK");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Xbox setting not saved");
+                            await writer.WriteLineAsync($"ERROR:{ex.Message}");
+                        }
+                        break;
+                    }
+
+                    case "XBOXOFFNOW":
+                        await writer.WriteLineAsync(_xbox.TurnOffAll("Turn off now"));
                         break;
 
                     default:
@@ -605,6 +641,8 @@ public class PipeWorker : BackgroundService
     /// Set Command = "WriteFile" to write a file as LocalSystem.
     /// Set Command = "SwapAssets" / "RestoreAssets" for host-tile swap/restore.
     /// Set Command = "GpuPowerState" for the GPU's power readings.
+    /// Set Command = "XboxState" / "XboxSet" (Scope shutdown|sleep, Content 1|0) / "XboxOffNow"
+    /// for the Xbox controllers turned off with the PC (10.3.0).
     /// </summary>
     private record PipeCommand(
         string?  Command,

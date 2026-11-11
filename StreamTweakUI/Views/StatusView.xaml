@@ -7,15 +7,67 @@
     xmlns:ctrl="using:StreamTweak.Controls"
     Background="{StaticResource STBackground}">
 
+    <Page.Resources>
+        <!-- One tile: a component, how it is, where it is set (StatusRow). 10.3.0: a row, 64 px
+             high for every tile — the glyph, the name and its detail, the figure on the right — so
+             the ten fit at the window's minimum size and all are the same size. The detail is on
+             one line; the whole of it is in the tooltip. -->
+        <DataTemplate x:Key="StatusTile" x:DataType="vm:StatusRow">
+            <Button Style="{StaticResource ST10_Tile}" Height="64" Padding="12,0,14,0" Tag="{x:Bind Target}" Click="Tile_Click"
+                    Background="{x:Bind FillHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                    BorderBrush="{x:Bind BorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                    AutomationProperties.Name="{x:Bind Name}" ToolTipService.ToolTip="{x:Bind Line}">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Border Width="38" Height="38" CornerRadius="10" VerticalAlignment="Center"
+                            Background="{x:Bind BubbleHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
+                        <Grid>
+                            <FontIcon Glyph="{x:Bind Glyph}" FontSize="17"
+                                      Foreground="{x:Bind IconHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
+                                      Visibility="{x:Bind HasGlyph, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                            <Image Width="18" Height="18" Visibility="{x:Bind HasSvg, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Image.Source><SvgImageSource UriSource="{x:Bind SvgUri}" RasterizePixelWidth="36" RasterizePixelHeight="36"/></Image.Source>
+                            </Image>
+                        </Grid>
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2" MinWidth="0">
+                        <StackPanel Orientation="Horizontal" Spacing="7">
+                            <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST9_RowTitle}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                     Fill="{x:Bind DotHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                        </StackPanel>
+                        <TextBlock Text="{x:Bind Line}" FontSize="12.5" MaxLines="1" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                   Foreground="{x:Bind LineHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Bind Value}" FontFamily="{StaticResource DMSansSemiBold}" FontSize="17" MaxWidth="160"
+                                   Foreground="{StaticResource ST9Text}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                        <TextBlock Text="{x:Bind Unit}" Style="{StaticResource ST9_Hint}" VerticalAlignment="Bottom" Margin="0,0,0,2"
+                                   Visibility="{x:Bind HasUnit, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                    </StackPanel>
+                    <Button Grid.Column="3" Style="{StaticResource ST9_ButtonSubtle}" Content="Restore" VerticalAlignment="Center"
+                            Visibility="{x:Bind CanRestore, Converter={StaticResource BoolToVisibilityConverter}}"
+                            Click="RestoreLink_Click"
+                            ToolTipService.ToolTip="Put the adapter back to its normal speed now"/>
+                </Grid>
+            </Button>
+        </DataTemplate>
+    </Page.Resources>
+
     <!-- 10.0 Status, the page StreamTweak opens on and the one the README shows (plan phase 4,
          mockup «Vetrina» B, 22/10): a hero over the covers of the games on this PC, three figures,
-         then what needs you, the stream running now and eight tiles on solid surfaces, each opening
-         the page that sets it. Nothing here floats on Mica: every block has a surface of its own. -->
+         then what needs you, the stream running now and the tiles on solid surfaces, each opening
+         the page that sets it — since 10.3.0 in the sidebar's two blocks, Setup and This PC. Nothing here floats on Mica: every block has a surface of its own. -->
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled">
         <StackPanel x:Name="PageRoot" Padding="32,24,32,40" Spacing="14">
 
             <!-- ── Hero ──────────────────────────────────────────────────────────────────── -->
-            <Grid x:Name="Hero" MinHeight="208" CornerRadius="14" Background="{StaticResource ST10Hero}"
+            <Grid x:Name="Hero" MinHeight="140" CornerRadius="14" Background="{StaticResource ST10Hero}"
                   BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1" SizeChanged="Hero_SizeChanged">
                 <!-- The brand's light, top left and bottom right -->
                 <Rectangle>
@@ -48,7 +100,13 @@
                     </Rectangle.Fill>
                 </Rectangle>
 
-                <Grid Padding="28,26" ColumnSpacing="24">
+                <!-- 10.3.0: sized by what it holds (MinHeight was 208), so Status fits the window's
+                     minimum size with no scroll bar, while a stream runs too. Variant C of
+                     docs/mockups/stato-sessioni (Marcello, 11/11/2026): during a stream the left side
+                     says "Streaming now" and to whom, and the three figures give way to the game's own
+                     box — cover, name, codec, Return to client — which replaces the card that used to
+                     stand under the hero and say the same. The title keeps one line. -->
+                <Grid Padding="26,18" ColumnSpacing="24">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
@@ -64,13 +122,48 @@
                             </StackPanel>
                         </Border>
                         <TextBlock Text="{x:Bind ViewModel.HeroTitle, Mode=OneWay}" FontFamily="{StaticResource DMSansSemiBold}" FontSize="34"
-                                   CharacterSpacing="-20" Foreground="{StaticResource ST9Text}" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                   CharacterSpacing="-20" Foreground="{StaticResource ST9Text}" TextWrapping="NoWrap" MaxLines="1"
+                                   TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
                         <TextBlock Text="{x:Bind ViewModel.HeroSub, Mode=OneWay}" Style="{StaticResource ST9_Body}" Foreground="{StaticResource ST9Text2}"
                                    TextWrapping="Wrap" MaxWidth="560" HorizontalAlignment="Left"/>
                     </StackPanel>
 
-                    <!-- The three figures -->
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <!-- While a stream runs: the game -->
+                    <Border Grid.Column="1" Width="470" Padding="10,10,14,10" CornerRadius="10" VerticalAlignment="Center"
+                            Background="#99141716" BorderBrush="{StaticResource ST9MintStroke}" BorderThickness="1"
+                            Visibility="{x:Bind ViewModel.Streaming, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid ColumnSpacing="14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Width="60" Height="90" CornerRadius="6" Background="{StaticResource ST10Code}">
+                                <Grid>
+                                    <FontIcon Glyph="&#xE7FC;" FontSize="20" Foreground="{StaticResource ST9Text3}"
+                                              Visibility="{x:Bind ViewModel.HasLiveCover, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}"/>
+                                    <!-- Through the converter: a bare string bound to Source makes x:Bind call
+                                         ConvertValue, which throws on null — and took the whole app down at start. -->
+                                    <Image Source="{x:Bind ViewModel.LiveCover, Mode=OneWay, Converter={StaticResource CoverPathToBitmapRowConverter}}" Stretch="UniformToFill"
+                                           Visibility="{x:Bind ViewModel.HasLiveCover, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                </Grid>
+                            </Border>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2" MinWidth="0">
+                                <TextBlock Text="PLAYING" Style="{StaticResource ST_SectionLabel}" Foreground="{StaticResource ST9Mint}"/>
+                                <TextBlock Text="{x:Bind ViewModel.LiveGame, Mode=OneWay}" FontFamily="{StaticResource DMSansSemiBold}" FontSize="19"
+                                           Foreground="{StaticResource ST9Text}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                           ToolTipService.ToolTip="{x:Bind ViewModel.LiveGame, Mode=OneWay}"/>
+                                <TextBlock Text="{x:Bind ViewModel.LiveDetail, Mode=OneWay}" Style="{StaticResource ST9_Hint}" TextTrimming="CharacterEllipsis"/>
+                            </StackPanel>
+                            <Button Grid.Column="2" Style="{StaticResource ST9_ButtonSubtle}" Content="Return to client" VerticalAlignment="Center"
+                                    Click="ReturnToClient_Click"
+                                    ToolTipService.ToolTip="Asks StreamLight to end the stream and go back to its own screen"/>
+                        </Grid>
+                    </Border>
+
+                    <!-- The three figures, when no stream runs -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center"
+                                Visibility="{x:Bind ViewModel.Streaming, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                         <Border Style="{StaticResource ST10_HeroKpi}">
                             <StackPanel Spacing="2">
                                 <StackPanel Orientation="Horizontal" Spacing="5">
@@ -174,77 +267,33 @@
                 </Grid>
             </Border>
 
-            <!-- ── Streaming now ────────────────────────────────────────────────────────────── -->
-            <Border Style="{StaticResource ST10_Panel}" Background="#FF132219" BorderBrush="{StaticResource ST9MintStroke}" Padding="18,14"
-                    Visibility="{x:Bind ViewModel.Streaming, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                <Grid ColumnSpacing="16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-                    <Border Width="40" Height="60" CornerRadius="5" Background="{StaticResource ST10Code}"
-                            Visibility="{x:Bind ViewModel.HasLiveCover, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                        <!-- Through the converter: a bare string bound to Source makes x:Bind call
-                             ConvertValue, which throws on null — and took the whole app down at start. -->
-                        <Image Source="{x:Bind ViewModel.LiveCover, Mode=OneWay, Converter={StaticResource CoverPathToBitmapRowConverter}}" Stretch="UniformToFill"/>
-                    </Border>
-                    <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                        <TextBlock Text="STREAMING NOW" Style="{StaticResource ST_SectionLabel}" Foreground="{StaticResource ST9Mint}"/>
-                        <TextBlock Text="{x:Bind ViewModel.LiveTitle, Mode=OneWay}" Style="{StaticResource ST9_CardTitle}"/>
-                        <TextBlock Text="{x:Bind ViewModel.LiveSub, Mode=OneWay}" Style="{StaticResource ST9_Hint}"/>
-                    </StackPanel>
-                    <Button Grid.Column="2" Style="{StaticResource ST9_ButtonSubtle}" Content="Return to client" VerticalAlignment="Center"
-                            Click="ReturnToClient_Click"
-                            ToolTipService.ToolTip="Asks StreamLight to end the stream and go back to its own screen"/>
-                </Grid>
-            </Border>
-
-            <!-- ── The eight tiles ────────────────────────────────────────────────────────── -->
-            <ItemsControl ItemsSource="{x:Bind ViewModel.Rows}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <ctrl:ResponsiveGrid MinColumnWidth="230" MaxColumns="4" ColumnSpacing="12" RowSpacing="12"/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:StatusRow">
-                        <Button Style="{StaticResource ST10_Tile}" Padding="16,14" Tag="{x:Bind Target}" Click="Tile_Click"
-                                Background="{x:Bind FillHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                BorderBrush="{x:Bind BorderHex, Converter={StaticResource HexToSolidColorBrushConverter}}"
-                                AutomationProperties.Name="{x:Bind Name}">
-                            <Grid ColumnSpacing="14">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <Border Width="42" Height="42" CornerRadius="12" VerticalAlignment="Top"
-                                        Background="{x:Bind BubbleHex, Converter={StaticResource HexToSolidColorBrushConverter}}">
-                                    <FontIcon Glyph="{x:Bind Glyph}" FontSize="19"
-                                              Foreground="{x:Bind IconHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                                </Border>
-                                <StackPanel Grid.Column="1" Spacing="3" MinWidth="0">
-                                    <Grid>
-                                        <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST9_RowTitle}" VerticalAlignment="Center"/>
-                                        <Ellipse Width="8" Height="8" HorizontalAlignment="Right" VerticalAlignment="Center"
-                                                 Fill="{x:Bind DotHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                                    </Grid>
-                                    <StackPanel Orientation="Horizontal" Spacing="5">
-                                        <TextBlock Text="{x:Bind Value}" FontFamily="{StaticResource DMSansSemiBold}" FontSize="20"
-                                                   Foreground="{StaticResource ST9Text}" TextTrimming="CharacterEllipsis"/>
-                                        <TextBlock Text="{x:Bind Unit}" Style="{StaticResource ST9_Hint}" VerticalAlignment="Bottom" Margin="0,0,0,3"
-                                                   Visibility="{x:Bind HasUnit, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                                    </StackPanel>
-                                    <TextBlock Text="{x:Bind Line}" FontSize="12.5" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis"
-                                               Foreground="{x:Bind LineHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
-                                    <Button Style="{StaticResource ST9_ButtonSubtle}" Content="Restore now" Margin="0,6,0,0" HorizontalAlignment="Left"
-                                            Visibility="{x:Bind CanRestore, Converter={StaticResource BoolToVisibilityConverter}}"
-                                            Click="RestoreLink_Click"
-                                            ToolTipService.ToolTip="Put the adapter back to its normal speed now"/>
-                                </StackPanel>
-                            </Grid>
-                        </Button>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <!-- ── The tiles, in the sidebar's two blocks (10.3.0) ────────────────────────────
+                 Setup (what a stream needs between host and client) and This PC (the devices of
+                 this PC a stream touches), one under the other with the same columns — 2 at the
+                 window's minimum size, 3 on a wide one — so every tile has one size; the last row
+                 is left short, never stretched. -->
+            <StackPanel Spacing="18">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="SETUP" Style="{StaticResource ST_SectionLabel}"/>
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.SetupRows}" ItemTemplate="{StaticResource StatusTile}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ctrl:ResponsiveGrid MinColumnWidth="400" MaxColumns="3" StretchLastInRow="False" ColumnSpacing="12" RowSpacing="10"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </StackPanel>
+                <StackPanel Spacing="8">
+                    <TextBlock Text="THIS PC" Style="{StaticResource ST_SectionLabel}"/>
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.PcRows}" ItemTemplate="{StaticResource StatusTile}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <ctrl:ResponsiveGrid MinColumnWidth="400" MaxColumns="3" StretchLastInRow="False" ColumnSpacing="12" RowSpacing="10"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </StackPanel>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </Page>

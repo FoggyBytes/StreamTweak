@@ -5,6 +5,27 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 https://github.com/FoggyBytes/StreamTweak
 
 -----------------------------------------------------
+Version 10.3.0 - "The Lights Out Update" (11/11/2026)
+-----------------------------------------------------
+
+Works with any StreamLight. The new Xbox controllers page comes from something I noticed on my own host: with Windows' Fast Startup on, which is Windows' default, shutting the PC down leaves an Xbox controller on the Xbox Wireless Adapter switched on — it loses the PC and blinks, looking for it, until it gives up — while a full shut down or a restart turns it off at once. Windows only sends the adapter's "turn off" on a full shut down; StreamTweak now sends it on the other one too.
+
+🎮 XBOX CONTROLLERS:
+• Controllers off with the PC — with This PC › Xbox controllers, the Xbox controllers on the Xbox Wireless Adapter turn off when this PC shuts down with Fast Startup and, if you choose, when it sleeps or hibernates, as they do with a full shut down, instead of blinking until they give up; both are off until you turn them on, and the shut down is never held up
+• The charge of each controller — the same page lists the Xbox controllers connected now, on the adapter or over Bluetooth, with their charge, Full, Medium, Low or Critical (the four levels a controller reports over the adapter; over Bluetooth, the charge Windows' own Settings shows), and whether it is charging, and the tray icon's tooltip says it too; Turn off now turns the ones on the adapter off at once
+• A log of its own — what the service does with nobody signed in, such as turning the controllers off at a shut down, goes in %ProgramData%\FoggyBytes\StreamTweak\logs\service.log
+
+🧭 SIDEBAR AND STATUS:
+• Two blocks — Setup keeps what a stream needs between this PC and the client (Clients, Network, Apps); This PC gathers the devices a stream touches (NVIDIA Sentinel, Spatial audio, Xbox controllers, Hue Sync)
+• Status follows them — its tiles, now compact rows all of one size that fit the smallest window, stand in the same two blocks, and two are new: Xbox controllers (how many are connected, the rule in force, and a controller about to run out) and Hue Sync (who has the lights, or what keeps the rule from working), each shown only when it is in use on this PC; while you stream, the game takes the place of the header's three figures — cover, name, codec and Return to client — instead of a card of its own, so the page fits without scrolling then too
+
+🗂️ SESSION HISTORY:
+• Delete many at once — tick as many sessions as you like, or all those the filter shows with the tick in the heading, and delete them with one confirmation; Compare still takes two
+
+🙏 THANKS:
+• xbpoweroff by Leclowndu93150 — the way to tell a controller on the adapter to turn off
+
+-----------------------------------------------------
 Version 10.2.1 - "The Clean Swap Update" (07/11/2026)
 -----------------------------------------------------
 

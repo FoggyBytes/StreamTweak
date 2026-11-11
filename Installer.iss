@@ -1,9 +1,9 @@
 ; =====================================================
-; StreamTweak v10.2.1 - GitHub Release Installer
+; StreamTweak v10.3.0 - GitHub Release Installer
 ; WinUI 3 (Windows App SDK 2.6) unpackaged deployment, .NET 10
 ; =====================================================
 #define MyAppName "StreamTweak"
-#define MyAppVersion "10.2.1"
+#define MyAppVersion "10.3.0"
 #define MyAppPublisher "FoggyBytes"
 #define MyAppExeName "StreamTweakUI.exe"
 #define MyAppURL "https://github.com/FoggyBytes/StreamTweak"
@@ -489,6 +489,20 @@ begin
       'failure ' + '{#ServiceName}' + ' reset= 86400 actions= restart/5000/restart/5000/restart/5000',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
+    // The service's own log (10.3.0, ServiceLog.cs): what it does while nobody is signed in, such
+    // as turning the Xbox controllers off at a Fast Startup shut down. Made here, with its own
+    // rights, because the service never makes it: it runs as LocalSystem, and a folder a user had
+    // made first would be theirs. Owned by administrators; SYSTEM and administrators full, users
+    // read — as StreamLight's service logs.
+    ForceDirectories(ExpandConstant('{commonappdata}\FoggyBytes\StreamTweak\logs'));
+    Exec(ExpandConstant('{sys}\icacls.exe'), '"' + ExpandConstant('{commonappdata}\FoggyBytes\StreamTweak') + '" /setowner *S-1-5-32-544 /T /C /Q',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{sys}\icacls.exe'), '"' + ExpandConstant('{commonappdata}\FoggyBytes\StreamTweak') + '" /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F' +
+      ' *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX /C /Q',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    Exec(ExpandConstant('{sys}\icacls.exe'), '"' + ExpandConstant('{commonappdata}\FoggyBytes\StreamTweak') + '\*" /reset /T /C /Q',
+      '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+
     // Start the service immediately
     Exec(ExpandConstant('{sys}\sc.exe'), 'start ' + '{#ServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 
@@ -514,6 +528,12 @@ begin
     Exec(ExpandConstant('{sys}\schtasks.exe'), '/Delete /TN "StreamTweak Startup" /F', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
     // ...and the bridge's firewall rule (9.2.1), which would otherwise outlive the exe.
     RemoveBridgeFirewallRule;
+    // ...and the service's settings and log (10.3.0): the Xbox controller switches in HKLM and
+    // %ProgramData%\FoggyBytes\StreamTweak. FoggyBytes itself goes only if StreamLight left nothing.
+    RegDeleteKeyIncludingSubkeys(HKLM, 'SOFTWARE\FoggyBytes\StreamTweak');
+    RegDeleteKeyIfEmpty(HKLM, 'SOFTWARE\FoggyBytes');
+    DelTree(ExpandConstant('{commonappdata}\FoggyBytes\StreamTweak'), True, True, True);
+    RemoveDir(ExpandConstant('{commonappdata}\FoggyBytes'));
   end;
 end;
 

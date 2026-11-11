@@ -21,7 +21,7 @@ namespace StreamTweak.Views
             SizeChanged += (_, e) =>
             {
                 // The same content column as every other page (Controls/PageLayout).
-                PageRoot.Padding = StreamTweak.Controls.PageLayout.Padding(e.NewSize.Width);
+                PageRoot.Padding = StreamTweak.Controls.PageLayout.Padding(e.NewSize.Width, bottom: 24);   // 10.3.0: fits the minimum size
             };
             ViewModel.CoversReady += BuildCoverWall;
         }

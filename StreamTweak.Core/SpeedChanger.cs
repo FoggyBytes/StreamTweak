@@ -182,6 +182,38 @@ namespace StreamTweak
             catch { return "ERROR:no service"; }
         }
 
+        // ── Xbox controllers off with the PC (10.3.0) ─────────────────────────
+        // The switches live in the service (HKLM), because they must hold with nobody signed in.
+
+        /// <summary>The service's state as JSON
+        /// ({offAtShutdown, offAtSleep, adapter, connected, last, lastAt}), or null.</summary>
+        public static string? GetXboxControllerState() => Ask(new { Command = "XboxState" }, json: true);
+
+        /// <summary>Sets "shutdown" or "sleep". True when the service saved it.</summary>
+        public static bool SetXboxControllerOption(string which, bool on)
+            => Ask(new { Command = "XboxSet", Scope = which, Content = on ? "1" : "0" }) == "OK";
+
+        /// <summary>Turns the connected controllers off now; the service's outcome, or null.</summary>
+        public static string? TurnOffXboxControllersNow() => Ask(new { Command = "XboxOffNow" });
+
+        private static string? Ask(object command, bool json = false)
+        {
+            try
+            {
+                using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut);
+                client.Connect(PipeTimeoutMs);
+
+                using var writer = new StreamWriter(client, leaveOpen: true) { AutoFlush = true };
+                using var reader = new StreamReader(client, leaveOpen: true);
+
+                writer.WriteLine(JsonSerializer.Serialize(command));
+                string? response = reader.ReadLine();
+                if (string.IsNullOrWhiteSpace(response) || response.StartsWith("ERROR")) return null;
+                return json && !response.StartsWith('{') ? null : response;
+            }
+            catch { return null; }
+        }
+
         private static bool SendSimple(string command, string? scope)
         {
             try

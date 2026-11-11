@@ -24,6 +24,7 @@ namespace StreamTweak.Views
         public NvidiaProfileViewModel Nv      { get; } = new NvidiaProfileViewModel();
         public AppsViewModel          AppsVm  { get; } = new AppsViewModel();
         public HueSyncViewModel       Hue     { get; } = new HueSyncViewModel();
+        public XboxControllersViewModel Xbox  { get; } = new XboxControllersViewModel();
 
         // Guard: true while we programmatically set the audio toggles.
         private bool _updatingToggles;
@@ -63,8 +64,9 @@ namespace StreamTweak.Views
 
             AppsVm.Load();
             Hue.Start(DispatcherQueue);
+            Xbox.Start(DispatcherQueue);
 
-            // The sidebar item's tag: Clients, Network, Apps, Audio, Sentinel or Hue.
+            // The sidebar item's tag: Clients, Network, Apps, Audio, Sentinel, Hue or Xbox.
             ShowTab(e.Parameter as string ?? "Clients");
         }
 
@@ -84,6 +86,7 @@ namespace StreamTweak.Views
             Nv.Cleanup();
             AppsVm.Unsubscribe();
             Hue.Stop();
+            Xbox.Stop();
         }
 
         // ── Which page ───────────────────────────────────────────────────────────
@@ -98,15 +101,23 @@ namespace StreamTweak.Views
                 "Audio"    => "Spatial audio",
                 "Sentinel" => "NVIDIA Sentinel",
                 "Hue"      => "Hue Sync",
+                "Xbox"     => "Xbox controllers",
                 _          => "Clients",
             };
-            PanelClients.Visibility = tab is not ("Network" or "Apps" or "Audio" or "Sentinel" or "Hue") ? Visibility.Visible : Visibility.Collapsed;
+            PanelClients.Visibility = tab is not ("Network" or "Apps" or "Audio" or "Sentinel" or "Hue" or "Xbox") ? Visibility.Visible : Visibility.Collapsed;
             PanelNet.Visibility     = tab == "Network"  ? Visibility.Visible : Visibility.Collapsed;
             PanelApps.Visibility    = tab == "Apps"     ? Visibility.Visible : Visibility.Collapsed;
             PanelAudio.Visibility   = tab == "Audio"    ? Visibility.Visible : Visibility.Collapsed;
             PanelNv.Visibility      = tab == "Sentinel" ? Visibility.Visible : Visibility.Collapsed;
             PanelHue.Visibility     = tab == "Hue"      ? Visibility.Visible : Visibility.Collapsed;
+            PanelXbox.Visibility    = tab == "Xbox"     ? Visibility.Visible : Visibility.Collapsed;
         }
+
+        // ── Xbox controllers (10.3.0) ────────────────────────────────────────────
+
+        private async void XboxTurnOffNow_Click(object sender, RoutedEventArgs e) => await Xbox.TurnOffNowAsync();
+
+        private void XboxStatus_Closed(InfoBar sender, InfoBarClosedEventArgs args) => Xbox.HasStatus = false;
 
         // ── Hue Sync (10.1.0) ────────────────────────────────────────────────────
 

@@ -180,6 +180,10 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="22"/>
                             </Grid.ColumnDefinitions>
+                            <!-- 10.3.0: tick every row the filter shows (or none) -->
+                            <CheckBox MinWidth="0" Padding="0" VerticalAlignment="Center" IsThreeState="False"
+                                      IsChecked="{x:Bind ViewModel.AllShownChecked, Mode=OneWay}" Click="AllShown_Click"
+                                      ToolTipService.ToolTip="Select every session shown"/>
                             <TextBlock Grid.Column="2" Text="When" Style="{StaticResource ST9_Label}"/>
                             <TextBlock Grid.Column="3" Text="Games" Style="{StaticResource ST9_Label}"
                                        Visibility="{x:Bind ViewModel.RowLayout.GamesVisibility, Mode=OneWay}"/>
@@ -236,7 +240,7 @@
                                             Background="{StaticResource ST9GreySoft}" Opacity="0" IsHitTestVisible="False"/>
                                     <CheckBox MinWidth="0" Padding="0" VerticalAlignment="Center"
                                               IsChecked="{x:Bind IsChecked, Mode=TwoWay}" Visibility="{x:Bind PickVisibility}"
-                                              ToolTipService.ToolTip="Select to compare"/>
+                                              ToolTipService.ToolTip="Select, to compare two or delete"/>
                                     <Rectangle Grid.Column="1" Width="4" Height="34" RadiusX="2" RadiusY="2" HorizontalAlignment="Left"
                                                Fill="{x:Bind StripeHex, Converter={StaticResource HexToSolidColorBrushConverter}}"/>
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
@@ -281,7 +285,7 @@
                 </ListView.ItemTemplate>
             </ListView>
 
-            <!-- Compare bar: appears once a row is ticked -->
+            <!-- The bar of the ticked rows: Compare (two) and, since 10.3.0, Delete (any number) -->
             <Border x:Name="CompareBar" VerticalAlignment="Bottom" Margin="32,0,32,16" Padding="16,10" CornerRadius="10"
                     Background="{StaticResource ST9Pane}" BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1"
                     Visibility="{x:Bind ViewModel.IsCompareBarVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -290,9 +294,16 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="{x:Bind ViewModel.CompareBarText, Mode=OneWay}" Style="{StaticResource ST9_Body}" VerticalAlignment="Center"/>
                     <Button Grid.Column="1" Style="{StaticResource ST9_ButtonGhost}" Content="Clear" Click="ClearPicks_Click"/>
+                    <Button Grid.Column="3" Style="{StaticResource ST_ButtonDanger}" Click="DeletePicked_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE74D;" FontSize="14"/>
+                            <TextBlock Text="{x:Bind ViewModel.DeletePickedText, Mode=OneWay}"/>
+                        </StackPanel>
+                    </Button>
                     <Button Grid.Column="2" Style="{StaticResource ST9_ButtonPrimary}" Click="ComparePicked_Click"
                             IsEnabled="{x:Bind ViewModel.CanComparePicked, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="8">

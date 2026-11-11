@@ -35,8 +35,8 @@ Everything host-side works on its own. The paired features need [**StreamLight**
 Everything below is in the current release, whichever version first introduced it.
 
 **🧭 Status and Setup** *(10.0.0)*
-- **Status** — the page StreamTweak opens on: a header drawn from the covers of the games on this PC, saying whether the host is ready to stream, with its link speed, the games listed and the last session's grade; a device asking for access, with its PIN and *Approve*, *Approve with host management* or *Deny*; the stream running now, with *Return to client*; then eight tiles, one per component — service, bridge port, streaming server, library, managed apps, spatial audio, network, NVIDIA Sentinel — green, amber or red, each opening the page that sets it. On a first run the same page walks through the four steps that matter
-- **Setup** — what you set once on this host, in its own block of the sidebar: Clients, Network, Apps, Spatial audio, NVIDIA Sentinel and *(10.1.0)* Hue Sync — the same names StreamLight uses. Apps, spatial audio and Sentinel can also be switched from StreamLight 8.0's StreamTweak section, by a device with Host management. The everyday switches and the live figures are on the client
+- **Status** — the page StreamTweak opens on: a header drawn from the covers of the games on this PC, saying whether the host is ready to stream, with its link speed, the games listed and the last session's grade; a device asking for access, with its PIN and *Approve*, *Approve with host management* or *Deny*; the stream running now, with *Return to client*; then one tile per component, in the sidebar's two blocks — Setup: service, bridge port, streaming server, library, network, managed apps; *(10.3.0)* This PC: NVIDIA Sentinel, spatial audio, Xbox controllers and Hue Sync, the last two when they are in use — green, amber or red, each opening the page that sets it. On a first run the same page walks through the four steps that matter
+- **Setup** and *(10.3.0)* **This PC** — what you set once on this host, in two blocks of the sidebar: Setup for what a stream needs between host and client — Clients, Network, Apps — and This PC for the devices a stream touches — NVIDIA Sentinel, Spatial audio, *(10.3.0)* Xbox controllers and *(10.1.0)* Hue Sync — the same names StreamLight uses. Apps, spatial audio and Sentinel can also be switched from StreamLight 8.0's StreamTweak section, by a device with Host management. The everyday switches and the live figures are on the client
 
 **🌐 Network**
 - **Link-speed switch** — the client reads its own wired link and asks the host to match it **before** connecting; the stream starts once the change is confirmed. This is what fixes the packet loss and latency spikes caused by host and client NICs negotiating at different speeds — a 2.5 Gbps host feeding a 1 Gbps handheld sends each frame as a burst the slower link cannot drain, and the few packets carrying audio die first
@@ -75,6 +75,11 @@ Everything below is in the current release, whichever version first introduced i
 - **Read only** — paired with the bridge by its button; StreamTweak reads which area is syncing and which app opened it, and never changes a light, a scene or an area. The key is kept encrypted for your Windows account
 - **Tells you what is in the way** — Hue Sync's own start with Windows would beat StreamTweak to the lights: the page says so and opens the Startup settings
 
+**🎮 Xbox controllers** *(10.3.0)*
+- **Off with the PC** — Windows turns the controllers on the Xbox Wireless Adapter off only at a full shut down; with Fast Startup, Windows' default, they lose the PC and blink until they give up. StreamTweak's service turns them off when this PC shuts down with Fast Startup and, if you choose, when it sleeps or hibernates. Both rules are off until you turn them on, and the shut down never waits more than a fraction of a second for them
+- **Their charge** — the Xbox controllers connected now, on the adapter or over Bluetooth, each with its charge — Full, Medium, Low or Critical, the four levels a controller reports over the adapter; over Bluetooth, the charge Windows' Settings shows — and whether it is charging, also in the tray icon's tooltip; **Turn off now** turns the ones on the adapter off
+- The turn-off is for Microsoft controllers on the Xbox Wireless Adapter: it is the adapter driver's own
+
 **🗂️ Streaming app manager**
 - Apps to close when a session starts and reopen when it ends — Hue Sync, RGB suites, anything that fights with the client — with a per-app switch to exclude one without removing it. **Add app** offers the programs running now first, then any program on disk
 
@@ -82,6 +87,7 @@ Everything below is in the current release, whichever version first introduced i
 - **Full session log** — every session with duration, RTT, drop rate, and the games it played with their covers, and the codec of each stream. Optionally, sessions that never launched a game are discarded rather than recorded
 - **Quality report** — open any session for its client and host stats, a grade of Excellent / Good / Poor with the four checks behind it, and one timeline of RTT, host frame latency, drops, bitrate, decode latency, host compute and host power (board power against the power limit in force, and GPU temperature, on NVIDIA), with zoom, a Focus view and full screen
 - **Compare two sessions** side by side, with per-metric deltas
+- *(10.3.0)* **Delete many at once** — tick any number of sessions, or all those the filter shows, and delete them with one confirmation
 
 ## 🔗 Paired Features (with StreamLight)
 
@@ -106,18 +112,14 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched in Settings here, and on the device too
 - **Hue Sync** *(8.4.0+)* — StreamLight's Hue Sync tab reads the bridge's areas and who has the lights over `HUESYNC`, starts pairing with `HUEPAIR` and sets the two rules with `SETHUE`, with Host management; no address, key or area ever comes from the client. *Take back*, which restarts Hue Sync on the client, needs nothing from this host
 
-## ✨ What's New in 10.2.1 — "The Clean Swap Update"
+## ✨ What's New in 10.3.0 — "The Lights Out Update"
 
-Works with any StreamLight.
+Works with any StreamLight. It comes from something I noticed on my own host: with Windows' Fast Startup on, an Xbox controller on the Xbox Wireless Adapter stays on after a shut down, blinking until it gives up.
 
-- **Updates over a running StreamTweak** — the setup no longer stops on "unable to automatically close all applications": StreamTweak now closes when the setup asks
-
-## ✨ What's New in 10.2.0 — "The New Footing Update"
-
-Works with any StreamLight.
-
-- **Runs on .NET 10** — .NET 8 stops receiving security fixes on 10 November 2026; .NET 10 is supported until November 2028. The installer fetches its runtime only if it is missing
-- **Windows App SDK 2.6** — the latest release of the UI framework, with fixes for crashes in the sidebar and when the app closes; its runtime installs alongside the older ones
+- **Xbox controllers off with the PC** — a new This PC › Xbox controllers page turns the controllers on the Xbox Wireless Adapter off when this PC shuts down with Fast Startup and, if you choose, when it sleeps, instead of leaving them blinking; both rules are off until you turn them on
+- **Their charge at a glance** — the same page lists the connected controllers with their charge and whether they are charging, and turns them off on demand; the tray icon's tooltip shows the charge too
+- **Sessions, deleted in bulk** — tick as many as you like and delete them with one click
+- **A sidebar in two blocks** — Setup keeps Clients, Network and Apps; NVIDIA Sentinel, Spatial audio, Xbox controllers and Hue Sync move under This PC, and Status's tiles follow, with two new ones for Xbox controllers and Hue Sync
 
 *Older releases are in [changelog.txt](changelog.txt).*
 
@@ -162,6 +164,7 @@ StreamTweak is free, with no ads and no telemetry. If it made your streaming bet
 - [**Apollo**](https://github.com/ClassicOldSong/Apollo) — community-driven Sunshine fork
 - [**Vibeshine**](https://github.com/Nonary/vibeshine) and [**Vibepollo**](https://github.com/Nonary/Vibepollo) — fully supported
 - [**NVIDIA Profile Inspector**](https://github.com/Orbmu2k/nvidiaProfileInspector) by Orbmu2k (MIT) — its DRS layer and setting catalog were ported natively to power NVIDIA Sentinel
+- [**xbpoweroff**](https://github.com/Leclowndu93150/xbpoweroff) by Leclowndu93150 (MIT) — found how to tell a controller on the Xbox Wireless Adapter to turn off, which Xbox controllers uses
 
 ## License
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-green.svg)](https://www.gnu.org/licenses/gpl-3.0)

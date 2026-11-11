@@ -414,6 +414,17 @@ namespace StreamTweak
             }
         }
 
+        /// <summary>The encoder of the stream in progress (10.3.0, Status's hero); null until the
+        /// server's <c>Creating encoder</c> line has been read, or with no stream open.</summary>
+        public static string? ActiveStreamEncoder
+        {
+            get
+            {
+                lock (_spanLock)
+                    return _activeStreamSpans.Count > 0 && _activeStreamSpans[^1].End == null ? _activeStreamSpans[^1].Encoder : null;
+            }
+        }
+
         /// <summary>Closes the open live-stream interval, if any.</summary>
         public static void RecordStreamStop(DateTime when)
         {
@@ -936,6 +947,27 @@ namespace StreamTweak
             }
             SessionDeleted?.Invoke();
             return true;
+        }
+
+        /// <summary>
+        /// Removes several sessions in one hold of the file lock and one write (10.3.0, the ticks of
+        /// the Sessions page). Never the session still open. Returns how many went.
+        /// </summary>
+        public static int DeleteSessions(IEnumerable<string> ids)
+        {
+            var set = new HashSet<string>(ids, StringComparer.OrdinalIgnoreCase);
+            if (_activeSessionId != null) set.Remove(_activeSessionId);
+            if (set.Count == 0) return 0;
+            int removed;
+            lock (_fileLock)
+            {
+                var sessions = Load();
+                removed = sessions.RemoveAll(s => set.Contains(s.Id));
+                if (removed == 0) return 0;
+                Save(sessions);
+            }
+            SessionDeleted?.Invoke();
+            return removed;
         }
 
         private static void Save(List<SessionEntry> sessions)

@@ -8,6 +8,8 @@
 
     <!-- 10.0 Setup: what you set once on this host — Clients, Network, Apps, Spatial audio,
          NVIDIA Sentinel — one sidebar item each, under the Setup header (Marcello, 22/10: items, not tabs).
+         10.3.0: two headers, Setup (Clients, Network, Apps) and This PC (NVIDIA Sentinel, Spatial audio,
+         Xbox controllers, Hue Sync); still this one page.
          One page shows the panel its item names (ShowTab); Status's rows open the one they speak
          of. The column grows with the window up to the shared content width (Controls/PageLayout). -->
     <Grid>
@@ -744,6 +746,108 @@
                                     <Button Content="Open Startup settings" Click="HueStartupSettings_Click"/>
                                 </InfoBar.ActionButton>
                             </InfoBar>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- ═══ XBOX CONTROLLERS (10.3.0) — variant A of docs/mockups/pad ═════════════
+                 Turned off with this PC by the service (XboxControllerPower.cs): the rules are its,
+                 the charge comes from Windows.Gaming.Input. Microsoft controllers only: the turn-off
+                 is xboxgip's, the driver of the Xbox Wireless Adapter. -->
+            <StackPanel x:Name="PanelXbox" Style="{StaticResource ST8_PanelRoot}" Visibility="Collapsed">
+                <TextBlock Text="Turns the controllers on the Xbox Wireless Adapter off with this PC, as the console does." Style="{StaticResource ST9_PageSubtitle}" TextWrapping="Wrap"/>
+
+                <InfoBar Visibility="{x:Bind Xbox.HasStatus, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+                         IsOpen="{x:Bind Xbox.HasStatus, Mode=OneWay}"
+                         Severity="{x:Bind Xbox.StatusIsError, Mode=OneWay, Converter={StaticResource BoolToInfoBarSeverityConverter}}"
+                         Message="{x:Bind Xbox.StatusText, Mode=OneWay}"
+                         IsClosable="True" Closed="XboxStatus_Closed">
+                    <InfoBar.Resources><SolidColorBrush x:Key="InfoBarInformationalSeverityIconBackground" Color="#4ade80"/></InfoBar.Resources>
+                </InfoBar>
+
+                <!-- RULES -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="RULES" Style="{StaticResource ST_SectionLabel}"/>
+                    <Border Style="{StaticResource ST8_GroupCard}">
+                        <StackPanel>
+                            <Border Style="{StaticResource ST8_Row}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2" Margin="0,0,16,0">
+                                        <TextBlock Text="Turn off when this PC shuts down" Style="{StaticResource ST_RowLabel}"/>
+                                        <TextBlock Text="With Fast Startup they stay on and blink until they give up. A full shut down already turns them off." Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" Style="{StaticResource ST_Toggle}" IsOn="{x:Bind Xbox.OffAtShutdown, Mode=TwoWay}"
+                                                  IsEnabled="{x:Bind Xbox.ServiceUp, Mode=OneWay}" AutomationProperties.Name="Turn off when this PC shuts down"
+                                                  HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource ST8_Row}" BorderThickness="0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Spacing="2" Margin="0,0,16,0">
+                                        <TextBlock Text="Turn off when this PC sleeps" Style="{StaticResource ST_RowLabel}"/>
+                                        <TextBlock Text="Also when it hibernates." Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" Style="{StaticResource ST_Toggle}" IsOn="{x:Bind Xbox.OffAtSleep, Mode=TwoWay}"
+                                                  IsEnabled="{x:Bind Xbox.ServiceUp, Mode=OneWay}" AutomationProperties.Name="Turn off when this PC sleeps"
+                                                  HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- CONNECTED -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="CONNECTED" Style="{StaticResource ST_SectionLabel}"/>
+                    <Border Style="{StaticResource ST8_GroupCard}">
+                        <StackPanel>
+                            <Border Style="{StaticResource ST8_Row}" Visibility="{x:Bind Xbox.EmptyVisibility, Mode=OneWay}">
+                                <TextBlock Text="{x:Bind Xbox.EmptyText, Mode=OneWay}" Style="{StaticResource ST_RowDescription}" TextWrapping="Wrap"/>
+                            </Border>
+                            <ItemsRepeater ItemsSource="{x:Bind Xbox.Pads}" Visibility="{x:Bind Xbox.PadsVisibility, Mode=OneWay}">
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:XboxPadRow">
+                                        <Border Style="{StaticResource ST8_Row}">
+                                            <Grid ColumnSpacing="12">
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                <Border Grid.Column="0" Width="30" Height="30" CornerRadius="7" Background="{StaticResource STInput}">
+                                                    <FontIcon Glyph="&#xE7FC;" FontFamily="Segoe MDL2 Assets" FontSize="15" Foreground="{StaticResource STTextSecondary}"/>
+                                                </Border>
+                                                <TextBlock Grid.Column="1" Text="{x:Bind Name}" Style="{StaticResource ST_RowLabel}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                <!-- The charge: four cells, as the adapter reports four levels. -->
+                                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                    <Grid VerticalAlignment="Center">
+                                                        <Border BorderBrush="{StaticResource STTextDim}" BorderThickness="1.5" CornerRadius="3" Padding="2" Margin="0,0,3,0">
+                                                            <StackPanel Orientation="Horizontal" Spacing="2">
+                                                                <Rectangle Width="5" Height="10" RadiusX="1" RadiusY="1" Fill="{x:Bind Cell0}"/>
+                                                                <Rectangle Width="5" Height="10" RadiusX="1" RadiusY="1" Fill="{x:Bind Cell1}"/>
+                                                                <Rectangle Width="5" Height="10" RadiusX="1" RadiusY="1" Fill="{x:Bind Cell2}"/>
+                                                                <Rectangle Width="5" Height="10" RadiusX="1" RadiusY="1" Fill="{x:Bind Cell3}"/>
+                                                            </StackPanel>
+                                                        </Border>
+                                                        <Rectangle Width="2" Height="6" HorizontalAlignment="Right" VerticalAlignment="Center" Fill="{StaticResource STTextDim}"/>
+                                                    </Grid>
+                                                    <TextBlock Text="{x:Bind LevelText}" Foreground="{x:Bind LevelBrush}" FontSize="13" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="⚡ Charging" Foreground="{StaticResource STSuccess}" FontSize="12" VerticalAlignment="Center"
+                                                               Visibility="{x:Bind ChargingVisibility}"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                            <Border Style="{StaticResource ST8_Row}" BorderThickness="0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="{x:Bind Xbox.LastText, Mode=OneWay}" Style="{StaticResource ST_RowDescription}"
+                                               TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                                    <Button Grid.Column="1" Content="Turn off now" Style="{StaticResource ST_ButtonSecondary}" VerticalAlignment="Center"
+                                            IsEnabled="{x:Bind Xbox.CanTurnOffNow, Mode=OneWay}" Click="XboxTurnOffNow_Click"/>
+                                </Grid>
+                            </Border>
                         </StackPanel>
                     </Border>
                 </StackPanel>
