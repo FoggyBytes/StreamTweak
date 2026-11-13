@@ -49,17 +49,42 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- The command, as written in the streaming server -->
-                    <Border Grid.Column="2" Background="{StaticResource ST10Code}" BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1"
-                            CornerRadius="6" Padding="9,6" VerticalAlignment="Center"
-                            ToolTipService.ToolTip="{x:Bind CommandOrNote}">
-                        <StackPanel Orientation="Horizontal" Spacing="7">
+                    <!-- The command, as written in the streaming server. 10.4.0 (mockup A «Menu sul
+                         comando», docs/mockups/lancio): it is also the control — a click opens the
+                         menu of the ways this game can start (Command_Click). A game the server
+                         does not list has nothing to choose: the box stays inert. -->
+                    <Button Grid.Column="2" Style="{StaticResource ST9_ButtonSubtle}" Background="{StaticResource ST10Code}"
+                            BorderBrush="{StaticResource ST9CardStroke}" Padding="9,6" MinHeight="0" CornerRadius="6"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" VerticalAlignment="Center"
+                            IsHitTestVisible="{x:Bind HasCommand}" IsTabStop="{x:Bind HasCommand}" Click="Command_Click"
+                            ToolTipService.ToolTip="{x:Bind CommandTip}" AutomationProperties.Name="How this game starts">
+                        <Grid ColumnSpacing="7">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" Spacing="7">
+                            <Border CornerRadius="4" Padding="5,0,5,1" VerticalAlignment="Center" BorderThickness="1"
+                                    Background="{StaticResource ST9MintSoft}" BorderBrush="{StaticResource ST9MintStroke}"
+                                    Visibility="{x:Bind ChipGame, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <TextBlock Text="GAME" FontFamily="{StaticResource DMSansMedium}" FontSize="10" CharacterSpacing="40" Foreground="{StaticResource ST9Mint2}"/>
+                            </Border>
+                            <Border CornerRadius="4" Padding="5,0,5,1" VerticalAlignment="Center" BorderThickness="1"
+                                    Background="{StaticResource ST9BlueSoft}" BorderBrush="{StaticResource ST9BlueStroke}"
+                                    Visibility="{x:Bind ChipCustom, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <TextBlock Text="CUSTOM" FontFamily="{StaticResource DMSansMedium}" FontSize="10" CharacterSpacing="40" Foreground="{StaticResource ST9Blue}"/>
+                            </Border>
                             <TextBlock Text="{x:Bind Kind}" Style="{StaticResource ST9_Mono}" FontSize="11.5" Foreground="{StaticResource ST9Text4}"
+                                       VerticalAlignment="Center"
                                        Visibility="{x:Bind HasCommand, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                            <TextBlock Text="{x:Bind CommandOrNote}" Style="{StaticResource ST9_Mono}" FontSize="11.5" Foreground="{StaticResource ST9Text2}"
-                                       TextTrimming="CharacterEllipsis" IsTextSelectionEnabled="True"/>
-                        </StackPanel>
-                    </Border>
+                            </StackPanel>
+                            <TextBlock Grid.Column="1" Text="{x:Bind CommandOrNote}" Style="{StaticResource ST9_Mono}" FontSize="11.5" Foreground="{StaticResource ST9Text2}"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            <FontIcon Grid.Column="2" Glyph="&#xE70D;" FontSize="10" Foreground="{StaticResource ST9Text3}"
+                                      Visibility="{x:Bind HasCommand, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                        </Grid>
+                    </Button>
 
                     <!-- Play (a test of the command) and the row's one action -->
                     <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" HorizontalAlignment="Right">

@@ -134,6 +134,9 @@ namespace StreamTweak
                         existing.ExePath    = g.ExePath;      // refresh path from latest scan
                         existing.InstallDir = g.InstallDir;   // refresh install dir (used by Strategy 2 process detection)
                         existing.LaunchId   = g.LaunchId;     // refresh the store's own launch id (Epic)
+                        existing.GameExePath    = g.GameExePath;     // 10.4.0: the game behind a launcher (GOG)
+                        existing.GameWorkingDir = g.GameWorkingDir;
+                        existing.GameArguments  = g.GameArguments;
                         // Refresh ProcessName from scanner when available (Xbox/UWP) — don't
                         // clobber user-set values: only overwrite when the scanner provides one.
                         if (!string.IsNullOrEmpty(g.ProcessName))
@@ -151,9 +154,16 @@ namespace StreamTweak
                         InstallDir  = g.InstallDir,            // persist install dir (used by Strategy 2 process detection)
                         LaunchId    = g.LaunchId,              // the store's own launch id, when its launcher must start the game
                         ProcessName = g.ProcessName,           // persist runtime process name (Xbox/UWP)
+                        GameExePath    = g.GameExePath,        // 10.4.0: the game behind a launcher (GOG)
+                        GameWorkingDir = g.GameWorkingDir,
+                        GameArguments  = g.GameArguments,
                         Enabled     = true,
                     };
                 }).ToList();
+
+                // Each scanned game with its entry, by position, before the list is extended and
+                // sorted: the sync writes the scan's facts with the user's launch choice (10.4.0).
+                var scannedWithEntry = games.Zip(mergedGames).ToList();
 
                 // Preserve manually-added games across re-syncs
                 var manualGames = state.Games.Where(e => e.IsManual).ToList();
@@ -163,20 +173,23 @@ namespace StreamTweak
                 mergedGames.Sort((a, b) =>
                     string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
 
-                // 6. Sync only enabled games to Sunshine
-                // Include manual games as DiscoveredGame objects
-                var gamesToSync = games.Where(g =>
-                    mergedGames.FirstOrDefault(e =>
-                        !e.IsManual &&
-                        ((e.SteamAppId != null && e.SteamAppId == g.SteamAppId) ||
-                        (e.StoreId    != null && e.StoreId    == g.StoreId && e.Store == g.Store) ||
-                        e.Name.Equals(g.Name, StringComparison.OrdinalIgnoreCase)))
-                        ?.Enabled ?? false
-                ).ToList();
+                // 6. Sync only enabled games to Sunshine, each with its entry's launch choice (10.4.0).
+                // Paired by position instead of the old lookup by app id / store id / name, which
+                // found the same entry: the merge above builds one entry per scanned game.
+                var gamesToSync = scannedWithEntry
+                    .Where(p => p.Second.Enabled)
+                    .Select(p => p.First with
+                    {
+                        LaunchChoice     = p.Second.LaunchChoice,
+                        CustomCommand    = p.Second.CustomCommand,
+                        CustomWorkingDir = p.Second.CustomWorkingDir,
+                    })
+                    .ToList();
 
                 // Add enabled manual games to the sync list
                 foreach (var mg in manualGames.Where(m => m.Enabled && !string.IsNullOrEmpty(m.ExePath)))
-                    gamesToSync.Add(new DiscoveredGame(mg.Name, mg.Store, null, mg.ExePath!));
+                    gamesToSync.Add(new DiscoveredGame(mg.Name, mg.Store, null, mg.ExePath!,
+                        LaunchChoice: mg.LaunchChoice, CustomCommand: mg.CustomCommand, CustomWorkingDir: mg.CustomWorkingDir));
 
                 var (added, removed, writeError) = await Task.Run(() =>
                     SunshineSync.Sync(appsJson, gamesToSync, CoverDir));
@@ -266,6 +279,41 @@ namespace StreamTweak
             {
                 _syncLock.Release();
             }
+        }
+
+        /// <summary>
+        /// 10.4.0, the Library's menu on the command: how this game starts — null (automatic),
+        /// <see cref="GameLibraryEntry.ChoiceStore"/> or <see cref="GameLibraryEntry.ChoiceCustom"/>
+        /// with its command and folder. Saved in the entry, so every later sync writes it, and
+        /// written into this game's apps.json entry now. Returns null, or why it failed. The server
+        /// reads apps.json when it starts: the change shows after Sync and restart.
+        /// </summary>
+        public static async Task<string?> SetLaunchChoiceAsync(GameLibraryEntry entry, string? choice,
+                                                              string? customCommand = null, string? customWorkingDir = null)
+        {
+            if (!await _syncLock.WaitAsync(TimeSpan.FromSeconds(5)))
+                return "a sync is running — try again in a moment";
+            try
+            {
+                var state = GameLibraryState.Current;
+                entry.LaunchChoice = choice;
+                if (choice == GameLibraryEntry.ChoiceCustom)
+                {
+                    entry.CustomCommand    = customCommand?.Trim();
+                    entry.CustomWorkingDir = string.IsNullOrWhiteSpace(customWorkingDir) ? null : customWorkingDir.Trim();
+                }
+                // Another choice keeps the custom command: picking it again brings it back.
+                state.Save();
+
+                string? appsJson = SunshineSync.FindAppsJsonPath();
+                if (appsJson == null) return $"{HostAppName} not found";
+                string? error = await Task.Run(() => SunshineSync.UpdateLaunch(appsJson, entry.ToLaunchGame()));
+                DebugLogger.Log($"GameLibraryService: launch of \"{entry.Name}\" set to {choice ?? "automatic"}" +
+                                (error != null ? $" — apps.json not written: {error}" : ""));
+                return error;
+            }
+            catch (Exception ex) { return ex.Message; }
+            finally { _syncLock.Release(); }
         }
 
         /// <summary>

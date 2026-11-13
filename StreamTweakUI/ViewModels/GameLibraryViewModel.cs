@@ -26,8 +26,17 @@ namespace StreamTweak.ViewModels
         /// <summary>From apps.json; empty for a game the server does not list.</summary>
         public string Command { get; }
         public string Kind    { get; }
+        public string WorkingDir { get; }
         public bool   HasCommand => Command.Length > 0;
         public string CommandOrNote { get; }
+
+        /// <summary>10.4.0: the command is the game's own program, past a launcher the store declared.</summary>
+        public bool ChipGame   => HasCommand && !ChipCustom && Entry.LaunchChoice != GameLibraryEntry.ChoiceStore
+                                  && !string.IsNullOrEmpty(Entry.GameExePath);
+        /// <summary>10.4.0: the command is the user's own.</summary>
+        public bool ChipCustom => HasCommand && Entry.LaunchChoice == GameLibraryEntry.ChoiceCustom
+                                  && !string.IsNullOrWhiteSpace(Entry.CustomCommand);
+        public string CommandTip => HasCommand ? $"{Command}\nClick to choose how it starts" : CommandOrNote;
 
         public bool   CanPlay    => HasCommand;
         public string ActionText => !Entry.Enabled ? "Include again" : Entry.IsManual ? "Remove" : "Exclude";
@@ -41,6 +50,7 @@ namespace StreamTweak.ViewModels
             BadgeUri = entry.IsManual ? null : StoreBadge(entry.Store);
             Command  = command?.Shown ?? "";
             Kind     = command?.Kind ?? "";
+            WorkingDir = command?.WorkingDir ?? "";
             CommandOrNote = Command.Length > 0 ? Command
                           : entry.Enabled ? $"Not in {server} yet: Sync and restart writes it"
                           : $"Not in {server}";
@@ -58,6 +68,12 @@ namespace StreamTweak.ViewModels
             _                 => null
         };
     }
+
+    /// <summary>
+    /// 10.4.0: one way to start a game, as the Library's menu on the command offers it.
+    /// <see cref="Choice"/> is what <see cref="GameLibraryEntry.LaunchChoice"/> becomes.
+    /// </summary>
+    public sealed record LaunchOption(string? Choice, string Title, string Note, string Detail, bool IsCurrent);
 
     // ── ViewModel ─────────────────────────────────────────────────────────────
 
@@ -317,6 +333,67 @@ namespace StreamTweak.ViewModels
                 state.Save();
             }
             Pending = true;
+            Reload();
+        }
+
+        // ── How a game starts (10.4.0) ───────────────────────────────────────────
+
+        /// <summary>
+        /// The menu on a row's command: the default way (the game's own program when the store
+        /// declared a launcher in front of it, else the store's way), the launcher on purpose when
+        /// there is one, then a custom command. The tick is on the one apps.json now carries.
+        /// </summary>
+        public IReadOnlyList<LaunchOption> LaunchOptions(LibraryRow row, out string? footnote)
+        {
+            var e = row.Entry;
+            bool hasGame   = !string.IsNullOrEmpty(e.GameExePath);
+            bool isCustom  = e.LaunchChoice == GameLibraryEntry.ChoiceCustom && !string.IsNullOrWhiteSpace(e.CustomCommand);
+            bool isStore   = !isCustom && hasGame && e.LaunchChoice == GameLibraryEntry.ChoiceStore;
+            var list = new List<LaunchOption>();
+            footnote = null;
+
+            if (hasGame)
+            {
+                string root = e.InstallDir ?? Path.GetDirectoryName(e.ExePath ?? "") ?? "";
+                string rel  = root.Length > 0 ? Path.GetRelativePath(root, e.GameExePath!) : Path.GetFileName(e.GameExePath!);
+                string launcher = Path.GetFileName(e.ExePath ?? "");
+                list.Add(new LaunchOption(null, "Game", "default", rel, !isCustom && !isStore));
+                list.Add(new LaunchOption(GameLibraryEntry.ChoiceStore, Path.GetFileNameWithoutExtension(launcher),
+                                          $"{e.Store} launcher", launcher, isStore));
+                footnote = $"{e.Store} marks {launcher} as a launcher in front of the game.";
+            }
+            else
+            {
+                string cmd = SunshineSync.DescribeLaunch(e.ToLaunchGame() with { LaunchChoice = null });
+                list.Add(new LaunchOption(null, e.IsManual ? "Program" : e.Store, "default", cmd, !isCustom));
+            }
+            list.Add(new LaunchOption(GameLibraryEntry.ChoiceCustom, "Custom command…", "",
+                                      e.CustomCommand ?? "", isCustom));
+            return list;
+        }
+
+        /// <summary>What a custom command for this game warns about, by store; empty when nothing.</summary>
+        public static string BypassWarning(GameLibraryEntry e) => e.IsManual ? "" : e.Store switch
+        {
+            "Steam"      => "Started outside Steam, a game can lose its DRM check, the overlay and cloud saves.",
+            "Epic Games" => "Most Epic games have to be started by the Epic launcher: run on their own, they quit after the intro.",
+            "Xbox"       => "Started outside the Xbox app, most Game Pass games do not run.",
+            "Battle.net" => "Blizzard games need the Battle.net login: started on their own, they usually stop.",
+            _            => "",
+        };
+
+        /// <summary>Saves the choice, writes it into apps.json, and shows the new command.</summary>
+        public async Task SetLaunchAsync(LibraryRow row, string? choice, string? customCommand = null, string? customWorkingDir = null)
+        {
+            if (!CanChange) return;
+            _busy = true; OnPropertyChanged(nameof(CanChange));
+            try
+            {
+                string? error = await GameLibraryService.SetLaunchChoiceAsync(row.Entry, choice, customCommand, customWorkingDir);
+                if (error != null) ShowStatus($"Could not change how \"{row.Name}\" starts: {error}", isError: true);
+                else Pending = true;
+            }
+            finally { _busy = false; OnPropertyChanged(nameof(CanChange)); }
             Reload();
         }
 

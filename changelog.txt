@@ -4,6 +4,16 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-------------------------------------------------------
+Version 10.4.0 - "The Right Launch Update" (13/11/2026)
+-------------------------------------------------------
+
+Works with any StreamLight.
+
+🎮 GAME LIBRARY:
+• Past the launcher — when a store says that the program it starts is a launcher in front of the game, the streaming server now gets the game's own program: The Witcher 3 from GOG starts witcher3.exe instead of stopping on the REDlauncher. GOG writes this in every game's install folder, so nothing is guessed from file names, and the Library marks those commands GAME
+• Choose how each game starts — click a game's command in the Library for the ways it can start: the default, the store's launcher on purpose when there is one, or a command of your own with its working folder, marked CUSTOM. The choice is kept at every sync, and the streaming server uses it after Sync and restart
+
 -----------------------------------------------------
 Version 10.3.0 - "The Lights Out Update" (11/11/2026)
 -----------------------------------------------------

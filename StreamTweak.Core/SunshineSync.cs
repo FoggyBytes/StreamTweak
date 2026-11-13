@@ -294,10 +294,7 @@ namespace StreamTweak
                 if (manualNames.Contains(game.Name)) continue;
 
                 string coverPath  = CoverArtFetcher.GetCachedPath(game, coverDir) ?? "";
-                string workingDir = string.IsNullOrEmpty(game.ExePath)
-                    ? ""
-                    : Path.GetDirectoryName(game.ExePath) ?? "";
-                BuildLaunchCommand(game, out string cmd, out string detached);
+                BuildLaunchCommand(game, out string cmd, out string detached, out string workingDir);
 
                 // Match by AppId first (stable across renames), then fall back to name
                 JsonNode? existing = null;
@@ -493,9 +490,7 @@ namespace StreamTweak
             }
 
             string coverPath  = CoverArtFetcher.GetCachedPath(game, coverDir) ?? "";
-            string workingDir = string.IsNullOrEmpty(game.ExePath)
-                ? "" : Path.GetDirectoryName(game.ExePath) ?? "";
-            BuildLaunchCommand(game, out string cmd, out string detached);
+            BuildLaunchCommand(game, out string cmd, out string detached, out string workingDir);
 
             var newEntry = new JsonObject
             {
@@ -642,14 +637,101 @@ namespace StreamTweak
             if (string.Equals(store, "Epic Games", StringComparison.Ordinal) &&
                 !string.IsNullOrEmpty(launchId))
             {
-                // Verbatim, no Uri.EscapeDataString — see the note in BuildLaunchCommand.
+                // Verbatim, no Uri.EscapeDataString — see the note in BuildStoreCommand.
                 return $"com.epicgames.launcher://apps/{launchId}?action=launch&silent=true";
             }
 
             return null;
         }
 
-        private static void BuildLaunchCommand(DiscoveredGame game, out string cmd, out string detached)
+        /// <summary>
+        /// 10.4.0: what apps.json gets for a game — the user's choice first (a custom command, or
+        /// the store's way on purpose), then the game's own program when the store declared a
+        /// launcher in front of it, then the store's way (<see cref="BuildStoreCommand"/>).
+        /// </summary>
+        private static void BuildLaunchCommand(DiscoveredGame game, out string cmd, out string detached, out string workingDir)
+        {
+            if (game.LaunchChoice == GameLibraryEntry.ChoiceCustom && !string.IsNullOrWhiteSpace(game.CustomCommand))
+            {
+                // As written: the user's own command line, a program with its arguments or a URI.
+                cmd        = game.CustomCommand.Trim();
+                detached   = "";
+                workingDir = game.CustomWorkingDir ?? ProgramFolder(cmd) ?? "";
+                return;
+            }
+
+            if (game.LaunchChoice != GameLibraryEntry.ChoiceStore && !string.IsNullOrEmpty(game.GameExePath))
+            {
+                cmd        = string.IsNullOrEmpty(game.GameArguments) ? $"\"{game.GameExePath}\"" : $"\"{game.GameExePath}\" {game.GameArguments}";
+                detached   = "";
+                workingDir = game.GameWorkingDir ?? Path.GetDirectoryName(game.GameExePath) ?? "";
+                return;
+            }
+
+            BuildStoreCommand(game, out cmd, out detached);
+            workingDir = string.IsNullOrEmpty(game.ExePath) ? "" : Path.GetDirectoryName(game.ExePath) ?? "";
+        }
+
+        /// <summary>The folder of a command line's program, when it names one by an absolute path.</summary>
+        private static string? ProgramFolder(string commandLine)
+        {
+            string line = commandLine.Trim(), file;
+            if (line.StartsWith('"')) { int end = line.IndexOf('"', 1); file = end > 0 ? line[1..end] : line.Trim('"'); }
+            else { int space = line.IndexOf(' '); file = space > 0 ? line[..space] : line; }
+            try { return Path.IsPathRooted(file) && !file.Contains("://") ? Path.GetDirectoryName(file) : null; }
+            catch { return null; }
+        }
+
+        /// <summary>
+        /// 10.4.0: the command a game would get with the choice it carries (the command, else the
+        /// detached one) — for the Library's menu, which shows the default way before it is picked.
+        /// </summary>
+        public static string DescribeLaunch(DiscoveredGame game)
+        {
+            BuildLaunchCommand(game, out string cmd, out string detached, out _);
+            return cmd.Length > 0 ? cmd : detached;
+        }
+
+        /// <summary>
+        /// 10.4.0: rewrites how one StreamTweak entry of apps.json starts — its cmd, detached and
+        /// working-dir, nothing else — after the Library's menu changed it. Found by name. Returns
+        /// null, or why it failed; null too when the game is not in apps.json (the next sync writes it).
+        /// </summary>
+        public static string? UpdateLaunch(string appsJsonPath, DiscoveredGame game)
+        {
+            if (!File.Exists(appsJsonPath)) return null;
+            JsonObject doc;
+            try { doc = JsonNode.Parse(File.ReadAllText(appsJsonPath)) as JsonObject ?? new JsonObject(); }
+            catch (Exception ex) { return ex.Message; }
+            if (doc["apps"] is not JsonArray apps) return null;
+
+            JsonNode? target = null;
+            foreach (var entry in apps)
+            {
+                if (entry == null) continue;
+                bool isManaged = entry[MANAGED_FIELD]?.GetValue<bool>() == true
+                              || entry["output"]?.GetValue<string>() == "streamtweak-managed";
+                if (isManaged && string.Equals(entry["name"]?.GetValue<string>(), game.Name, StringComparison.OrdinalIgnoreCase))
+                { target = entry; break; }
+            }
+            if (target == null) return null;
+
+            BuildLaunchCommand(game, out string cmd, out string detached, out string workingDir);
+            target["cmd"]         = cmd;
+            target["working-dir"] = workingDir;
+            target["detached"]    = string.IsNullOrEmpty(detached) ? new JsonArray() : new JsonArray(JsonValue.Create(detached));
+
+            string newJson = doc.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+            if (!SpeedChanger.WriteAppsJson(appsJsonPath, newJson))
+            {
+                try { File.WriteAllText(appsJsonPath, newJson, System.Text.Encoding.UTF8); }
+                catch (Exception ex) { return ex.Message; }
+            }
+            return null;
+        }
+
+        /// <summary>The store's own way to start a game: its protocol, or the program the scanner found.</summary>
+        private static void BuildStoreCommand(DiscoveredGame game, out string cmd, out string detached)
         {
             switch (game.Store)
             {

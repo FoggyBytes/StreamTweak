@@ -29,7 +29,18 @@ namespace StreamTweak
         string? ProcessName = null,
         // Store-specific launch id, when the store's own launcher has to do the launching.
         // Epic: "<namespace>:<catalogItemId>:<appName>", the triple its protocol expects.
-        string? LaunchId = null);
+        string? LaunchId = null,
+        // 10.4.0: the game's own program, when the store says that ExePath is a launcher in
+        // front of it (GOG's playTasks: The Witcher 3's REDprelauncher → bin\x64_dx12\witcher3.exe).
+        // Null when the store declares nothing of the kind: we never guess from file names.
+        string? GameExePath = null,
+        string? GameWorkingDir = null,
+        string? GameArguments = null,
+        // 10.4.0: the user's choice for this game, copied from its GameLibraryEntry before a sync
+        // (null = automatic, "store" = the store's own way, "custom" = CustomCommand).
+        string? LaunchChoice = null,
+        string? CustomCommand = null,
+        string? CustomWorkingDir = null);
 
     /// <summary>
     /// Scans installed game libraries on the local machine.
@@ -304,13 +315,85 @@ namespace StreamTweak
                     string? exe  = gameKey.GetValue("exe")      as string;
 
                     if (!string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(exe) && File.Exists(exe))
+                    {
+                        string? root = gameKey.GetValue("path") as string;
+                        if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root)) root = Path.GetDirectoryName(exe);
+                        var behind = root != null ? GogGameBehindLauncher(root, gameId, exe) : null;
                         game = new DiscoveredGame(name, "GOG", null, exe, gameId, // gameId = ProductId
-                                                  InstallDir: Path.GetDirectoryName(exe));
+                                                  InstallDir: Path.GetDirectoryName(exe),
+                                                  GameExePath: behind?.Exe, GameWorkingDir: behind?.WorkingDir,
+                                                  GameArguments: behind?.Arguments);
+                    }
                 }
                 catch { }
 
                 if (game != null) yield return game;
             }
+        }
+
+        /// <summary>
+        /// 10.4.0: the game's own program when GOG says the registry's <c>exe</c> is a launcher.
+        /// <para>Every GOG install carries <c>goggame-&lt;id&gt;.info</c>, whose <c>playTasks</c> have a
+        /// <c>category</c>: The Witcher 3 GOTY's primary task is <c>REDprelauncher.exe</c>,
+        /// category <c>launcher</c>, and a hidden one is <c>bin/x64_dx12/witcher3.exe</c>, category
+        /// <c>game</c>, with its own <c>workingDir</c> (read on FOGGY, 13/11/2026). That is GOG
+        /// telling us, so nothing here looks at file names.</para>
+        /// <para>Null unless the registry exe is a <c>launcher</c> task AND a <c>game</c> FileTask
+        /// exists on disk. Among several game tasks: one for every language (<c>*</c>) or for an
+        /// installed one first, then the primary, then the first.</para>
+        /// </summary>
+        private static (string Exe, string WorkingDir, string? Arguments)? GogGameBehindLauncher(
+            string root, string gameId, string registryExe)
+        {
+            try
+            {
+                string info = Path.Combine(root, $"goggame-{gameId}.info");
+                if (!File.Exists(info)) return null;
+                using var doc = JsonDocument.Parse(File.ReadAllText(info));
+                if (!doc.RootElement.TryGetProperty("playTasks", out var tasks) || tasks.ValueKind != JsonValueKind.Array)
+                    return null;
+
+                var installed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                if (doc.RootElement.TryGetProperty("languages", out var langs) && langs.ValueKind == JsonValueKind.Array)
+                    foreach (var l in langs.EnumerateArray())
+                        if (l.GetString() is string s) installed.Add(s);
+
+                static string? Str(JsonElement e, string p) =>
+                    e.TryGetProperty(p, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+                string Full(string rel) => Path.GetFullPath(Path.Combine(root, rel.Replace('/', '\\')));
+
+                string exeFull = Path.GetFullPath(registryExe);
+                bool exeIsLauncher = false;
+                var games = new List<(string Exe, string Dir, string? Args, bool Primary, bool Lang)>();
+
+                foreach (var t in tasks.EnumerateArray())
+                {
+                    if (Str(t, "type") != "FileTask") continue;
+                    string? path = Str(t, "path");
+                    if (string.IsNullOrWhiteSpace(path)) continue;
+                    string full = Full(path);
+                    string? category = Str(t, "category");
+
+                    if (category == "launcher" && string.Equals(full, exeFull, StringComparison.OrdinalIgnoreCase))
+                        exeIsLauncher = true;
+                    if (category != "game" || !full.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || !File.Exists(full))
+                        continue;
+
+                    string? wd = Str(t, "workingDir");
+                    string dir = string.IsNullOrWhiteSpace(wd) ? Path.GetDirectoryName(full) ?? root : Full(wd);
+                    bool primary = t.TryGetProperty("isPrimary", out var ip) && ip.ValueKind == JsonValueKind.True;
+                    bool lang = true;
+                    if (t.TryGetProperty("languages", out var tl) && tl.ValueKind == JsonValueKind.Array)
+                        lang = tl.EnumerateArray().Any(x => x.GetString() is string s && (s == "*" || installed.Contains(s)));
+                    string? args = Str(t, "arguments");
+                    games.Add((full, dir, string.IsNullOrWhiteSpace(args) ? null : args.Trim(), primary, lang));
+                }
+
+                if (!exeIsLauncher || games.Count == 0) return null;
+                var pick = games.OrderByDescending(g => g.Lang).ThenByDescending(g => g.Primary).First();
+                return (pick.Exe, pick.Dir, pick.Args);
+            }
+            catch { return null; }
         }
 
         // ── Ubisoft Connect ───────────────────────────────────────────────────

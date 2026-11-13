@@ -64,7 +64,9 @@ Everything below is in the current release, whichever version first introduced i
 - **Multi-store discovery** — Steam, Epic Games, GOG, Ubisoft Connect, Xbox / Game Pass, EA App and Battle.net, synced into the streaming server's app list without touching entries you created by hand
 - **Native cover art** — fetched from each store and cached as PNG. A cover has to be full size to be accepted, so the search carries on past the small thumbnail a launcher keeps for its own grid, and a cover already downloaded is never replaced by a smaller one
 - **Each store launched the way it expects** — Steam and Epic through their launcher's own protocol, Xbox through the UWP shell, Battle.net through its client. Most Epic games cannot be started from their executable at all: the entitlement tokens arrive on the command line from the launcher
+- *(10.4.0)* **Past the launcher** — when a store says the program it starts is a launcher in front of the game, the server gets the game's own program instead: The Witcher 3 from GOG starts `witcher3.exe`, not the REDlauncher. GOG writes this in each game's folder, so nothing is guessed from file names
 - **One row per game, with the exact command** — what StreamTweak wrote in the streaming server, so what you read is what the server runs. **Play** runs that same command on this PC, to test it
+- *(10.4.0)* **Choose how each game starts** — click the command for the ways it can start: the default, the store's launcher on purpose, or a command of your own with its working folder. The choice is kept at every sync
 - **Exclude** — a game stays in the list and out of the streaming server at every sync, whoever starts it; **Include again** brings it back
 - **Sync and restart** — the servers read their app list only when they start, so the sync restarts the streaming server's own service, through the LocalSystem service and Windows' service manager, and waits until it answers again. Refused while a device is streaming or a game it launched is still open
 - **Manual entries** — add any executable that was not detected, and keep it across re-syncs
@@ -112,14 +114,12 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched in Settings here, and on the device too
 - **Hue Sync** *(8.4.0+)* — StreamLight's Hue Sync tab reads the bridge's areas and who has the lights over `HUESYNC`, starts pairing with `HUEPAIR` and sets the two rules with `SETHUE`, with Host management; no address, key or area ever comes from the client. *Take back*, which restarts Hue Sync on the client, needs nothing from this host
 
-## ✨ What's New in 10.3.0 — "The Lights Out Update"
+## ✨ What's New in 10.4.0 — "The Right Launch Update"
 
-Works with any StreamLight. It comes from something I noticed on my own host: with Windows' Fast Startup on, an Xbox controller on the Xbox Wireless Adapter stays on after a shut down, blinking until it gives up.
+Works with any StreamLight.
 
-- **Xbox controllers off with the PC** — a new This PC › Xbox controllers page turns the controllers on the Xbox Wireless Adapter off when this PC shuts down with Fast Startup and, if you choose, when it sleeps, instead of leaving them blinking; both rules are off until you turn them on
-- **Their charge at a glance** — the same page lists the connected controllers with their charge and whether they are charging, and turns them off on demand; the tray icon's tooltip shows the charge too
-- **Sessions, deleted in bulk** — tick as many as you like and delete them with one click
-- **A sidebar in two blocks** — Setup keeps Clients, Network and Apps; NVIDIA Sentinel, Spatial audio, Xbox controllers and Hue Sync move under This PC, and Status's tiles follow, with two new ones for Xbox controllers and Hue Sync
+- **Past the launcher** — when a store says the program it starts is only a launcher, the streaming server gets the game itself: The Witcher 3 from GOG goes straight to the game instead of stopping on the REDlauncher
+- **Choose how each game starts** — click a game's command in the Library: the default, the store's launcher on purpose, or a command of your own with its working folder, kept at every sync
 
 *Older releases are in [changelog.txt](changelog.txt).*
 

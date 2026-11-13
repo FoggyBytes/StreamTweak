@@ -61,6 +61,34 @@ namespace StreamTweak
         /// </summary>
         public string? LaunchId { get; set; }
 
+        /// <summary>
+        /// 10.4.0: the game's own program when the store declares ExePath a launcher in front of it
+        /// (GOG playTasks). Refreshed at every scan, never set by hand; null when there is none.
+        /// </summary>
+        public string? GameExePath { get; set; }
+        public string? GameWorkingDir { get; set; }
+        public string? GameArguments { get; set; }
+
+        /// <summary>
+        /// 10.4.0, the Library's menu on the command: null = automatic (the game's own program when
+        /// <see cref="GameExePath"/> is known, else the store's way), <see cref="ChoiceStore"/> = the
+        /// store's way even when a game program is known (the launcher), <see cref="ChoiceCustom"/> =
+        /// <see cref="CustomCommand"/>. Kept across syncs; the sync writes what it says.
+        /// </summary>
+        public string? LaunchChoice { get; set; }
+        public string? CustomCommand { get; set; }
+        public string? CustomWorkingDir { get; set; }
+
+        public const string ChoiceStore  = "store";
+        public const string ChoiceCustom = "custom";
+
+        /// <summary>What the sync writes for this game: the scan's facts plus the user's choice.</summary>
+        public DiscoveredGame ToLaunchGame() => new(
+            Name, Store, SteamAppId, ExePath ?? "", StoreId,
+            InstallDir: InstallDir, ProcessName: ProcessName, LaunchId: LaunchId,
+            GameExePath: GameExePath, GameWorkingDir: GameWorkingDir, GameArguments: GameArguments,
+            LaunchChoice: LaunchChoice, CustomCommand: CustomCommand, CustomWorkingDir: CustomWorkingDir);
+
         // ── UI helpers (not persisted) ────────────────────────────────────────
 
         private static readonly string CoverCacheDir = Path.Combine(
