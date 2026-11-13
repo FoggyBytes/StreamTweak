@@ -197,7 +197,8 @@ namespace StreamTweak.ViewModels
                 _pollingTimer = _dispatcher.CreateTimer();
                 _pollingTimer.Interval    = TimeSpan.FromSeconds(2);
                 _pollingTimer.IsRepeating = true;
-                _pollingTimer.Tick += (_, _) => _ = CheckFormatActiveAsync();
+                // 10.4.2: not while the window is in the tray — the page stays loaded there.
+                _pollingTimer.Tick += (_, _) => { if (AppStateService.Instance.IsMainWindowVisible) _ = CheckFormatActiveAsync(); };
             }
             _pollingTimer.Start();
         }

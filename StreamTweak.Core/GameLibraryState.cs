@@ -79,6 +79,15 @@ namespace StreamTweak
         public string? CustomCommand { get; set; }
         public string? CustomWorkingDir { get; set; }
 
+        /// <summary>
+        /// 10.4.2: the picture the user chose for a game added by hand — a file name in the covers
+        /// folder (custom_&lt;hash&gt;.png), or null. ⚠️ A NEW name for every new picture, never the old
+        /// file overwritten: the streaming server derives the game's id from its picture and
+        /// StreamLight keeps covers by that id, so a picture changed in place could stay the old one
+        /// on the devices.
+        /// </summary>
+        public string? CustomCover { get; set; }
+
         public const string ChoiceStore  = "store";
         public const string ChoiceCustom = "custom";
 
@@ -87,7 +96,8 @@ namespace StreamTweak
             Name, Store, SteamAppId, ExePath ?? "", StoreId,
             InstallDir: InstallDir, ProcessName: ProcessName, LaunchId: LaunchId,
             GameExePath: GameExePath, GameWorkingDir: GameWorkingDir, GameArguments: GameArguments,
-            LaunchChoice: LaunchChoice, CustomCommand: CustomCommand, CustomWorkingDir: CustomWorkingDir);
+            LaunchChoice: LaunchChoice, CustomCommand: CustomCommand, CustomWorkingDir: CustomWorkingDir,
+            CoverPath: CustomCoverPath);
 
         // ── UI helpers (not persisted) ────────────────────────────────────────
 
@@ -95,8 +105,21 @@ namespace StreamTweak
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "StreamTweak", "covers");
 
+        /// <summary>10.4.2: the full path of <see cref="CustomCover"/> when the file is there.</summary>
+        [JsonIgnore]
+        public string? CustomCoverPath
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(CustomCover)) return null;
+                string path = Path.Combine(CoverCacheDir, CustomCover);
+                return File.Exists(path) ? path : null;
+            }
+        }
+
         /// <summary>
-        /// Absolute path to the cached cover PNG for this game, or null if not yet downloaded.
+        /// Absolute path to the cached cover PNG for this game, or null if not yet downloaded —
+        /// since 10.4.2 the user's own picture first, for a game added by hand.
         /// Uses the same naming convention as CoverArtFetcher / StoreCoverFetcher.
         /// </summary>
         [JsonIgnore]
@@ -104,6 +127,7 @@ namespace StreamTweak
         {
             get
             {
+                if (CustomCoverPath is string custom) return custom;
                 string? fileName = GetCoverFileName();
                 if (fileName == null) return null;
                 string path = Path.Combine(CoverCacheDir, fileName);

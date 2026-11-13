@@ -57,6 +57,9 @@ namespace StreamTweak
         /// </summary>
         public static string? GetCachedPath(DiscoveredGame game, string cacheDir)
         {
+            // 10.4.2: the user's own picture for a game added by hand comes first.
+            if (!string.IsNullOrEmpty(game.CoverPath) && File.Exists(game.CoverPath))
+                return game.CoverPath;
             string? path = GetCacheFilePath(game, cacheDir);
             return (path != null && File.Exists(path)) ? path : null;
         }

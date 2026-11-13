@@ -62,6 +62,48 @@
     <SolidColorBrush x:Key="AccentTextFillColorTertiaryBrush"     Color="#4ade80"/>
     <SolidColorBrush x:Key="AccentTextFillColorDisabledBrush"     Color="#514ade80"/>
 
+    <!-- 10.4.2 (Marcello, 13/11/2026: «never Windows' accent colour again, only StreamTweak's green»).
+         SystemAccentColor alone was not enough: WinUI's dark theme derives many brushes from its SIX
+         shades, SystemAccentColorLight1-3 and Dark1-3, and those stayed the OS colour — the underline
+         of a focused TextBox (TextControlElevationBorderFocusedBrush → SystemAccentColorLight2) showed
+         orange in the Library's rename box. The shades are set here, and every brush of the dark
+         theme that reads them (listed from WinUI 2.6.5's generic.xaml) is set to green as well,
+         because a brush defined inside the theme dictionary resolves its colour there, not here.
+         A new control in a colour that is not green: find its key in generic.xaml and add it. -->
+    <Color x:Key="SystemAccentColorLight1">#FF4ade80</Color>
+    <Color x:Key="SystemAccentColorLight2">#FF4ade80</Color>
+    <Color x:Key="SystemAccentColorLight3">#FF86efac</Color>
+    <Color x:Key="SystemAccentColorDark1">#FF22c55e</Color>
+    <Color x:Key="SystemAccentColorDark2">#FF16a34a</Color>
+    <Color x:Key="SystemAccentColorDark3">#FF15803d</Color>
+    <LinearGradientBrush x:Key="TextControlBorderBrushFocused" MappingMode="Absolute" StartPoint="0,0" EndPoint="0,2">
+        <LinearGradientBrush.RelativeTransform>
+            <ScaleTransform ScaleY="-1" CenterY="0.5"/>
+        </LinearGradientBrush.RelativeTransform>
+        <GradientStop Offset="1.0" Color="#FF4ade80"/>
+        <GradientStop Offset="1.0" Color="#12FFFFFF"/>
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="AccentAAFillColorDefaultBrush"               Color="#4ade80"/>
+    <SolidColorBrush x:Key="AccentAAFillColorSecondaryBrush"             Color="#86efac"/>
+    <SolidColorBrush x:Key="AccentAAFillColorTertiaryBrush"              Color="#4ade80"/>
+    <SolidColorBrush x:Key="AccentFillColorSelectedTextBackgroundBrush"  Color="#4ade80"/>
+    <SolidColorBrush x:Key="SystemFillColorAttentionBrush"               Color="#4ade80"/>
+    <SolidColorBrush x:Key="SystemControlBackgroundAccentBrush"          Color="#4ade80"/>
+    <SolidColorBrush x:Key="SystemControlForegroundAccentBrush"          Color="#4ade80"/>
+    <SolidColorBrush x:Key="SystemControlDisabledAccentBrush"            Color="#4ade80"/>
+    <SolidColorBrush x:Key="SystemControlHighlightAccentBrush"           Color="#4ade80"/>
+    <SolidColorBrush x:Key="SystemControlHighlightAltAccentBrush"        Color="#4ade80"/>
+    <SolidColorBrush x:Key="SystemControlHyperlinkTextBrush"             Color="#86efac"/>
+    <SolidColorBrush x:Key="SystemControlRevealFocusVisualBrush"         Color="#4ade80"/>
+    <SolidColorBrush x:Key="SystemControlHighlightListAccentLowBrush"       Color="#994ade80"/>
+    <SolidColorBrush x:Key="SystemControlHighlightListAccentMediumLowBrush" Color="#A64ade80"/>
+    <SolidColorBrush x:Key="SystemControlHighlightListAccentMediumBrush"    Color="#B34ade80"/>
+    <SolidColorBrush x:Key="SystemControlHighlightListAccentHighBrush"      Color="#E64ade80"/>
+    <SolidColorBrush x:Key="SystemControlHighlightListAccentVeryHighBrush"  Color="#4ade80"/>
+    <SolidColorBrush x:Key="SystemControlHighlightAltListAccentLowBrush"    Color="#994ade80"/>
+    <SolidColorBrush x:Key="SystemControlHighlightAltListAccentMediumBrush" Color="#B34ade80"/>
+    <SolidColorBrush x:Key="SystemControlHighlightAltListAccentHighBrush"   Color="#E64ade80"/>
+
     <!-- ── TYPOGRAPHY ──────────────────────────────────────────────────────── -->
 
     <!-- Card / section header label: DM Sans SemiBold 11px uppercase -->

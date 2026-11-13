@@ -4,6 +4,26 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-----------------------------------------------------
+Version 10.4.2 - "The Quiet Tray Update" (13/11/2026)
+-----------------------------------------------------
+
+Works with any StreamLight.
+
+🎮 GAME LIBRARY:
+• Your own picture for a game added by hand — click its cover in the Library and choose a picture from this PC: it becomes the game's picture in the streaming server, and on StreamLight, after Sync and restart
+• Rename a game added by hand — click its name; the streaming server shows the new name after Sync and restart
+
+🐛 BUG FIXES:
+• Library table in one piece — with fewer games than the window holds, the table's rounded foot was drawn at the bottom of the page instead of under the last game
+• Green everywhere — a few controls, such as the line under a text box being typed in, still took the accent colour chosen in Windows; they are StreamTweak green now
+
+🧹 UNDER THE HOOD:
+• Nothing read in the tray — with the window closed to the tray, Status went on reading the services, the firewall and the whole session history every ten seconds, and the Network and Spatial audio pages every two when they were the last one open; they now wait until the window is shown again, and read everything at that moment
+• Session history half the size — sessions.json is written compact: more than half of the file was spaces and line breaks, and it is read and rewritten whole at every change. Existing histories are read as before and shrink at the next session
+• Last grade remembered — Status asked the whole session history for the last grade at every round; it is now read once and kept until the history changes
+• Lighter command checks — every command from a client is signed, and each check read the client's certificate from scratch; the key is now kept, and the list of signatures already seen is tidied every ten seconds instead of at every command
+
 ----------------------------------------------------
 Version 10.4.1 - "The Live Tile Update" (13/11/2026)
 ----------------------------------------------------

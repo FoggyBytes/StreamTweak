@@ -23,6 +23,21 @@ namespace StreamTweak.ViewModels
         public bool    ShowBadge => BadgeUri != null;
         public bool    ShowNameOnCover => string.IsNullOrEmpty(Entry.CoverImagePath);
 
+        /// <summary>10.4.2: a game added by hand takes its own picture and name — click either.</summary>
+        public bool   CanEditLook => Entry.IsManual && Entry.Enabled;
+        public string CoverTip    => CanEditLook ? "Click to choose a picture" : "";
+        public string NameTip     => CanEditLook ? $"{Name}\nClick to rename" : Name;
+        /// <summary>The pencil after the name, in Segoe Fluent Icons, on the rows that can be edited.</summary>
+        public string EditMark    => CanEditLook ? "  \uE70F" : "";
+
+        /// <summary>
+        /// 10.4.2: the last row carries the table's rounded foot. It was the ListView's Footer, which
+        /// with fewer games than the window holds sat at the bottom of the page, away from the table.
+        /// </summary>
+        public bool IsLast { get; set; }
+        public Microsoft.UI.Xaml.CornerRadius RowCorner => IsLast ? new(0, 0, 12, 12) : new(0);
+        public Microsoft.UI.Xaml.Thickness    RowPadding => IsLast ? new(18, 10, 18, 16) : new(18, 10, 18, 10);
+
         /// <summary>From apps.json; empty for a game the server does not list.</summary>
         public string Command { get; }
         public string Kind    { get; }
@@ -271,8 +286,11 @@ namespace StreamTweak.ViewModels
                 games = games.Where(g => g.Name.Contains(_filter.Trim(), StringComparison.CurrentCultureIgnoreCase));
 
             Rows.Clear();
-            foreach (var g in games.OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase))
-                Rows.Add(new LibraryRow(g, _commands.TryGetValue(g.Name, out var c) ? c : null, Server));
+            var rows = games.OrderBy(g => g.Name, StringComparer.CurrentCultureIgnoreCase)
+                            .Select(g => new LibraryRow(g, _commands.TryGetValue(g.Name, out var c) ? c : null, Server))
+                            .ToList();
+            if (rows.Count > 0) rows[^1].IsLast = true;
+            foreach (var r in rows) Rows.Add(r);
 
             EmptyText = Rows.Count > 0 ? ""
                       : _filter.Trim().Length > 0 ? "No game matches."
@@ -442,6 +460,50 @@ namespace StreamTweak.ViewModels
             string dir = workingDir.Length > 0 ? workingDir : (Path.IsPathRooted(file) ? Path.GetDirectoryName(file) ?? "" : "");
             if (dir.Length > 0 && Directory.Exists(dir)) psi.WorkingDirectory = dir;
             Process.Start(psi);
+        }
+
+        // ── A game added by hand: its picture and its name (10.4.2) ─────────────────
+
+        /// <summary>A picture from this PC as the game's cover, in the list and in the streaming server.</summary>
+        public async Task ChooseCoverAsync(LibraryRow row)
+        {
+            if (!CanChange || !row.CanEditLook) return;
+            var picker = new FileOpenPicker();
+            if (App.MainWindow is { } win)
+                InitializeWithWindow.Initialize(picker, WindowNative.GetWindowHandle(win));
+            foreach (var ext in new[] { ".png", ".jpg", ".jpeg", ".webp", ".bmp" })
+                picker.FileTypeFilter.Add(ext);
+            picker.SuggestedStartLocation = PickerLocationId.PicturesLibrary;
+            picker.ViewMode = PickerViewMode.Thumbnail;
+
+            var file = await picker.PickSingleFileAsync();
+            if (file == null) return;
+
+            _busy = true; OnPropertyChanged(nameof(CanChange));
+            try
+            {
+                string? error = await GameLibraryService.SetCustomCoverAsync(row.Entry, file.Path);
+                if (error != null) ShowStatus($"Could not use this picture for \"{row.Name}\": {error}", isError: true);
+                else Pending = true;
+            }
+            finally { _busy = false; OnPropertyChanged(nameof(CanChange)); }
+            Reload();
+        }
+
+        /// <summary>A new name for a game added by hand. Null = done; otherwise why not.</summary>
+        public async Task<string?> RenameAsync(LibraryRow row, string newName)
+        {
+            if (!CanChange || !row.CanEditLook) return null;
+            _busy = true; OnPropertyChanged(nameof(CanChange));
+            string? error;
+            try
+            {
+                error = await GameLibraryService.RenameManualGameAsync(row.Entry, newName);
+                if (error == null) Pending = true;
+            }
+            finally { _busy = false; OnPropertyChanged(nameof(CanChange)); }
+            Reload();
+            return error;
         }
 
         public async Task AddGameAsync()

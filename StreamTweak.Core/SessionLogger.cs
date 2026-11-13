@@ -906,6 +906,28 @@ namespace StreamTweak
             }
         }
 
+        // The last finished session that has a grade, kept until sessions.json is next written
+        // (10.4.2): Status asked for it at every round, and each asking parsed the whole history.
+        private static readonly object _lastGradedLock = new();
+        private static DateTime _lastGradedStamp = DateTime.MaxValue;
+        private static SessionEntry? _lastGraded;
+
+        /// <summary>The most recent finished session with a grade, or null. Parsed once per write of
+        /// sessions.json.</summary>
+        public static SessionEntry? LastGraded()
+        {
+            DateTime stamp = LastWriteUtc;
+            lock (_lastGradedLock)
+            {
+                if (stamp != _lastGradedStamp)
+                {
+                    _lastGraded = Load().FirstOrDefault(s => s.EndTime != null && s.HasGrade);
+                    _lastGradedStamp = stamp;
+                }
+                return _lastGraded;
+            }
+        }
+
         public static List<SessionEntry> Load()
         {
             lock (_fileLock)
@@ -979,8 +1001,10 @@ namespace StreamTweak
                 // and CoverArtFetcher. Prevents a truncated sessions.json if the process is
                 // killed mid-write (host shutdown, crash), which would silently wipe all history.
                 string tmp = LogPath + ".tmp";
-                File.WriteAllText(tmp, JsonSerializer.Serialize(sessions,
-                    new JsonSerializerOptions { WriteIndented = true }));
+                // 10.4.2: written compact. Indented, 59 % of the file was whitespace — every sample
+                // of every series on a line of its own — and the whole file is read and rewritten at
+                // each change. The reader takes either form.
+                File.WriteAllText(tmp, JsonSerializer.Serialize(sessions));
                 File.Move(tmp, LogPath, overwrite: true);
             }
         }

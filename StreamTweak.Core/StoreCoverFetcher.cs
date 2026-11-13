@@ -738,7 +738,7 @@ namespace StreamTweak
         /// so without this a later, worse source silently overwrites a better one that ran
         /// first, and which of the two you end up with depends on the order they finish in.
         /// </summary>
-        private static async Task<int> SaveBytesAsPngAsync(byte[] bytes, string path)
+        internal static async Task<int> SaveBytesAsPngAsync(byte[] bytes, string path)
         {
             string tempPath = path + ".tmp";
             int height;

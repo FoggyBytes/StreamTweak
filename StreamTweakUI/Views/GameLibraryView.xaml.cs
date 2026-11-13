@@ -63,6 +63,59 @@ namespace StreamTweak.Views
 
         private async void AddGame_Click(object sender, RoutedEventArgs e) => await ViewModel.AddGameAsync();
 
+        // ── A game added by hand: picture and name (10.4.2) ──────────────────────────
+
+        private async void Cover_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is LibraryRow row) await ViewModel.ChooseCoverAsync(row);
+        }
+
+        /// <summary>Rename: the name in a box; a refusal is said in the dialog, which stays open.</summary>
+        private async void Name_Click(object sender, RoutedEventArgs e)
+        {
+            if ((sender as FrameworkElement)?.DataContext is not LibraryRow row || !row.CanEditLook || !ViewModel.CanChange) return;
+
+            var box = new TextBox { Header = "Name", Text = row.Name, MinWidth = 380 };
+            var error = new TextBlock { FontFamily = DmSans, FontSize = 12.5, Foreground = Amber, TextWrapping = TextWrapping.Wrap,
+                                        Visibility = Visibility.Collapsed };
+            var body = new StackPanel { Spacing = 10 };
+            body.Children.Add(box);
+            body.Children.Add(new TextBlock { Text = $"{ViewModel.Server} shows the new name after Sync and restart.", FontFamily = DmSans,
+                                              FontSize = 12.5, Foreground = Text3, TextWrapping = TextWrapping.Wrap });
+            body.Children.Add(error);
+
+            var dialog = new ContentDialog
+            {
+                Title             = "Rename",
+                Content           = body,
+                PrimaryButtonText = "Save",
+                CloseButtonText   = "Cancel",
+                DefaultButton     = ContentDialogButton.Primary,
+                XamlRoot          = this.XamlRoot,
+            };
+            dialog.Resources["ContentDialogBackground"]       = new SolidColorBrush(Color.FromArgb(0xE6, 0x1d, 0x1b, 0x1a));
+            dialog.Resources["ContentDialogBorderBrush"]      = new SolidColorBrush(Color.FromArgb(0xFF, 0x2A, 0x27, 0x24));
+            dialog.Resources["ContentControlThemeFontFamily"] = DmSans;
+            void Validate() => dialog.IsPrimaryButtonEnabled = box.Text.Trim().Length > 0 && box.Text.Trim() != row.Name;
+            box.TextChanged += (_, _) => { error.Visibility = Visibility.Collapsed; Validate(); };
+            box.Loaded += (_, _) => { box.Focus(FocusState.Programmatic); box.SelectAll(); };
+            Validate();
+
+            dialog.PrimaryButtonClick += async (d, args) =>
+            {
+                var deferral = args.GetDeferral();
+                string? why = await ViewModel.RenameAsync(row, box.Text);
+                if (why != null)
+                {
+                    error.Text = $"Not renamed: {why}.";
+                    error.Visibility = Visibility.Visible;
+                    args.Cancel = true;
+                }
+                deferral.Complete();
+            };
+            await dialog.ShowAsync();
+        }
+
         // ── How a game starts (10.4.0, mockup A «Menu sul comando») ─────────────────
 
         private static readonly FontFamily DmSans    = new("ms-appx:///Resources/DMSans-Regular.ttf#DM Sans");

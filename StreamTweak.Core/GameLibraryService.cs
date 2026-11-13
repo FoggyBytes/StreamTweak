@@ -189,7 +189,8 @@ namespace StreamTweak
                 // Add enabled manual games to the sync list
                 foreach (var mg in manualGames.Where(m => m.Enabled && !string.IsNullOrEmpty(m.ExePath)))
                     gamesToSync.Add(new DiscoveredGame(mg.Name, mg.Store, null, mg.ExePath!,
-                        LaunchChoice: mg.LaunchChoice, CustomCommand: mg.CustomCommand, CustomWorkingDir: mg.CustomWorkingDir));
+                        LaunchChoice: mg.LaunchChoice, CustomCommand: mg.CustomCommand, CustomWorkingDir: mg.CustomWorkingDir,
+                        CoverPath: mg.CustomCoverPath));
 
                 var (added, removed, writeError) = await Task.Run(() =>
                     SunshineSync.Sync(appsJson, gamesToSync, CoverDir));
@@ -317,6 +318,104 @@ namespace StreamTweak
         }
 
         /// <summary>
+        /// 10.4.2: a game added by hand renamed — in the list and in its apps.json entry. Refused when
+        /// the name is empty or another game, StreamTweak's or the server's own, already has it.
+        /// Returns null, or why not. The server shows it after Sync and restart.
+        /// </summary>
+        public static async Task<string?> RenameManualGameAsync(GameLibraryEntry entry, string newName)
+        {
+            newName = (newName ?? "").Trim();
+            if (newName.Length == 0) return "the name is empty";
+            if (!entry.IsManual) return "only games added by hand can be renamed here";
+            if (newName == entry.Name) return null;
+
+            if (!await _syncLock.WaitAsync(TimeSpan.FromSeconds(5)))
+                return "a sync is running — try again in a moment";
+            try
+            {
+                var state = GameLibraryState.Current;
+                if (state.Games.Any(g => !ReferenceEquals(g, entry)
+                                         && string.Equals(g.Name, newName, StringComparison.OrdinalIgnoreCase)))
+                    return $"another game is already called \"{newName}\"";
+
+                string? appsJson = SunshineSync.FindAppsJsonPath();
+                if (appsJson != null && SunshineSync.NameTaken(appsJson, newName, except: entry.Name))
+                    return $"{HostAppName} already has an entry called \"{newName}\"";
+
+                string oldName = entry.Name;
+                string? error = appsJson == null ? null
+                    : await Task.Run(() => SunshineSync.UpdateAppLook(appsJson, oldName, newName, null));
+                if (error != null) return $"could not write apps.json: {error}";
+
+                entry.Name        = newName;
+                entry.UserRenamed = true;
+                state.Save();
+                DebugLogger.Log($"GameLibraryService: \"{oldName}\" renamed \"{newName}\"");
+                return null;
+            }
+            catch (Exception ex) { return ex.Message; }
+            finally { _syncLock.Release(); }
+        }
+
+        /// <summary>
+        /// 10.4.2: a picture for a game added by hand. Converted to PNG (the server takes nothing
+        /// else) into the covers folder under a name taken from its content, made the game's
+        /// image-path, and the picture it replaces deleted. Returns null, or why not. The server
+        /// shows it after Sync and restart, and StreamLight with it.
+        /// </summary>
+        public static async Task<string?> SetCustomCoverAsync(GameLibraryEntry entry, string sourcePath)
+        {
+            if (!entry.IsManual) return "only games added by hand take a picture here";
+            byte[] bytes;
+            try { bytes = await File.ReadAllBytesAsync(sourcePath); }
+            catch (Exception ex) { return ex.Message; }
+
+            string hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes))[..16].ToLowerInvariant();
+            string fileName = $"custom_{hash}.png";
+            string path = Path.Combine(CoverDir, fileName);
+
+            if (!await _syncLock.WaitAsync(TimeSpan.FromSeconds(5)))
+                return "a sync is running — try again in a moment";
+            try
+            {
+                Directory.CreateDirectory(CoverDir);
+                if (!File.Exists(path))
+                {
+                    try
+                    {
+                        if (await StoreCoverFetcher.SaveBytesAsPngAsync(bytes, path) == 0 && !File.Exists(path))
+                            return "the picture could not be read";
+                    }
+                    catch { return "this file is not a picture StreamTweak can read"; }
+                }
+
+                string? appsJson = SunshineSync.FindAppsJsonPath();
+                string? error = appsJson == null ? null
+                    : await Task.Run(() => SunshineSync.UpdateAppLook(appsJson, entry.Name, null, path));
+                if (error != null) return $"could not write apps.json: {error}";
+
+                var state = GameLibraryState.Current;
+                string? previous = entry.CustomCover;
+                entry.CustomCover = fileName;
+                state.Save();
+                if (!string.Equals(previous, fileName, StringComparison.OrdinalIgnoreCase))
+                    DeleteCustomCover(previous, state);
+                DebugLogger.Log($"GameLibraryService: picture of \"{entry.Name}\" set to {fileName}");
+                return null;
+            }
+            catch (Exception ex) { return ex.Message; }
+            finally { _syncLock.Release(); }
+        }
+
+        /// <summary>A custom picture no game uses any more, deleted. Only ever a custom_*.png.</summary>
+        private static void DeleteCustomCover(string? fileName, GameLibraryState state)
+        {
+            if (string.IsNullOrEmpty(fileName) || !fileName.StartsWith("custom_", StringComparison.OrdinalIgnoreCase)) return;
+            if (state.Games.Any(g => string.Equals(g.CustomCover, fileName, StringComparison.OrdinalIgnoreCase))) return;
+            try { File.Delete(Path.Combine(CoverDir, Path.GetFileName(fileName))); } catch { }
+        }
+
+        /// <summary>
         /// Removes a single game from the library and from Sunshine's apps.json.
         /// </summary>
         public static async Task<string> RemoveGameAsync(GameLibraryEntry entry)
@@ -347,6 +446,7 @@ namespace StreamTweak
                         return $"Removed from list, but could not update {HostAppName}: {error}";
                 }
 
+                DeleteCustomCover(entry.CustomCover, state);
                 return $"Removed \"{entry.Name}\".";
             }
             catch (Exception ex)

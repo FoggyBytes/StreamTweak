@@ -399,8 +399,6 @@ namespace StreamTweak
             return (hash & 0x7FFFFFFFu).ToString();
         }
 
-        // ── Rename ────────────────────────────────────────────────────────────
-
         // ── Clear ─────────────────────────────────────────────────────────────
 
         /// <summary>
@@ -720,6 +718,65 @@ namespace StreamTweak
             target["cmd"]         = cmd;
             target["working-dir"] = workingDir;
             target["detached"]    = string.IsNullOrEmpty(detached) ? new JsonArray() : new JsonArray(JsonValue.Create(detached));
+
+            string newJson = doc.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+            if (!SpeedChanger.WriteAppsJson(appsJsonPath, newJson))
+            {
+                try { File.WriteAllText(appsJsonPath, newJson, System.Text.Encoding.UTF8); }
+                catch (Exception ex) { return ex.Message; }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 10.4.2: true when apps.json has an entry with this name — StreamTweak's or the server's
+        /// own — other than <paramref name="except"/>. A rename must not make two games one.
+        /// </summary>
+        public static bool NameTaken(string appsJsonPath, string name, string? except)
+        {
+            try
+            {
+                if (!File.Exists(appsJsonPath)) return false;
+                if ((JsonNode.Parse(File.ReadAllText(appsJsonPath)) as JsonObject)?["apps"] is not JsonArray apps) return false;
+                foreach (var entry in apps)
+                {
+                    string? n = entry?["name"]?.GetValue<string>();
+                    if (n == null) continue;
+                    if (except != null && string.Equals(n, except, StringComparison.OrdinalIgnoreCase)) continue;
+                    if (string.Equals(n, name, StringComparison.OrdinalIgnoreCase)) return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
+        /// <summary>
+        /// 10.4.2: a game added by hand renamed, or given its own picture — the one StreamTweak entry
+        /// of apps.json with <paramref name="currentName"/> gets <paramref name="newName"/> and/or
+        /// <paramref name="imagePath"/>, nothing else. Null when done, or why not; null too when the
+        /// game is not in apps.json (the next sync writes it). The server shows it after a restart.
+        /// </summary>
+        public static string? UpdateAppLook(string appsJsonPath, string currentName, string? newName, string? imagePath)
+        {
+            if (!File.Exists(appsJsonPath)) return null;
+            JsonObject doc;
+            try { doc = JsonNode.Parse(File.ReadAllText(appsJsonPath)) as JsonObject ?? new JsonObject(); }
+            catch (Exception ex) { return ex.Message; }
+            if (doc["apps"] is not JsonArray apps) return null;
+
+            JsonNode? target = null;
+            foreach (var entry in apps)
+            {
+                if (entry == null) continue;
+                bool isManaged = entry[MANAGED_FIELD]?.GetValue<bool>() == true
+                              || entry["output"]?.GetValue<string>() == "streamtweak-managed";
+                if (isManaged && string.Equals(entry["name"]?.GetValue<string>(), currentName, StringComparison.OrdinalIgnoreCase))
+                { target = entry; break; }
+            }
+            if (target == null) return null;
+
+            if (!string.IsNullOrEmpty(newName))   target["name"]       = newName;
+            if (!string.IsNullOrEmpty(imagePath)) target["image-path"] = imagePath;
 
             string newJson = doc.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
             if (!SpeedChanger.WriteAppsJson(appsJsonPath, newJson))

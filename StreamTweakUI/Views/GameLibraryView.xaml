@@ -17,8 +17,9 @@
 
     <Page.Resources>
         <DataTemplate x:Key="GameRowTemplate" x:DataType="vm:LibraryRow">
-            <Border Background="{StaticResource ST10Surface}" BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1,0,1,1">
-                <Grid Padding="18,10" ColumnSpacing="16">
+            <Border Background="{StaticResource ST10Surface}" BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1,0,1,1"
+                    CornerRadius="{x:Bind RowCorner}">
+                <Grid Padding="{x:Bind RowPadding}" ColumnSpacing="16">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="48"/>
                         <ColumnDefinition Width="1.2*"/>
@@ -26,20 +27,39 @@
                         <ColumnDefinition Width="196"/>
                     </Grid.ColumnDefinitions>
 
-                    <!-- Cover -->
-                    <Border Width="48" Height="72" CornerRadius="6" Background="{StaticResource ST10Surface2}"
-                            BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1">
-                        <Grid>
-                            <FontIcon Glyph="&#xE7FC;" FontSize="16" Foreground="{StaticResource ST9Text4}"
-                                      Visibility="{x:Bind ShowNameOnCover, Converter={StaticResource BoolToVisibilityConverter}}"/>
-                            <Image Source="{x:Bind CoverPath, Converter={StaticResource CoverPathToBitmapRowConverter}}" Stretch="UniformToFill"/>
-                        </Grid>
-                    </Border>
+                    <!-- Cover. 10.4.2: on a game added by hand it is a button that takes a picture
+                         (Cover_Click); elsewhere inert, as before. -->
+                    <Button Padding="0" MinWidth="0" MinHeight="0" CornerRadius="6" BorderThickness="0" Background="Transparent"
+                            VerticalAlignment="Center" Click="Cover_Click"
+                            IsHitTestVisible="{x:Bind CanEditLook}" IsTabStop="{x:Bind CanEditLook}"
+                            ToolTipService.ToolTip="{x:Bind CoverTip}" AutomationProperties.Name="Cover">
+                        <Border Width="48" Height="72" CornerRadius="6" Background="{StaticResource ST10Surface2}"
+                                BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1">
+                            <Grid>
+                                <FontIcon Glyph="&#xE7FC;" FontSize="16" Foreground="{StaticResource ST9Text4}"
+                                          Visibility="{x:Bind ShowNameOnCover, Converter={StaticResource BoolToVisibilityConverter}}"/>
+                                <Image Source="{x:Bind CoverPath, Converter={StaticResource CoverPathToBitmapRowConverter}}" Stretch="UniformToFill"/>
+                                <Border Width="18" Height="18" CornerRadius="9" Margin="0,0,3,3" Background="#CC111312"
+                                        HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                        Visibility="{x:Bind CanEditLook, Converter={StaticResource BoolToVisibilityConverter}}">
+                                    <FontIcon Glyph="&#xE70F;" FontSize="9" Foreground="{StaticResource ST9Text2}"/>
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </Button>
 
                     <!-- Name and store -->
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
-                        <TextBlock Text="{x:Bind Name}" Style="{StaticResource ST9_RowTitle}" TextTrimming="CharacterEllipsis"
-                                   ToolTipService.ToolTip="{x:Bind Name}"/>
+                        <!-- 10.4.2: the name of a game added by hand is a button that renames it (Name_Click). -->
+                        <Button Padding="0" MinWidth="0" MinHeight="0" BorderThickness="0" Background="Transparent"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="Name_Click"
+                                IsHitTestVisible="{x:Bind CanEditLook}" IsTabStop="{x:Bind CanEditLook}"
+                                ToolTipService.ToolTip="{x:Bind NameTip}" AutomationProperties.Name="{x:Bind Name}">
+                            <TextBlock Style="{StaticResource ST9_RowTitle}" TextTrimming="CharacterEllipsis">
+                                <Run Text="{x:Bind Name}"/><Run Text="{x:Bind EditMark}" FontFamily="Segoe Fluent Icons" FontSize="11"
+                                     Foreground="{StaticResource ST9Text3}"/>
+                            </TextBlock>
+                        </Button>
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Image Width="13" Height="13" VerticalAlignment="Center"
                                    Visibility="{x:Bind ShowBadge, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -316,7 +336,9 @@
                         </Grid>
                     </Border>
 
-                    <Border Background="{StaticResource ST10Surface}" BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1,0,1,0" Padding="18,16"
+                    <!-- With no rows it carries the table's rounded foot itself (10.4.2: the foot is the last row's). -->
+                    <Border Background="{StaticResource ST10Surface}" BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1,0,1,1" Padding="18,16"
+                            CornerRadius="0,0,12,12"
                             Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                         <TextBlock Text="{x:Bind ViewModel.EmptyText, Mode=OneWay}" Style="{StaticResource ST9_Body}" TextWrapping="Wrap"
                                    Foreground="{StaticResource ST9Text3}"/>
@@ -324,9 +346,5 @@
                 </StackPanel>
             </StackPanel>
         </ListView.Header>
-        <ListView.Footer>
-            <Border Height="12" Background="{StaticResource ST10Surface}" BorderBrush="{StaticResource ST9CardStroke}" BorderThickness="1,0,1,1"
-                    CornerRadius="0,0,12,12"/>
-        </ListView.Footer>
     </ListView>
 </Page>

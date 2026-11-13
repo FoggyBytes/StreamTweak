@@ -293,6 +293,8 @@ namespace StreamTweak.ViewModels
             _speedRefreshTimer.IsRepeating = true;
             _speedRefreshTimer.Tick += (_, _) =>
             {
+                // 10.4.2: not while the window is in the tray — the page stays loaded there.
+                if (!AppStateService.Instance.IsMainWindowVisible) return;
                 if (_selectedAdapter != null)
                     UpdateCurrentSpeed(_selectedAdapter);
                 // Also drives the "in N s" countdown while a restore is pending.

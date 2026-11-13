@@ -40,7 +40,10 @@ namespace StreamTweak
         // (null = automatic, "store" = the store's own way, "custom" = CustomCommand).
         string? LaunchChoice = null,
         string? CustomCommand = null,
-        string? CustomWorkingDir = null);
+        string? CustomWorkingDir = null,
+        // 10.4.2: a picture chosen by the user for a game added by hand — full path, or null.
+        // When it exists it is the game's image-path, whatever the cover cache holds.
+        string? CoverPath = null);
 
     /// <summary>
     /// Scans installed game libraries on the local machine.

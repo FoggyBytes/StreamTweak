@@ -72,8 +72,36 @@ namespace StreamTweak
         private readonly object _lock = new();
         private List<BridgeClient> _clients = new();
 
-        // Anti-replay: signature(base64) -> received unix-ms. Pruned on each verify.
+        // Anti-replay: signature(base64) -> received unix-ms. Pruned every few seconds (10.4.2: it
+        // was a full pass over the table at every command).
         private readonly Dictionary<string, long> _seenSignatures = new();
+        private long _lastPruneMs;
+        private const long PruneEveryMs = 10_000;
+
+        // The public key of each approved certificate, parsed once (10.4.2) — a client sends several
+        // signed commands a second and each one parsed the PEM again. Keyed by the PEM itself, so a
+        // changed certificate can never be answered with an old key; emptied when the list is
+        // saved. An RSA object is not safe for concurrent use: every use holds its lock.
+        private readonly Dictionary<string, RSA> _keys = new(StringComparer.Ordinal);
+        private readonly object _keysLock = new();
+
+        private RSA? KeyFor(string certPem)
+        {
+            lock (_keysLock)
+            {
+                if (_keys.TryGetValue(certPem, out var known)) return known;
+                using var cert = X509Certificate2.CreateFromPem(certPem);
+                var rsa = cert.GetRSAPublicKey();
+                if (rsa != null) _keys[certPem] = rsa;
+                return rsa;
+            }
+        }
+
+        // Not disposed: a verification on another thread may be holding one. The finalizer frees them.
+        private void ForgetKeys()
+        {
+            lock (_keysLock) _keys.Clear();
+        }
 
         /// <summary>Raised (background thread) when a NEW client requests approval.</summary>
         public event Action<BridgeClient>? ApprovalRequested;
@@ -226,10 +254,9 @@ namespace StreamTweak
             bool ok;
             try
             {
-                using var cert = X509Certificate2.CreateFromPem(client.CertPem);
-                using var rsa = cert.GetRSAPublicKey();
+                var rsa = KeyFor(client.CertPem);
                 if (rsa == null) return false;
-                ok = rsa.VerifyData(payload, sig, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+                lock (rsa) { ok = rsa.VerifyData(payload, sig, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1); }
             }
             catch { return false; }
             if (!ok) return false;
@@ -247,6 +274,8 @@ namespace StreamTweak
         private void PruneSeen(long nowMs)
         {
             if (_seenSignatures.Count == 0) return;
+            if (nowMs - _lastPruneMs < PruneEveryMs && nowMs >= _lastPruneMs) return;
+            _lastPruneMs = nowMs;
             var stale = _seenSignatures
                 .Where(kv => nowMs - kv.Value > ClockSkewMs * 2)
                 .Select(kv => kv.Key)
@@ -435,6 +464,7 @@ namespace StreamTweak
 
         private void Save()
         {
+            ForgetKeys();
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(StatePath)!);

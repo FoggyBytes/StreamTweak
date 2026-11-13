@@ -152,10 +152,14 @@ namespace StreamTweak.ViewModels
             _clock.Interval = TimeSpan.FromSeconds(1);
             _clock.Tick += (_, _) =>
             {
+                // 10.4.2: nothing is read while the window is in the tray — the page stays loaded
+                // there, and each round asks the services, the firewall and the session history.
+                if (!AppStateService.Instance.IsMainWindowVisible) return;
                 RefreshLive();
                 if (++_tick % 10 == 0) _ = RefreshAsync();
             };
             _clock.Start();
+            app.MainWindowVisibilityChanged += OnWindowVisible;
             _ = RefreshAsync();
         }
 
@@ -178,16 +182,24 @@ namespace StreamTweak.ViewModels
                 Windows.Gaming.Input.RawGameController.RawGameControllerRemoved -= OnControllers;
             }
             catch { }
+            app.MainWindowVisibilityChanged -= OnWindowVisible;
             _again = false;
             _clock?.Stop();
             _clock = null;
         }
 
-        private void OnSomethingChanged(object? sender, EventArgs e) => _ui.TryEnqueue(() => _ = RefreshAsync());
-        private void OnSomethingChanged(object? sender, bool e)     => _ui.TryEnqueue(() => _ = RefreshAsync());
-        private void OnManagedApps() => _ui.TryEnqueue(() => _ = RefreshAsync());
-        private void OnClients()     => _ui.TryEnqueue(() => _ = RefreshAsync());
-        private void OnControllers(object? sender, Windows.Gaming.Input.RawGameController e) => _ui.TryEnqueue(() => _ = RefreshAsync());
+        /// <summary>A change arrived: read again now, or — with the window in the tray (10.4.2) — when
+        /// it is next shown. <see cref="OnWindowVisible"/> reads everything on the way back.</summary>
+        private void Ask() => _ui.TryEnqueue(() =>
+        {
+            if (AppStateService.Instance.IsMainWindowVisible) _ = RefreshAsync();
+        });
+        private void OnWindowVisible(object? sender, bool visible) { if (visible) _ui.TryEnqueue(() => _ = RefreshAsync()); }
+        private void OnSomethingChanged(object? sender, EventArgs e) => Ask();
+        private void OnSomethingChanged(object? sender, bool e)     => Ask();
+        private void OnManagedApps() => Ask();
+        private void OnClients()     => Ask();
+        private void OnControllers(object? sender, Windows.Gaming.Input.RawGameController e) => Ask();
 
         // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -602,7 +614,7 @@ namespace StreamTweak.ViewModels
                 // The last finished session's grade, as Sessions shows it.
                 try
                 {
-                    var last = SessionLogger.Load().FirstOrDefault(s => s.EndTime != null && s.HasGrade);
+                    var last = SessionLogger.LastGraded();
                     if (last != null)
                     {
                         p.LastGrade     = last.GradeShortLabel;
