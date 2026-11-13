@@ -4,6 +4,15 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+----------------------------------------------------
+Version 10.4.1 - "The Live Tile Update" (13/11/2026)
+----------------------------------------------------
+
+Works with any StreamLight.
+
+🐛 BUG FIXES:
+• Status sees a controller at once — switching an Xbox controller on or off now shows on its tile straight away, as on the Xbox controllers page, instead of after up to ten seconds or a trip to another page
+
 -------------------------------------------------------
 Version 10.4.0 - "The Right Launch Update" (13/11/2026)
 -------------------------------------------------------

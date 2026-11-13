@@ -56,6 +56,9 @@ namespace StreamTweak.ViewModels
         private DispatcherQueueTimer? _clock;
         private int _tick;
         private bool _loading;
+        /// <summary>A refresh asked for while one was running: it runs once more at the end (10.4.1),
+        /// so an event — a controller switched on — arriving mid-read is not lost until the next round.</summary>
+        private bool _again;
 
         // The first read, started by App while the window is being built (Prewarm): it costs a second
         // or two — four CIM queries to the services, the firewall's rules, the session history — and
@@ -134,6 +137,14 @@ namespace StreamTweak.ViewModels
                 app.NvidiaSentinel.AutoRestorePerformed    += OnSomethingChanged;
                 app.NvidiaSentinel.AutoRestoreStateChanged += OnSomethingChanged;
             }
+            // 10.4.1: a controller switched on or off shows on its tile at once, as on the Xbox
+            // controllers page — until now only the 10-s round or coming back to the page did it.
+            try
+            {
+                Windows.Gaming.Input.RawGameController.RawGameControllerAdded   += OnControllers;
+                Windows.Gaming.Input.RawGameController.RawGameControllerRemoved += OnControllers;
+            }
+            catch { /* Windows.Gaming.Input unavailable: the 10-s round still reads them */ }
 
             // Once a second: the stream's clock. Every 10 s: everything, for what has no event
             // (the server's service, the firewall, a sync done by the server itself).
@@ -161,6 +172,13 @@ namespace StreamTweak.ViewModels
                 app.NvidiaSentinel.AutoRestorePerformed    -= OnSomethingChanged;
                 app.NvidiaSentinel.AutoRestoreStateChanged -= OnSomethingChanged;
             }
+            try
+            {
+                Windows.Gaming.Input.RawGameController.RawGameControllerAdded   -= OnControllers;
+                Windows.Gaming.Input.RawGameController.RawGameControllerRemoved -= OnControllers;
+            }
+            catch { }
+            _again = false;
             _clock?.Stop();
             _clock = null;
         }
@@ -169,6 +187,7 @@ namespace StreamTweak.ViewModels
         private void OnSomethingChanged(object? sender, bool e)     => _ui.TryEnqueue(() => _ = RefreshAsync());
         private void OnManagedApps() => _ui.TryEnqueue(() => _ = RefreshAsync());
         private void OnClients()     => _ui.TryEnqueue(() => _ = RefreshAsync());
+        private void OnControllers(object? sender, Windows.Gaming.Input.RawGameController e) => _ui.TryEnqueue(() => _ = RefreshAsync());
 
         // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -201,7 +220,7 @@ namespace StreamTweak.ViewModels
         /// </summary>
         public async Task RefreshAsync()
         {
-            if (_loading) return;
+            if (_loading) { _again = true; return; }
             _loading = true;
             try
             {
@@ -266,7 +285,12 @@ namespace StreamTweak.ViewModels
                 RefreshLive();
             }
             catch (Exception ex) { DebugLogger.Log($"[Status] refresh failed: {ex.Message}"); }
-            finally { _loading = false; }
+            finally
+            {
+                _loading = false;
+                // Only while the page is open: Stop() clears the clock.
+                if (_again && _clock != null) { _again = false; _ui.TryEnqueue(() => _ = RefreshAsync()); }
+            }
         }
 
         private int _attention;

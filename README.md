@@ -114,6 +114,12 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched in Settings here, and on the device too
 - **Hue Sync** *(8.4.0+)* — StreamLight's Hue Sync tab reads the bridge's areas and who has the lights over `HUESYNC`, starts pairing with `HUEPAIR` and sets the two rules with `SETHUE`, with Host management; no address, key or area ever comes from the client. *Take back*, which restarts Hue Sync on the client, needs nothing from this host
 
+## ✨ What's New in 10.4.1 — "The Live Tile Update"
+
+Works with any StreamLight.
+
+- **Controllers on Status at once** — switching an Xbox controller on or off now shows on its Status tile straight away, not up to ten seconds later
+
 ## ✨ What's New in 10.4.0 — "The Right Launch Update"
 
 Works with any StreamLight.
