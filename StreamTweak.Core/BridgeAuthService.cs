@@ -229,42 +229,85 @@ namespace StreamTweak
         /// Returns false for unknown/unapproved clients, bad signatures,
         /// out-of-window timestamps, or replays.
         /// </summary>
-        public bool TryVerify(string uniqueId, long tsMillis, string signatureBase64, string command)
+        // `reason` says why a check failed, for the log only — never for the reply, which stays a
+        // bare ERR_UNAUTHORIZED. 10.4.3 (StreamTweak #17): a client the host had approved, with the
+        // same certificate, saw every signed command refused, and the log said only "rejected
+        // unauthorized command" — nothing to tell a clock that is off from a key that does not
+        // match. The clock case carries the measured difference.
+        public bool TryVerify(string uniqueId, long tsMillis, string signatureBase64, string command,
+                              out string reason)
         {
+            reason = "";
             if (string.IsNullOrWhiteSpace(uniqueId) || string.IsNullOrWhiteSpace(signatureBase64))
+            {
+                reason = "malformed AUTH1 line";
                 return false;
+            }
 
             long nowMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            if (Math.Abs(nowMs - tsMillis) > ClockSkewMs) return false;
+            long skewMs = tsMillis - nowMs;
+            if (Math.Abs(skewMs) > ClockSkewMs)
+            {
+                reason = $"client clock {(skewMs > 0 ? "ahead of" : "behind")} this PC by "
+                       + $"{Math.Abs(skewMs) / 1000.0:0.0} s (allowed ±{ClockSkewMs / 1000} s)";
+                return false;
+            }
 
             BridgeClient? client;
+            string? knownStatus;
             lock (_lock)
             {
-                client = _clients.FirstOrDefault(c =>
-                    string.Equals(c.UniqueId, uniqueId, StringComparison.OrdinalIgnoreCase)
-                    && c.Status == "approved");
+                var known = _clients.FirstOrDefault(c =>
+                    string.Equals(c.UniqueId, uniqueId, StringComparison.OrdinalIgnoreCase));
+                knownStatus = known?.Status;
+                client = known != null && known.Status == "approved" ? known : null;
             }
-            if (client == null) return false;
+            if (client == null)
+            {
+                reason = knownStatus == null ? $"unknown client {uniqueId}"
+                                             : $"client {uniqueId} is {knownStatus}, not approved";
+                return false;
+            }
 
             byte[] sig;
             try { sig = Convert.FromBase64String(signatureBase64); }
-            catch { return false; }
+            catch
+            {
+                reason = "signature is not base64";
+                return false;
+            }
 
             byte[] payload = Encoding.UTF8.GetBytes($"{uniqueId}\n{tsMillis}\n{command}");
             bool ok;
             try
             {
                 var rsa = KeyFor(client.CertPem);
-                if (rsa == null) return false;
+                if (rsa == null)
+                {
+                    reason = "approved certificate has no RSA key";
+                    return false;
+                }
                 lock (rsa) { ok = rsa.VerifyData(payload, sig, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1); }
             }
-            catch { return false; }
-            if (!ok) return false;
+            catch (Exception ex)
+            {
+                reason = $"verification failed: {ex.GetType().Name}";
+                return false;
+            }
+            if (!ok)
+            {
+                reason = "signature does not match the approved certificate";
+                return false;
+            }
 
             lock (_lock)
             {
                 PruneSeen(nowMs);
-                if (_seenSignatures.ContainsKey(signatureBase64)) return false; // replay
+                if (_seenSignatures.ContainsKey(signatureBase64))
+                {
+                    reason = "replay (this exact signature was already used)";
+                    return false;
+                }
                 _seenSignatures[signatureBase64] = nowMs;
                 client.LastSeenUtc = DateTime.UtcNow.ToString("o");
             }

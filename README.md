@@ -114,6 +114,12 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched in Settings here, and on the device too
 - **Hue Sync** *(8.4.0+)* — StreamLight's Hue Sync tab reads the bridge's areas and who has the lights over `HUESYNC`, starts pairing with `HUEPAIR` and sets the two rules with `SETHUE`, with Host management; no address, key or area ever comes from the client. *Take back*, which restarts Hue Sync on the client, needs nothing from this host
 
+## ✨ What's New in 10.4.3 — "The Plain Reason Update"
+
+Works with any StreamLight.
+
+- **Why a command was refused** — debug.log now says why a device's signed command was turned down (a clock that is off, a device not approved, a signature that does not match), and a device repeating the same refusal no longer fills the file
+
 ## ✨ What's New in 10.4.2 — "The Quiet Tray Update"
 
 Works with any StreamLight.

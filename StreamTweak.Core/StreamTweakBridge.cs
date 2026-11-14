@@ -325,7 +325,9 @@ namespace StreamTweak
                     // so a flood of connections cannot accumulate accepted sockets.
                     if (!_connectionLimiter.Wait(0))
                     {
-                        DebugLog("StreamTweakBridge: connection limit reached — rejecting peer");
+                        var peer = (client.Client.RemoteEndPoint as IPEndPoint)?.Address;
+                        NoteThrottled($"limit|{peer}",
+                            $"StreamTweakBridge: connection limit reached — rejecting {peer}");
                         try { client.Dispose(); } catch { }
                         continue;
                     }
@@ -411,15 +413,20 @@ namespace StreamTweak
                             return;
                         }
                         string commandRaw = cmdLine.Trim();
-                        bool ok = long.TryParse(parts[2], out long ts)
-                               && AuthService != null
-                               && AuthService.TryVerify(parts[1], ts, parts[3], commandRaw);
+                        string why = "";
+                        bool ok;
+                        if (!long.TryParse(parts[2], out long ts)) { ok = false; why = "timestamp is not a number"; }
+                        else if (AuthService == null)              { ok = false; why = "no client list"; }
+                        else ok = AuthService.TryVerify(parts[1], ts, parts[3], commandRaw, out why);
                         // When RequireAuth is off the bridge is open (legacy mode): an
                         // unverified signature falls through and the command still runs.
                         // When on, only an approved client's valid signature is accepted.
                         if (!ok && RequireAuth)
                         {
-                            DebugLog($"StreamTweakBridge: rejected unauthorized command from {remote}");
+                            // The verb only (never its arguments): CLIPSET's payload is on the next line anyway.
+                            string verb = commandRaw.Split(' ', 2)[0].ToUpperInvariant();
+                            NoteThrottled($"reject|{remote?.Address}|{why}",
+                                $"StreamTweakBridge: rejected unauthorized command from {remote?.Address} — {why} ({verb})");
                             await writer.WriteLineAsync("ERR_UNAUTHORIZED");
                             return;
                         }
@@ -930,5 +937,38 @@ namespace StreamTweak
         }
 
         private static void DebugLog(string message) => DebugLogger.Log(message);
+
+        // ── Log lines that a misbehaving client can repeat hundreds of times a second ──
+        //
+        // 10.4.3 (StreamTweak #17): a client caught in a loop wrote 32,746 identical "rejected" lines in
+        // 13 minutes, ~500 a second, and the 133 "connection limit" lines among them were the only
+        // other thing in the file. Each distinct line (key = what + who + why) is now written once,
+        // then counted; a later occurrence after QuietMs writes how many were skipped and starts over.
+        // A NEW reason from the same client is a new key, so it is never hidden behind an old one.
+        private const long QuietMs = 30_000;
+        private readonly object _quietLock = new();
+        private readonly Dictionary<string, (long lastMs, int skipped)> _quiet = new();
+
+        private void NoteThrottled(string key, string line)
+        {
+            long now = Environment.TickCount64;
+            int skipped;
+            lock (_quietLock)
+            {
+                if (_quiet.TryGetValue(key, out var e) && now - e.lastMs < QuietMs)
+                {
+                    _quiet[key] = (e.lastMs, e.skipped + 1);
+                    return;
+                }
+                skipped = e.skipped;          // default (0, 0) when the key is new
+                _quiet[key] = (now, 0);
+                // Bounded: a flood from many addresses cannot grow the table without end.
+                if (_quiet.Count > 256)
+                    foreach (var stale in _quiet.Where(kv => now - kv.Value.lastMs >= QuietMs)
+                                                .Select(kv => kv.Key).ToList())
+                        _quiet.Remove(stale);
+            }
+            DebugLog(skipped > 0 ? $"{line} — and {skipped} more like it since the last such line" : line);
+        }
     }
 }

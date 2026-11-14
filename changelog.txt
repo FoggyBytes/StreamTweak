@@ -4,6 +4,21 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-------------------------------------------------------
+Version 10.4.3 - "The Plain Reason Update" (14/11/2026)
+-------------------------------------------------------
+
+Works with any StreamLight; the loop that flooded the host with refused commands is fixed in StreamLight 8.8.3.
+
+🔒 SECURITY:
+• Why a command was refused — debug.log now says why a device's signed command was turned down: a clock off from this PC's (with the difference), a device not approved, a signature that does not match, or a signature sent twice; before, every case read "rejected unauthorized command"
+
+🧹 UNDER THE HOOD:
+• A readable log under a flood — the same refusal, or a full set of connections, from one device is written once and then counted: a device in a loop had filled debug.log with 32,000 identical lines in 13 minutes
+
+🙏 THANKS:
+• Thanks to @joostleemereise-gif for the report and the logs (https://github.com/FoggyBytes/StreamTweak/issues/17)
+
 -----------------------------------------------------
 Version 10.4.2 - "The Quiet Tray Update" (13/11/2026)
 -----------------------------------------------------
