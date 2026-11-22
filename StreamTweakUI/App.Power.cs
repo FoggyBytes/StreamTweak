@@ -9,10 +9,15 @@ namespace StreamTweak
     {
         // ── Host power-off (Win32) ───────────────────────────────────────────────
         // Enables SeShutdownPrivilege on the current process token, then requests a
-        // full power-off through InitiateShutdown — with SHUTDOWN_INSTALL_UPDATES ("Update
-        // and shut down") when installUpdates is true, so pending Windows updates are installed
-        // first, and always with SHUTDOWN_ARSO (10.1.0). Then ExitWindowsEx, then the
-        // `shutdown` CLI, each with its own ARSO flag.
+        // full power-off through InitiateShutdown — with SHUTDOWN_INSTALL_UPDATES when
+        // installUpdates is true, and always with SHUTDOWN_ARSO (10.1.0). Then ExitWindowsEx,
+        // then the `shutdown` CLI, each with its own ARSO flag.
+        //
+        // ⚠️ 10.4.4: SHUTDOWN_INSTALL_UPDATES installs only updates staged for a shut down. The
+        // ones UPDATESTATE reports — installed, waiting for a RESTART — stay pending through it
+        // (measured on the SER9 with the client's twin of this code, 15-16/11/2026, §120); only a
+        // restart finishes them. StreamLight 8.8.4 no longer asks for it; an older client still
+        // can, and the line below says so in the log.
         //
         // ⚠️ 10.1.1: with Fast Startup on, the plain power-off is a Fast Startup one
         // (SHUTDOWN_HYBRID / EWX_HYBRID_SHUTDOWN), as the Start menu's Shut down. Without the flag
@@ -23,6 +28,8 @@ namespace StreamTweak
         {
             bool hybrid = !installUpdates && HostPowerCapabilities.FastStartupEnabled();
             DebugLogger.Log($"[Shutdown] power off{(installUpdates ? ", installing updates" : "")}{(hybrid ? ", Fast Startup" : ", full")}");
+            if (installUpdates && WindowsUpdateState.IsRebootPending())
+                DebugLogger.Log("[Shutdown] updates installed and waiting for a restart stay pending through a shut down");
             try
             {
                 if (TryEnableShutdownPrivilege())

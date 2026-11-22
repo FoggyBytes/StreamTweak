@@ -29,6 +29,9 @@
     <!-- The "is a stream live?" probe (10.0.0): asked once more right before the service
          restarts the streaming server (Sync and restart, SECURITY.md). -->
     <Compile Include="..\StreamTweak.Core\UdpSockets.cs" Link="Shared\UdpSockets.cs" />
+    <!-- Updates installed and waiting for a restart (10.4.4): the same probe as UPDATESTATE,
+         so Update host and the Power chooser never disagree. -->
+    <Compile Include="..\StreamTweak.Core\WindowsUpdateState.cs" Link="Shared\WindowsUpdateState.cs" />
   </ItemGroup>
 
 </Project>

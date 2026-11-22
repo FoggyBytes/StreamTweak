@@ -4,6 +4,20 @@ StreamTweak - ChangeLog - Developed by FoggyBytes
 
 https://github.com/FoggyBytes/StreamTweak
 
+-------------------------------------------------------------
+Version 10.4.4 - "The Straight Answer Update" (22/11/2026)
+-------------------------------------------------------------
+
+Works with any StreamLight; StreamLight 8.8.4 also stops offering updates on a shut down, where they never installed.
+
+🐛 BUG FIXES:
+• Remote Windows Update reported failures as success — a download or an install that failed still ended on "Updates installed. No restart needed."; each update's result is now read, and the client is told how many failed, with the first error code
+• "Up to date" with a restart pending — when the updates already installed were waiting for a restart and nothing new was found, the check said the host was up to date; it now says a restart is needed to finish them
+• Updates that ask for someone at the host — they cannot finish from the service, and are now left out and counted instead of failing the install
+
+🧹 UNDER THE HOOD:
+• "Update and shut down" from older clients — it installs only updates prepared for a shut down, never the ones waiting for a restart; debug.log now says when those stay pending
+
 -------------------------------------------------------
 Version 10.4.3 - "The Plain Reason Update" (14/11/2026)
 -------------------------------------------------------

@@ -148,7 +148,7 @@ public sealed class WindowsUpdateManager
             int found;
             lock (_lock) found = _list.Count(u => u.Selectable);
             if (found == 0)
-                SetState(PhaseNoUpdates, -1, "The host is already up to date.");
+                SetState(PhaseNoUpdates, -1, NothingNewMessage("The host is already up to date."));
             else
                 SetState(PhaseCheckReady, -1, $"{found} update(s) found.");
         }
@@ -241,6 +241,7 @@ public sealed class WindowsUpdateManager
             // never including feature upgrades.
             dynamic toProcess = NewCom("Microsoft.Update.UpdateColl");
             long totalBytes = 0;
+            int skipped = 0;
             int count = result.Updates.Count;
             for (int i = 0; i < count; i++)
             {
@@ -248,6 +249,12 @@ public sealed class WindowsUpdateManager
                 string category = Classify(u);
                 if (category == "upgrade") continue;                 // never remotely
                 if (!all && category is not ("security" or "critical" or "defender")) continue;
+
+                // 10.4.4: an update that may ask the user something cannot finish from a
+                // session-0 service with nobody at the host — counted and left out.
+                bool needsUser = false;
+                try { needsUser = (bool)u.InstallationBehavior.CanRequestUserInput; } catch { }
+                if (needsUser) { skipped++; continue; }
 
                 try { if (!u.EulaAccepted) u.AcceptEula(); } catch { }
                 toProcess.Add(u);
@@ -257,7 +264,11 @@ public sealed class WindowsUpdateManager
             if (toProcess.Count == 0)
             {
                 lock (_lock) { _busy = false; }
-                SetState(PhaseNoUpdates, -1, "Nothing to install for the chosen scope.");
+                if (skipped > 0)
+                    SetState(PhaseError, -1, "Nothing could be installed remotely.",
+                             $"{skipped} update(s) need someone at the host.");
+                else
+                    SetState(PhaseNoUpdates, -1, NothingNewMessage("Nothing to install for the chosen scope."));
                 return;
             }
 
@@ -267,6 +278,9 @@ public sealed class WindowsUpdateManager
             session.ClientApplicationID = "StreamTweak";
             long doneBytes = 0;
             int total = toProcess.Count;
+            int failed = skipped;          // what the user picked and did not get
+            string firstError = "";
+            dynamic downloaded = NewCom("Microsoft.Update.UpdateColl");
             for (int i = 0; i < total; i++)
             {
                 dynamic u = toProcess.Item[i];
@@ -276,32 +290,87 @@ public sealed class WindowsUpdateManager
                 downloader.Updates = one;
                 int pct = totalBytes > 0 ? (int)(doneBytes * 100 / totalBytes) : (int)(i * 100L / total);
                 SetState(PhaseDownloading, pct, $"Downloading {i + 1} of {total}…");
-                downloader.Download();
+                dynamic dl = downloader.Download();
                 try { doneBytes += (long)(decimal)u.MaxDownloadSize; } catch { }
+
+                // ⚠️ 10.4.4: the result used to be thrown away, so a failed download went on to
+                // the install and the job could end on "Updates installed" with nothing done.
+                bool isDownloaded = false;
+                try { isDownloaded = (bool)u.IsDownloaded; } catch { }
+                if (isDownloaded)
+                {
+                    downloaded.Add(u);
+                }
+                else
+                {
+                    failed++;
+                    if (firstError.Length == 0) firstError = HResultOf(dl);
+                }
+            }
+
+            if (downloaded.Count == 0)
+            {
+                lock (_lock) { _busy = false; }
+                SetState(PhaseError, -1, "Update failed.",
+                         Detail($"None of the {total} update(s) could be downloaded", firstError));
+                return;
             }
 
             // Install the whole set in one call so WUA handles ordering/dependencies.
             // Install progress isn't reliably pollable without COM callbacks, so this phase
             // is reported without a percentage (the client shows an indeterminate bar).
-            SetState(PhaseInstalling, -1, $"Installing {total} update(s)…");
+            int toInstall = downloaded.Count;
+            SetState(PhaseInstalling, -1, $"Installing {toInstall} update(s)…");
             dynamic installer = session.CreateUpdateInstaller();
-            installer.Updates = toProcess;
+            installer.Updates = downloaded;
             dynamic installResult = installer.Install();
+
+            // ⚠️ 10.4.4: each update's own result, read instead of assumed (OperationResultCode:
+            // 2 succeeded, 3 succeeded with errors, 4 failed, 5 aborted).
+            int installed = 0;
+            for (int i = 0; i < toInstall; i++)
+            {
+                int code = -1;
+                dynamic? r = null;
+                try { r = installResult.GetUpdateResult(i); code = (int)r.ResultCode; } catch { }
+                if (code is 2 or 3)
+                {
+                    installed++;
+                }
+                else
+                {
+                    failed++;
+                    if (firstError.Length == 0 && r != null) firstError = HResultOf(r);
+                }
+            }
 
             bool rebootRequired = false;
             try { rebootRequired = (bool)installResult.RebootRequired; } catch { }
 
             lock (_lock) { _busy = false; }
 
+            int picked = total + skipped;
             if (rebootRequired)
             {
-                SetState(PhaseRebooting, 100, "Restarting the host to finish…");
+                SetState(PhaseRebooting, 100, failed == 0
+                    ? "Restarting the host to finish…"
+                    : $"{installed} of {picked} installed, {failed} failed. Restarting the host to finish…");
                 // Give the client a moment to poll REBOOTING before the box goes down.
                 RebootHost();
             }
-            else
+            else if (failed == 0)
             {
                 SetState(PhaseDone, 100, "Updates installed. No restart needed.");
+            }
+            else if (installed == 0)
+            {
+                SetState(PhaseError, -1, "Update failed.",
+                         Detail($"None of the {picked} update(s) could be installed", firstError));
+            }
+            else
+            {
+                SetState(PhaseError, -1, "Some updates failed.",
+                         Detail($"{installed} of {picked} installed, {failed} failed", firstError));
             }
         }
     }
@@ -373,4 +442,27 @@ public sealed class WindowsUpdateManager
     }
 
     private static string Short(string s) => s.Length > 200 ? s.Substring(0, 200) : s;
+
+    // 10.4.4: a scan that finds nothing new while updates already installed wait for a restart
+    // (the same probe as UPDATESTATE, linked from Core) must not read "up to date": the Power
+    // chooser shows that host as "Restart to update", and Update host is where people look.
+    private static string NothingNewMessage(string upToDate) =>
+        StreamTweak.WindowsUpdateState.IsRebootPending()
+            ? "No new updates. The host needs a restart to finish the last ones."
+            : upToDate;
+
+    // The HRESULT of a WUA result object (IDownloadResult / IUpdateInstallationResult …),
+    // as 0x…, or "" when it has none.
+    private static string HResultOf(dynamic result)
+    {
+        try
+        {
+            int hr = (int)result.HResult;
+            return hr == 0 ? "" : $"0x{hr:X8}";
+        }
+        catch { return ""; }
+    }
+
+    private static string Detail(string what, string hresult) =>
+        hresult.Length > 0 ? $"{what} (first error {hresult})." : $"{what}.";
 }

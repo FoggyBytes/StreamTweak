@@ -27,9 +27,11 @@ namespace StreamTweak
     ///              Server replies with the speed in Mbps (e.g. "1000") or "UNKNOWN".
     ///   SHUTDOWN — client asks the host to power off. Requires a verified AUTH1
     ///              signature (destructive); replies "OK", or "ERR" if unauthenticated.
-    ///   SHUTDOWN_UPDATE — like SHUTDOWN, but installs any pending Windows updates
-    ///              before powering off ("Update and shut down"). Same verified-signature
-    ///              requirement as SHUTDOWN.
+    ///   SHUTDOWN_UPDATE — like SHUTDOWN, plus SHUTDOWN_INSTALL_UPDATES. Same verified-signature
+    ///              requirement as SHUTDOWN. ⚠️ That flag installs only updates staged for a shut
+    ///              down, never the ones UPDATESTATE reports (installed, waiting for a RESTART):
+    ///              with those the host just shuts down (§120). StreamLight 8.8.4 no longer
+    ///              sends it, nor POWER shutdown UPDATE; it offers POWER restart UPDATE instead.
     ///   POWERCAPS — which power modes this machine supports, read from the running system
     ///              (8.6.0): {"v":1,"modes":["sleep","hibernate","restart","shutdown"],
     ///              "wake_lan":bool}. Read-only, gated like STATS.
@@ -547,7 +549,7 @@ namespace StreamTweak
                 case "SHUTDOWN_UPDATE":
                     // Destructive: powers off the host. Require a verified signature even
                     // in open mode — a forged/unauthenticated SHUTDOWN must never fire.
-                    // SHUTDOWN_UPDATE additionally installs pending updates before power-off.
+                    // SHUTDOWN_UPDATE adds SHUTDOWN_INSTALL_UPDATES (staged updates only, see above).
                     if (!authenticated)
                     {
                         DebugLog($"StreamTweakBridge: rejected unauthenticated {command} from {remote}");

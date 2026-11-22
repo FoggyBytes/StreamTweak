@@ -109,10 +109,16 @@ These cross the bridge and need both apps. The version shown is the **minimum St
 - **Remote session pause** *(2.3.0+)* — "Return to client" on Status ends the stream client-side
 - **Remote host power-off** *(3.2.0+)* — an approved client can shut down the host, itself, or both. Destructive, so it only ever fires on a verified signature
 - **Remote sleep and restart** *(6.2.0+)* — the host reports the power options it really has, and the client offers only those
-- **Remote Windows Update** *(3.3.0+)* — scan, classify and install updates on the host and reboot it, or install them as part of a shutdown, all from the client with no keyboard on the host. The privileged work runs in the LocalSystem service
+- **Remote Windows Update** *(3.3.0+)* — scan, classify and install updates on the host and reboot it, or finish the ones waiting with a restart, all from the client with no keyboard on the host. The privileged work runs in the LocalSystem service
 - **Tailscale presence** *(3.0.0+)* — the host's `100.x.y.z` address is offered over `TAILSCALE`, and the client tracks it on the host's single tile alongside the LAN address
 - **Shared clipboard** *(6.3.0+)* — text copied on either side pastes on the other while a stream runs, up to 32 KB, sealed with a per-stream AES key that only the device's certificate can open. Passwords are cleared on the receiving side within 60 seconds. Switched in Settings here, and on the device too
 - **Hue Sync** *(8.4.0+)* — StreamLight's Hue Sync tab reads the bridge's areas and who has the lights over `HUESYNC`, starts pairing with `HUEPAIR` and sets the two rules with `SETHUE`, with Host management; no address, key or area ever comes from the client. *Take back*, which restarts Hue Sync on the client, needs nothing from this host
+
+## ✨ What's New in 10.4.4 — "The Straight Answer Update"
+
+Works with any StreamLight.
+
+- **Remote Windows Update tells the truth** — a failed download or install is reported as a failure, with how many and the first error code, instead of "Updates installed"; with nothing new but a restart pending, the check says so instead of "up to date"
 
 ## ✨ What's New in 10.4.3 — "The Plain Reason Update"
 
